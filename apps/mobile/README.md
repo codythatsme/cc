@@ -305,6 +305,15 @@ as the first argument drives a dev client through Metro instead.
 
 ## CI
 
+- **Android emulator smoke** (`mobile-android-e2e.yml`) runs on PRs labeled
+  `mobile-e2e`, on manual dispatch, and nightly. It builds a debug-key-signed
+  Release APK for an Android 16 x86_64 emulator and runs the existing smoke
+  flow: direct pairing, send/provider reply, Android Back, saved connection
+  after relaunch, and native settings. It uses the isolated backend and needs
+  no Firebase, EAS, or Play credentials. The `mobile-e2e-android` artifact
+  contains screenshots, JUnit results, Maestro output, logcat, and backend logs.
+  Keyboard animation, push delivery, and bb connect are outside this basic job.
+
 - Typecheck, lint, and unit tests run on Linux in the regular `CI` workflow
   (`pnpm exec turbo run build typecheck lint` in `Checks`, the `packages`
   test shard for `vitest`), like every workspace package.
