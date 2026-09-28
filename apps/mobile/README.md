@@ -348,7 +348,13 @@ as the first argument drives a dev client through Metro instead.
   self-hosted apex; the apex defaults to `deriveConnectBaseUrl(serverUrl)`
   or `https://getbb.app` (`resolveEnrollmentTarget`). `redeemEnrollment`
   calls `redeemMachineCredential` (`POST <apex>/api/connect/redeem-machine`)
-  and saves `{mode:"connect", serverUrl, handle, credential(bbcm_…), label}`
+  with the phone’s device name (for example, `Pixel 9 Pro`). The account
+  service stores it on the machine so the dashboard shows a recognizable name.
+  The request accepts an optional `deviceName` string, trimmed and limited to
+  128 characters; older clients may omit it. Existing unnamed devices are not
+  renamed automatically. Both the account service update and a new mobile build
+  are needed for names to appear on new pairings.
+  Enrollment saves `{mode:"connect", serverUrl, handle, credential(bbcm_…), label}`
   in SecureStore, then activates it: the connector mints the desktop-session
   cookie and opens realtime (the enrolled screen shows that status live).
   Errors map to copy per wire code (`describeEnrollmentError`: invalid /

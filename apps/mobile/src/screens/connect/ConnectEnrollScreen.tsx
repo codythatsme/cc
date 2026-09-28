@@ -17,6 +17,7 @@ import {
   type EnrollmentFailure,
   type EnrollmentTargetInput,
 } from "@/data/connect";
+import { describeThisDevice } from "@/lib/device-label";
 import type { SessionState } from "@/lib/session";
 import { useTheme } from "@/theme";
 import { Button, GroupedRow, Icon, Input, Spinner, Text, toast } from "@/ui";
@@ -95,6 +96,7 @@ export function ConnectEnrollScreen() {
       const redeemed = await redeemEnrollment({
         apexUrl: target.apexUrl,
         code: target.code,
+        deviceName: describeThisDevice(),
         label: reauth?.label,
       });
       setPhase({ kind: "saving" });
