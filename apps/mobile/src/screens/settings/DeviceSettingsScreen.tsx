@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import { useProfiles } from "@/app-shell";
 import { sendShellCommand } from "@/lib/shell";
 import { GroupedRow, Text, confirmDestructive, toast } from "@/ui";
@@ -14,7 +15,9 @@ export function DeviceSettingsScreen() {
   const { profiles } = useProfiles();
   const version = String(Constants.expoConfig?.version ?? "0.0.0");
   const build = String(
-    Constants.expoConfig?.ios?.buildNumber ??
+    (Platform.OS === "android"
+      ? Constants.expoConfig?.android?.versionCode
+      : Constants.expoConfig?.ios?.buildNumber) ??
       Constants.expoConfig?.runtimeVersion ??
       "dev",
   );
@@ -23,7 +26,7 @@ export function DeviceSettingsScreen() {
     <GroupedScreen testID="device-settings-screen">
       <SettingsSection
         title="This device"
-        footnote="Stored on this phone. Other phones on the same server keep their own."
+        footnote="Preferences for this phone."
       >
         <HapticsSettingsRow />
         <LinkRow
@@ -55,7 +58,7 @@ export function DeviceSettingsScreen() {
 
       <SettingsSection
         title="Page"
-        footnote="Use these when the web interface is blank, stuck, or out of date. Clearing removes the cached page and this device's session cookie; pairing and your servers are untouched."
+        footnote="Reload or clear cached data if the app gets stuck. Your saved servers stay paired."
       >
         <GroupedRow
           title="Reload the page"

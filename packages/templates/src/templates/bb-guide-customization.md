@@ -264,6 +264,11 @@ bindings in the same update; plugin defaults yield to explicit bindings.
 
 Push notifications
 
+Android source builds accept `GOOGLE_SERVICES_JSON` (path to Firebase Android
+configuration), with `apps/mobile/google-services.json` as a local fallback.
+It is optional for building the app, required for Android push delivery.
+See `apps/mobile/README.md` for EAS file variables, signing, and Play uploads.
+
 The built-in Push notifications plugin sends mobile updates through Expo and
 system notifications to connected web and desktop clients. Web tabs or desktop
 windows must stay open; browser permission is requested in the plugin settings.

@@ -68,7 +68,8 @@ export function useInputFieldProps({
   }
   return {
     className: cn(
-      "w-full rounded-md border border-input bg-transparent px-3 text-base text-foreground focus:border-ring",
+      "w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:border-ring",
+      grouped && "border-0",
       invalid && "border-destructive",
       !editable && "opacity-50",
       className,
@@ -92,16 +93,21 @@ export const Input = forwardRef<TextInput, InputProps>(function Input(
     mono,
     grouped,
     editable,
-    className: cn(IS_IOS ? "h-11" : "h-10", className),
+    className: cn(IS_IOS ? "h-11" : "h-12", className),
   });
   return (
     <TextInput
       ref={ref}
       editable={editable}
+      underlineColorAndroid="transparent"
       autoComplete="off"
       autoCorrect={false}
       {...field}
-      style={[field.style, style]}
+      style={[
+        field.style,
+        !IS_IOS && { paddingVertical: 0, textAlignVertical: "center" },
+        style,
+      ]}
       {...props}
     />
   );

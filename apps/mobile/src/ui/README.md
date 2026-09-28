@@ -4,6 +4,12 @@ NativeWind v5 (Tailwind v4) primitives that mirror `@bb/shared-ui`'s variant
 names, driven by the tokens generated from the web app's `theme.css`. Import
 from `@/ui` and `@/theme`.
 
+Android uses the web app’s palette, neutral icon tiles, bordered sections and
+left-aligned action sheets. iOS keeps its system palette and inset grouped
+controls. The generator emits both palettes into `theme.native.ts`; edit
+`android-overrides.css` or `mobile-overrides.css`, then run
+`pnpm exec turbo run theme:generate --filter=@bb/mobile`.
+
 ## Wiring (once, in `app/_layout.tsx`)
 
 ```tsx
@@ -142,3 +148,13 @@ older iOS. `HeaderGlass` puts it behind the native stack headers.
 | `ActionSheet`                 | `controller` (from `useSheet()`); `title`, `message`, `actions: {key,label,icon?,destructive?,disabled?,onPress}[]`, `onDismiss`                                                                                                                                                                                             | A bottom sheet (`Sheet`, @gorhom/bottom-sheet in the UIKit sheet look: top radius 38 on iOS / 12 on Android, continuous, 36×5 grabber at 30% foreground, grouped page color; children realized two frames after present, retained afterwards) with a grouped card of 17pt rows (SF glyphs, destructive in red, warning haptic) and a separate tinted Cancel card. testIDs `action-sheet-<key>` / `action-sheet-cancel`. `useSheet()` → `SheetController {present, dismiss}` (stable; call from handlers): `const menu = useSheet(); <ActionSheet controller={menu} …/>; onLongPress={menu.present}`. |
 | `confirmDestructive(options)` | `{ title, message?, actionLabel, cancelLabel?, onConfirm, onCancel? }`                                                                                                                                                                                                                                                       | Warning haptic + `Alert.alert` with Cancel and a destructive button; replaces one-red-row confirmation sheets on both platforms.                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `toast` / `Toaster`           | `toast.success \| error \| info \| message(msg, {description, duration, action})`                                                                                                                                                                                                                                            | sonner-native, themed: SF status glyphs via `Icon`, raised surface, radius 14 continuous, hairline only in light mode, system font.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+
+## Android WebView keyboard resizing
+
+`WebViewKeyboardFrame.android.tsx` reserves the keyboard’s target height at
+transition start and reconciles it at transition end. It deliberately does
+not follow animation frames: animating padding resizes Chromium repeatedly,
+causing page layout and paint work during both focus and blur. The default
+frame is a plain View for iOS. When changing keyboard handling, measure
+viewport resize counts during repeated focus/blur and verify Android Back,
+draft retention, keyboard height changes and rotation with the IME open.

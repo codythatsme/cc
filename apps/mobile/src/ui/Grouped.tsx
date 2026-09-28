@@ -26,6 +26,7 @@ export interface IconBadgeProps {
 }
 
 export function IconBadge({ icon, symbol, color }: IconBadgeProps) {
+  const { tokens } = useTheme();
   return (
     <View
       style={{
@@ -33,14 +34,19 @@ export function IconBadge({ icon, symbol, color }: IconBadgeProps) {
         height: ICON_BADGE_SIZE,
         borderRadius: 7,
         borderCurve: "continuous",
-        backgroundColor: color,
+        backgroundColor: IS_IOS ? color : tokens.surfaceRecessedSolid,
         alignItems: "center",
         justifyContent: "center",
       }}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <Icon name={icon} symbol={symbol} size={18} color="#ffffff" />
+      <Icon
+        name={icon}
+        symbol={symbol}
+        size={18}
+        color={IS_IOS ? "#ffffff" : tokens.mutedForeground}
+      />
     </View>
   );
 }
@@ -102,7 +108,7 @@ export function GroupedRow({
       trailing
     );
   const layoutClassName = cn(
-    "min-h-[44px] flex-row items-center gap-3 px-4 py-2.5",
+    "min-h-[44px] flex-row items-center gap-3 px-4 py-3",
     disabled && "opacity-50",
   );
   const content = (
@@ -110,21 +116,21 @@ export function GroupedRow({
       {leadingNode}
       <View className="min-w-0 flex-1">
         <Text
-          variant="bodyLarge"
+          variant={IS_IOS ? "bodyLarge" : "body"}
           numberOfLines={titleLines}
           style={{ color: titleColor }}
         >
           {title}
         </Text>
         {subtitle ? (
-          <Text variant="caption" numberOfLines={3}>
+          <Text variant="caption" numberOfLines={IS_IOS ? 3 : 1}>
             {subtitle}
           </Text>
         ) : null}
       </View>
       {value ? (
         <Text
-          variant="bodyLarge"
+          variant={IS_IOS ? "bodyLarge" : "body"}
           numberOfLines={1}
           className="max-w-[55%] shrink"
           style={{ color: tokens.mutedForeground }}
@@ -199,7 +205,12 @@ export function GroupedSection({
   return (
     <View className="gap-2" testID={testID}>
       {title ? (
-        <View className="flex-row items-end justify-between gap-3 px-4">
+        <View
+          className={cn(
+            "flex-row items-end justify-between gap-3",
+            IS_IOS && "px-4",
+          )}
+        >
           <Text variant="sectionLabel" numberOfLines={1} className="shrink">
             {title}
           </Text>
@@ -208,7 +219,9 @@ export function GroupedSection({
       <View
         className="overflow-hidden"
         style={{
-          borderRadius: GROUPED_CARD_RADIUS,
+          borderRadius: IS_IOS ? GROUPED_CARD_RADIUS : 8,
+          borderWidth: IS_IOS ? 0 : 1,
+          borderColor: tokens.border,
           borderCurve: "continuous",
           backgroundColor: tokens.surfaceGroupedCell,
         }}
@@ -228,11 +241,15 @@ export function GroupedSection({
       </View>
       {footer ? (
         typeof footer === "string" ? (
-          <Text variant="footnote" tone="muted" className="px-4">
+          <Text
+            variant="footnote"
+            tone="muted"
+            className={IS_IOS ? "px-4" : undefined}
+          >
             {footer}
           </Text>
         ) : (
-          <View className="px-4">{footer}</View>
+          <View className={IS_IOS ? "px-4" : undefined}>{footer}</View>
         )
       ) : null}
     </View>

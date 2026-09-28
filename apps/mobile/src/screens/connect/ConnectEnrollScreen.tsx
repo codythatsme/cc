@@ -173,7 +173,7 @@ export function ConnectEnrollScreen() {
           </Stack.Toolbar>
         ) : null}
         <GroupedScreen testID="connect-enrolled-screen">
-          <SettingsSection footnote="This phone is now a device on your getbb.app account. You can revoke it any time in the dashboard under Machines.">
+          <SettingsSection footnote="Manage this phone’s access in getbb.app → Machines.">
             <View
               className="flex-row items-center gap-3 px-4 py-3"
               testID="connect-enrolled-card"
@@ -443,7 +443,7 @@ function SessionStatusLine({ session }: { session: SessionState | null }) {
             tone="success"
             testID="connect-session-authenticated"
           >
-            Signed in. Session renews automatically.
+            Signed in
           </Text>
         </View>
       );

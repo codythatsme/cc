@@ -22,7 +22,7 @@ const androidButtonVariants = cva(
         link: "",
       },
       size: {
-        default: "h-10 px-4",
+        default: "h-12 px-4",
         sm: "h-9 px-3",
       },
     },

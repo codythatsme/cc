@@ -1159,6 +1159,13 @@ ports).
 
 ### Pairing the bb mobile app
 
+Android source builds optionally read `GOOGLE_SERVICES_JSON`, an absolute path
+to the Firebase Android configuration file. Without it, they use
+`apps/mobile/google-services.json` when present; without either, the app builds
+without Firebase push configuration. For EAS, configure it as a file environment
+variable. Android build, signing, and Play submission instructions are in
+[`apps/mobile/README.md`](../apps/mobile/README.md#android-production-setup).
+
 The bb mobile app reaches a paired bb through the same connect route. It
 enrolls as a connect **machine** — its own credential on the getbb.app account,
 separate from the server's pairing secret and individually revocable — so

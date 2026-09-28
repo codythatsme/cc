@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import { haptic } from "@/lib/haptics";
 import { useTheme } from "@/theme/ThemeProvider";
 import { cn } from "./cn";
+import { Button } from "./Button";
 import { GROUPED_CARD_RADIUS } from "./Grouped";
 import { Icon, type IconName } from "./Icon";
 import { ListRow, LIST_ROW_ICON_SIZE } from "./ListRow";
@@ -25,6 +26,7 @@ export interface ActionSheetProps {
   controller: SheetController;
   title?: string;
   message?: string;
+  cancelLabel?: string | null;
   actions: readonly ActionSheetAction[];
   onDismiss?: () => void;
 }
@@ -35,12 +37,65 @@ export function ActionSheet({
   controller,
   title,
   message,
+  cancelLabel = "Cancel",
   actions,
   onDismiss,
 }: ActionSheetProps) {
   const { tokens } = useTheme();
   const hasHeader = Boolean(title || message);
   const hasIcons = actions.some((action) => action.icon);
+  if (!IS_IOS) {
+    return (
+      <Sheet controller={controller} onDismiss={onDismiss}>
+        <View className="gap-5 px-5 pb-3 pt-2">
+          {hasHeader ? (
+            <View className="gap-2">
+              {title ? <Text variant="heading">{title}</Text> : null}
+              {message ? <Text tone="muted">{message}</Text> : null}
+            </View>
+          ) : null}
+          <View className="gap-2">
+            {actions.map((action, index) => (
+              <Button
+                key={action.key}
+                variant={
+                  index === 0 && !action.destructive ? "default" : "ghost"
+                }
+                icon={action.icon}
+                disabled={action.disabled}
+                testID={`action-sheet-${action.key}`}
+                onPress={() => {
+                  if (action.destructive) haptic("warning");
+                  controller.dismiss();
+                  action.onPress();
+                }}
+              >
+                <Text
+                  className={
+                    index === 0 && !action.destructive
+                      ? "text-background font-medium"
+                      : "font-medium"
+                  }
+                  tone={action.destructive ? "destructive" : "default"}
+                >
+                  {action.label}
+                </Text>
+              </Button>
+            ))}
+            {cancelLabel ? (
+              <Button
+                variant="ghost"
+                onPress={controller.dismiss}
+                testID="action-sheet-cancel"
+              >
+                {cancelLabel}
+              </Button>
+            ) : null}
+          </View>
+        </View>
+      </Sheet>
+    );
+  }
   const card = {
     borderRadius: GROUPED_CARD_RADIUS,
     borderCurve: "continuous" as const,
