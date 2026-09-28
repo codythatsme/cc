@@ -263,11 +263,20 @@ Disable anonymous usage telemetry with `bb settings general telemetryEnabled fal
 or Settings → General → Privacy & diagnostics → Share anonymous usage data. This server-wide preference
 applies immediately and persists across restarts. `BB_TELEMETRY=false` overrides it.
 
-The default-off `androidTesting` experiment reveals an APK download section below
-Settings → Experiments flags. Use `bb settings experiment androidTesting true`
-and `bb settings android-app --json` (SDK `system.androidApp()`) to inspect the
-published version and download URL. An operator publishes a signed APK using
-`node apps/mobile/scripts/publish-android-apk.mjs APK SERVER_DATA_DIR` from the
-source checkout with Android SDK build-tools installed. The download is
-`/install/bb-android.apk`; bb connect requires an account session. Builds are
-published manually, and no download is offered until a build is available.
+The default-off `androidTesting` experiment adds **Android App** below the flags
+in Settings → Experiments. **Download APK** fetches and caches a checksum-verified
+APK from the public `get-bb/bb` release tagged `android-testing`. No Android tools
+are required. If no release/cache is available, **Build on this server** explicitly
+runs a local arm64 build; it requires `BB_ANDROID_SOURCE_DIR` pointing to a dedicated
+source checkout with dependencies, pnpm, Java 17+, and `ANDROID_HOME` or
+`ANDROID_SDK_ROOT`. Missing tools and build failures are reported in the page.
+
+Use `bb settings experiment androidTesting true`, then
+`bb settings android-app-prepare github --json` (or `local`) to wait for a download
+or build. `bb settings android-app --json` reads cached version/download metadata.
+SDK equivalents: `system.prepareAndroidApp({ source })`,
+`system.androidAppPreparation()`, and `system.androidApp()`.
+Downloads use `/install/bb-android.apk`; bb connect requires an account session.
+Publish the first release using **Mobile Android (EAS)** with profile `preview`
+and **publish** enabled. Local fallback APKs use the debug signing key, which may
+differ from the release key. See `docs/configuration.md` for setup and publishing.

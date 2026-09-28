@@ -23,6 +23,8 @@ import type {
   SystemConfigReloadResponse,
   SystemConfigResponse,
   SystemAndroidAppResponse,
+  AndroidAppPreparation,
+  AndroidAppPrepareRequest,
   SystemExecutionOptionsQuery,
   SystemExecutionOptionsResponse,
   SystemCliSkillsStatusResponse,
@@ -173,6 +175,10 @@ export interface SystemArea {
     args: SystemVoiceTranscriptionArgs,
   ): Promise<SystemVoiceTranscriptionResult>;
   uiPreferences: SystemUiPreferencesArea;
+  androidAppPreparation(): Promise<AndroidAppPreparation>;
+  prepareAndroidApp(
+    input: AndroidAppPrepareRequest,
+  ): Promise<AndroidAppPreparation>;
   androidApp(): Promise<SystemAndroidAppResponse>;
   updateExperiments(args: Experiments): Promise<SystemUpdateExperimentsResult>;
   updateGeneralSettings(
@@ -340,6 +346,16 @@ export function createSystemArea(args: CreateSdkAreaArgs): SystemArea {
       );
       return systemVoiceTranscriptionResponseSchema.parse(
         await response.json(),
+      );
+    },
+    async androidAppPreparation() {
+      return transport.readJson(
+        transport.api.v1.system["android-app"].preparation.$get(),
+      );
+    },
+    async prepareAndroidApp(input) {
+      return transport.readJson(
+        transport.api.v1.system["android-app"].prepare.$post({ json: input }),
       );
     },
     async androidApp() {

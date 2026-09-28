@@ -1,3 +1,4 @@
+import { androidAppPrepareRequestSchema } from "@bb/server-contract";
 import { Command } from "commander";
 import {
   AI_TASKS,
@@ -612,6 +613,34 @@ export function registerSettingsCommands(
         ).system.uiPreferences.reset({ key });
         if (outputJson(opts, result)) return;
         console.log(`${key} reset`);
+      }),
+    );
+
+  settings
+    .command("android-app-prepare <source>")
+    .description(
+      "Prepare an Android APK from github or explicitly build locally",
+    )
+    .option("--json", "Print machine-readable JSON output")
+    .action(
+      action(async (source: string, opts: JsonOptions) => {
+        const sdk = createCliBbSdk(getUrl());
+        let result = await sdk.system.prepareAndroidApp(
+          androidAppPrepareRequestSchema.parse({ source }),
+        );
+        let message = "";
+        while (result.status === "preparing") {
+          if (!opts.json && result.message !== message)
+            console.error(result.message);
+          message = result.message;
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          result = await sdk.system.androidAppPreparation();
+        }
+        if (result.status === "failed") process.exitCode = 1;
+        if (outputJson(opts, result)) return;
+        console.log(result.message);
+        if (result.status === "ready")
+          console.log(new URL("/install/bb-android.apk", getUrl()).href);
       }),
     );
 

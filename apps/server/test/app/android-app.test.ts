@@ -24,6 +24,18 @@ describe("Android testing downloads", () => {
   it("hides a published build until enabled, streams it, and hides it again when disabled", async () => {
     await withTestHarness(async ({ app, deps, config }) => {
       await publish(config.dataDir);
+      expect(
+        (await app.request("/api/v1/system/android-app/preparation")).status,
+      ).toBe(404);
+      expect(
+        (
+          await app.request("/api/v1/system/android-app/prepare", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ source: "local" }),
+          })
+        ).status,
+      ).toBe(404);
       expect((await app.request("/install/bb-android.apk")).status).toBe(404);
       expect(
         await (await app.request("/api/v1/system/android-app")).json(),

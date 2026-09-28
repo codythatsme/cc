@@ -548,3 +548,16 @@ export const androidAppArtifactSchema = z.object({
 });
 export type AndroidAppArtifact = z.infer<typeof androidAppArtifactSchema>;
 export type SystemAndroidAppResponse = AndroidAppArtifact | null;
+
+export const androidAppPrepareRequestSchema = z.object({
+  source: z.enum(["github", "local"]),
+});
+export type AndroidAppPrepareRequest = z.infer<
+  typeof androidAppPrepareRequestSchema
+>;
+export interface AndroidAppPreparation {
+  status: "idle" | "preparing" | "ready" | "failed";
+  source: "github" | "local" | null;
+  message: string;
+  artifact: AndroidAppArtifact | null;
+}
