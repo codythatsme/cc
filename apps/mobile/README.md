@@ -647,3 +647,12 @@ palette, run `pnpm --filter @bb/mobile theme:generate` and commit the result;
 - Maestro on iOS: `back` is not a thing; tap `id: BackButton`. The dev
   client's floating gear can sit over the header's right icons on larger
   simulators.
+
+The default-off `androidTesting` experiment reveals an APK download section below
+Settings → Experiments flags. Use `bb settings experiment androidTesting true`
+and `bb settings android-app --json` (SDK `system.androidApp()`) to inspect the
+published version and download URL. An operator publishes a signed APK using
+`node apps/mobile/scripts/publish-android-apk.mjs APK SERVER_DATA_DIR` from the
+source checkout with Android SDK build-tools installed. The download is
+`/install/bb-android.apk`; bb connect requires an account session. Builds are
+published manually, and no download is offered until a build is available.

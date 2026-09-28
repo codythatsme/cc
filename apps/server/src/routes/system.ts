@@ -1,3 +1,4 @@
+import { readAndroidAppArtifact } from "../services/install/android-app-artifact.js";
 import {
   setMachineEnvironmentVariable,
   deleteMachineEnvironmentVariable,
@@ -151,6 +152,14 @@ export function registerSystemRoutes(
   const routes = publicApiRoutes.system;
 
   const themeRoot = resolveThemeRootPath(deps.config.dataDir);
+
+  get(routes.androidApp, async (context) => {
+    context.header("cache-control", "no-store");
+    const artifact = getExperiments(deps.db).androidTesting
+      ? await readAndroidAppArtifact(deps.config.dataDir)
+      : null;
+    return context.json(artifact?.manifest ?? null);
+  });
 
   get(routes.attention, (context) =>
     context.json({ hasAttention: hasActiveThreadAttention(deps.db) }),

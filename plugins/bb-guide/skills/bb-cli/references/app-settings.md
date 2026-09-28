@@ -262,3 +262,12 @@ Use `bb settings ui reset sidebar.hiddenFooterItems` to restore the default foot
 Disable anonymous usage telemetry with `bb settings general telemetryEnabled false`
 or Settings → General → Privacy & diagnostics → Share anonymous usage data. This server-wide preference
 applies immediately and persists across restarts. `BB_TELEMETRY=false` overrides it.
+
+The default-off `androidTesting` experiment reveals an APK download section below
+Settings → Experiments flags. Use `bb settings experiment androidTesting true`
+and `bb settings android-app --json` (SDK `system.androidApp()`) to inspect the
+published version and download URL. An operator publishes a signed APK using
+`node apps/mobile/scripts/publish-android-apk.mjs APK SERVER_DATA_DIR` from the
+source checkout with Android SDK build-tools installed. The download is
+`/install/bb-android.apk`; bb connect requires an account session. Builds are
+published manually, and no download is offered until a build is available.

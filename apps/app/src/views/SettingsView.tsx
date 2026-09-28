@@ -1,3 +1,4 @@
+import { AndroidTestingSection } from "@/components/settings/AndroidTestingSection";
 import { MachineEnvironmentSettings } from "@/components/settings/MachineEnvironmentSettings";
 import { MachineAccessSettings } from "@/components/settings/MachineAccessSettings";
 import { useMemo, useRef, useState, type ReactNode } from "react";
@@ -1056,6 +1057,11 @@ const EXPERIMENT_DEFINITIONS: Record<
     description:
       "Load plugin server code with the legacy JITI runtime. Takes effect the next time a plugin loads.",
   },
+  androidTesting: {
+    label: "Android testing",
+    description:
+      "Download a test build of the Android app below the experiment flags.",
+  },
   mobileApp: {
     label: "Mobile app",
     description:
@@ -1103,6 +1109,7 @@ export function ExperimentsSettingsSection({
           );
         })}
       </div>
+      {experiments.androidTesting ? <AndroidTestingSection /> : null}
     </SettingsSection>
   );
 }

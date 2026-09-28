@@ -195,6 +195,7 @@ import type {
   SystemAttentionResponse,
   SystemConfigReloadResponse,
   SystemConfigResponse,
+  SystemAndroidAppResponse,
   SystemCliSkillsStatusQuery,
   SystemCliSkillsStatusResponse,
   SystemInstallCliSkillsRequest,
@@ -1767,6 +1768,12 @@ export const publicApiRoutes = {
       method: "get",
       request: noRequest(),
       response: jsonResponse<SystemAttentionResponse>(),
+    }),
+    androidApp: defineRoute({
+      path: "/system/android-app",
+      method: "get",
+      request: noRequest(),
+      response: jsonResponse<SystemAndroidAppResponse>(),
     }),
     config: defineRoute({
       path: "/system/config",

@@ -616,6 +616,29 @@ export function registerSettingsCommands(
     );
 
   settings
+    .command("android-app")
+    .description("Show the available Android test APK and download URL")
+    .option("--json", "Print machine-readable JSON output")
+    .action(
+      action(async (opts: JsonOptions) => {
+        const artifact = await createCliBbSdk(getUrl()).system.androidApp();
+        const result =
+          artifact === null
+            ? null
+            : {
+                ...artifact,
+                downloadUrl: new URL("/install/bb-android.apk", getUrl()).href,
+              };
+        if (outputJson(opts, result)) return;
+        console.log(
+          result === null
+            ? "No Android build is available. Enable the Android testing experiment and publish an APK."
+            : `${result.version} (build ${result.versionCode})\n${result.downloadUrl}`,
+        );
+      }),
+    );
+
+  settings
     .command("experiment <key> <value>")
     .description("Set an experiment value")
     .option("--json", "Print machine-readable JSON output")

@@ -1800,3 +1800,31 @@ directories are also searched. On macOS, discovery searches Application Support.
 The desktop app's own profile is excluded. See `bb guide browser` for search
 bounds, encryption limitations, and the `import-sources` / `import-cookies`
 commands. No additional BB setting is required to enable discovery.
+
+### Android test APKs
+
+The default-off `androidTesting` experiment adds an Android app download section
+below the flags in Settings → Experiments. Enable it with
+`bb settings experiment androidTesting true`. Inspect the available build with
+`bb settings android-app --json` or SDK `system.androidApp()`; the result is
+`null` when disabled or no complete build has been published. Toggle it through
+SDK `system.updateExperiments` alongside the other experiment values.
+
+Publish a signed, prebuilt APK on the server host from a source checkout:
+
+```sh
+node apps/mobile/scripts/publish-android-apk.mjs /path/to/bb.apk /path/to/server-data-dir
+```
+
+The helper uses Android SDK build-tools (`ANDROID_HOME` or `ANDROID_SDK_ROOT`)
+to verify the signature and read the package/version. It stores an immutable
+APK and atomically replaces `android-testing/latest.json` under the server data
+directory. Keep the signing key consistent and increase Android version codes
+for updates. No server restart is needed. Old artifacts are retained so active
+downloads can finish.
+
+`GET /install/bb-android.apk` streams the latest published build only while the
+experiment is enabled, with an attachment filename, checksum and ETag. Through
+bb connect it requires the normal account session; it is not a public install
+route. `GET /api/v1/system/android-app` returns build metadata. Publishing is a
+manual step; this does not automatically publish EAS builds or install updates.
