@@ -2,6 +2,7 @@ import { SettingsSection } from "@/components/ui/settings-section";
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@bb/shared-ui/button";
+import { badgeVariants } from "@bb/shared-ui/badge";
 import { sdk } from "@/lib/sdk";
 
 import {
@@ -39,10 +40,28 @@ export function AndroidTestingSection() {
   const source = prepare.isPending ? prepare.variables : build.data?.source;
   return (
     <section aria-label="Android app download">
-      <SettingsSection title="Android App" bodyClassName="space-y-3">
+      <SettingsSection
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            Android App
+            <span className={badgeVariants({ variant: "outline" })}>
+              Experimental
+            </span>
+          </span>
+        }
+        bodyClassName="space-y-3"
+      >
         <p className="text-sm text-subtle-foreground">
-          Download the Android app from GitHub. No Android developer tools are
-          needed for a release download.
+          Download a test APK for your Android phone. The app is a work in
+          progress, with a few things still missing:
+        </p>
+        <ul className="list-disc space-y-1 pl-5 text-sm text-subtle-foreground">
+          <li>Push notifications are not ready yet.</li>
+          <li>Updates must be downloaded and installed manually.</li>
+        </ul>
+        <p className="text-sm text-subtle-foreground">
+          We’re working on Google Play distribution. For now, install the APK
+          directly on your phone.
         </p>
         {artifact ? (
           <p className="text-sm text-subtle-foreground">
@@ -103,8 +122,8 @@ export function AndroidTestingSection() {
           Download ready APK
         </a>
         <p className="text-xs text-subtle-foreground">
-          Open the download on your Android phone. Allow installation from your
-          browser if prompted. Download newer builds here to update.
+          Open the APK on your Android phone and allow installation from your
+          browser if prompted. Return here to download newer builds.
         </p>
       </SettingsSection>
     </section>
