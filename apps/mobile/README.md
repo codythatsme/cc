@@ -192,8 +192,6 @@ Android 16. Recheck and remove it when upgrading to a version with the fix.
 
 ### Android production setup
 
-Before inviting testers, work through the [internal testing readiness checklist](docs/android-internal-testing.md).
-
 The manual `Mobile Android (EAS)` workflow builds preview APKs or production
 AABs. It needs the existing `EXPO_TOKEN` and an Android signing key configured
 through `pnpm exec eas credentials -p android` in `apps/mobile`. Submission is
