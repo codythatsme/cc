@@ -1058,7 +1058,7 @@ const EXPERIMENT_DEFINITIONS: Record<
       "Load plugin server code with the legacy JITI runtime. Takes effect the next time a plugin loads.",
   },
   androidTesting: {
-    label: "Android testing",
+    label: "Android App",
     description:
       "Download a test build of the Android app below the experiment flags.",
   },

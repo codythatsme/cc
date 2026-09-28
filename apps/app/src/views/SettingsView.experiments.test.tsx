@@ -46,7 +46,7 @@ describe("ExperimentsSettingsSection", () => {
     expect(
       screen.queryByRole("region", { name: "Android app download" }),
     ).toBeNull();
-    fireEvent.click(screen.getByLabelText("Android testing"));
+    fireEvent.click(screen.getByLabelText("Android App"));
     expect(onChange).toHaveBeenCalledWith("androidTesting", true);
   });
 

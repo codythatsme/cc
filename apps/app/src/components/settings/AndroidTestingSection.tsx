@@ -12,7 +12,7 @@ export function AndroidTestingSection() {
       aria-label="Android app download"
       className="mt-6 space-y-3 border-t border-border pt-6"
     >
-      <h3 className="text-sm font-medium">Android app</h3>
+      <h3 className="text-sm font-medium">Android App</h3>
       {build.isPending ? (
         <p className="text-sm text-subtle-foreground">
           Checking for a test build…
