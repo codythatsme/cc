@@ -276,7 +276,7 @@ Use `bb settings experiment androidTesting true`, then
 or build. `bb settings android-app --json` reads cached version/download metadata.
 SDK equivalents: `system.prepareAndroidApp({ source })`,
 `system.androidAppPreparation()`, and `system.androidApp()`.
-Downloads use `/install/bb-android.apk`; bb connect requires an account session.
+Downloads use `/install/bb-android.apk`; remote access requires an account session.
 Publish the first release using **Mobile Android (EAS)** with profile `preview`
 and **publish** enabled. Local fallback APKs use the debug signing key, which may
 differ from the release key. See `docs/configuration.md` for setup and publishing.

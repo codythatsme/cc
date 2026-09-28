@@ -4,14 +4,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@bb/shared-ui/button";
 import { sdk } from "@/lib/sdk";
 
-const queryKey = ["system", "android-app-preparation"];
+import {
+  androidAppPreparationQueryKey,
+  hydrateAndroidAppPreparation,
+} from "@/hooks/cache-owners/android-app-cache-owner";
 
 export function AndroidTestingSection() {
   const client = useQueryClient();
   const download = useRef<HTMLAnchorElement>(null);
   const requested = useRef(false);
   const build = useQuery({
-    queryKey,
+    queryKey: androidAppPreparationQueryKey,
     queryFn: () => sdk.system.androidAppPreparation(),
     refetchInterval: (query) =>
       query.state.data?.status === "preparing" ? 1000 : false,
@@ -21,7 +24,7 @@ export function AndroidTestingSection() {
       sdk.system.prepareAndroidApp({ source }),
     onSuccess: (state) => {
       requested.current = true;
-      client.setQueryData(queryKey, state);
+      hydrateAndroidAppPreparation({ queryClient: client, state });
     },
   });
   useEffect(() => {
