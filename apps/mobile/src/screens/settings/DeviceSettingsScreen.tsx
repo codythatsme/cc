@@ -1,5 +1,4 @@
-import Constants from "expo-constants";
-import { Platform } from "react-native";
+import { nativeApplicationVersion, nativeBuildVersion } from "expo-application";
 import { useProfiles } from "@/app-shell";
 import { sendShellCommand } from "@/lib/shell";
 import { GroupedRow, Text, confirmDestructive, toast } from "@/ui";
@@ -13,14 +12,8 @@ import { useBadgeColors } from "./settings-badges";
 export function DeviceSettingsScreen() {
   const colors = useBadgeColors();
   const { profiles } = useProfiles();
-  const version = String(Constants.expoConfig?.version ?? "0.0.0");
-  const build = String(
-    (Platform.OS === "android"
-      ? Constants.expoConfig?.android?.versionCode
-      : Constants.expoConfig?.ios?.buildNumber) ??
-      Constants.expoConfig?.runtimeVersion ??
-      "dev",
-  );
+  const version = nativeApplicationVersion ?? "0.0.0";
+  const build = nativeBuildVersion ?? "dev";
 
   return (
     <GroupedScreen testID="device-settings-screen">

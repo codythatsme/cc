@@ -33,6 +33,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "expo": "~57.0.14",
+    "expo-application": "~57.0.2",
     "expo-build-properties": "~57.0.12",
     "expo-camera": "~57.0.3",
     "expo-constants": "~57.0.12",
