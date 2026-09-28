@@ -1084,33 +1084,35 @@ export function ExperimentsSettingsSection({
   onExperimentChange,
 }: ExperimentsSettingsSectionProps) {
   return (
-    <SettingsSection
-      title="Experiments"
-      description="Early features that are off by default. Opt in to try them."
-    >
-      <div className="space-y-5">
-        {experimentKeys.map((experimentKey) => {
-          const definition = EXPERIMENT_DEFINITIONS[experimentKey];
-          return (
-            <SettingsWithControl
-              key={experimentKey}
-              label={definition.label}
-              description={definition.description}
-            >
-              <Switch
-                checked={experiments[experimentKey]}
-                disabled={disabled}
-                onCheckedChange={(enabled) =>
-                  onExperimentChange(experimentKey, enabled)
-                }
-                aria-label={definition.label}
-              />
-            </SettingsWithControl>
-          );
-        })}
-      </div>
+    <>
+      <SettingsSection
+        title="Experiments"
+        description="Early features that are off by default. Opt in to try them."
+      >
+        <div className="space-y-5">
+          {experimentKeys.map((experimentKey) => {
+            const definition = EXPERIMENT_DEFINITIONS[experimentKey];
+            return (
+              <SettingsWithControl
+                key={experimentKey}
+                label={definition.label}
+                description={definition.description}
+              >
+                <Switch
+                  checked={experiments[experimentKey]}
+                  disabled={disabled}
+                  onCheckedChange={(enabled) =>
+                    onExperimentChange(experimentKey, enabled)
+                  }
+                  aria-label={definition.label}
+                />
+              </SettingsWithControl>
+            );
+          })}
+        </div>
+      </SettingsSection>
       {experiments.androidTesting ? <AndroidTestingSection /> : null}
-    </SettingsSection>
+    </>
   );
 }
 
