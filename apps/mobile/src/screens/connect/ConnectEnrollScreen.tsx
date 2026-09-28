@@ -237,7 +237,7 @@ export function ConnectEnrollScreen() {
         <SettingsSection
           footnote={
             reauth
-              ? "This phone's access was revoked or has expired. Generate a new pairing code on the server and enter it here; your saved server keeps its place."
+              ? "Generate a new pairing code on the server to reconnect this phone. Your saved server keeps its place."
               : "Pair this phone with your bb server through getbb.app. Generate a code in bb Settings → Remote access → Add mobile device, or run `bb connect machine-code`."
           }
         >
@@ -455,7 +455,7 @@ function SessionStatusLine({ session }: { session: SessionState | null }) {
           selectable
           testID="connect-session-auth-required"
         >
-          bb connect rejected the new credential: {session.detail}
+          bb connect could not sign this phone in. Try pairing with a new code.
         </Text>
       );
     case "error":
