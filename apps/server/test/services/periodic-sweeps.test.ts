@@ -11,9 +11,9 @@ import {
   retainedEventOutputs,
   threads,
   threadPruningCursors,
-} from "@bb/db";
-import { threadScope } from "@bb/domain";
-import type { PluginHookName } from "@get-bb/plugin-sdk";
+} from "@cc/db";
+import { threadScope } from "@cc/domain";
+import type { PluginHookName } from "@codythatsme/plugin-sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   setPluginHookProvider,

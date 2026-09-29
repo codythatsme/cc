@@ -1,5 +1,5 @@
-import type { PluginFileOpenerProps } from "@get-bb/plugin-sdk";
-import type { ThreadTabFileOpenerOwner } from "@bb/server-contract";
+import type { PluginFileOpenerProps } from "@codythatsme/plugin-sdk";
+import type { ThreadTabFileOpenerOwner } from "@cc/server-contract";
 import {
   createPluginPanelFixedPanelTab,
   type PluginPanelFixedPanelTab,

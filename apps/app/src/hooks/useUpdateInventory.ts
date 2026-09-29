@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
-import type { Host } from "@bb/domain";
-import type { ProviderCliStatusResponse } from "@bb/host-daemon-contract";
+import type { Host } from "@cc/domain";
+import type { ProviderCliStatusResponse } from "@cc/host-daemon-contract";
 import type {
   SystemAppUpdateStatus,
   SystemVersionResponse,
-} from "@bb/server-contract";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+} from "@cc/server-contract";
+import type { CcDesktopInfo } from "@cc/desktop-contract";
 import {
   buildProviderCliIssue,
   isProviderCliIssue,
@@ -43,7 +43,7 @@ export interface UpdateInventoryMachine {
 export interface UpdateInventory {
   isLoading: boolean;
   systemVersion: SystemVersionResponse | undefined;
-  desktopInfo: BbDesktopInfo | null;
+  desktopInfo: CcDesktopInfo | null;
   appUpdateAvailable: boolean;
   desktopUpdateReady: boolean;
   machines: UpdateInventoryMachine[];

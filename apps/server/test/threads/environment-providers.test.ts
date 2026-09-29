@@ -5,7 +5,7 @@ import {
 import { cancelProviderEnvironmentCreation } from "../../src/services/environments/environment-engine.js";
 import { sweepProviderMachine } from "../../src/services/machines/provider-orchestration.js";
 import { stopThreadForCurrentState } from "../../src/services/threads/thread-lifecycle.js";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { resolveGitCheckoutAvailability } from "../../src/services/environments/provider-availability.js";
 import { invalidateEnvironmentProviderMachineAvailability } from "../../src/services/environments/provider-machine-availability.js";
 import {
@@ -28,20 +28,20 @@ import {
   listProjectSourcesByProjectIds,
   setProjectGitRemoteUrlIfMissing,
   updateHost,
-} from "@bb/db";
-import { PERSONAL_PROJECT_ID, type JsonValue } from "@bb/domain";
+} from "@cc/db";
+import { PERSONAL_PROJECT_ID, type JsonValue } from "@cc/domain";
 import type {
   PluginDispatchEnvironmentIntent,
   PluginEnvironmentProviderDeclaration,
   PluginEnvironmentValidateDecision,
   PluginHookName,
-} from "@get-bb/plugin-sdk";
-import type { PluginEnvironmentProviderValidateContext } from "@get-bb/plugin-sdk/environment-provider";
-import type { PluginMachineProviderCreateContext } from "@get-bb/plugin-sdk/machine-provider";
+} from "@codythatsme/plugin-sdk";
+import type { PluginEnvironmentProviderValidateContext } from "@codythatsme/plugin-sdk/environment-provider";
+import type { PluginMachineProviderCreateContext } from "@codythatsme/plugin-sdk/machine-provider";
 import {
   validatePluginEnvironmentProviderDeclaration,
   validatePluginMachineProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk/internal/host-policy";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ApiError } from "../../src/errors.js";
@@ -287,8 +287,8 @@ describe("machine and environment provider composition", () => {
         "Machine bootstrap command failed:\nbb-machine-install: 9: node: not found\nbb-machine-install: 9: curl: not found";
       installCompositionMachine(async ({ report }) => {
         report.step("Bootstrapping machine");
-        report.log("bb-machine-install: 9: node: not found\n");
-        report.log("bb-machine-install: 9: curl: not found\n");
+        report.log("cc-machine-install: 9: node: not found\n");
+        report.log("cc-machine-install: 9: curl: not found\n");
         return { status: "failed", message };
       });
 
@@ -1086,7 +1086,7 @@ describe("environment providers are asked inside provisioning", () => {
 
       await reportQueuedCommandError(harness, queued, {
         errorCode: "setup_script_failed",
-        errorMessage: ".bb-env-setup.sh failed with exit code 7",
+        errorMessage: ".cc-env-setup.sh failed with exit code 7",
       });
       await vi.waitFor(() => {
         expect(getThread(harness.db, created.id)).toMatchObject({

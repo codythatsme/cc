@@ -5,7 +5,7 @@ import {
   resolveCurrentDevInstanceConfig,
   toDevProcessEnv,
   type DevInstanceConfig,
-} from "@bb/config/runtime";
+} from "@cc/config/runtime";
 import { runScriptProcess } from "../lib/process-helpers.js";
 import { repoRoot, runMainIfEntrypoint } from "../lib/script-entry.js";
 
@@ -41,7 +41,7 @@ export function createDesktopPackageCommand(
       "turbo",
       "run",
       resolveDesktopPackageTask(platform),
-      "--filter=@bb/desktop",
+      "--filter=@cc/desktop",
       "--output-logs=new-only",
     ],
     command: "pnpm",
@@ -75,7 +75,7 @@ export function resolveDesktopUserDataDir(
   baseEnv: NodeJS.ProcessEnv,
   config: DevInstanceConfig,
 ): string {
-  const rawUserDataDir = baseEnv.BB_DESKTOP_USER_DATA_DIR?.trim();
+  const rawUserDataDir = baseEnv.CC_DESKTOP_USER_DATA_DIR?.trim();
   if (rawUserDataDir === undefined || rawUserDataDir.length === 0) {
     return join(config.dataDir, "desktop");
   }
@@ -90,7 +90,7 @@ export function toDesktopLaunchProcessEnv(args: {
   if (args.mode === "prod") {
     return {
       ...args.baseEnv,
-      BB_DESKTOP_OPEN_DEVTOOLS: args.baseEnv.BB_DESKTOP_OPEN_DEVTOOLS ?? "0",
+      CC_DESKTOP_OPEN_DEVTOOLS: args.baseEnv.CC_DESKTOP_OPEN_DEVTOOLS ?? "0",
       NODE_ENV: "production",
     };
   }
@@ -99,13 +99,12 @@ export function toDesktopLaunchProcessEnv(args: {
     baseEnv: args.baseEnv,
     config: args.config,
   });
-  delete env.BB_DEV_APP_PORT;
-  env.BB_DESKTOP_OPEN_DEVTOOLS = args.baseEnv.BB_DESKTOP_OPEN_DEVTOOLS ?? "0";
-  env.BB_DESKTOP_USER_DATA_DIR = resolveDesktopUserDataDir(
+  delete env.CC_DEV_APP_PORT;
+  env.CC_DESKTOP_OPEN_DEVTOOLS = args.baseEnv.CC_DESKTOP_OPEN_DEVTOOLS ?? "0";
+  env.CC_DESKTOP_USER_DATA_DIR = resolveDesktopUserDataDir(
     args.baseEnv,
     args.config,
   );
-  env.BB_TELEMETRY = "false";
   env.NODE_ENV = "production";
   return env;
 }
@@ -185,7 +184,7 @@ async function main(): Promise<void> {
     mode,
   });
   process.stdout.write(
-    `${formatConfig(config, mode, env.BB_DESKTOP_USER_DATA_DIR)}\n`,
+    `${formatConfig(config, mode, env.CC_DESKTOP_USER_DATA_DIR)}\n`,
   );
   const packageCommand = createDesktopPackageCommand(process.platform);
   const packageExitCode = await runScriptProcess({

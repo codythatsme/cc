@@ -1,5 +1,5 @@
-import { PLUGIN_CATALOG_CATEGORIES, pluginCatalogCategory } from "@bb/domain";
-import type { PluginCatalogCollection } from "@bb/server-contract";
+import { PLUGIN_CATALOG_CATEGORIES, pluginCatalogCategory } from "@cc/domain";
+import type { PluginCatalogCollection } from "@cc/server-contract";
 import type {
   PluginCatalogSearchEntry,
   PluginCatalogSearchData,

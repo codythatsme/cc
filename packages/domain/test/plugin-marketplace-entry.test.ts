@@ -68,6 +68,37 @@ describe("marketplace entry schemas", () => {
     expect(marketplaceEntryV2Schema.parse(entry())).toEqual(entry());
   });
 
+  it.each(["webp", "WEBP", "WeBp"])(
+    "accepts .%s icons and screenshots",
+    (extension) => {
+      expect(
+        marketplaceEntryV2Schema.safeParse({
+          ...entry(),
+          icon: { url: `./author-tools.${extension}` },
+          screenshots: [
+            `./screenshots/author-tools/one.${extension}`,
+            `https://images.example.com/one.${extension}`,
+          ],
+        }).success,
+      ).toBe(true);
+    },
+  );
+
+  it("rejects a misspelled WebP extension", () => {
+    expect(
+      marketplaceEntryV2Schema.safeParse({
+        ...entry(),
+        icon: { url: "./author-tools.wecp" },
+      }).success,
+    ).toBe(false);
+    expect(
+      marketplaceEntryV2Schema.safeParse({
+        ...entry(),
+        screenshots: ["./screenshots/author-tools/one.wecp"],
+      }).success,
+    ).toBe(false);
+  });
+
   it("applies the registry screenshot and date rules", () => {
     expect(
       marketplaceEntryV2Schema.safeParse({
@@ -277,7 +308,7 @@ describe("marketplace entry schemas", () => {
         ...bundled,
         source: {
           bundled: { plugin: "docs" },
-          npm: { package: "bb-plugin-docs" },
+          npm: { package: "cc-plugin-docs" },
         },
       }).success,
     ).toBe(false);

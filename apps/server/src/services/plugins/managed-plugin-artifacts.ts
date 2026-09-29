@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
-import { derivePluginId } from "@bb/domain";
+import { derivePluginId } from "@cc/domain";
 import {
   createPluginArtifact,
   getInstalledPlugin,
@@ -16,12 +16,12 @@ import {
   type PluginGitSelector,
   type PluginProvenance,
   type PluginSourceIntent,
-} from "@bb/db";
+} from "@cc/db";
 import {
   buildPluginApp,
   buildPluginHost,
   buildPluginServer,
-} from "@bb/plugin-build";
+} from "@cc/plugin-build";
 import {
   assertPublicMarketplaceUrl,
   boundedResponseJson,
@@ -34,7 +34,7 @@ import { validatePluginArtifactMeta } from "./app-bundle.js";
 import type {
   InstalledPlugin,
   PluginSourceSelection,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { resolveSelectedSubdirectory } from "./collection-manifest.js";
 import {
   gitArtifactCacheDir,
@@ -264,7 +264,7 @@ export function createManagedPluginArtifacts(
           .catch(() => false);
         if (!jsPresent) {
           throw new Error(
-            `install refused: npm plugins with a frontend (bb.app) must publish a prebuilt bundle — "${manifest.id}" is missing dist/app.js + dist/app.meta.json`,
+            `install refused: npm plugins with a frontend (cc.app) must publish a prebuilt bundle — "${manifest.id}" is missing dist/app.js + dist/app.meta.json`,
           );
         }
       } else if (
@@ -614,8 +614,8 @@ export function createManagedPluginArtifacts(
       const manifest = await readPluginManifest(realRoot);
       assertExpectedPluginId(args.context, manifest.id, args.source);
       const compatibility = evaluateCompatibility({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        ccRange: manifest.ccEngineRange,
+        sdkRange: manifest.ccPluginSdkRange,
         appVersion: deps.appVersion,
       });
       return compatibility.effective.length > 0
@@ -1152,8 +1152,8 @@ export function createManagedPluginArtifacts(
       );
       const manifest = await readPluginManifest(targetRealRoot);
       const compatibility = evaluateCompatibility({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        ccRange: manifest.ccEngineRange,
+        sdkRange: manifest.ccPluginSdkRange,
         appVersion: deps.appVersion,
       });
       if (args.activationSelector === undefined) {
@@ -1236,8 +1236,8 @@ export function createManagedPluginArtifacts(
         };
       }
       const compatibility = evaluateCompatibility({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        ccRange: manifest.ccEngineRange,
+        sdkRange: manifest.ccPluginSdkRange,
         appVersion: deps.appVersion,
       });
       if (compatibility.effective.length > 0) {

@@ -1,3 +1,3 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 
-export default function scriptedEchoProvider(_bb: BbPluginApi): void {}
+export default function scriptedEchoProvider(_cc: CcPluginApi): void {}

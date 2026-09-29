@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
-import { loadHostDaemonStartConfig } from "@bb/config/host-daemon";
+import { loadHostDaemonStartConfig } from "@cc/config/host-daemon";
 import {
   createHostWatcher,
   createSubprocessParcelWatcherBackend,
   setParcelWatcherBackend,
-} from "@bb/host-watcher";
-import { createLogger } from "@bb/logger";
+} from "@cc/host-watcher";
+import { createLogger } from "@cc/logger";
 import { createHostDaemonApp } from "./app.js";
 import {
   readHostAuthState,
@@ -21,8 +21,8 @@ import { resolveHostDaemonLocalApiConfig } from "./local-api-config.js";
 import {
   createUserShellPathResolver,
   prepareRuntimeShellEnv,
-  resolveBbExecutablePathInDirectory,
-  resolveLocalBbExecutablePath,
+  resolveCcExecutablePathInDirectory,
+  resolveLocalCcExecutablePath,
 } from "./runtime-shell-env.js";
 import type { HostDaemonLogger } from "./logger.js";
 import {
@@ -34,7 +34,7 @@ interface StartHostDaemonOptions {
   enrollKey?: string;
   hostId?: string;
   hostName?: string;
-  bbExecutableDirectory?: string;
+  ccExecutableDirectory?: string;
   bridgeBundleDir?: string;
   serverHeaders?: Record<string, string>;
   autoUpdate?: boolean;
@@ -79,7 +79,7 @@ export async function startHostDaemon(
     });
     const instanceId = randomUUID();
     const serverUrl = resolveServerUrl({
-      providedServerUrl: hostDaemonConfig.BB_SERVER_URL,
+      providedServerUrl: hostDaemonConfig.CC_SERVER_URL,
     });
     if (!serverUrl) {
       throw new Error("Host daemon server URL is required");
@@ -103,7 +103,7 @@ export async function startHostDaemon(
             options.enrollKey ??
             (() => {
               throw new Error(
-                `Missing host bootstrap material. Provide BB_HOST_ENROLL_KEY or populate ${dataDir}/auth.json first.`,
+                `Missing host bootstrap material. Provide CC_HOST_ENROLL_KEY or populate ${dataDir}/auth.json first.`,
               );
             })(),
         })
@@ -118,13 +118,13 @@ export async function startHostDaemon(
     }
 
     const localApiConfig = resolveHostDaemonLocalApiConfig({
-      hostDaemonPort: hostDaemonConfig.BB_HOST_DAEMON_PORT,
+      hostDaemonPort: hostDaemonConfig.CC_HOST_DAEMON_PORT,
     });
-    const bbExecutablePath =
-      options.bbExecutableDirectory !== undefined
-        ? resolveBbExecutablePathInDirectory(options.bbExecutableDirectory)
-        : await resolveLocalBbExecutablePath();
-    const bbExecutableDirectory = dirname(bbExecutablePath);
+    const ccExecutablePath =
+      options.ccExecutableDirectory !== undefined
+        ? resolveCcExecutablePathInDirectory(options.ccExecutableDirectory)
+        : await resolveLocalCcExecutablePath();
+    const ccExecutableDirectory = dirname(ccExecutablePath);
     const logger = createLogger({
       component: "host-daemon",
       base: { serverUrl },
@@ -154,8 +154,8 @@ export async function startHostDaemon(
     const resolveUserShellPath = createUserShellPathResolver();
     const resolveRuntimeShellEnv = async () =>
       prepareRuntimeShellEnv({
-        bbExecutableDirectory,
-        bbExecutablePath,
+        ccExecutableDirectory,
+        ccExecutablePath,
         hostDaemonPort: localApiConfig.port,
         inheritedPath: (await resolveUserShellPath()) ?? process.env.PATH,
         serverUrl: machineAuthProxy?.serverUrl ?? serverUrl,
@@ -173,10 +173,10 @@ export async function startHostDaemon(
       hostName: identity.hostName,
       instanceId,
       appUrl:
-        hostDaemonConfig.BB_APP_URL === ""
+        hostDaemonConfig.CC_APP_URL === ""
           ? undefined
-          : hostDaemonConfig.BB_APP_URL,
-      devAppPort: hostDaemonConfig.BB_DEV_APP_PORT,
+          : hostDaemonConfig.CC_APP_URL,
+      devAppPort: hostDaemonConfig.CC_DEV_APP_PORT,
       logger,
       releaseLock,
       localApiConfig,

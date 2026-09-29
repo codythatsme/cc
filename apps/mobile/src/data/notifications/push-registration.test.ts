@@ -72,7 +72,7 @@ function fakeApi() {
 
 const profile = {
   id: "p1",
-  serverUrl: "https://sawyer.getbb.app",
+  serverUrl: "https://sawyer.cc.example.invalid",
   mode: "direct",
 } as const;
 
@@ -239,7 +239,7 @@ describe("syncPushRegistration", () => {
         registration: null,
         lastOutcome: null,
       }),
-    ).toBe("Push needs HTTPS or bb connect");
+    ).toBe("Push needs HTTPS or cc connect");
   });
 
   it("removes an existing registration after a profile changes to plain HTTP", async () => {
@@ -256,7 +256,7 @@ describe("syncPushRegistration", () => {
     expect(store.getRegistration(profile.id)).toBeNull();
   });
 
-  it("allows HTTPS, exact loopback HTTP hosts, and bb connect", () => {
+  it("allows HTTPS, exact loopback HTTP hosts, and cc connect", () => {
     expect(isPushRegistrationAllowed(profile)).toBe(true);
     for (const serverUrl of [
       "http://127.0.0.1:3000",

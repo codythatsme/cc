@@ -20,7 +20,7 @@ interface ResolveBuiltinPluginRootPathArgs {
 
 export const BUILTIN_PLUGINS_DIRECTORY_NAME = "builtin-plugins";
 
-const ACCOUNT_POOL_PARENT_URL_ENV = "BB_ACCOUNT_POOL_PARENT_URL";
+const ACCOUNT_POOL_PARENT_URL_ENV = "CC_ACCOUNT_POOL_PARENT_URL";
 
 export function accountPoolDefaultEnabled(
   env: NodeJS.ProcessEnv = process.env,
@@ -33,8 +33,8 @@ const REPO_PLUGINS_DIRECTORY_NAME = "plugins";
 
 export const BUILTIN_PLUGINS = [
   {
-    name: "bb-guide",
-    pluginId: "bb-guide",
+    name: "cc-guide",
+    pluginId: "cc-guide",
     defaultEnabled: true,
   },
   {
@@ -235,7 +235,7 @@ export const OFFICIAL_PLUGINS = [
 
 export const AUTOMATIC_AI_SERVICE_PLUGIN_IDS: readonly string[] = [
   "provider-codex",
-  "bb-ai",
+  "cc-ai",
 ];
 
 export const BUNDLED_PLUGINS: readonly BundledPluginDefinition[] = [

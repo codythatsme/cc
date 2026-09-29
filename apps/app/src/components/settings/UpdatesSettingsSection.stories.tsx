@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
-import type { Host } from "@bb/domain";
-import type { SystemAppUpdateStatus } from "@bb/server-contract";
-import { UPDATE_ACTION_ICON } from "@bb/domain/update-state";
+import type { Host } from "@cc/domain";
+import type { SystemAppUpdateStatus } from "@cc/server-contract";
+import { UPDATE_ACTION_ICON } from "@cc/domain/update-state";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type ProviderCliKey,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type { ProviderCliIssue } from "@/components/provider-cli/provider-cli-install";
 import type { UpdateInventoryMachine } from "@/hooks/useUpdateInventory";
 import { SettingsStoryChrome } from "../../../.ladle/story-settings-chrome";
@@ -19,8 +19,8 @@ import {
   StoryStates as Story,
 } from "../../../.ladle/story-states";
 import {
-  BbAppUpdateRows,
-  BbDaemonUpdateRow,
+  CcAppUpdateRows,
+  CcDaemonUpdateRow,
   ChangelogPreviewCard,
   MachineUpdatesFleetSection,
   MachineUpdatesRows,
@@ -43,7 +43,7 @@ const NPM_VERSION = {
   source: "npm" as const,
   updateAvailable: false,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "npx cc-app@latest",
 };
 
 const IN_APP_UPDATE: SystemAppUpdateStatus = {
@@ -145,7 +145,7 @@ function StoryPage({ children }: { children: ReactNode }) {
 
 export function ChangelogPreviewExperiment() {
   window.localStorage.removeItem(
-    "bb.settings.updates.dismissed-changelog-version",
+    "cc.settings.updates.dismissed-changelog-version",
   );
   const workstation = machineOf({
     host: makeHost({ id: "changelog-workstation", name: "workstation" }),
@@ -180,7 +180,7 @@ function StoryMachineSection({
       showServerBadge={false}
     >
       {app ? (
-        <BbAppUpdateRows
+        <CcAppUpdateRows
           systemVersion={appUpdate ? undefined : NPM_VERSION}
           desktopInfo={appUpdate ? DESKTOP_UPDATE : null}
           isDesktop={appUpdate}
@@ -189,7 +189,7 @@ function StoryMachineSection({
         />
       ) : null}
       {showDaemon ? (
-        <BbDaemonUpdateRow
+        <CcDaemonUpdateRow
           machine={machine}
           now={STORY_NOW}
           retryUpdatePending={false}
@@ -352,7 +352,7 @@ export function UpdateStates() {
         renderedNote="The real Updates section"
       >
         <Group
-          title="bb"
+          title="cc"
           note="The app itself, and the machine daemons it runs."
         />
 
@@ -361,7 +361,7 @@ export function UpdateStates() {
           note="Nothing to do. The settled state stays visually quiet."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={NPM_VERSION}
               desktopInfo={null}
               isDesktop={false}
@@ -376,7 +376,7 @@ export function UpdateStates() {
           note="The app version check is still in progress."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={undefined}
               desktopInfo={null}
               isDesktop={false}
@@ -391,7 +391,7 @@ export function UpdateStates() {
           note="A web install cannot replace itself, so its action copies the upgrade command."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={{
                 ...NPM_VERSION,
                 latestVersion: "0.39.0",
@@ -407,10 +407,10 @@ export function UpdateStates() {
 
         <State
           name="In-app update available"
-          note="bb runs under the update shim, so it can download the update and restart itself."
+          note="cc runs under the update shim, so it can download the update and restart itself."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={NPM_VERSION}
               appUpdate={IN_APP_UPDATE}
               desktopInfo={null}
@@ -425,10 +425,10 @@ export function UpdateStates() {
 
         <State
           name="In-app update downloading"
-          note="The launcher is installing the new version while bb keeps running."
+          note="The launcher is installing the new version while cc keeps running."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={NPM_VERSION}
               appUpdate={{
                 ...IN_APP_UPDATE,
@@ -436,7 +436,7 @@ export function UpdateStates() {
                   output: [],
                   phase: "preparing",
                   startedAt: "2026-09-23T00:00:00.000Z",
-                  step: "Downloading bb-app 0.39.0",
+                  step: "Downloading cc-app 0.39.0",
                   targetVersion: "0.39.0",
                 },
               }}
@@ -452,10 +452,10 @@ export function UpdateStates() {
 
         <State
           name="In-app update failed"
-          note="The download failed, bb kept running the current version, and the row keeps the details until dismissed."
+          note="The download failed, cc kept running the current version, and the row keeps the details until dismissed."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={NPM_VERSION}
               appUpdate={{
                 ...IN_APP_UPDATE,
@@ -486,7 +486,7 @@ export function UpdateStates() {
           note="A pnpm start checkout explains why it cannot fast-forward instead of offering a button."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={NPM_VERSION}
               appUpdate={{
                 ...IN_APP_UPDATE,
@@ -523,7 +523,7 @@ export function UpdateStates() {
           note="The desktop shell is fetching the update automatically."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={undefined}
               desktopInfo={{
                 ...DESKTOP_UPDATE,
@@ -543,7 +543,7 @@ export function UpdateStates() {
           note="The update is ready and needs one explicit relaunch."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={undefined}
               desktopInfo={DESKTOP_UPDATE}
               isDesktop
@@ -558,7 +558,7 @@ export function UpdateStates() {
           note="The red caption states the failure; the neutral Retry button is the recovery."
         >
           <StoryAppState>
-            <BbAppUpdateRows
+            <CcAppUpdateRows
               systemVersion={undefined}
               desktopInfo={{
                 ...DESKTOP_UPDATE,
@@ -574,7 +574,7 @@ export function UpdateStates() {
         </State>
 
         <State
-          name="Machine updating bb"
+          name="Machine updating cc"
           note="The enrolled daemon is applying its required update automatically."
         >
           <StoryMachineSection machine={daemonUpdating} />
@@ -582,7 +582,7 @@ export function UpdateStates() {
 
         <State
           name="Machine offline"
-          note="bb cannot currently reach this machine."
+          note="cc cannot currently reach this machine."
         >
           <StoryMachineSection machine={daemonOffline} />
         </State>
@@ -601,7 +601,7 @@ export function UpdateStates() {
 
         <State
           name="Update available"
-          note="bb has an installer it can run for this provider."
+          note="cc has an installer it can run for this provider."
         >
           <StoryMachineSection machine={providerUpdate} />
         </State>
@@ -627,7 +627,7 @@ export function UpdateStates() {
 
         <State
           name="Update in terminal"
-          note="The CLI was installed outside bb, so the update must run in its own package manager."
+          note="The CLI was installed outside cc, so the update must run in its own package manager."
         >
           <StoryMachineSection machine={providerManual} />
         </State>
@@ -648,7 +648,7 @@ export function UpdateStates() {
 
         <State
           name="Status check failed"
-          note="The machine is connected, but bb could not inspect its provider CLIs."
+          note="The machine is connected, but cc could not inspect its provider CLIs."
         >
           <StoryMachineSection machine={providerCheckFailed} />
         </State>

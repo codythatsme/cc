@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const ACTIVE = Symbol.for("@bb/vitest-tmpdir-sandbox");
+const ACTIVE = Symbol.for("@cc/vitest-tmpdir-sandbox");
 
 interface Sandbox {
   root: string;
@@ -18,7 +18,7 @@ export default function setup(): () => void {
   if (sandbox === undefined) {
     const previous = process.env.TMPDIR;
     sandbox = {
-      root: mkdtempSync(join(tmpdir(), "bb-vt-")),
+      root: mkdtempSync(join(tmpdir(), "cc-vt-")),
       previous,
       references: 0,
     };

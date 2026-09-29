@@ -36,10 +36,10 @@ async function runGit(
 }
 
 async function initRepo(): Promise<string> {
-  const repoPath = await makeTempDir("bb-host-files-test-");
+  const repoPath = await makeTempDir("cc-host-files-test-");
   await runGit(["init", "-b", "main"], { cwd: repoPath });
-  await runGit(["config", "user.name", "BB Tests"], { cwd: repoPath });
-  await runGit(["config", "user.email", "bb@example.com"], { cwd: repoPath });
+  await runGit(["config", "user.name", "CC Tests"], { cwd: repoPath });
+  await runGit(["config", "user.email", "cc@example.com"], { cwd: repoPath });
   return repoPath;
 }
 
@@ -190,7 +190,7 @@ describe("readHostFile (no ref — disk read)", () => {
   });
 
   it("marks missing roots as expected", async () => {
-    const parentPath = await makeTempDir("bb-host-files-missing-root-");
+    const parentPath = await makeTempDir("cc-host-files-missing-root-");
     const rootPath = path.join(parentPath, "missing-root");
     const missingPath = path.join(rootPath, "notes.md");
     const thrown = await captureReadHostFileError({
@@ -208,7 +208,7 @@ describe("readHostFile (no ref — disk read)", () => {
   });
 
   it("marks missing relative read roots as expected", async () => {
-    const parentPath = await makeTempDir("bb-host-files-relative-root-");
+    const parentPath = await makeTempDir("cc-host-files-relative-root-");
     const rootPath = path.join(parentPath, "STATUS");
     const thrown = await captureReadHostRelativeFileError({
       type: "host.read_file_relative",
@@ -279,7 +279,7 @@ describe("readHostFileMetadata", () => {
 
 describe("browseHostDirectory", () => {
   it("lists immediate children sorted directories-first, hiding noise", async () => {
-    const root = await makeTempDir("bb-browse-");
+    const root = await makeTempDir("cc-browse-");
     await fs.mkdir(path.join(root, "beta"));
     await fs.mkdir(path.join(root, "alpha"));
     await fs.mkdir(path.join(root, ".hidden"));
@@ -330,7 +330,7 @@ describe("browseHostDirectory", () => {
   });
 
   it("rejects a path that is not a directory", async () => {
-    const root = await makeTempDir("bb-browse-file-");
+    const root = await makeTempDir("cc-browse-file-");
     const filePath = path.join(root, "file.txt");
     await fs.writeFile(filePath, "x", "utf8");
 
@@ -470,7 +470,7 @@ describe("readHostFile (with ref — git history read)", () => {
 
 describe("readHostFileChunk", () => {
   it("reads a tiny range beyond the whole-file size cap", async () => {
-    const rootPath = await makeTempDir("bb-file-chunks-");
+    const rootPath = await makeTempDir("cc-file-chunks-");
     const filePath = path.join(rootPath, "large.mp4");
     const offset = 32 * 1024 * 1024;
     const file = await fs.open(filePath, "w");
@@ -511,7 +511,7 @@ describe("readHostFileChunk", () => {
   it.each(["overwrite", "truncate", "replace"])(
     "rejects stale revisions after %s",
     async (change) => {
-      const rootPath = await makeTempDir("bb-file-chunks-");
+      const rootPath = await makeTempDir("cc-file-chunks-");
       const filePath = path.join(rootPath, "clip.mp4");
       await fs.writeFile(filePath, "original");
       const base = {
@@ -540,8 +540,8 @@ describe("readHostFileChunk", () => {
   );
 
   it("confines reads and rejects non-regular files", async () => {
-    const rootPath = await makeTempDir("bb-file-chunks-");
-    const outside = await makeTempDir("bb-file-chunks-outside-");
+    const rootPath = await makeTempDir("cc-file-chunks-");
+    const outside = await makeTempDir("cc-file-chunks-outside-");
     await fs.writeFile(path.join(outside, "secret"), "private");
     await fs.symlink(
       path.join(outside, "secret"),

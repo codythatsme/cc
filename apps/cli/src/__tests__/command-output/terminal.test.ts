@@ -1,7 +1,7 @@
 import { Buffer } from "node:buffer";
 import { Readable } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
-import { TERMINAL_DATA_MAX_BYTES } from "@bb/domain";
+import { TERMINAL_DATA_MAX_BYTES } from "@cc/domain";
 import {
   collectLogLines,
   collectLogPayloads,
@@ -48,7 +48,7 @@ function makeHost(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("bb terminal command output", () => {
+describe("cc terminal command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -568,7 +568,7 @@ describe("bb terminal command output", () => {
 
     expect(collectLogLines(vi.mocked(console.error))).toEqual([
       "Error: Terminal term-1 exited with code 0 before this wait started, so no new output will arrive.",
-      "Match its existing output with --from-start, or read it with `bb terminal output term-1`.",
+      "Match its existing output with --from-start, or read it with `cc terminal output term-1`.",
     ]);
   });
 
@@ -600,7 +600,7 @@ describe("bb terminal command output", () => {
   });
 
   it("fills in this thread when terminal list has no scope", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thr_current");
+    vi.stubEnv("CC_THREAD_ID", "thr_current");
 
     await expect(
       runCommand(["terminal", "list", "--json"], register),

@@ -4,14 +4,14 @@ import {
   threadScope,
   turnScope,
   type Thread,
-} from "@bb/domain";
-import { createConnection, getAppSettings } from "@bb/db";
+} from "@cc/domain";
+import { createConnection, getAppSettings } from "@cc/db";
 import {
   applyTimelineDelta,
   threadTimelineResponseSchema,
   type ThreadTimelineResponse,
   type TimelineRow,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { countTimelineSelectionMemoEntries } from "../../src/services/threads/timeline-selection-memo.js";
 import { readJson } from "../helpers/json.js";
 import {

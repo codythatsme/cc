@@ -22,7 +22,7 @@ const CONNECTED_HOST = makeHost({
   status: "connected",
 });
 const ENROLLMENT_COMMAND =
-  "curl -fsSL -H 'X-BB-Enrollment: bbde_TZpKWsJpWiPulVIRKNENmEVtvNwnEwDobjPFlnlsyCUUzorssgdxmgxUblRIWAUA' 'https://bb.example.com/install.sh' | sh";
+  "curl -fsSL -H 'X-CC-Enrollment: bbde_TZpKWsJpWiPulVIRKNENmEVtvNwnEwDobjPFlnlsyCUUzorssgdxmgxUblRIWAUA' 'https://cc.example.com/install.sh' | sh";
 
 export function AccessGate() {
   return (
@@ -38,7 +38,7 @@ export function AccessGate() {
         </DialogStage>
       </StoryRow>
       <StoryRow
-        label="bb connect unpaired"
+        label="cc connect unpaired"
         hint="default provider is setup-required — the primary action leaves for plugin settings"
       >
         <DialogStage>
@@ -50,7 +50,7 @@ export function AccessGate() {
         </DialogStage>
       </StoryRow>
       <StoryRow
-        label="bb connect unavailable"
+        label="cc connect unavailable"
         hint="paired once, now refused — a status line appears because there is a verdict to report"
       >
         <DialogStage>
@@ -210,7 +210,7 @@ export function EnrollmentCommandState() {
         <DialogStage>
           <ManualMachineSetupView
             command={null}
-            errorMessage="The gate rejected this bb's credential (HTTP 401)"
+            errorMessage="The gate rejected this cc's credential (HTTP 401)"
             onRetry={noop}
             onRegenerate={noop}
             connectedHost={null}

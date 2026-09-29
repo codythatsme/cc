@@ -10,7 +10,7 @@ import {
   getFilePreviewLeaseBaseUrl,
 } from "@/lib/file-content-urls";
 
-const ROUTE_ROOT = "/__bb_markdown_file_root__";
+const ROUTE_ROOT = "/__cc_markdown_file_root__";
 
 export function buildMarkdownFileImageRouting({
   path,

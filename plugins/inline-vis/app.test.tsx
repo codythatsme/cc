@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 
@@ -295,7 +295,7 @@ describe("InlineVisDirective", () => {
 
     expect(first.container.querySelector("iframe")).toBeNull();
     expect(header.classList.contains("border-b")).toBe(false);
-    expect(window.localStorage.getItem("bb.inline-vis.collapsed")).toBe("true");
+    expect(window.localStorage.getItem("cc.inline-vis.collapsed")).toBe("true");
     first.unmount();
 
     const second = renderSlot(app.messageDirectives[0]!, props, options);
@@ -309,7 +309,7 @@ describe("InlineVisDirective", () => {
     await waitFor(() => {
       expect(second.container.querySelector("iframe")).toBeTruthy();
     });
-    expect(window.localStorage.getItem("bb.inline-vis.collapsed")).toBe(
+    expect(window.localStorage.getItem("cc.inline-vis.collapsed")).toBe(
       "false",
     );
   });
@@ -419,7 +419,7 @@ describe("InlineVisDirective", () => {
       },
     );
 
-    const markdown = await slot.findByTestId("bb-markdown");
+    const markdown = await slot.findByTestId("cc-markdown");
     expect(markdown.textContent).toBe("# Notes\n\nReady for review.");
     expect(slot.container.querySelector("iframe")).toBeNull();
     expect(markdown.parentElement?.style.height).toBe("224px");
@@ -472,7 +472,7 @@ describe("InlineVisDirective", () => {
       },
     );
 
-    const markdown = await slot.findByTestId("bb-markdown");
+    const markdown = await slot.findByTestId("cc-markdown");
     expect(markdown.textContent).toBe("# Notes");
     expect(slot.container.querySelector("iframe")).toBeNull();
     fireEvent.click(
@@ -522,7 +522,7 @@ describe("InlineVisDirective", () => {
       },
     );
 
-    const markdown = await slot.findByTestId("bb-markdown");
+    const markdown = await slot.findByTestId("cc-markdown");
     expect(markdown.parentElement?.style.height).toBe("480px");
   });
 
@@ -577,7 +577,7 @@ describe("InlineVisDirective", () => {
       content: "# Notes",
     });
 
-    const markdown = await slot.findByTestId("bb-markdown");
+    const markdown = await slot.findByTestId("cc-markdown");
     const markdownBody = markdown.parentElement!;
     expect(markdownBody.style.height).toBe("480px");
     expect(slot.queryByRole("status")).toBeNull();

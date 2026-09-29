@@ -1,7 +1,7 @@
-export const BB_MOBILE_IOS_APP_ID = "9QCU24SXK5.app.getbb.mobile";
-export const BB_MOBILE_ANDROID_PACKAGE = "app.getbb.mobile";
+export const CC_MOBILE_IOS_APP_ID = "9QCU24SXK5.io.github.codythatsme.cc.mobile";
+export const CC_MOBILE_ANDROID_PACKAGE = "io.github.codythatsme.cc.mobile";
 
-const BB_MOBILE_APP_LINK_PATHS: readonly string[] = [
+const CC_MOBILE_APP_LINK_PATHS: readonly string[] = [
   "/threads/*",
   "/projects/*",
   "/settings/*",
@@ -16,8 +16,8 @@ function buildAppleAppSiteAssociation(): Record<string, unknown> {
     applinks: {
       details: [
         {
-          appIDs: [BB_MOBILE_IOS_APP_ID],
-          components: BB_MOBILE_APP_LINK_PATHS.map((path) => ({
+          appIDs: [CC_MOBILE_IOS_APP_ID],
+          components: CC_MOBILE_APP_LINK_PATHS.map((path) => ({
             "/": path,
           })),
         },
@@ -44,7 +44,7 @@ function buildAndroidAssetLinks(
       relation: ["delegate_permission/common.handle_all_urls"],
       target: {
         namespace: "android_app",
-        package_name: BB_MOBILE_ANDROID_PACKAGE,
+        package_name: CC_MOBILE_ANDROID_PACKAGE,
         sha256_cert_fingerprints: [...sha256CertFingerprints],
       },
     },

@@ -1,8 +1,8 @@
-import type { PluginThreadEventPayloads } from "@get-bb/plugin-sdk";
+import type { PluginThreadEventPayloads } from "@codythatsme/plugin-sdk";
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import { EnvHttpProxyAgent } from "undici";
 import { describe, expect, it, vi } from "vitest";
 import { listPushSubscriptionsOutputSchema } from "./contract.js";
@@ -117,7 +117,7 @@ async function setup(options: SetupOptions = {}) {
     createId: () => `subscription-${nextId++}`,
     fetch: options.fetch ?? expo.fetch,
     ...(options.now === undefined ? {} : { now: options.now }),
-  })(fake.bb);
+  })(fake.cc);
 
   async function addSubscription(
     expoPushToken = "ExponentPushToken[phone]",
@@ -271,7 +271,7 @@ describe("push subscription RPC and CLI", () => {
     try {
       const help = (await host.harness.behavior.runCli(["add", "--help"]))
         .stdout;
-      expect(help).toContain("bb push-notifications add");
+      expect(help).toContain("cc push-notifications add");
       expect(help).toContain("at most 512 characters");
 
       const badPlatform = await host.harness.behavior.runCli([
@@ -373,7 +373,7 @@ describe("push sender", () => {
   });
 
   it("includes the configured public server URL", async () => {
-    const host = await setup({ appUrl: "https://bb.example.test" });
+    const host = await setup({ appUrl: "https://cc.example.test" });
     try {
       await host.addSubscription();
       const thread = host.setThread();
@@ -387,7 +387,7 @@ describe("push sender", () => {
       expect(host.expo.requests[0]?.[0]?.data).toEqual({
         kind: "turn-finished",
         projectId: "project-1",
-        serverUrl: "https://bb.example.test",
+        serverUrl: "https://cc.example.test",
         threadId: thread.id,
       });
     } finally {

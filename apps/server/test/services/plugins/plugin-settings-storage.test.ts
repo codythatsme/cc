@@ -19,8 +19,8 @@ import {
   migrate,
   setPluginSettingsValues,
   type DbConnection,
-} from "@bb/db";
-import type { Logger } from "@bb/logger";
+} from "@cc/db";
+import type { Logger } from "@cc/logger";
 import { registerPluginRoutes } from "../../../src/routes/plugins.js";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
@@ -29,7 +29,6 @@ import {
 } from "../../../src/services/plugins/plugin-service.js";
 import { PluginSettingsValidationError } from "../../../src/services/plugins/plugin-settings.js";
 import { testLogger } from "../../helpers/test-app.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
 const logger = testLogger as unknown as Logger;
 
@@ -59,7 +58,7 @@ async function writePlugin(
       name: options.name,
       version: "0.1.0",
       dependencies: options.dependencies,
-      bb: {
+      cc: {
         name: "Settings storage fixture",
         description: "Settings and storage plugin fixture.",
         branding: { icon: "Zap" },
@@ -81,12 +80,11 @@ describe("plugin settings + storage", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-storage-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-storage-test-"));
     dataDir = join(workDir, "data");
     systemBroadcasts = [];
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -110,10 +108,10 @@ describe("plugin settings + storage", () => {
   describe("settings", () => {
     async function installConfigurable(): Promise<void> {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-configurable",
+        name: "cc-plugin-configurable",
         serverSource: `
-          export default async function plugin(bb: any) {
-            const settings = bb.settings.define({
+          export default async function plugin(cc: any) {
+            const settings = cc.settings.define({
               apiKey: { type: "string", label: "API key", secret: true },
               teamKey: { type: "string", label: "Team key", default: "ENG" },
               mode: { type: "select", label: "Mode", options: ["fast", "slow"], default: "fast" },
@@ -238,13 +236,13 @@ describe("plugin settings + storage", () => {
 
     it("lets plugin server code validate and persist its own settings", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-self-configuring",
+        name: "cc-plugin-self-configuring",
         dependencies: { zod: "^4.3.6" },
         serverSource: `
           import { z } from "zod";
 
-          export default async function plugin(bb: any) {
-            const settings = bb.settings.define({
+          export default async function plugin(cc: any) {
+            const settings = cc.settings.define({
               notes: {
                 type: "string",
                 label: "Notes",
@@ -400,10 +398,10 @@ describe("plugin settings + storage", () => {
 
     it("marks a plugin error when it defines an invalid descriptor", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-bad-schema",
+        name: "cc-plugin-bad-schema",
         serverSource: `
-          export default function plugin(bb: any) {
-            bb.settings.define({ broken: { type: "select", label: "Broken", options: [] } });
+          export default function plugin(cc: any) {
+            cc.settings.define({ broken: { type: "select", label: "Broken", options: [] } });
           }
         `,
       });
@@ -417,7 +415,7 @@ describe("plugin settings + storage", () => {
   describe("kv storage", () => {
     it("round-trips JSON values, lists by prefix, and caps value size", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-kver",
+        name: "cc-plugin-kver",
         serverSource: `export default function plugin() {}`,
       });
       await service.installPath(rootDir);
@@ -450,9 +448,9 @@ describe("plugin settings + storage", () => {
 
   describe("database + migrate", () => {
     const sqlerSource = `
-      export default function plugin(bb: any) {
-        const db = bb.storage.database();
-        bb.storage.migrate(db, [
+      export default function plugin(cc: any) {
+        const db = cc.storage.database();
+        cc.storage.migrate(db, [
           "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
           "INSERT INTO items (name) VALUES ('seed')",
         ]);
@@ -472,7 +470,7 @@ describe("plugin settings + storage", () => {
 
     it("vends a WAL handle, applies migrations once, and closes handles on reload", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-sqler",
+        name: "cc-plugin-sqler",
         serverSource: sqlerSource,
       });
       await service.installPath(rootDir);
@@ -501,11 +499,11 @@ describe("plugin settings + storage", () => {
 
     it("rejects a changed migration statement at an applied index", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-migration-collision",
+        name: "cc-plugin-migration-collision",
         serverSource: `
-          export default function plugin(bb: any) {
-            const db = bb.storage.database();
-            bb.storage.migrate(db, [
+          export default function plugin(cc: any) {
+            const db = cc.storage.database();
+            cc.storage.migrate(db, [
               "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
             ]);
           }
@@ -526,7 +524,7 @@ describe("plugin settings + storage", () => {
 
     it("reserves unknown legacy indexes before later statements can reuse them", async () => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-legacy-migrations",
+        name: "cc-plugin-legacy-migrations",
         serverSource: `export default function plugin() {}`,
       });
       await service.installPath(rootDir);
@@ -536,14 +534,14 @@ describe("plugin settings + storage", () => {
       if (!api) throw new Error("legacy-migrations plugin did not load");
       const database = api.storage.database();
       database.exec(
-        "CREATE TABLE items (id INTEGER PRIMARY KEY); CREATE TABLE _bb_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL); INSERT INTO _bb_migrations VALUES (0, 1), (2, 1)",
+        "CREATE TABLE items (id INTEGER PRIMARY KEY); CREATE TABLE _cc_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL); INSERT INTO _cc_migrations VALUES (0, 1), (2, 1)",
       );
       api.storage.migrate(database, [
         "CREATE TABLE items (id INTEGER PRIMARY KEY)",
       ]);
 
       const rows = database
-        .prepare("SELECT id, statement_hash FROM _bb_migrations ORDER BY id")
+        .prepare("SELECT id, statement_hash FROM _cc_migrations ORDER BY id")
         .all();
       expect(rows).toEqual([
         { id: 0, statement_hash: expect.stringMatching(/^[a-f0-9]{64}$/) },
@@ -561,23 +559,23 @@ describe("plugin settings + storage", () => {
     it("returns one reused handle per plugin load instead of a connection per call", async () => {
       const CALLS = 200;
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-chatty",
+        name: "cc-plugin-chatty",
         serverSource: `
-          export default function plugin(bb: any) {
+          export default function plugin(cc: any) {
             const g = globalThis as any;
             g.__chatty = { handles: [] as unknown[], reopened: [] as unknown[] };
             for (let i = 0; i < ${CALLS}; i++) {
-              const db = bb.storage.database();
+              const db = cc.storage.database();
               db.prepare("SELECT 1").get();
               g.__chatty.handles.push(db);
             }
             // A plugin that closes the handle itself gets a fresh one next.
             for (let i = 0; i < 3; i++) {
-              const db = bb.storage.database();
+              const db = cc.storage.database();
               db.close();
               g.__chatty.reopened.push(db);
             }
-            g.__chatty.final = bb.storage.database();
+            g.__chatty.final = cc.storage.database();
           }
         `,
       });
@@ -606,17 +604,17 @@ describe("plugin settings + storage", () => {
 
   it("saving settings auto-reloads a needs-configuration plugin (regression: pasting the key in Settings must take effect)", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-needs-key",
+      name: "cc-plugin-needs-key",
       serverSource: `
-        export default async function plugin(bb: any) {
+        export default async function plugin(cc: any) {
           const g = globalThis as any;
           g.__needsKeyLoads = (g.__needsKeyLoads ?? 0) + 1;
-          const settings = bb.settings.define({
+          const settings = cc.settings.define({
             apiKey: { type: "string", label: "API key", secret: true },
           });
           const values = await settings.get();
           if (!values.apiKey) {
-            bb.status.needsConfiguration("set apiKey first");
+            cc.status.needsConfiguration("set apiKey first");
           }
         }
       `,
@@ -638,12 +636,12 @@ describe("plugin settings + storage", () => {
 
   it("saving settings does NOT reload a healthy running plugin", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-healthy",
+      name: "cc-plugin-healthy",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__healthyLoads = (g.__healthyLoads ?? 0) + 1;
-          bb.settings.define({
+          cc.settings.define({
             note: { type: "string", label: "Note" },
           });
         }

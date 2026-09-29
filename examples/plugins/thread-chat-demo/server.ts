@@ -1,5 +1,5 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 
-export default function plugin(bb: BbPluginApi) {
-  bb.log.info("thread-chat-demo loaded (frontend-only demo)");
+export default function plugin(cc: CcPluginApi) {
+  cc.log.info("thread-chat-demo loaded (frontend-only demo)");
 }

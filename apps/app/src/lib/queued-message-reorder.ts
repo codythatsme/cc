@@ -1,5 +1,5 @@
-import { applyNeighborReorder } from "@bb/client-core";
-import type { ThreadQueuedMessage } from "@bb/domain";
+import { applyNeighborReorder } from "@cc/client-core";
+import type { ThreadQueuedMessage } from "@cc/domain";
 
 interface QueuedMessageReorderItem {
   id: string;

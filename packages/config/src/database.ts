@@ -19,7 +19,7 @@ export function loadDatabaseConfig(
   const commonConfig = args.commonConfig ?? loadCommonConfig(args);
   return {
     databasePath: resolveDataDirDatabasePath({
-      dataDir: commonConfig.BB_DATA_DIR,
+      dataDir: commonConfig.CC_DATA_DIR,
     }),
   };
 }

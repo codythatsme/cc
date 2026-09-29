@@ -5,8 +5,8 @@ import type {
   ThreadPullRequestChecksState,
   ThreadPullRequestMergeabilityState,
   ThreadPullRequestReviewState,
-} from "@bb/domain";
-import type { IconName } from "@bb/shared-ui/icon";
+} from "@cc/domain";
+import type { IconName } from "@cc/shared-ui/icon";
 
 interface PullRequestDisplay {
   label: string;

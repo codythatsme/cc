@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { useRealtimeConnectionState } from "@get-bb/plugin-sdk/app";
+import { useRealtimeConnectionState } from "@codythatsme/plugin-sdk/app";
 
 interface TasksRefreshState {
   generation: number;

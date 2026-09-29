@@ -1,7 +1,7 @@
 import {
   fetchDesktopSession,
   redeemMachineCredential,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 import CookieManager from "@react-native-cookies/cookies";
 import { File, Directory, Paths } from "expo-file-system";
 import { useLocalSearchParams } from "expo-router";
@@ -60,7 +60,7 @@ function appendSessionLine(event: SpikeEvent): void {
   } catch {}
 }
 
-const APEX_URL = process.env.EXPO_PUBLIC_BB_CONNECT_APEX ?? "https://getbb.app";
+const APEX_URL = process.env.EXPO_PUBLIC_CC_CONNECT_APEX ?? "https://cc.example.invalid";
 
 export function WebViewSpikeScreen() {
   const insets = useSafeAreaInsets();

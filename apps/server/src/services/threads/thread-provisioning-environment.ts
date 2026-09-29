@@ -4,12 +4,12 @@ import {
   type EnvironmentRow,
   type DbTransaction,
   type DbNotifier,
-} from "@bb/db";
+} from "@cc/db";
 import {
   threadScope,
   type ProvisioningTranscriptEntry,
   type Thread,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,

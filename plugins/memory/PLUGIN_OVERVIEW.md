@@ -4,16 +4,16 @@ Give your agents a memory that survives across threads, projects, and providers.
 
 - Global memories for user preferences and cross-project habits.
 - Project memories for commands, conventions, decisions, and verified quirks.
-- A summary catalog that bb adds to the agent's instructions on every turn. The catalog holds summaries only, up to 3,900 characters.
+- A summary catalog that cc adds to the agent's instructions on every turn. The catalog holds summaries only, up to 3,900 characters.
 - A table in the plugin settings where you review, edit, and delete every stored memory.
 - Kinds, tags, importance, pinning, provenance, and version history for each record.
 
 ## How it works
 
-The agent uses the `bb memory` CLI. `bb memory search` finds summaries with keyword search. `bb memory get` reads one complete record. `bb memory add`, `bb memory update`, and `bb memory forget` change the store with version checks. `bb memory catalog` and `bb memory history` list summaries and past versions.
+The agent uses the `cc memory` CLI. `cc memory search` finds summaries with keyword search. `cc memory get` reads one complete record. `cc memory add`, `cc memory update`, and `cc memory forget` change the store with version checks. `cc memory catalog` and `cc memory history` list summaries and past versions.
 
 Project writes use the project of the current thread. Global writes must pass `--scope global`. The bundled `memory` skill teaches the agent when to search and what to save. The plugin rejects text that looks like a secret or a prompt injection.
 
 ## Requirements
 
-Disable provider-native memory in Settings under Providers to avoid duplicate or conflicting stores. The CLI connects to the local bb server. Some provider sandboxes ask for approval before they allow that connection.
+Disable provider-native memory in Settings under Providers to avoid duplicate or conflicting stores. The CLI connects to the local cc server. Some provider sandboxes ask for approval before they allow that connection.

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { ResolvedThreadExecutionOptions } from "@bb/domain";
+import type { ResolvedThreadExecutionOptions } from "@cc/domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { threadDefaultExecutionOptionsQueryKey } from "./query-keys";
 import {
@@ -143,7 +143,7 @@ describe("useThreadDefaultExecutionOptions", () => {
 
   it("ignores a stored value that no longer matches the schema", async () => {
     window.localStorage.setItem(
-      "bb.thread-execution-options.1.thr_1",
+      "cc.thread-execution-options.1.thr_1",
       JSON.stringify({ model: "gpt-5.6-sol", reasoningLevel: "cosmic" }),
     );
     vi.mocked(sdk.threads.defaultExecutionOptions).mockImplementation(

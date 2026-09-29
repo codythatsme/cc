@@ -1,5 +1,4 @@
 import { PluginCardAuthorAvatar } from "@/components/plugin/management/PluginCard";
-import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@bb/server-contract";
 import { useSyncExternalStore } from "react";
 import {
   ResourceActionButton,
@@ -11,16 +10,16 @@ import {
   ResourceListState,
   ResourceOverflowMenu,
   type ResourceOverflowMenuItem,
-} from "@bb/shared-ui/resource-list";
-import { Switch } from "@bb/shared-ui/switch";
+} from "@cc/shared-ui/resource-list";
+import { Switch } from "@cc/shared-ui/switch";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
-import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@cc/shared-ui/tooltip";
+import { formatHomePathForDisplay } from "@cc/shared-ui/lib/utils";
+import { Icon } from "@cc/shared-ui/icon";
 import { useNavigate } from "react-router-dom";
 import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
 import {
@@ -66,49 +65,19 @@ import {
   type PluginFrontendDiagnostic,
 } from "@/lib/plugin-frontend";
 import { usePluginSlots } from "@/lib/plugin-slots";
-import { copyToClipboardWithToast, useClipboardCopy } from "@/lib/clipboard";
-
-function pluginMarketplaceUrl({
-  marketplace,
-  entryId,
-}: {
-  marketplace: string | null;
-  entryId: string | null;
-}): string | null {
-  if (marketplace !== CURATED_PLUGIN_MARKETPLACE_NAME || entryId === null) {
-    return null;
-  }
-  return `https://getbb.app/marketplace/${encodeURIComponent(entryId)}`;
-}
-
-function copyMarketplaceLinkItems(
-  url: string | null,
-): ResourceOverflowMenuItem[] {
-  if (url === null) return [];
-  return [
-    {
-      label: "Copy marketplace link",
-      icon: "Copy",
-      onSelect: () =>
-        void copyToClipboardWithToast(url, {
-          successMessage: "Marketplace link copied",
-          errorMessage: "Failed to copy marketplace link.",
-        }),
-    },
-  ];
-}
+import { useClipboardCopy } from "@/lib/clipboard";
 
 export function pluginIsLocalSource(plugin: PluginListItem): boolean {
   return plugin.source.startsWith("path:");
 }
 
 export function pluginRemovalLabel(plugin: PluginListItem): string {
-  return pluginIsLocalSource(plugin) ? "Remove from bb" : "Uninstall";
+  return pluginIsLocalSource(plugin) ? "Remove from cc" : "Uninstall";
 }
 
 export function pluginRemovalDescription(plugin: PluginListItem): string {
   return pluginIsLocalSource(plugin)
-    ? `Remove "${plugin.id}" from bb and delete its settings, secrets, and schedules? Its source files stay on disk. To move it to another directory, install the new path instead; that keeps its settings.`
+    ? `Remove "${plugin.id}" from cc and delete its settings, secrets, and schedules? Its source files stay on disk. To move it to another directory, install the new path instead; that keeps its settings.`
     : `Uninstall "${plugin.id}" and delete its managed files, settings, secrets, and schedules?`;
 }
 
@@ -173,8 +142,8 @@ function PluginLocalSource({
 
 const OFFICIAL_BYLINE_ENTRY = {
   author: null,
-  marketplace: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "cc-official",
+  publisherLabel: "CC Official",
 } as const;
 
 export function CatalogPluginDetail({
@@ -189,7 +158,6 @@ export function CatalogPluginDetail({
   onOpenPlugin: (pluginId: string) => void;
 }) {
   const count = pluginInstallCountPresentation(entry.installs);
-  const overflowItems = copyMarketplaceLinkItems(pluginMarketplaceUrl(entry));
   return (
     <ResourceDetailPage
       maxWidthClassName="max-w-5xl"
@@ -208,14 +176,6 @@ export function CatalogPluginDetail({
           count={count}
           onInstall={() => onInstall(entry)}
         />
-      }
-      overflowMenu={
-        overflowItems.length === 0 ? undefined : (
-          <ResourceOverflowMenu
-            label={`${entry.displayName} actions`}
-            items={overflowItems}
-          />
-        )
       }
     >
       <ResourceDetailStack>
@@ -240,7 +200,7 @@ export function CatalogPluginDetailBanner({
     <PluginBannerBar
       tone="warning"
       icon="AlertTriangle"
-      title="Update bb to install this plugin"
+      title="Update cc to install this plugin"
       detail={entry.incompatibleReason}
     />
   );
@@ -356,10 +316,10 @@ export function PluginDetail({
 
   const hasUpdateManagement = pluginHasUpdateSurfaces(plugin);
   const canEditSource = pluginIsLocalSource(plugin);
-  const updatesWithBb = plugin.source.startsWith("builtin:");
+  const updatesWithCc = plugin.source.startsWith("builtin:");
   const installedAt = sourceQuery.data?.installedAt ?? null;
-  const installedValue = updatesWithBb
-    ? "Updates with bb"
+  const installedValue = updatesWithCc
+    ? "Updates with cc"
     : installedAt !== null
       ? formatAbsoluteDate(installedAt)
       : sourceQuery.isPending
@@ -377,14 +337,7 @@ export function PluginDetail({
     settingsSections.some((section) => section.pluginId === plugin.id);
 
   const pluginName = plugin.name ?? plugin.id;
-  const marketplaceUrl = pluginMarketplaceUrl(
-    catalogEntry ?? {
-      marketplace: plugin.catalogMarketplaceName,
-      entryId: plugin.catalogEntryId,
-    },
-  );
   const overflowItems: ResourceOverflowMenuItem[] = [
-    ...copyMarketplaceLinkItems(marketplaceUrl),
     ...(canEditSource
       ? [
           {
@@ -402,7 +355,7 @@ export function PluginDetail({
       disabled: pending || plugin.provenance === "builtin",
       disabledReason:
         plugin.provenance === "builtin"
-          ? "Included with BB; disable this plugin instead."
+          ? "Included with CC; disable this plugin instead."
           : undefined,
       onSelect: () => onDelete(plugin),
     },
@@ -410,7 +363,7 @@ export function PluginDetail({
   const bylineEntry =
     catalogEntry ??
     (plugin.provenance === "builtin" ||
-    plugin.catalogMarketplaceName === "bb-official"
+    plugin.catalogMarketplaceName === "cc-official"
       ? OFFICIAL_BYLINE_ENTRY
       : undefined);
   return (
@@ -461,7 +414,10 @@ export function PluginDetail({
     >
       <ResourceDetailStack>
         {catalogEntry === undefined ? (
-          <section className="max-w-prose" data-resource-detail-section="overview">
+          <section
+            className="max-w-prose"
+            data-resource-detail-section="overview"
+          >
             <PluginOverviewLead
               description={
                 plugin.description ?? "This plugin does not describe itself."
@@ -493,7 +449,7 @@ export function PluginDetail({
               <PluginMarketplaceDetailMetadata entry={catalogEntry} />
             )}
             <PluginDetailMetadataItem
-              label={updatesWithBb ? "Delivery" : "Installed"}
+              label={updatesWithCc ? "Delivery" : "Installed"}
             >
               {installedValue}
             </PluginDetailMetadataItem>

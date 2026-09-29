@@ -11,12 +11,12 @@ import {
   listEvents,
   setThreadStartupContext,
   markThreadDeleted,
-} from "@bb/db";
+} from "@cc/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   type ResolvedThreadExecutionOptions,
-} from "@bb/domain";
+} from "@cc/domain";
 import { describe, expect, it, vi } from "vitest";
 import {
   runThreadLifecycleSweep,
@@ -61,7 +61,7 @@ import { installFakeEnvironmentProvider } from "../helpers/environment-provider.
 import { withTestHarness } from "../helpers/test-app.js";
 import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";
 import { onDaemonSocketOpen } from "../../src/ws/daemon-protocol.js";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
 
 const THREAD_START_EXECUTION = {
   model: "gpt-5",
@@ -348,7 +348,7 @@ describe("thread provisioning recovery", () => {
         path: "/tmp/ready-retry-after-lost-provision",
         status: "ready",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "bb-plugin-environment-personal-workspace",
+        environmentProviderPluginId: "cc-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
       const thread = seedThread(harness.deps, {
@@ -429,7 +429,7 @@ describe("thread provisioning recovery", () => {
         path: "/tmp/error-retry-before-late-ready",
         status: "error",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "bb-plugin-environment-personal-workspace",
+        environmentProviderPluginId: "cc-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
       harness.db
@@ -439,7 +439,7 @@ describe("thread provisioning recovery", () => {
         .run();
       installFakeEnvironmentProvider({
         id: "personal-workspace",
-        pluginId: "bb-plugin-environment-personal-workspace",
+        pluginId: "cc-plugin-environment-personal-workspace",
         displayName: "Personal workspace",
         requires: {
           projectCheckout: false,

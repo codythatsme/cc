@@ -1,16 +1,16 @@
-import { renderTemplate } from "@bb/templates";
-import { getThread, updateThread } from "@bb/db";
+import { renderTemplate } from "@cc/templates";
+import { getThread, updateThread } from "@cc/db";
 import {
   removeCommandMentionsFromPromptInput,
   type PromptInput,
   type PromptMentionCommandTrigger,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   countWords,
   displayWidth,
   truncateToWidth,
   truncateToWidthAtWordBoundary,
-} from "@bb/text-utils";
+} from "@cc/text-utils";
 import type { AppDeps, LoggedWorkSessionDeps } from "../../types.js";
 import { runTextAiTask } from "../ai/ai-tasks.js";
 

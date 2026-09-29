@@ -11,11 +11,11 @@ import {
   replaceStoredProviderModelCatalog,
   setThreadStartupContext,
   updateHost,
-} from "@bb/db";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@cc/db";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { eq } from "drizzle-orm";
-import type { JsonValue } from "@bb/domain";
-import type { PluginMachineProviderDeclaration } from "@get-bb/plugin-sdk";
+import type { JsonValue } from "@cc/domain";
+import type { PluginMachineProviderDeclaration } from "@codythatsme/plugin-sdk";
 import {
   askMachineLaunch,
   requestAutomaticMachineRemoval,
@@ -183,8 +183,8 @@ describe("machine creation hosts", () => {
       const record = installMachineProvider({
         create: async ({ report }) => {
           report.step("Bootstrapping machine");
-          report.log("bb-machine-install: 9: node: not found\n");
-          report.log("bb-machine-install: 9: curl: not found\n");
+          report.log("cc-machine-install: 9: node: not found\n");
+          report.log("cc-machine-install: 9: curl: not found\n");
           return { status: "failed", message };
         },
         reconcileCleanup: async () => {

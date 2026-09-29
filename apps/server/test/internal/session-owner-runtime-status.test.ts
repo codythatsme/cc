@@ -1,5 +1,5 @@
-import { changedMessageSchema, type ThreadChangedMessage } from "@bb/domain";
-import { getThread, markThreadDeleted } from "@bb/db";
+import { changedMessageSchema, type ThreadChangedMessage } from "@cc/domain";
+import { getThread, markThreadDeleted } from "@cc/db";
 import { HOST_RECONNECT_GRACE_MS } from "../../src/constants.js";
 import { describe, expect, it, vi } from "vitest";
 import {

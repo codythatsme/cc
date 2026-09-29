@@ -1,5 +1,5 @@
-import type { ThreadListEntry } from "@bb/domain";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import type { ThreadListEntry } from "@cc/domain";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import { buildPinnedSidebarState } from "../src/sidebar/pinnedSidebarThreads.js";
 

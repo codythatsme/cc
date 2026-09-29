@@ -1,6 +1,6 @@
-import type { DiscoveredSkill, SkillRootKind } from "@bb/host-daemon-contract";
+import type { DiscoveredSkill, SkillRootKind } from "@cc/host-daemon-contract";
 import { createHash } from "node:crypto";
-import type { SkillProvider } from "@bb/server-contract";
+import type { SkillProvider } from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   assembleSkillList,
@@ -18,29 +18,29 @@ describe("mapSkillScope", () => {
   }> = [
     {
       provider: "claude-code",
-      rootKind: "bb-project",
-      scope: "bb-project",
+      rootKind: "cc-project",
+      scope: "cc-project",
       listedProvider: null,
       manageable: true,
     },
     {
       provider: "codex",
-      rootKind: "bb-project",
-      scope: "bb-project",
+      rootKind: "cc-project",
+      scope: "cc-project",
       listedProvider: null,
       manageable: true,
     },
     {
       provider: "claude-code",
-      rootKind: "bb-data-dir",
-      scope: "bb-user",
+      rootKind: "cc-data-dir",
+      scope: "cc-user",
       listedProvider: null,
       manageable: true,
     },
     {
       provider: "claude-code",
-      rootKind: "bb-builtin",
-      scope: "bb-builtin",
+      rootKind: "cc-builtin",
+      scope: "cc-builtin",
       listedProvider: null,
       manageable: false,
     },
@@ -145,21 +145,21 @@ describe("assembleSkillList", () => {
     };
   }
 
-  it("de-dupes a bb skill discovered under both providers", () => {
-    const bb = discovered(
+  it("de-dupes a cc skill discovered under both providers", () => {
+    const cc = discovered(
       "shared",
-      "bb-data-dir",
+      "cc-data-dir",
       "/data/skills/shared/SKILL.md",
     );
     const result = assembleSkillList([
-      { provider: "claude-code", skills: [bb] },
-      { provider: "codex", skills: [bb] },
+      { provider: "claude-code", skills: [cc] },
+      { provider: "codex", skills: [cc] },
     ]);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       name: "shared",
       provider: null,
-      scope: "bb-user",
+      scope: "cc-user",
     });
   });
 
@@ -173,7 +173,7 @@ describe("assembleSkillList", () => {
             "provider-user",
             "/home/.claude/skills/zed/SKILL.md",
           ),
-          discovered("alpha", "bb-project", "/cwd/.bb/skills/alpha/SKILL.md"),
+          discovered("alpha", "cc-project", "/cwd/.cc/skills/alpha/SKILL.md"),
         ],
       },
       {
@@ -188,7 +188,7 @@ describe("assembleSkillList", () => {
       },
     ]);
     expect(result.map((skill) => [skill.scope, skill.name])).toEqual([
-      ["bb-project", "alpha"],
+      ["cc-project", "alpha"],
       ["provider-user", "zed"],
       ["provider-user", "zed"],
     ]);

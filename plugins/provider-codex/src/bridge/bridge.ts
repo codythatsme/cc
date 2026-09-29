@@ -46,7 +46,7 @@ import {
   type ProviderRuntimeEvent,
   experimental_defineProviderBridge,
   type ProviderRecoveryHint,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import {
   CODEX_MACOS_PERMISSION_EXTENSION_KIND,
@@ -71,8 +71,8 @@ import {
   toCodexServiceTier,
   toCodexThreadPermissionSettings,
   toCodexUserInput,
-  type BbThreadForkParams,
-  type BbThreadStartParams,
+  type CcThreadForkParams,
+  type CcThreadStartParams,
   type CodexSessionOptions,
 } from "../session-params.js";
 import type { ThreadResumeParams } from "../generated/codex-app-server/schema/v2/ThreadResumeParams.js";
@@ -95,7 +95,7 @@ import {
   getCodexProviderUsage,
 } from "./provider-maintenance.js";
 
-type BbThreadResumeParams = ThreadResumeParams & { excludeTurns: boolean };
+type CcThreadResumeParams = ThreadResumeParams & { excludeTurns: boolean };
 
 const codexBridgeCommandSchema = z.discriminatedUnion("method", [
   z.object({
@@ -272,13 +272,13 @@ function sendRuntimeRequest(
   return responsePromise;
 }
 
-const CODEX_APP_SERVER_COMMAND_ENV = "BB_CODEX_BRIDGE_APP_SERVER_COMMAND";
-const CODEX_APP_SERVER_ARGS_ENV = "BB_CODEX_BRIDGE_APP_SERVER_ARGS";
+const CODEX_APP_SERVER_COMMAND_ENV = "CC_CODEX_BRIDGE_APP_SERVER_COMMAND";
+const CODEX_APP_SERVER_ARGS_ENV = "CC_CODEX_BRIDGE_APP_SERVER_ARGS";
 const CODEX_POOL_BASE_URL_ENV = "CODEX_OPENAI_BASE_URL";
 const CODEX_POOL_AUTH_TOKEN_ENV = "CODEX_POOL_AUTH_TOKEN";
 
 const CODEX_INITIALIZE_PARAMS = {
-  clientInfo: { name: "bb", version: "1.0.0", title: null },
+  clientInfo: { name: "cc", version: "1.0.0", title: null },
   capabilities: { experimentalApi: true },
 };
 
@@ -338,7 +338,7 @@ async function delay(ms: number): Promise<void> {
   });
 }
 const MISSING_CODEX_CLI_GUIDANCE =
-  "bb could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.";
+  "cc could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.";
 
 export function resolveAppServerLaunch(env: NodeJS.ProcessEnv = process.env): {
   command: string;
@@ -351,6 +351,16 @@ export function resolveAppServerLaunch(env: NodeJS.ProcessEnv = process.env): {
       ? z.array(z.string()).parse(JSON.parse(rawArgs))
       : []
     : ["app-server"];
+  args.push(
+    "-c",
+    "analytics.enabled=false",
+    "-c",
+    'otel.exporter="none"',
+    "-c",
+    'otel.trace_exporter="none"',
+    "-c",
+    'otel.metrics_exporter="none"',
+  );
   const poolBaseUrl = env[CODEX_POOL_BASE_URL_ENV];
   const poolToken = env[CODEX_POOL_AUTH_TOKEN_ENV];
   if (!poolBaseUrl || !poolToken) return { command: command ?? "codex", args };
@@ -361,19 +371,19 @@ export function resolveAppServerLaunch(env: NodeJS.ProcessEnv = process.env): {
       "-c",
       `openai_base_url=${JSON.stringify(poolBaseUrl)}`,
       "-c",
-      'model_provider="bb-account-pool"',
+      'model_provider="cc-account-pool"',
       "-c",
-      'model_providers.bb-account-pool.name="OpenAI"',
+      'model_providers.cc-account-pool.name="OpenAI"',
       "-c",
-      `model_providers.bb-account-pool.base_url=${JSON.stringify(poolBaseUrl)}`,
+      `model_providers.cc-account-pool.base_url=${JSON.stringify(poolBaseUrl)}`,
       "-c",
-      'model_providers.bb-account-pool.wire_api="responses"',
+      'model_providers.cc-account-pool.wire_api="responses"',
       "-c",
-      "model_providers.bb-account-pool.requires_openai_auth=true",
+      "model_providers.cc-account-pool.requires_openai_auth=true",
       "-c",
-      "model_providers.bb-account-pool.supports_websockets=false",
+      "model_providers.cc-account-pool.supports_websockets=false",
       "-c",
-      'model_providers.bb-account-pool.env_http_headers.x-bb-account-pool-token="CODEX_POOL_AUTH_TOKEN"',
+      'model_providers.cc-account-pool.env_http_headers.x-cc-account-pool-token="CODEX_POOL_AUTH_TOKEN"',
     ],
   };
 }
@@ -455,7 +465,7 @@ const codexThreadStatusChangedParamsSchema = z
   .passthrough();
 
 interface CodexBridgeSession {
-  bbThreadId: string;
+  ccThreadId: string;
   codexThreadId: string | null;
   serial: number;
   connection: CodexAppServerConnection | null;
@@ -478,7 +488,7 @@ interface CodexBridgeSession {
   releasePromise: Promise<void> | null;
 }
 
-const sessionsByBbThreadId = new Map<string, CodexBridgeSession>();
+const sessionsByCcThreadId = new Map<string, CodexBridgeSession>();
 const maintenanceConnections = new Set<CodexAppServerConnection>();
 let modelListConnection: CodexAppServerConnection | null = null;
 let modelListConnectionPromise: Promise<CodexAppServerConnection> | null = null;
@@ -493,10 +503,10 @@ function stripLegacyBridgeIdPrefix(id: string): string {
 }
 
 function currentSession(
-  bbThreadId: string,
+  ccThreadId: string,
   serial: number,
 ): CodexBridgeSession | undefined {
-  const session = sessionsByBbThreadId.get(bbThreadId);
+  const session = sessionsByCcThreadId.get(ccThreadId);
   if (!session || session.serial !== serial || session.closing) {
     return undefined;
   }
@@ -508,8 +518,8 @@ function releaseSession(session: CodexBridgeSession): Promise<void> {
     return session.releasePromise;
   }
   session.closing = true;
-  if (sessionsByBbThreadId.get(session.bbThreadId) === session) {
-    sessionsByBbThreadId.delete(session.bbThreadId);
+  if (sessionsByCcThreadId.get(session.ccThreadId) === session) {
+    sessionsByCcThreadId.delete(session.ccThreadId);
   }
   const previousChildExit = session.previousChildExit;
   session.previousChildExit = null;
@@ -638,7 +648,7 @@ function sendThreadDeltas(
     return;
   }
   sendNotification(THREAD_DELTA_NOTIFICATION_METHOD, {
-    threadId: session.bbThreadId,
+    threadId: session.ccThreadId,
     deltas: outDeltas,
   });
 }
@@ -655,7 +665,7 @@ function announceSessionIdentity(
   }
   session.identityAnnounced = true;
   sendNotification(BRIDGE_NOTIFICATION_METHODS.threadIdentity, {
-    threadId: session.bbThreadId,
+    threadId: session.ccThreadId,
     providerThreadId: codexThreadId,
     sessionRestorable: true,
   });
@@ -680,12 +690,12 @@ function toProviderRuntimeEvent(
 }
 
 async function handleChildNotification(
-  bbThreadId: string,
+  ccThreadId: string,
   serial: number,
   method: string,
   params: unknown,
 ): Promise<void> {
-  const session = currentSession(bbThreadId, serial);
+  const session = currentSession(ccThreadId, serial);
   if (!session) {
     return;
   }
@@ -740,13 +750,13 @@ async function handleChildNotification(
               timeoutMs: RATE_LIMIT_RECOVERY_TIMEOUT_MS,
             })
           : null;
-      if (currentSession(bbThreadId, serial) !== session) return;
+      if (currentSession(ccThreadId, serial) !== session) return;
       sendThreadDeltas(session, session.translator.recoverRateLimits(snapshot));
     } catch {
-      if (currentSession(bbThreadId, serial) !== session) return;
+      if (currentSession(ccThreadId, serial) !== session) return;
       sendThreadDeltas(session, session.translator.recoverRateLimits(null));
     }
-    if (currentSession(bbThreadId, serial) !== session) return;
+    if (currentSession(ccThreadId, serial) !== session) return;
   }
   sendThreadDeltas(session, deltas);
   for (const delta of deltas) {
@@ -770,7 +780,7 @@ function emitTerminalAccountErrorHint(
       ? "codex session restarted after an authentication failure so a new login can take effect."
       : "codex session restarted after a rate limit so a refreshed account state can take effect.";
   sendNotification(BRIDGE_NOTIFICATION_METHODS.providerRecovery, {
-    threadId: session.bbThreadId,
+    threadId: session.ccThreadId,
     kind,
     message,
     retryable: false,
@@ -786,13 +796,13 @@ const codexChildToolCallParamsSchema = z.object({
 });
 
 function handleChildRequest(
-  bbThreadId: string,
+  ccThreadId: string,
   serial: number,
   method: string,
   params: unknown,
   responder: CodexAppServerRequestResponder,
 ): void {
-  const session = currentSession(bbThreadId, serial);
+  const session = currentSession(ccThreadId, serial);
   if (!session) {
     responder.error(
       BRIDGE_JSON_RPC_ERRORS.BRIDGE_ERROR,
@@ -812,7 +822,7 @@ function handleChildRequest(
     }
     void sendRuntimeRequest(BRIDGE_INBOUND_REQUEST_METHODS.toolCall, {
       providerThreadId: session.codexThreadId ?? parsed.data.threadId,
-      threadId: session.bbThreadId,
+      threadId: session.ccThreadId,
       turnId: parsed.data.turnId,
       callId: parsed.data.callId,
       tool: parsed.data.tool,
@@ -861,7 +871,7 @@ function handleChildRequest(
 
   void sendRuntimeRequest(BRIDGE_INBOUND_REQUEST_METHODS.interactionRequest, {
     providerThreadId: session.codexThreadId ?? request.providerThreadId,
-    threadId: session.bbThreadId,
+    threadId: session.ccThreadId,
     turnId: request.turnId,
     payload: request.payload,
     providerNativeIds: true,
@@ -903,11 +913,11 @@ function buildMacOsPermissionItemDelta(
 }
 
 function handleChildExit(
-  bbThreadId: string,
+  ccThreadId: string,
   serial: number,
   info: CodexAppServerExitInfo,
 ): void {
-  const session = currentSession(bbThreadId, serial);
+  const session = currentSession(ccThreadId, serial);
   if (!session) {
     return;
   }
@@ -938,7 +948,7 @@ function handleChildExit(
     });
   }
   sendNotification(BRIDGE_NOTIFICATION_METHODS.error, {
-    threadId: session.bbThreadId,
+    threadId: session.ccThreadId,
     ...(session.codexThreadId !== null
       ? { providerThreadId: session.codexThreadId }
       : {}),
@@ -1005,7 +1015,7 @@ const codexThreadIdentityResultSchema = z
 async function requestThreadConstructionWithWriterRetry(
   connection: CodexAppServerConnection,
   method: string,
-  params: BbThreadStartParams | BbThreadResumeParams | BbThreadForkParams,
+  params: CcThreadStartParams | CcThreadResumeParams | CcThreadForkParams,
 ): Promise<z.infer<typeof codexThreadIdentityResultSchema>> {
   const sendOnce = (): Promise<
     z.infer<typeof codexThreadIdentityResultSchema>
@@ -1062,7 +1072,7 @@ interface ConstructedCodexSession {
 async function constructThreadSession(
   args: ConstructThreadSessionArgs,
 ): Promise<ConstructedCodexSession> {
-  const existing = sessionsByBbThreadId.get(args.threadId);
+  const existing = sessionsByCcThreadId.get(args.threadId);
   const decoded = decodeCodexOptions(args.options);
   sessionSerialCounter += 1;
   const serial = sessionSerialCounter;
@@ -1079,7 +1089,7 @@ async function constructThreadSession(
   );
   const launchEnv = appServerLaunchEnv(decoded.sessionOptions.envVars);
   const session: CodexBridgeSession = {
-    bbThreadId: args.threadId,
+    ccThreadId: args.threadId,
     codexThreadId:
       args.request.kind === "resume" ? args.request.providerThreadId : null,
     serial,
@@ -1111,7 +1121,7 @@ async function constructThreadSession(
     previousChildExit: null,
     releasePromise: null,
   };
-  sessionsByBbThreadId.set(args.threadId, session);
+  sessionsByCcThreadId.set(args.threadId, session);
   if (existing) {
     const previousChildExit = releaseSession(existing);
     session.previousChildExit = previousChildExit;
@@ -1186,11 +1196,11 @@ async function constructThreadSession(
     };
 
     let method: string;
-    let params: BbThreadStartParams | BbThreadResumeParams | BbThreadForkParams;
+    let params: CcThreadStartParams | CcThreadResumeParams | CcThreadForkParams;
     switch (args.request.kind) {
       case "start": {
         method = "thread/start";
-        const startParams: BbThreadStartParams = {
+        const startParams: CcThreadStartParams = {
           ...sharedConstructionParams,
           ephemeral: false,
           experimentalRawEvents: true,
@@ -1200,7 +1210,7 @@ async function constructThreadSession(
       }
       case "resume": {
         method = "thread/resume";
-        const resumeParams: BbThreadResumeParams = {
+        const resumeParams: CcThreadResumeParams = {
           threadId: args.request.providerThreadId,
           excludeTurns: true,
           ...sharedConstructionParams,
@@ -1210,7 +1220,7 @@ async function constructThreadSession(
       }
       case "fork": {
         method = "thread/fork";
-        const forkParams: BbThreadForkParams = {
+        const forkParams: CcThreadForkParams = {
           threadId: args.request.sourceProviderThreadId,
           ...(args.request.sourceProviderCheckpointId !== undefined
             ? {
@@ -1241,8 +1251,8 @@ async function constructThreadSession(
     return { session, codexThreadId };
   } catch (error) {
     const released = session.closing;
-    if (sessionsByBbThreadId.get(args.threadId) === session) {
-      sessionsByBbThreadId.delete(args.threadId);
+    if (sessionsByCcThreadId.get(args.threadId) === session) {
+      sessionsByCcThreadId.delete(args.threadId);
     }
     session.closing = true;
     await connection.kill();
@@ -1260,13 +1270,13 @@ class CodexSessionReleasedError extends Error {
 function registerResumableSession(session: CodexBridgeSession): void {
   if (
     session.codexThreadId === null ||
-    sessionsByBbThreadId.has(session.bbThreadId)
+    sessionsByCcThreadId.has(session.ccThreadId)
   ) {
     return;
   }
   sessionSerialCounter += 1;
-  sessionsByBbThreadId.set(session.bbThreadId, {
-    bbThreadId: session.bbThreadId,
+  sessionsByCcThreadId.set(session.ccThreadId, {
+    ccThreadId: session.ccThreadId,
     codexThreadId: session.codexThreadId,
     serial: sessionSerialCounter,
     connection: null,
@@ -1304,7 +1314,7 @@ async function rebuildThreadSession(
   let replacement: ConstructedCodexSession;
   try {
     replacement = await constructThreadSession({
-      threadId: session.bbThreadId,
+      threadId: session.ccThreadId,
       cwd: session.construction.cwd,
       options,
       instructionMode: session.construction.instructionMode,
@@ -1320,7 +1330,7 @@ async function rebuildThreadSession(
     throw error;
   }
   sendNotification(BRIDGE_NOTIFICATION_METHODS.sessionReplaced, {
-    threadId: replacement.session.bbThreadId,
+    threadId: replacement.session.ccThreadId,
     providerThreadId: replacement.codexThreadId,
     reason,
     contextLost: false,
@@ -1407,10 +1417,10 @@ function retireModelListConnection(connection: CodexAppServerConnection): void {
 }
 
 async function withChildForThread<T>(
-  bbThreadId: string,
+  ccThreadId: string,
   fn: (connection: CodexAppServerConnection) => Promise<T>,
 ): Promise<T> {
-  const session = sessionsByBbThreadId.get(bbThreadId);
+  const session = sessionsByCcThreadId.get(ccThreadId);
   if (
     session &&
     !session.closing &&
@@ -1523,7 +1533,7 @@ interface LiveSessionForTurn {
 async function requireLiveSessionForTurn(
   params: TurnStartParamsShape,
 ): Promise<LiveSessionForTurn> {
-  let session = sessionsByBbThreadId.get(params.threadId);
+  let session = sessionsByCcThreadId.get(params.threadId);
   if (!session || session.closing) {
     throw new Error(`No active codex session for thread "${params.threadId}"`);
   }
@@ -1590,7 +1600,7 @@ function settleAcceptedDispatch(args: {
   if (prepared === null) {
     return;
   }
-  const live = currentSession(session.bbThreadId, session.serial);
+  const live = currentSession(session.ccThreadId, session.serial);
   if (!live || live.codexThreadId === null) {
     return;
   }
@@ -1716,7 +1726,7 @@ function scheduleZeroWorkTurnSettlement(args: {
   }
   const serial = session.serial;
   const timer = setTimeout(() => {
-    const live = currentSession(session.bbThreadId, serial);
+    const live = currentSession(session.ccThreadId, serial);
     if (!live || live.openCodexTurnIds.size > 0) {
       return;
     }
@@ -1738,7 +1748,7 @@ function awaitCompactionTurn(args: {
   if (prepared === null) {
     return;
   }
-  const live = currentSession(session.bbThreadId, session.serial);
+  const live = currentSession(session.ccThreadId, session.serial);
   if (!live) {
     return;
   }
@@ -1882,7 +1892,7 @@ async function handleTurnSteer(
   id: string | number,
   params: TurnSteerParamsShape,
 ): Promise<void> {
-  const session = sessionsByBbThreadId.get(params.threadId);
+  const session = sessionsByCcThreadId.get(params.threadId);
   if (
     !session ||
     session.closing ||
@@ -1925,7 +1935,7 @@ async function handleThreadStop(
   id: string | number,
   params: ThreadStopParamsShape,
 ): Promise<void> {
-  const session = sessionsByBbThreadId.get(params.threadId);
+  const session = sessionsByCcThreadId.get(params.threadId);
 
   if (params.intent === "release") {
     if (session) {
@@ -2091,7 +2101,7 @@ async function handleThreadMaintenance(
 ): Promise<void> {
   const settle = async (): Promise<void> => {
     if (options?.releaseAfter) {
-      const session = sessionsByBbThreadId.get(params.threadId);
+      const session = sessionsByCcThreadId.get(params.threadId);
       if (session) {
         await releaseSession(session);
       }
@@ -2166,7 +2176,7 @@ async function handleSkillsConfigure(
 ): Promise<void> {
   configuredSkillExtraRoots = params.roots.map((root) => root.path);
   try {
-    for (const session of sessionsByBbThreadId.values()) {
+    for (const session of sessionsByCcThreadId.values()) {
       if (
         session.closing ||
         session.connection === null ||
@@ -2345,12 +2355,12 @@ function handleParsedMessage(parsed: unknown): void {
 export const handleLine = createBridgeLineHandler({ handleParsedMessage });
 
 function killAllChildren(): void {
-  for (const session of sessionsByBbThreadId.values()) {
+  for (const session of sessionsByCcThreadId.values()) {
     session.closing = true;
     session.connection?.kill();
     session.connection = null;
   }
-  sessionsByBbThreadId.clear();
+  sessionsByCcThreadId.clear();
   modelListConnection = null;
   modelListConnectionPromise = null;
   for (const connection of maintenanceConnections) {

@@ -13,7 +13,7 @@ import {
 import { dirname, isAbsolute, join, relative } from "node:path";
 import semverCompare from "semver/functions/compare.js";
 import minVersion from "semver/ranges/min-version.js";
-import { derivePluginId, PLUGIN_SDK_VERSION } from "@bb/domain";
+import { derivePluginId, PLUGIN_SDK_VERSION } from "@cc/domain";
 import {
   PLUGIN_SHIMMED_TYPE_DEPENDENCIES,
   PLUGIN_STARTER_DEPENDENCIES,
@@ -23,7 +23,8 @@ import {
 interface ScaffoldPluginArgs {
   targetDir: string;
   packageName: string;
-  bbVersion: string;
+  ccVersion: string;
+  sdkSpecifier?: string;
 }
 
 interface PluginSdkLayout {
@@ -36,8 +37,8 @@ export async function resolvePluginSdkLayout(
 ): Promise<PluginSdkLayout> {
   const pin = await readDeclaredSdkPin(rootDir);
   const hasVendoredTypes =
-    (await pathExists(join(rootDir, "types", "bb-plugin-sdk.d.ts"))) ||
-    (await pathExists(join(rootDir, "types", "bb-plugin-sdk-app.d.ts")));
+    (await pathExists(join(rootDir, "types", "cc-plugin-sdk.d.ts"))) ||
+    (await pathExists(join(rootDir, "types", "cc-plugin-sdk-app.d.ts")));
   const hasPathMap = await tsconfigMapsSdk(rootDir);
   return {
     kind: hasVendoredTypes || hasPathMap ? "vendored" : "package",
@@ -45,15 +46,18 @@ export async function resolvePluginSdkLayout(
   };
 }
 
-const SDK_PATH_MAP_PREFIXES = ["@get-bb/plugin-sdk", "@bb/plugin-sdk"] as const;
+const SDK_PATH_MAP_PREFIXES = [
+  "@codythatsme/plugin-sdk",
+  "@cc/plugin-sdk",
+] as const;
 
 const VENDORED_DECLARATIONS = [
-  "bb-plugin-sdk.d.ts",
-  "bb-plugin-sdk-app.d.ts",
+  "cc-plugin-sdk.d.ts",
+  "cc-plugin-sdk-app.d.ts",
 ] as const;
 
 const LEGACY_SDK_SPECIFIER_PATTERN =
-  /(["'])@bb\/plugin-sdk((?:\/[^"'\n]*)?)\1/g;
+  /(["'])@cc\/plugin-sdk((?:\/[^"'\n]*)?)\1/g;
 
 const PLUGIN_SOURCE_EXTENSIONS = [".ts", ".tsx"] as const;
 const UNSCANNED_DIRECTORIES = new Set([
@@ -67,6 +71,7 @@ const MAX_SOURCE_SCAN_DEPTH = 12;
 interface MigratePluginArgs {
   rootDir: string;
   sdkVersion: string;
+  sdkSpecifier?: string;
   dryRun?: boolean;
 }
 
@@ -93,6 +98,7 @@ export async function migratePluginToPackageLayout(
   const { rootDir, sdkVersion, dryRun = false } = args;
   const manifestPlan = await planManifest(rootDir, sdkVersion, {
     raiseFloor: true,
+    sdkSpecifier: args.sdkSpecifier ?? sdkVersion,
     shimmedTypePins: "none",
   });
   const typesPlan = await planVendoredDeletions(rootDir);
@@ -177,7 +183,7 @@ function rewriteLegacySdkSpecifiers(content: string): {
     LEGACY_SDK_SPECIFIER_PATTERN,
     (_match, quote: string, subpath: string) => {
       imports += 1;
-      return `${quote}@get-bb/plugin-sdk${subpath}${quote}`;
+      return `${quote}@codythatsme/plugin-sdk${subpath}${quote}`;
     },
   );
   return { text, imports };
@@ -244,6 +250,7 @@ async function assertInsidePlugin(
 interface SetPluginSdkPinArgs {
   rootDir: string;
   sdkVersion: string;
+  sdkSpecifier?: string;
   dryRun?: boolean;
 }
 
@@ -266,6 +273,7 @@ export async function setPluginSdkPin(
   const { rootDir, sdkVersion, dryRun = false } = args;
   const plan = await planManifest(rootDir, sdkVersion, {
     raiseFloor: false,
+    sdkSpecifier: args.sdkSpecifier ?? sdkVersion,
     shimmedTypePins: "declared",
   });
   if (plan.text === null) return null;
@@ -292,7 +300,11 @@ type ShimmedTypePinPolicy = "none" | "declared";
 async function planManifest(
   rootDir: string,
   sdkVersion: string,
-  options: { raiseFloor: boolean; shimmedTypePins: ShimmedTypePinPolicy },
+  options: {
+    raiseFloor: boolean;
+    sdkSpecifier: string;
+    shimmedTypePins: ShimmedTypePinPolicy;
+  },
 ): Promise<ManifestPlan> {
   const path = join(rootDir, "package.json");
   await statNoFollow(path, "package.json");
@@ -319,14 +331,14 @@ async function planManifest(
 
   const declaredPin = readSdkPinFrom(manifest);
   const pin =
-    declaredPin.version === sdkVersion
+    declaredPin.version === options.sdkSpecifier
       ? null
-      : { from: declaredPin.version, to: sdkVersion };
+      : { from: declaredPin.version, to: options.sdkSpecifier };
   const movedFromDependencies = declaredPin.inDependencies;
   if (pin !== null || movedFromDependencies) {
     if (movedFromDependencies) {
       const deps = asRecord(manifest.dependencies);
-      delete deps["@get-bb/plugin-sdk"];
+      delete deps["@codythatsme/plugin-sdk"];
       if (Object.keys(deps).length === 0) {
         delete manifest.dependencies;
       } else {
@@ -335,8 +347,8 @@ async function planManifest(
     }
     manifest.devDependencies = insertDependency(
       asRecord(manifest.devDependencies),
-      "@get-bb/plugin-sdk",
-      sdkVersion,
+      "@codythatsme/plugin-sdk",
+      options.sdkSpecifier,
     );
   }
 
@@ -348,11 +360,11 @@ async function planManifest(
   let enginesFloor: ManifestPlan["enginesFloor"] = null;
   if (options.raiseFloor) {
     const engines = asRecord(manifest.engines);
-    const current = engines.bbPluginSdk;
+    const current = engines.ccPluginSdk;
     const from = typeof current === "string" ? current : null;
     if (isFloorBelow(from, sdkVersion)) {
       enginesFloor = { from, to: `>=${sdkVersion}` };
-      manifest.engines = { ...engines, bbPluginSdk: `>=${sdkVersion}` };
+      manifest.engines = { ...engines, ccPluginSdk: `>=${sdkVersion}` };
     }
   }
 
@@ -431,9 +443,10 @@ function readSdkPinFrom(manifest: Record<string, unknown>): {
   version: string | null;
 } {
   const inDependencies =
-    typeof asRecord(manifest.dependencies)["@get-bb/plugin-sdk"] === "string";
+    typeof asRecord(manifest.dependencies)["@codythatsme/plugin-sdk"] ===
+    "string";
   for (const field of ["devDependencies", "dependencies"] as const) {
-    const declared = asRecord(manifest[field])["@get-bb/plugin-sdk"];
+    const declared = asRecord(manifest[field])["@codythatsme/plugin-sdk"];
     if (typeof declared === "string")
       return { inDependencies, version: declared };
   }
@@ -517,7 +530,7 @@ async function planTsconfig(
     tsconfig = parsed as Record<string, unknown>;
   } catch {
     throw new Error(
-      "tsconfig.json is not valid JSON — remove the @get-bb/plugin-sdk paths entry by hand",
+      "tsconfig.json is not valid JSON — remove the @codythatsme/plugin-sdk paths entry by hand",
     );
   }
 
@@ -621,7 +634,8 @@ async function tsconfigMapsSdk(rootDir: string): Promise<boolean> {
       return false;
     }
     return (
-      raw.includes('"@get-bb/plugin-sdk') || raw.includes('"@bb/plugin-sdk')
+      raw.includes('"@codythatsme/plugin-sdk') ||
+      raw.includes('"@cc/plugin-sdk')
     );
   }
   const compilerOptions = tsconfig.compilerOptions;
@@ -685,7 +699,7 @@ async function writeFileAtomically(
   label: string,
   content: string,
 ): Promise<void> {
-  const suffix = `${process.pid}-${randomBytes(6).toString("hex")}.bb-tmp`;
+  const suffix = `${process.pid}-${randomBytes(6).toString("hex")}.cc-tmp`;
   const tempPath = `${filePath}.${suffix}`;
   if (await pathExists(tempPath)) {
     throw new Error(
@@ -708,16 +722,16 @@ function pluginNameOf(packageName: string): string {
     .join(" ");
 }
 
-function enginesRange(bbVersion: string): string {
-  const match = /^(\d+)\.(\d+)/.exec(bbVersion);
+function enginesRange(ccVersion: string): string {
+  const match = /^(\d+)\.(\d+)/.exec(ccVersion);
   return match ? `>=${match[1]}.${match[2]}` : ">=0.0";
 }
 
-function registryRef(bbVersion: string): string {
-  return bbVersion === "0.0.0" ? "main" : `desktop-v${bbVersion}`;
+function registryRef(ccVersion: string): string {
+  return ccVersion === "0.0.0" ? "main" : `desktop-v${ccVersion}`;
 }
 
-function componentsJsonSource(bbVersion: string): string {
+function componentsJsonSource(ccVersion: string): string {
   return `${JSON.stringify(
     {
       $schema: "https://ui.shadcn.com/schema.json",
@@ -737,7 +751,7 @@ function componentsJsonSource(bbVersion: string): string {
         hooks: "@/hooks",
       },
       registries: {
-        "@bb": `https://raw.githubusercontent.com/get-bb/bb/${registryRef(bbVersion)}/packages/plugin-registry/r/{name}.json`,
+        "@cc": `https://raw.githubusercontent.com/codythatsme/cc/${registryRef(ccVersion)}/packages/plugin-registry/r/{name}.json`,
       },
     },
     null,
@@ -748,18 +762,18 @@ function componentsJsonSource(bbVersion: string): string {
 function serverEntrySource(packageName: string): string {
   const id = derivePluginId(packageName);
   const name = pluginNameOf(packageName);
-  return `// ${packageName} — a BB plugin backend entry.
+  return `// ${packageName} — a CC plugin backend entry.
 //
-// The default export is a factory that receives the plugin API. BB supplies
+// The default export is a factory that receives the plugin API. CC supplies
 // the tiny defineRpcContract runtime helper; the API type remains type-only.
 //
-// The example is a todo list. One store in bb.storage.kv serves three
-// surfaces: the Example todos page (app.tsx, over RPC), the \`bb ${id}\` CLI
+// The example is a todo list. One store in cc.storage.kv serves three
+// surfaces: the Example todos page (app.tsx, over RPC), the \`cc ${id}\` CLI
 // command (below), and the skill in skills/example-todos/SKILL.md that tells
 // agents how to use that command. A write from any surface publishes a realtime signal so
 // every open page refetches.
 import { randomUUID } from "node:crypto";
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 
 const todoSchema = z.object({
@@ -794,13 +808,13 @@ export const rpcContract = defineRpcContract({
 /** Realtime channel app.tsx listens on; the payload is the todo count. */
 const TODOS_CHANGED = "todos-changed";
 
-export default async function plugin(bb: BbPluginApi) {
-  bb.log.info("loaded");
+export default async function plugin(cc: CcPluginApi) {
+  cc.log.info("loaded");
 
-  // Declarative settings — rendered in BB's settings UI and editable with
-  // \`bb plugin config ${id}\`. Add \`secret: true\` for values like API keys.
+  // Declarative settings — rendered in CC's settings UI and editable with
+  // \`cc plugin config ${id}\`. Add \`secret: true\` for values like API keys.
   // Settings are read once per load: reload the plugin after changing one.
-  const settings = bb.settings.define({
+  const settings = cc.settings.define({
     showDone: {
       type: "boolean",
       label: "Show completed todos",
@@ -809,15 +823,15 @@ export default async function plugin(bb: BbPluginApi) {
   });
   const { showDone } = await settings.get();
 
-  // Namespaced key-value storage in bb.db (JSON values, up to 256KB each).
-  // For bigger or relational data use bb.storage.database().
+  // Namespaced key-value storage in cc.db (JSON values, up to 256KB each).
+  // For bigger or relational data use cc.storage.database().
   async function readTodos(): Promise<Todo[]> {
-    return (await bb.storage.kv.get<Todo[]>("todos")) ?? [];
+    return (await cc.storage.kv.get<Todo[]>("todos")) ?? [];
   }
   async function writeTodos(todos: Todo[]): Promise<void> {
-    await bb.storage.kv.set("todos", todos);
+    await cc.storage.kv.set("todos", todos);
     // Ephemeral broadcast to every connected client; nothing is persisted.
-    bb.realtime.publish(TODOS_CHANGED, { count: todos.length });
+    cc.realtime.publish(TODOS_CHANGED, { count: todos.length });
   }
 
   async function listTodos(): Promise<Todo[]> {
@@ -850,7 +864,7 @@ export default async function plugin(bb: BbPluginApi) {
     return true;
   }
 
-  bb.rpc.register(rpcContract, {
+  cc.rpc.register(rpcContract, {
     todos_list: async () => ({ todos: await listTodos() }),
     todos_add: ({ title }) => addTodo(title),
     todos_set_done: async ({ id, done }) => {
@@ -861,44 +875,44 @@ export default async function plugin(bb: BbPluginApi) {
     todos_remove: async ({ id }) => ({ removed: await removeTodo(id) }),
   });
 
-  // The \`bb ${id}\` command: what agents (and you) use from a shell. Parsing
-  // argv is plugin-owned; \`commands\` is metadata BB renders into help and
+  // The \`cc ${id}\` command: what agents (and you) use from a shell. Parsing
+  // argv is plugin-owned; \`commands\` is metadata CC renders into help and
   // the generated plugin-commands skill without running plugin code.
   const usage = [
     "Usage:",
-    "  bb ${id} list [--json]",
-    "  bb ${id} add <title> [--json]",
-    "  bb ${id} done <todo-id> [--json]",
-    "  bb ${id} undo <todo-id> [--json]",
-    "  bb ${id} remove <todo-id> [--json]",
+    "  cc ${id} list [--json]",
+    "  cc ${id} add <title> [--json]",
+    "  cc ${id} done <todo-id> [--json]",
+    "  cc ${id} undo <todo-id> [--json]",
+    "  cc ${id} remove <todo-id> [--json]",
   ].join("\\n");
   function formatTodo(todo: Todo): string {
     return \`[\${todo.done ? "x" : " "}] \${todo.id}  \${todo.title}\`;
   }
-  bb.cli.register({
+  cc.cli.register({
     name: "${id}",
     summary: "Manage the ${name} plugin's example todo list",
     commands: [
-      { name: "list", summary: "List todos", usage: "bb ${id} list [--json]" },
+      { name: "list", summary: "List todos", usage: "cc ${id} list [--json]" },
       {
         name: "add",
         summary: "Add a todo",
-        usage: "bb ${id} add <title> [--json]",
+        usage: "cc ${id} add <title> [--json]",
       },
       {
         name: "done",
         summary: "Mark a todo done",
-        usage: "bb ${id} done <todo-id> [--json]",
+        usage: "cc ${id} done <todo-id> [--json]",
       },
       {
         name: "undo",
         summary: "Mark a todo not done",
-        usage: "bb ${id} undo <todo-id> [--json]",
+        usage: "cc ${id} undo <todo-id> [--json]",
       },
       {
         name: "remove",
         summary: "Remove a todo",
-        usage: "bb ${id} remove <todo-id> [--json]",
+        usage: "cc ${id} remove <todo-id> [--json]",
       },
     ],
     async run(argv) {
@@ -910,7 +924,7 @@ export default async function plugin(bb: BbPluginApi) {
       });
       const notFound = (missingId: string) => ({
         exitCode: 1,
-        stderr: \`No todo with id \${missingId}. Run "bb ${id} list" to see ids.\`,
+        stderr: \`No todo with id \${missingId}. Run "cc ${id} list" to see ids.\`,
       });
       const todoId = args[0];
       switch (command) {
@@ -950,15 +964,15 @@ export default async function plugin(bb: BbPluginApi) {
 
   // Cleanup on reload/disable/shutdown; hooks run LIFO. The sanctioned place
   // to clear timers and close connections.
-  bb.onDispose(() => {
-    bb.log.info("disposed");
+  cc.onDispose(() => {
+    cc.log.info("disposed");
   });
 
   // Long-lived background work: starts after load, gets an AbortSignal on
   // reload/disable/shutdown, and restarts with backoff if it crashes. Sleeps
   // must wake on abort — a plain setTimeout sleeps through the stop window
   // and the plugin reports "degraded (service did not stop)" on reload.
-  // bb.background.service("worker", {
+  // cc.background.service("worker", {
   //   async start(signal) {
   //     while (!signal.aborted) {
   //       await new Promise((resolve) => {
@@ -978,20 +992,20 @@ export default async function plugin(bb: BbPluginApi) {
 
 function appEntrySource(packageName: string): string {
   const id = derivePluginId(packageName);
-  return `// ${packageName} — a BB plugin frontend entry.
+  return `// ${packageName} — a CC plugin frontend entry.
 //
-// Compiled by \`bb plugin build\` into dist/app.js + dist/app.css. React and
-// @get-bb/plugin-sdk/app are provided by the BB app at load time (never bundled),
-// so this file must be loaded by BB, not imported directly.
+// Compiled by \`cc plugin build\` into dist/app.js + dist/app.css. React and
+// @codythatsme/plugin-sdk/app are provided by the CC app at load time (never bundled),
+// so this file must be loaded by CC, not imported directly.
 //
 // The components under components/ui/ are YOURS: vendored source (shadcn
-// model), edit freely. Add more from the BB registry with
-// \`npx shadcn add @bb/<name>\` (see components.json) — dropdowns, tables,
-// the full shadcn set, version-matched to this BB install. Run
-// \`npm install\` once before \`bb plugin build\`.
+// model), edit freely. Add more from the CC registry with
+// \`npx shadcn add @cc/<name>\` (see components.json) — dropdowns, tables,
+// the full shadcn set, version-matched to this CC install. Run
+// \`npm install\` once before \`cc plugin build\`.
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
+import { definePluginApp, useRealtime, useRpc } from "@codythatsme/plugin-sdk/app";
 import type { rpcContract, Todo } from "./server";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1017,7 +1031,7 @@ function useTodos() {
     refetch();
   }, [refetch]);
   // server.ts publishes after every write — from this page, another window,
-  // or \`bb ${id} add\` run by an agent — so the list never goes stale.
+  // or \`cc ${id} add\` run by an agent — so the list never goes stale.
   useRealtime("todos-changed", refetch);
   return { rpc, todos, error, report, refetch };
 }
@@ -1062,7 +1076,7 @@ function TodoRow({
   );
 }
 
-/** The dashed box BB's own list pages use for loading and empty states. */
+/** The dashed box CC's own list pages use for loading and empty states. */
 function EmptyState({ children }: { children: ReactNode }) {
   return (
     <div
@@ -1076,7 +1090,7 @@ function EmptyState({ children }: { children: ReactNode }) {
 
 // Tailwind classes compile against the host theme's live CSS variables —
 // derive colors from the theme tokens, never hardcoded grays. The frame
-// (scrolling page, centered column) matches BB's own nav-panel pages.
+// (scrolling page, centered column) matches CC's own nav-panel pages.
 function TodosPage() {
   const { rpc, todos, error, report, refetch } = useTodos();
   const [title, setTitle] = useState("");
@@ -1101,7 +1115,7 @@ function TodosPage() {
     <div className="h-full min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto box-border w-full max-w-3xl px-4 pb-4 pt-3 md:px-5 md:pt-4">
         <p className="text-sm text-muted-foreground">
-          Agents keep this list with <code>bb ${id}</code>; the skill in{" "}
+          Agents keep this list with <code>cc ${id}</code>; the skill in{" "}
           <code>skills/example-todos</code> tells them how.
         </p>
         <form onSubmit={add} className="mt-4 flex items-center gap-2">
@@ -1127,7 +1141,7 @@ function TodosPage() {
           ) : todos.length === 0 ? (
             <EmptyState>
               Nothing to do. Add one above, or run{" "}
-              <code>bb ${id} add "Ship it"</code>.
+              <code>cc ${id} add "Ship it"</code>.
             </EmptyState>
           ) : (
             <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
@@ -1160,10 +1174,10 @@ function TodosPage() {
   );
 }
 
-// The default export must be definePluginApp(...); BB interprets it after
+// The default export must be definePluginApp(...); CC interprets it after
 // loading the bundle. navPanel adds a page to the left sidebar; register
 // other UI under app.slots and composer actions, plus-menu rows, banners, or
-// rich-text rules with app.composer.customize(...) (see the bb guide's
+// rich-text rules with app.composer.customize(...) (see the cc guide's
 // plugins chapter).
 export default definePluginApp((app) => {
   app.slots.navPanel({
@@ -1206,34 +1220,34 @@ function skillSource(packageName: string): string {
   const name = pluginNameOf(packageName);
   return `---
 name: example-todos
-description: Read and update the ${name} plugin's example todo list with the \`bb ${id}\` CLI. Use when the user asks to add, complete, reopen, remove, or review todos, or when the steps of a task should be tracked as todos.
+description: Read and update the ${name} plugin's example todo list with the \`cc ${id}\` CLI. Use when the user asks to add, complete, reopen, remove, or review todos, or when the steps of a task should be tracked as todos.
 ---
 
 # Example todos
 
-The ${name} plugin keeps one todo list. The Example todos page in the BB sidebar and
-the \`bb ${id}\` command read and write the same list, so a change from either
+The ${name} plugin keeps one todo list. The Example todos page in the CC sidebar and
+the \`cc ${id}\` command read and write the same list, so a change from either
 side shows in the other at once.
 
 ## Commands
 
 | Command | Effect |
 | --- | --- |
-| \`bb ${id} list\` | Show every todo with its id. \`[x]\` marks a done todo. |
-| \`bb ${id} add <title>\` | Add a todo. Quote a title that has spaces. |
-| \`bb ${id} done <todo-id>\` | Mark a todo done. |
-| \`bb ${id} undo <todo-id>\` | Mark a todo not done. |
-| \`bb ${id} remove <todo-id>\` | Delete a todo. |
+| \`cc ${id} list\` | Show every todo with its id. \`[x]\` marks a done todo. |
+| \`cc ${id} add <title>\` | Add a todo. Quote a title that has spaces. |
+| \`cc ${id} done <todo-id>\` | Mark a todo done. |
+| \`cc ${id} undo <todo-id>\` | Mark a todo not done. |
+| \`cc ${id} remove <todo-id>\` | Delete a todo. |
 
 Add \`--json\` to any command when the output drives code.
 
 ## Procedure
 
-1. Run \`bb ${id} list\` before you change the list. Use the ids it prints;
+1. Run \`cc ${id} list\` before you change the list. Use the ids it prints;
    never guess an id.
 2. Add todos one at a time with a short title that starts with a verb:
-   \`bb ${id} add "Write the release notes"\`.
-3. When you finish a todo, mark it done: \`bb ${id} done <todo-id>\`. Do not
+   \`cc ${id} add "Write the release notes"\`.
+3. When you finish a todo, mark it done: \`cc ${id} done <todo-id>\`. Do not
    remove a todo to mark it done.
 4. Remove a todo only when the user asks for it or when it duplicates
    another todo.
@@ -1241,10 +1255,10 @@ Add \`--json\` to any command when the output drives code.
 
 ## Rules
 
-- Change the list only through \`bb ${id}\`. Do not edit bb.db or the plugin's
+- Change the list only through \`cc ${id}\`. Do not edit cc.db or the plugin's
   storage directly.
 - A non-zero exit with "No todo with id" means the id is stale: run
-  \`bb ${id} list\` again.
+  \`cc ${id} list\` again.
 `;
 }
 
@@ -1257,20 +1271,20 @@ your agent threads.
 
 - An **Example todos** page in the left sidebar that adds, completes, and
   removes todos.
-- A \`bb ${id}\` command that does the same from a terminal.
+- A \`cc ${id}\` command that does the same from a terminal.
 - Live updates, so a change made in one place reaches every open page at once.
 
 ## How it works
 
-The todos live in this plugin's own storage on the BB server, one list per
+The todos live in this plugin's own storage on the CC server, one list per
 installation. Nothing leaves the machine, and the plugin needs no account, API
 key, or external service.
 
 ## For agents
 
-The bundled skill tells an agent to read the list with \`bb ${id} list\`, add
-one todo at a time with \`bb ${id} add\`, and close finished work with
-\`bb ${id} done\`.
+The bundled skill tells an agent to read the list with \`cc ${id} list\`, add
+one todo at a time with \`cc ${id} add\`, and close finished work with
+\`cc ${id} done\`.
 `;
 }
 
@@ -1278,40 +1292,40 @@ function readmeSource(packageName: string): string {
   const id = derivePluginId(packageName);
   return `# ${packageName}
 
-A BB plugin that keeps a todo list. It shows every surface a plugin can own:
+A CC plugin that keeps a todo list. It shows every surface a plugin can own:
 
-- \`server.ts\` — the backend: a todo store in \`bb.storage.kv\`, RPC methods
-  for the page, a \`bb ${id}\` CLI command, a setting, and a realtime signal
+- \`server.ts\` — the backend: a todo store in \`cc.storage.kv\`, RPC methods
+  for the page, a \`cc ${id}\` CLI command, a setting, and a realtime signal
   that keeps every open page current.
 - \`app.tsx\` — the frontend: an **Example todos** page in the left sidebar
   (\`app.slots.navPanel\`) built from the vendored components.
 - \`skills/example-todos/SKILL.md\` — a skill that tells agents how to keep the list
-  with \`bb ${id}\`. BB imports it into agent threads automatically.
+  with \`cc ${id}\`. CC imports it into agent threads automatically.
 - \`PLUGIN_OVERVIEW.md\` — the store listing text: a longer version of
-  \`bb.description\` that the plugin detail page shows under it. See
+  \`cc.description\` that the plugin detail page shows under it. See
   [Store listing](#store-listing).
 
 Try it: install the plugin, open **Example todos** in the sidebar, then run
-\`bb ${id} add "Ship it"\` in a terminal. The page updates at once.
+\`cc ${id} add "Ship it"\` in a terminal. The page updates at once.
 
 ## UI components
 
 \`components/ui/\` is vendored source you own (the shadcn model): edit the
-files freely — they never update out from under you. Add more from the BB
-component registry (the full shadcn set, version-matched to your BB install
+files freely — they never update out from under you. Add more from the CC
+component registry (the full shadcn set, version-matched to your CC install
 via the pinned ref in \`components.json\`):
 
 \`\`\`
-npx shadcn add @bb/select @bb/table
+npx shadcn add @cc/select @cc/table
 \`\`\`
 
-Run \`npm install\` once before \`bb plugin build\` — the vendored components'
-npm deps bundle into your dist. React, and BB-shimmed packages like the
+Run \`npm install\` once before \`cc plugin build\` — the vendored components'
+npm deps bundle into your dist. React, and CC-shimmed packages like the
 radix portal primitives and \`sonner\` (\`import { toast } from "sonner"\`
-reaches BB's own toaster), are provided by the BB app at runtime and never
+reaches CC's own toaster), are provided by the CC app at runtime and never
 bundled. Every shimmed package is declared in \`devDependencies\` at the
 host's version so those imports typecheck; keep them there (never in
-\`dependencies\`, which would bundle a second copy), and \`bb plugin types\`
+\`dependencies\`, which would bundle a second copy), and \`cc plugin types\`
 repins declared packages alongside the SDK; unused packages may be removed. Ship \`dist/\` (npm tarball or committed for
 git installs) so people installing your plugin never need npm.
 
@@ -1319,28 +1333,28 @@ git installs) so people installing your plugin never need npm.
 
 \`package.json\` is the plugin manifest. Notable fields:
 
-- \`bb.server\` — backend entry (required).
-- \`bb.app\` — frontend entry. Delete it, \`app.tsx\`, \`components/\`,
+- \`cc.server\` — backend entry (required).
+- \`cc.app\` — frontend entry. Delete it, \`app.tsx\`, \`components/\`,
   \`hooks/\`, and \`lib/\` for a headless plugin.
-- \`bb.skills\` — skill roots; omitted here, so BB reads \`skills/\`. Each
+- \`cc.skills\` — skill roots; omitted here, so CC reads \`skills/\`. Each
   directory with a \`SKILL.md\` is one skill, named after the directory.
-- \`bb.name\` and \`bb.description\` — required human-facing identity.
-- \`bb.branding\` — required; declare \`icon\` as a BB icon name or a
+- \`cc.name\` and \`cc.description\` — required human-facing identity.
+- \`cc.branding\` — required; declare \`icon\` as a CC icon name or a
   plugin-relative compact SVG, or declare \`logo.light\` (with optional
   \`logo.dark\`). Logo assets must be relative \`.svg\`, \`.png\`, or
   \`.webp\` files.
-- \`engines.bb\` — supported bb app version range.
-- \`engines.bbPluginSdk\` — the lowest plugin SDK you need (scaffold:
-  \`>=${PLUGIN_SDK_VERSION}\`). BB reads this as a floor, not a ceiling: a later
+- \`engines.cc\` — supported cc app version range.
+- \`engines.ccPluginSdk\` — the lowest plugin SDK you need (scaffold:
+  \`>=${PLUGIN_SDK_VERSION}\`). CC reads this as a floor, not a ceiling: a later
   SDK in the same major still loads your plugin.
-- \`dependencies\` — every package your source imports that BB does not provide.
-  \`bb plugin build\` inlines them into \`dist/\`, and git installs resolve this
+- \`dependencies\` — every package your source imports that CC does not provide.
+  \`cc plugin build\` inlines them into \`dist/\`, and git installs resolve this
   list alone, so a build-required package here rather than in
   \`devDependencies\` is what keeps your plugin installable. \`devDependencies\`
-  is for types and tooling only (BB shims React, the portal primitives, and
-  \`@get-bb/plugin-sdk\` at runtime — never bundle them).
+  is for types and tooling only (CC shims React, the portal primitives, and
+  \`@codythatsme/plugin-sdk\` at runtime — never bundle them).
 
-Run \`bb plugin build\` before publishing git/npm installs. It writes
+Run \`cc plugin build\` before publishing git/npm installs. It writes
 \`dist/server.js\` + \`server.meta.json\` and \`app.js\` / \`app.css\` /
 \`app.meta.json\`. Each \`*.meta.json\` stamps SDK major/version,
 \`artifactFormatVersion\`, \`pluginId\`, \`pluginVersion\`, and
@@ -1348,80 +1362,80 @@ Run \`bb plugin build\` before publishing git/npm installs. It writes
 
 ## Store listing
 
-Two texts describe the plugin in the store. \`bb.description\` in package.json
+Two texts describe the plugin in the store. \`cc.description\` in package.json
 is the one-sentence hook on every browse card and the lead paragraph on the
 detail page; keep it under about 140 characters. \`PLUGIN_OVERVIEW.md\` is the
 same claim at length, shown in an Overview section under that paragraph.
 Rewrite the scaffold's copy for your plugin, and update it whenever
-\`bb.description\` changes, so the two never disagree.
+\`cc.description\` changes, so the two never disagree.
 
-The submission to the public BB Community marketplace requires the file. Keep
+The submission to the public CC Community marketplace requires the file. Keep
 it under 4000 characters (aim for 700 to 1800) and use headings, paragraphs,
 emphasis, code, blockquotes, lists, thematic breaks, and absolute https links
 only — raw HTML, images, tables, footnotes, and task lists are rejected. Do
-not open with a \`#\` title or repeat \`bb.description\` verbatim; the page
+not open with a \`#\` title or repeat \`cc.description\` verbatim; the page
 shows both directly above.
 
 ## Install
 
-From this directory (\`bb plugin new\` already ran the install; a fresh clone
+From this directory (\`cc plugin new\` already ran the install; a fresh clone
 needs it):
 
 \`\`\`
 npm install
-bb plugin install .
+cc plugin install .
 \`\`\`
 
 After editing sources, reload:
 
 \`\`\`
-bb plugin reload ${id}
+cc plugin reload ${id}
 \`\`\`
 
-Or let \`bb plugin dev\` rebuild and reload on every save.
+Or let \`cc plugin dev\` rebuild and reload on every save.
 
 ## Configure
 
 \`\`\`
-bb plugin config ${id}
-bb plugin config ${id} set showDone false
-bb plugin reload ${id}
+cc plugin config ${id}
+cc plugin config ${id} set showDone false
+cc plugin reload ${id}
 \`\`\`
 
 ## Types & API reference
 
-The plugin API ships as the npm package \`@get-bb/plugin-sdk\`, pinned to an
-exact version in \`devDependencies\` (\`${PLUGIN_SDK_VERSION}\` — the SDK of the BB
-that scaffolded this plugin). After \`npm install\`, the full surface is on disk
-at:
+The cc CLI copies its bundled \`@codythatsme/plugin-sdk\` into
+\`.cc/plugin-sdk-${PLUGIN_SDK_VERSION}\` and pins it through a relative file
+devDependency. Include this directory when sharing the plugin. No SDK registry
+publication is required. After \`npm install\`, the full surface is on disk at:
 
 \`\`\`
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
+node_modules/@codythatsme/plugin-sdk/bundled-types/cc-plugin-sdk.d.ts      # backend
+node_modules/@codythatsme/plugin-sdk/bundled-types/cc-plugin-sdk-app.d.ts  # frontend
 \`\`\`
 
-Your editor and \`tsc\` resolve \`@get-bb/plugin-sdk\` there through ordinary node
+Your editor and \`tsc\` resolve \`@codythatsme/plugin-sdk\` there through ordinary node
 resolution — no path mapping. These are readable declarations: open them for an
 exact signature.
 
-The SDK surface grows with every BB release, so the pin has to track the BB you
+The SDK surface grows with every CC release, so the pin has to track the CC you
 actually run:
 
 \`\`\`
-bb plugin types          # sync this plugin's SDK surface to the running BB
-bb plugin types --check  # CI: fail when it does not match
+cc plugin types          # sync this plugin's SDK surface to the running CC
+cc plugin types --check  # CI: fail when it does not match
 \`\`\`
 
-Ask BB to write plugins for you: the \`bb-plugin-authoring\` skill documents
+Ask CC to write plugins for you: the \`cc-plugin-authoring\` skill documents
 the whole surface with examples.
 
-Confused by the API, or need something the types don't explain? Clone the BB
-repo and read the source: <https://github.com/get-bb/bb>.
+Confused by the API, or need something the types don't explain? Clone the CC
+repo and read the source: <https://github.com/codythatsme/cc>.
 `;
 }
 
 export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
-  const { targetDir, packageName, bbVersion } = args;
+  const { targetDir, packageName, ccVersion } = args;
   try {
     await mkdir(targetDir, { recursive: false });
   } catch (error) {
@@ -1438,12 +1452,12 @@ export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
         version: "0.1.0",
         type: "module",
         engines: {
-          bb: enginesRange(bbVersion),
-          bbPluginSdk: `>=${PLUGIN_SDK_VERSION}`,
+          cc: enginesRange(ccVersion),
+          ccPluginSdk: `>=${PLUGIN_SDK_VERSION}`,
         },
-        bb: {
+        cc: {
           name: pluginNameOf(packageName),
-          description: "A BB plugin with an example todo list.",
+          description: "A CC plugin with an example todo list.",
           branding: { icon: "ListTodo" },
           server: "./server.ts",
           app: "./app.tsx",
@@ -1453,7 +1467,7 @@ export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
           zod: "^4.3.6",
         },
         devDependencies: {
-          "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION,
+          "@codythatsme/plugin-sdk": args.sdkSpecifier ?? PLUGIN_SDK_VERSION,
           "@types/better-sqlite3": "^7.6.12",
           "@types/node": "^22.0.0",
           "@types/react": "^19.0.0",
@@ -1479,12 +1493,15 @@ export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
   }
   await writeFile(
     join(targetDir, "components.json"),
-    componentsJsonSource(bbVersion),
+    componentsJsonSource(ccVersion),
   );
   const skillDir = join(targetDir, "skills", "example-todos");
   await mkdir(skillDir, { recursive: true });
   await writeFile(join(skillDir, "SKILL.md"), skillSource(packageName));
-  await writeFile(join(targetDir, ".gitignore"), "dist/\nnode_modules/\n");
+  await writeFile(
+    join(targetDir, ".gitignore"),
+    "dist/\nnode_modules/\n!.cc/\n!.cc/plugin-sdk-*/\n!.cc/plugin-sdk-*/dist/\n!.cc/plugin-sdk-*/bundled-types/\n",
+  );
   await writeFile(join(targetDir, "README.md"), readmeSource(packageName));
   await writeFile(
     join(targetDir, "PLUGIN_OVERVIEW.md"),

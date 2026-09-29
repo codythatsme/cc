@@ -6,7 +6,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { TooltipProvider } from "@bb/shared-ui/tooltip";
+import { TooltipProvider } from "@cc/shared-ui/tooltip";
 import { createStore, Provider as JotaiProvider } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -15,9 +15,9 @@ import {
   UI_PREFERENCE_KEYS,
   type ThreadListEntry,
   type ThreadStatus,
-} from "@bb/domain";
-import type { SidebarBootstrapResponse } from "@bb/server-contract";
-import { makeHost, makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+} from "@cc/domain";
+import type { SidebarBootstrapResponse } from "@cc/server-contract";
+import { makeHost, makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import { makeProjectWithThreadsResponse } from "@/test/fixtures/projects";
 import {
   hostsQueryKey,
@@ -30,11 +30,11 @@ import { isPluginAppDefinition } from "@/lib/plugin-app-definition";
 import { installPluginRuntime } from "@/lib/plugin-frontend";
 import type { ResolvedReplacement } from "@/lib/plugin-slot-resolvers";
 import type { PluginThreadListSlot } from "@/lib/plugin-slots";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+import { collectPluginAppRegistrations } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
 import { PluginThreadList } from "./PluginThreadList";
 
-const BENCH_ENABLED = process.env.BB_SIDEBAR_BENCH === "1";
-const THREAD_COUNT = Number(process.env.BB_SIDEBAR_BENCH_THREADS ?? 3000);
+const BENCH_ENABLED = process.env.CC_SIDEBAR_BENCH === "1";
+const THREAD_COUNT = Number(process.env.CC_SIDEBAR_BENCH_THREADS ?? 3000);
 const PROJECT_COUNT = 40;
 const SECTION_COUNT = 8;
 const ITERATIONS = 5;
@@ -454,7 +454,7 @@ describe.skipIf(!BENCH_ENABLED)("sidebar thread list benchmark", () => {
   });
 
   it("writes the comparison", () => {
-    const out = process.env.BB_SIDEBAR_BENCH_OUT;
+    const out = process.env.CC_SIDEBAR_BENCH_OUT;
     if (out) writeFileSync(out, `${JSON.stringify(collected, null, 2)}\n`);
   });
 });

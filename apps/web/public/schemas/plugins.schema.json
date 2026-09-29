@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://getbb.app/schemas/plugins.schema.json",
-  "title": "BB plugin collection manifest",
+  "$id": "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/plugins.schema.json",
+  "title": "CC plugin collection manifest",
   "description": "An index of plugin directories in one repository.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "name", "plugins"],
   "properties": {
     "$schema": {
-      "const": "https://getbb.app/schemas/plugins.schema.json"
+      "const": "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/plugins.schema.json"
     },
     "schemaVersion": {
       "const": 1

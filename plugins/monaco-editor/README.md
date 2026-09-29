@@ -1,10 +1,10 @@
-# bb-plugin-monaco-editor
+# cc-plugin-monaco-editor
 
-Opens files in BB using [Monaco](https://microsoft.github.io/monaco-editor/),
-the editor from VS Code, instead of BB's read-only file preview.
+Opens files in CC using [Monaco](https://microsoft.github.io/monaco-editor/),
+the editor from VS Code, instead of CC's read-only file preview.
 
-It applies everywhere BB opens a file: links clicked in chat, the secondary
-panel's file search, and `bb thread open`.
+It applies everywhere CC opens a file: links clicked in chat, the secondary
+panel's file search, and `cc thread open`.
 
 ## Features
 
@@ -28,26 +28,26 @@ panel's file search, and `bb thread open`.
 
 ## Development
 
-Ships with BB as a builtin; there is nothing to install.
+Ships with CC as a builtin; there is nothing to install.
 
 ```
-pnpm exec turbo run typecheck test --filter=bb-plugin-monaco-editor
+pnpm exec turbo run typecheck test --filter=cc-plugin-monaco-editor
 ```
 
 `scripts/stage-assets.mjs` builds the Monaco bundle the editor loads, into
-`dist/monaco`. Packaging runs it (`bb-plugin-build prepare-bundled`),
+`dist/monaco`. Packaging runs it (`cc-plugin-build prepare-bundled`),
 since only a builtin's `dist/` ships. A source checkout never runs that path —
 the dev server loads builtins straight from `plugins/<name>` — so the plugin
 builds the bundle itself when it is missing or older than `monaco-bundle/`,
 which makes that one file open a few seconds slow.
-`pnpm --filter bb-plugin-monaco-editor build:monaco` does it up front.
+`pnpm --filter cc-plugin-monaco-editor build:monaco` does it up front.
 
 The dev loop already rebuilds `dist/app.js` and reloads `server.ts` on save,
 so editing `app.tsx`, `components/`, `lib/`, or `server.ts` needs nothing
 extra. It knows nothing about the Monaco bundle, which is why the staleness
 check exists: edit `monaco-bundle/` and the next file open rebuilds.
 
-Monaco is built rather than bundled into `app.js` because `bb plugin build`
+Monaco is built rather than bundled into `app.js` because `cc plugin build`
 emits one file with no code splitting: Monaco would parse at app boot for
 everyone, including users who never open a file, and its worker could not be
 emitted at all. `lib/monaco-loader.ts` loads the built files from a
@@ -71,11 +71,11 @@ script asserts each of those is present for that reason.
 ## Which files it opens
 
 The plugin claims the extensions listed in `lib/languages.ts` — common code,
-config, and text formats. Binaries like `png` and `pdf` are left to BB's own
+config, and text formats. Binaries like `png` and `pdf` are left to CC's own
 preview, which renders them properly.
 
 To change any file type back, use **Settings → File openers**, which offers
-Automatic, BB's built-in preview, or Monaco per extension. Right-clicking a
+Automatic, CC's built-in preview, or Monaco per extension. Right-clicking a
 file link also offers a one-off "Open with…".
 
 ## Roadmap
@@ -87,12 +87,12 @@ file link also offers a one-off "Open with…".
   wrong.
 - **File operations.** The tree is read-only; renaming, creating, and
   deleting files are not implemented yet.
-- **Hidden files and `node_modules`** never appear in the tree. BB's path
+- **Hidden files and `node_modules`** never appear in the tree. CC's path
   listing excludes them and offers no way to ask for them
-  ([#2093](https://github.com/get-bb/bb/issues/2093)).
+  ([#2093](https://github.com/codythatsme/cc/issues/2093)).
 - **Opening a file from the tree reuses the current tab,** so the tab title
-  keeps naming the file it was opened with. A plugin cannot ask BB to open a
-  file or retitle its tab ([#2102](https://github.com/get-bb/bb/issues/2102)).
-- **No "open in editor" button** like BB's preview has; that capability is not
+  keeps naming the file it was opened with. A plugin cannot ask CC to open a
+  file or retitle its tab ([#2102](https://github.com/codythatsme/cc/issues/2102)).
+- **No "open in editor" button** like CC's preview has; that capability is not
   available to plugins.
 - **Thread-storage files on a remote machine** fail to open.

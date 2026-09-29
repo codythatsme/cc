@@ -2,7 +2,7 @@ Get a notification when an agent asks a question, finishes a turn, or stops on a
 
 ## Delivery
 
-Mobile devices receive push messages through Expo, including when the app is closed. Web browsers and the desktop app receive system notifications over bb’s live connection while a tab or app window remains open. Web delivery requires HTTPS (or localhost), browser notification permission, and a browser that supports the Notification constructor. Closing all bb tabs stops web delivery; quitting the desktop app stops desktop delivery. Mobile WebViews use mobile push only.
+Mobile devices receive push messages through Expo, including when the app is closed. Web browsers and the desktop app receive system notifications over cc’s live connection while a tab or app window remains open. Web delivery requires HTTPS (or localhost), browser notification permission, and a browser that supports the Notification constructor. Closing all cc tabs stops web delivery; quitting the desktop app stops desktop delivery. Mobile WebViews use mobile push only.
 
 Click a notification to open its thread. Events arriving together are combined, with pending questions taking priority. Read, archived, deleted, and hidden threads are suppressed. Multiple tabs or windows of the same origin and client type deduplicate delivery when browser storage and Web Locks are available.
 
@@ -17,12 +17,12 @@ Channel switches apply to this server and save immediately. Browser permission i
 
 ## CLI and SDK
 
-- `bb push-notifications list [--json]`: registered mobile devices, with redacted tokens.
-- `bb push-notifications add --token <expo-push-token> --platform <ios|android> --label <device-label> [--json]`: register or refresh a mobile device.
-- `bb push-notifications remove <id> [--json]`: remove a mobile device.
-- `bb push-notifications status [--json]`: channel switches, mobile relay, subscription count, and last mobile send result.
-- `bb push-notifications test <web|desktop> [--json]`: broadcast a test to connected clients of that type. Fails if the channel is disabled.
-- `bb plugin config push-notifications set <mobileEnabled|webEnabled|desktopEnabled> <true|false>`: change a channel.
+- `cc push-notifications list [--json]`: registered mobile devices, with redacted tokens.
+- `cc push-notifications add --token <expo-push-token> --platform <ios|android> --label <device-label> [--json]`: register or refresh a mobile device.
+- `cc push-notifications remove <id> [--json]`: remove a mobile device.
+- `cc push-notifications status [--json]`: channel switches, mobile relay, subscription count, and last mobile send result.
+- `cc push-notifications test <web|desktop> [--json]`: broadcast a test to connected clients of that type. Fails if the channel is disabled.
+- `cc plugin config push-notifications set <mobileEnabled|webEnabled|desktopEnabled> <true|false>`: change a channel.
 
 Every command takes `--help`. A failure with `--json` prints `{ "ok": false, "error": { "code", "message" } }` on stdout and the readable text on stderr.
 

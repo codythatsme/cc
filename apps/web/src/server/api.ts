@@ -13,8 +13,8 @@ import {
   server,
   sha256Hex,
   user,
-} from "@bb/connect-db";
-import type { ConnectDb, LabelAvailability } from "@bb/connect-db";
+} from "@cc/connect-db";
+import type { ConnectDb, LabelAvailability } from "@cc/connect-db";
 import type { Env } from "./env.js";
 import { generateConnectCode, generateToken } from "./tokens.js";
 
@@ -33,7 +33,7 @@ export function resolveServerUrlTemplate(
   if (template.split("{label}").length !== 2) {
     throw new Error("CONNECT_SERVER_URL_TEMPLATE must contain {label} once");
   }
-  const probe = "bb-label-probe";
+  const probe = "cc-label-probe";
   const url = new URL(template.replace("{label}", probe));
   if (
     (url.protocol !== "http:" && url.protocol !== "https:") ||

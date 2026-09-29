@@ -22,7 +22,7 @@ import { alias } from "drizzle-orm/sqlite-core";
 import {
   QUEUED_MESSAGE_PLUGIN_WAIT_HOLDER_PREFIX,
   projectAttachmentPaths,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   PermissionMode,
   PromptInput,
@@ -33,7 +33,7 @@ import type {
   QueuedMessageWaitHolder,
   QueuedMessageWaitingOn,
   QueuedMessageWaitingOnKind,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   DbConnection,
   DbQueryConnection,

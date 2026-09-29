@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { resolveCurrentDevInstanceConfig } from "@bb/config/runtime";
+import { resolveCurrentDevInstanceConfig } from "@cc/config/runtime";
 import { repoRoot } from "./script-entry.js";
 
 interface TurboBuildCommand {

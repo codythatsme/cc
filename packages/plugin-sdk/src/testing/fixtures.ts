@@ -1,12 +1,12 @@
 import type {
-  BbPluginApi,
+  CcPluginApi,
   MessageDispatchHookContext,
   PluginAgentConfigurationContext,
   PluginThreadEventPayloads,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 
 type HostResponse = Awaited<
-  ReturnType<BbPluginApi["sdk"]["hosts"]["list"]>
+  ReturnType<CcPluginApi["sdk"]["hosts"]["list"]>
 >[number];
 type ThreadResponse = PluginThreadEventPayloads["thread.created"]["thread"];
 type QueueEntry = PluginThreadEventPayloads["message.queued"]["entry"];
@@ -55,7 +55,7 @@ type MessageDispatchHookContextOverrides = Omit<
 };
 
 /**
- * A complete, deterministic host response for faking `bb.sdk.hosts.list()`
+ * A complete, deterministic host response for faking `cc.sdk.hosts.list()`
  * and environment-provider contexts. Override only the fields the test cares
  * about. If the contract grows a required field, this builder fails
  * typecheck — update the default here.

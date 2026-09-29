@@ -1,5 +1,5 @@
-import { assertNever } from "@bb/core-ui";
-import type { ThreadRuntimeDisplayStatus } from "@bb/domain";
+import { assertNever } from "@cc/core-ui";
+import type { ThreadRuntimeDisplayStatus } from "@cc/domain";
 
 export function isRunningThreadRuntimeDisplayStatus(
   status: ThreadRuntimeDisplayStatus,

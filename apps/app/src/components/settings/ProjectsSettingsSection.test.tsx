@@ -7,8 +7,8 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { Host } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import type { Host } from "@cc/domain";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
@@ -122,16 +122,16 @@ function stubSidebarBootstrapFetch(
 
 const projects: SidebarProjectFixture[] = [
   {
-    id: "proj_bb",
-    name: "bb",
-    gitRemoteUrl: "git@github.com:get-bb/bb.git",
+    id: "proj_cc",
+    name: "cc",
+    gitRemoteUrl: "git@github.com:codythatsme/cc.git",
     hostIds: ["host_primary", "host_remote"],
     threadCount: 3,
   },
   {
     id: "proj_pierre",
     name: "pierre",
-    gitRemoteUrl: "https://github.com/get-bb/pierre.git",
+    gitRemoteUrl: "https://github.com/get-cc/pierre.git",
     hostIds: ["host_remote"],
     threadCount: 1,
   },
@@ -252,11 +252,11 @@ describe("buildProjectReorderRequest", () => {
 
 describe("formatGitRemote", () => {
   it("shortens ssh and https remotes to host/path", () => {
-    expect(formatGitRemote("git@github.com:get-bb/bb.git")).toBe(
-      "github.com/get-bb/bb",
+    expect(formatGitRemote("git@github.com:codythatsme/cc.git")).toBe(
+      "github.com/codythatsme/cc",
     );
-    expect(formatGitRemote("https://github.com/get-bb/pierre.git")).toBe(
-      "github.com/get-bb/pierre",
+    expect(formatGitRemote("https://github.com/get-cc/pierre.git")).toBe(
+      "github.com/get-cc/pierre",
     );
   });
 
@@ -271,8 +271,8 @@ describe("ProjectsSettingsSection", () => {
 
     renderSection();
 
-    expect(await screen.findByText("bb")).toBeDefined();
-    expect(screen.getByText("github.com/get-bb/bb")).toBeDefined();
+    expect(await screen.findByText("cc")).toBeDefined();
+    expect(screen.getByText("github.com/codythatsme/cc")).toBeDefined();
     expect(screen.getByText("2 of 2 machines")).toBeDefined();
     expect(screen.getByText("3 threads")).toBeDefined();
     expect(screen.getByText("1 of 2 machines")).toBeDefined();
@@ -282,9 +282,9 @@ describe("ProjectsSettingsSection", () => {
     expect(screen.queryByText("Personal")).toBeNull();
     expect(
       screen
-        .getByRole("link", { name: "Open bb settings" })
+        .getByRole("link", { name: "Open cc settings" })
         .getAttribute("href"),
-    ).toBe("/settings/projects/proj_bb");
+    ).toBe("/settings/projects/proj_cc");
   });
 
   it("marks a project offline when every configured machine is disconnected", async () => {
@@ -295,15 +295,15 @@ describe("ProjectsSettingsSection", () => {
     await screen.findByText("1 of 2 machines");
     const pierre = screen.getByText("pierre");
     expect(pierre.parentElement?.textContent).toContain("offline");
-    const bb = screen.getByText("bb");
-    expect(bb.parentElement?.textContent).not.toContain("offline");
+    const cc = screen.getByText("cc");
+    expect(cc.parentElement?.textContent).not.toContain("offline");
   });
 
   it("shows a drag handle per project and disables them with a single project", async () => {
     stubSidebarBootstrapFetch(projects);
     const { unmount } = renderSection();
 
-    await screen.findByText("bb");
+    await screen.findByText("cc");
     const handles = screen.getAllByRole("button", { name: /^Reorder / });
     expect(handles).toHaveLength(3);
     expect(handles.every((handle) => !handle.hasAttribute("disabled"))).toBe(
@@ -313,12 +313,12 @@ describe("ProjectsSettingsSection", () => {
 
     stubSidebarBootstrapFetch([projects[0]!]);
     renderSection();
-    await screen.findByText("bb");
+    await screen.findByText("cc");
     await waitFor(() =>
       expect(
         (
           screen.getByRole("button", {
-            name: "Reorder bb",
+            name: "Reorder cc",
           }) as HTMLButtonElement
         ).disabled,
       ).toBe(true),
@@ -328,9 +328,9 @@ describe("ProjectsSettingsSection", () => {
   it("renames a project through the existing dialog", async () => {
     stubSidebarBootstrapFetch(projects);
     vi.mocked(sdk.projects.update).mockResolvedValue({
-      id: "proj_bb",
+      id: "proj_cc",
       kind: "standard",
-      name: "bb-next",
+      name: "cc-next",
       gitRemoteUrl: null,
       createdAt: NOW,
       updatedAt: NOW,
@@ -338,17 +338,17 @@ describe("ProjectsSettingsSection", () => {
     });
 
     renderSection();
-    await openProjectMenu("bb");
+    await openProjectMenu("cc");
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename" }));
 
-    const input = await screen.findByDisplayValue("bb");
-    fireEvent.change(input, { target: { value: "bb-next" } });
+    const input = await screen.findByDisplayValue("cc");
+    fireEvent.change(input, { target: { value: "cc-next" } });
     fireEvent.submit(input.closest("form")!);
 
     await waitFor(() =>
       expect(sdk.projects.update).toHaveBeenCalledWith({
-        projectId: "proj_bb",
-        name: "bb-next",
+        projectId: "proj_cc",
+        name: "cc-next",
       }),
     );
   });
@@ -377,7 +377,7 @@ describe("ProjectsSettingsSection", () => {
     stubSidebarBootstrapFetch(projects);
 
     renderSection();
-    await screen.findByText("bb");
+    await screen.findByText("cc");
     fireEvent.click(screen.getByRole("button", { name: "Add a project" }));
 
     expect(

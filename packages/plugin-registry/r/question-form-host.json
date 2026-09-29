@@ -3,11 +3,11 @@
   "name": "question-form-host",
   "type": "registry:ui",
   "title": "question-form-host",
-  "description": "BB ui \"question-form-host\" — the plugin version of the BB app's question-form-host, drawing on the host app at runtime (version-matched to this BB release).",
+  "description": "CC ui \"question-form-host\" — the plugin version of the CC app's question-form-host, drawing on the host app at runtime (version-matched to this CC release).",
   "files": [
     {
       "path": "registry/components/ui/question-form-host.tsx",
-      "content": "import {\n  experimental_useQuestionFormHost,\n  type ExperimentalQuestionFormHost,\n  type ExperimentalQuestionShortcut,\n} from \"@get-bb/plugin-sdk/app\";\n\nexport type QuestionFormHost = ExperimentalQuestionFormHost;\nexport type QuestionShortcut = ExperimentalQuestionShortcut;\nexport const useQuestionFormHost = experimental_useQuestionFormHost;\n",
+      "content": "import {\n  experimental_useQuestionFormHost,\n  type ExperimentalQuestionFormHost,\n  type ExperimentalQuestionShortcut,\n} from \"@codythatsme/plugin-sdk/app\";\n\nexport type QuestionFormHost = ExperimentalQuestionFormHost;\nexport type QuestionShortcut = ExperimentalQuestionShortcut;\nexport const useQuestionFormHost = experimental_useQuestionFormHost;\n",
       "type": "registry:ui",
       "target": "components/ui/question-form-host.tsx"
     }

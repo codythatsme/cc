@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
-import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@bb/domain";
+import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@cc/domain";
 import {
   buildPinnedSidebarState,
   CHRONOLOGICAL_CONTAINER_ID,
@@ -8,7 +8,7 @@ import {
   NO_MACHINE_GROUP_KEY,
   resolveSidebarProjectId,
   sectionKeyForThreadSection,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import { useRouteState } from "@/hooks/useRouteState";
 import { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
 import { listSidebarNavigationThreads } from "@/hooks/cache-owners/query-cache";

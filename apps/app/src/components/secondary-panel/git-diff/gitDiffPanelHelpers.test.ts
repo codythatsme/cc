@@ -1,5 +1,5 @@
-import type { WorkspaceCommitSummary } from "@bb/domain";
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { WorkspaceCommitSummary } from "@cc/domain";
+import type { DiffFileEntry } from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   buildGitDiffSelectionOptions,

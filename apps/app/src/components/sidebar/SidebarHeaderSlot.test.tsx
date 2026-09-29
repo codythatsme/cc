@@ -11,7 +11,7 @@ import {
 import { createStore, Provider } from "jotai";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ExperimentalSidebarHeaderProps } from "@get-bb/plugin-sdk";
+import type { ExperimentalSidebarHeaderProps } from "@codythatsme/plugin-sdk";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
 import {
@@ -106,7 +106,7 @@ afterEach(() => {
 });
 
 describe("SidebarHeaderSlot", () => {
-  it("leaves the header to bb until the user picks a provider", () => {
+  it("leaves the header to cc until the user picks a provider", () => {
     registerHeader();
     renderSlot({});
 
@@ -114,7 +114,7 @@ describe("SidebarHeaderSlot", () => {
     expect(screen.queryByTestId("sidebar-header-slot")).toBeNull();
   });
 
-  it("mounts the picked provider after bb's toggle with the control size", () => {
+  it("mounts the picked provider after cc's toggle with the control size", () => {
     registerHeader();
     renderSlot({ preference: "garden/icons" });
 
@@ -206,7 +206,7 @@ describe("SidebarHeaderSlot", () => {
       expect.objectContaining({
         title: "Sidebar header plugin crashed",
         description:
-          "Garden icons (garden) stopped working, so bb removed it from the sidebar header.",
+          "Garden icons (garden) stopped working, so cc removed it from the sidebar header.",
       }),
     ]);
   });

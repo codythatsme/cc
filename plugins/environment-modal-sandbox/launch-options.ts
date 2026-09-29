@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import type { ImageDefinition } from "./image-definition.js";
 import { dockerfileSchema } from "./image-definition.js";
@@ -60,13 +60,13 @@ function requireUniqueNames(
 }
 
 export function modalLaunchOptions(
-  bb: Pick<BbPluginApi, "storage">,
+  cc: Pick<CcPluginApi, "storage">,
   image: ImageDefinition,
 ) {
   async function get(): Promise<ModalLaunchOptions> {
     const [storedPresets, storedImages, standard] = await Promise.all([
-      bb.storage.kv.get<unknown>(PRESETS_KEY),
-      bb.storage.kv.get<unknown>(EXTRA_IMAGES_KEY),
+      cc.storage.kv.get<unknown>(PRESETS_KEY),
+      cc.storage.kv.get<unknown>(EXTRA_IMAGES_KEY),
       image.get(),
     ]);
     const presets =
@@ -112,8 +112,8 @@ export function modalLaunchOptions(
     );
     await image.set(standard.dockerfile);
     await Promise.all([
-      bb.storage.kv.set(PRESETS_KEY, parsed.presets),
-      bb.storage.kv.set(EXTRA_IMAGES_KEY, extraImages),
+      cc.storage.kv.set(PRESETS_KEY, parsed.presets),
+      cc.storage.kv.set(EXTRA_IMAGES_KEY, extraImages),
     ]);
     return get();
   }

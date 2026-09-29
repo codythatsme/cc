@@ -4,7 +4,7 @@ import {
   getAppSettings,
   setAppSettings,
   updateHost,
-} from "@bb/db";
+} from "@cc/db";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { replaceMachineEnvironment } from "../../src/services/machines/environment-settings.js";

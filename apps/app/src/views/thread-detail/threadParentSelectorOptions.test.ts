@@ -1,6 +1,6 @@
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@cc/domain";
 import { describe, expect, it } from "vitest";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import {
   buildParentSelectorOptions,
   isRootThread,

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Host } from "@bb/domain";
+import type { Host } from "@cc/domain";
 import type {
   HostProviderCliStatusResponse,
   SystemAppUpdateStatus,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -61,7 +61,7 @@ const version = {
   source: "npm" as const,
   updateAvailable: true,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "pnpm start@latest",
 };
 
 function providerStatus(args: {
@@ -114,13 +114,13 @@ function providerStatus(args: {
   };
 }
 
-describe("bb updates command output", () => {
+describe("cc updates command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerUpdatesCommands(program, () => "http://server");
 
-  it("bb updates renders bb-app and per-machine provider rows", async () => {
+  it("cc updates renders cc-app and per-machine provider rows", async () => {
     stubServerApi({
       "v1.system.version.$get": vi.fn(async () => version),
       "v1.hosts.$get": vi.fn(async () => hosts),
@@ -132,9 +132,9 @@ describe("bb updates command output", () => {
     await runCommand(["updates"], register);
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("bb-app");
+    expect(output).toContain("cc-app");
     expect(output).toContain("0.0.32 -> 0.0.33");
-    expect(output).toContain("Update available (run: npx bb-app@latest)");
+    expect(output).toContain("Update available (run: pnpm start@latest)");
     expect(output).toContain("workstation · Codex");
     expect(output).toContain("0.140.0 -> 0.141.0");
     expect(output).toContain("workstation · Claude Code");
@@ -143,7 +143,7 @@ describe("bb updates command output", () => {
     expect(output).toContain("offline");
   });
 
-  it("bb updates --json prints the aggregate", async () => {
+  it("cc updates --json prints the aggregate", async () => {
     const status = providerStatus({ codexNeedsUpdate: false });
     stubServerApi({
       "v1.system.version.$get": vi.fn(async () => version),
@@ -162,7 +162,7 @@ describe("bb updates command output", () => {
     expect(payload.machines[1].providerStatus).toBeNull();
   });
 
-  it("bb updates apply runs each available provider update", async () => {
+  it("cc updates apply runs each available provider update", async () => {
     const install = vi.fn(
       async () =>
         new Response(
@@ -201,7 +201,7 @@ describe("bb updates command output", () => {
     ]);
   });
 
-  it("bb updates apply reports when everything is current", async () => {
+  it("cc updates apply reports when everything is current", async () => {
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => hosts),
       "v1.hosts.:id.provider-clis.status.$get": vi.fn(async () =>
@@ -216,7 +216,7 @@ describe("bb updates command output", () => {
     ]);
   });
 
-  it("bb updates reports but does not apply manual provider updates", async () => {
+  it("cc updates reports but does not apply manual provider updates", async () => {
     const status = providerStatus({ codexNeedsUpdate: true });
     status.codex.installAction = null;
     stubServerApi({
@@ -233,11 +233,11 @@ describe("bb updates command output", () => {
     vi.mocked(console.log).mockClear();
     await runCommand(["updates", "apply"], register);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "No updates bb can apply. Run bb updates status for manual updates.",
+      "No updates cc can apply. Run cc updates status for manual updates.",
     ]);
   });
 
-  it("bb updates points at the in-app update when the launcher supports it", async () => {
+  it("cc updates points at the in-app update when the launcher supports it", async () => {
     stubServerApi({
       "v1.system.version.$get": vi.fn(async () => version),
       "v1.system.app-update.$get": vi.fn(async () => appUpdateStatus()),
@@ -248,7 +248,7 @@ describe("bb updates command output", () => {
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toContain("0.0.32 -> 0.0.33");
-    expect(output).toContain("Update available (run: bb updates app apply)");
+    expect(output).toContain("Update available (run: cc updates app apply)");
   });
 });
 
@@ -273,26 +273,26 @@ function appUpdateStatus(
   };
 }
 
-describe("bb updates app command output", () => {
+describe("cc updates app command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerUpdatesCommands(program, () => "http://server");
 
-  it("bb updates app shows the available version and how to apply it", async () => {
+  it("cc updates app shows the available version and how to apply it", async () => {
     const getStatus = vi.fn(async () => appUpdateStatus());
     stubServerApi({ "v1.system.app-update.$get": getStatus });
 
     await runCommand(["updates", "app"], register);
 
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "bb-app 0.0.32 -> 0.0.33",
-      "Run bb updates app apply to update and restart bb.",
+      "cc-app 0.0.32 -> 0.0.33",
+      "Run cc updates app apply to update and restart cc.",
     ]);
     expect(getStatus).toHaveBeenCalledWith({ query: { force: "true" } });
   });
 
-  it("bb updates app lists incoming commits and blockers for a source checkout", async () => {
+  it("cc updates app lists incoming commits and blockers for a source checkout", async () => {
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>
         appUpdateStatus({
@@ -316,7 +316,7 @@ describe("bb updates app command output", () => {
     await runCommand(["updates", "app"], register);
 
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `bb-app 0.0.32 (${"a".repeat(10)}) -> ${"b".repeat(10)} (+12 commits)`,
+      `cc-app 0.0.32 (${"a".repeat(10)}) -> ${"b".repeat(10)} (+12 commits)`,
       "  Fix bug",
       "  Add feature",
       "  … 10 more",
@@ -324,7 +324,7 @@ describe("bb updates app command output", () => {
     ]);
   });
 
-  it("bb updates app apply confirms before interrupting threads, then follows the restart", async () => {
+  it("cc updates app apply confirms before interrupting threads, then follows the restart", async () => {
     const statuses = [
       appUpdateStatus({ runningThreadCount: 2 }),
       appUpdateStatus({
@@ -332,7 +332,7 @@ describe("bb updates app command output", () => {
           output: [],
           phase: "preparing",
           startedAt: "2026-09-23T00:00:00.000Z",
-          step: "Downloading bb-app 0.0.33",
+          step: "Downloading cc-app 0.0.33",
           targetVersion: "0.0.33",
         },
       }),
@@ -368,13 +368,13 @@ describe("bb updates app command output", () => {
       json: { confirmInterruptingThreads: true },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "Updating bb to 0.0.33",
-      "Downloading bb-app 0.0.33…",
-      "Updated bb to 0.0.33.",
+      "Updating cc to 0.0.33",
+      "Downloading cc-app 0.0.33…",
+      "Updated cc to 0.0.33.",
     ]);
   });
 
-  it("bb updates app apply exits non-zero when the update fails", async () => {
+  it("cc updates app apply exits non-zero when the update fails", async () => {
     const statuses = [
       appUpdateStatus(),
       appUpdateStatus({
@@ -404,7 +404,7 @@ describe("bb updates app command output", () => {
     );
   });
 
-  it("bb updates app apply refuses to interrupt threads without a terminal or --yes", async () => {
+  it("cc updates app apply refuses to interrupt threads without a terminal or --yes", async () => {
     Object.defineProperty(process.stdin, "isTTY", {
       value: false,
       configurable: true,
@@ -423,7 +423,7 @@ describe("bb updates app command output", () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it("bb updates app apply --yes --no-wait starts the update and returns", async () => {
+  it("cc updates app apply --yes --no-wait starts the update and returns", async () => {
     const apply = vi.fn(async () => appUpdateStatus());
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>
@@ -441,11 +441,11 @@ describe("bb updates app command output", () => {
       json: { confirmInterruptingThreads: true },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "Updating bb to 0.0.33. Run bb updates app to follow it.",
+      "Updating cc to 0.0.33. Run cc updates app to follow it.",
     ]);
   });
 
-  it("bb updates app apply explains when bb cannot update itself", async () => {
+  it("cc updates app apply explains when cc cannot update itself", async () => {
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>
         appUpdateStatus({
@@ -458,11 +458,11 @@ describe("bb updates app command output", () => {
       runCommand(["updates", "app", "apply"], register),
     ).rejects.toThrow("process.exit:1");
     expect(vi.mocked(console.error)).toHaveBeenCalledWith(
-      "Error: In-app updates are off. Start bb with `npx bb-app start --in-app-updates` or `pnpm start --in-app-updates` to turn them on.",
+      "Error: Update cc with `brew upgrade --cask codythatsme/tap/cc`. Source checkouts can use `pnpm start --in-app-updates`.",
     );
   });
 
-  it("bb updates app dismiss acknowledges an unseen result", async () => {
+  it("cc updates app dismiss acknowledges an unseen result", async () => {
     const acknowledge = vi.fn(async () => appUpdateStatus());
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () =>

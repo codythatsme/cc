@@ -6,13 +6,13 @@ import {
   getLastStoredProviderThreadId,
   listEvents,
   listQueuedThreadMessages,
-} from "@bb/db";
-import { threadScope, turnScope } from "@bb/domain";
+} from "@cc/db";
+import { threadScope, turnScope } from "@cc/domain";
 import {
   groupHostDaemonEvents,
   hostDaemonEventBatchResponseSchema,
   type HostDaemonEventEnvelope,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { buildThreadTimelineWithProfile } from "../../src/services/threads/timeline.js";
 import {
@@ -457,7 +457,7 @@ describe("internal event append ownership", () => {
     }
   });
 
-  it("accepts a batch carrying a provider/unhandled event for a turn bb never started", async () => {
+  it("accepts a batch carrying a provider/unhandled event for a turn cc never started", async () => {
     const { harness, session, thread } = await setupEventRoute();
     try {
       const response = await postEventBatch({

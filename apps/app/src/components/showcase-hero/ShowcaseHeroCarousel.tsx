@@ -7,9 +7,9 @@ import {
   type CSSProperties,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { usePrefersReducedMotion } from "@bb/shared-ui/hooks/use-media-query";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { usePrefersReducedMotion } from "@cc/shared-ui/hooks/use-media-query";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { PluginNewThreadComposer } from "@/components/plugin/PluginNewThreadComposer";
 import { useCreateThread } from "@/hooks/mutations/thread-runtime-mutations";
 import { getPromptDraftAccessor } from "@/hooks/usePromptDraftStorage";
@@ -234,8 +234,8 @@ export function ShowcaseHeroCarousel({
                 style={
                   {
                     ...position,
-                    "--bb-hero-drift-duration": `${6 + index * 0.7}s`,
-                    "--bb-hero-drift-delay": `${index * 0.45}s`,
+                    "--cc-hero-drift-duration": `${6 + index * 0.7}s`,
+                    "--cc-hero-drift-delay": `${index * 0.45}s`,
                     background: isActive
                       ? accentTint(archetype.accentToken, 12)
                       : "var(--canvas)",
@@ -248,7 +248,7 @@ export function ShowcaseHeroCarousel({
                   } as CSSProperties
                 }
                 className={cn(
-                  "bb-hero-chip absolute z-10 hidden max-w-[9rem] cursor-pointer items-center gap-1.5",
+                  "cc-hero-chip absolute z-10 hidden max-w-[9rem] cursor-pointer items-center gap-1.5",
                   "rounded-lg border px-2 py-1.5 text-2xs font-medium shadow-sm @[50rem]:flex",
                   "transition-[opacity,transform,background-color,border-color] duration-500",
                   isActive ? "opacity-100" : "opacity-70 hover:opacity-100",
@@ -354,10 +354,10 @@ export function ShowcaseHeroCarousel({
                       <span
                         key={`${archetype.id}-${activeIndex}`}
                         data-paused={paused}
-                        className="bb-hero-progress-fill block h-full w-full"
+                        className="cc-hero-progress-fill block h-full w-full"
                         style={
                           {
-                            "--bb-hero-slide-duration": `${SLIDE_MS}ms`,
+                            "--cc-hero-slide-duration": `${SLIDE_MS}ms`,
                             background: `var(${archetype.accentToken})`,
                           } as CSSProperties
                         }

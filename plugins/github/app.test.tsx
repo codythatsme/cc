@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { act } from "react";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 
@@ -36,7 +36,7 @@ describe("GitHub app navigation", () => {
           listItems: () => ({
             items: [
               {
-                repo: "get-bb/bb",
+                repo: "codythatsme/cc",
                 number: 42,
                 kind: "issue",
                 title: "Route-backed issue",
@@ -44,7 +44,7 @@ describe("GitHub app navigation", () => {
                 author: "octocat",
                 labels: [],
                 assignees: [],
-                url: "https://github.com/get-bb/bb/issues/42",
+                url: "https://github.com/codythatsme/cc/issues/42",
                 body: "",
                 updatedAt: "2026-08-20T00:00:00.000Z",
               },
@@ -55,7 +55,7 @@ describe("GitHub app navigation", () => {
             ghOk: true,
             ghState: "ready",
             ghError: null,
-            repos: [{ repo: "get-bb/bb", projectId: null }],
+            repos: [{ repo: "codythatsme/cc", projectId: null }],
             lastSyncedAt: null,
           }),
           viewer: () => ({ login: "octocat" }),
@@ -67,7 +67,7 @@ describe("GitHub app navigation", () => {
     expect(slot.navigateCalls).toContainEqual({
       method: "toPluginPanel",
       path: "github",
-      options: { subPath: "issues/get-bb/bb/42" },
+      options: { subPath: "issues/codythatsme/cc/42" },
     });
     slot.lifecycle.unmount();
   });
@@ -104,20 +104,20 @@ describe("GitHub app navigation", () => {
         rpc: {
           pullForThread: () => ({
             pull: {
-              repo: "get-bb/bb",
+              repo: "codythatsme/cc",
               number: 42,
               environmentId: "env-1",
             },
           }),
           getPull: () => ({
             pull: {
-              repo: "get-bb/bb",
+              repo: "codythatsme/cc",
               number: 42,
               title: "Navigation fix",
               state: "OPEN",
               author: "octocat",
               body: "",
-              url: "https://github.com/get-bb/bb/pull/42",
+              url: "https://github.com/codythatsme/cc/pull/42",
               createdAt: "2026-08-20T00:00:00.000Z",
               updatedAt: "2026-08-20T00:00:00.000Z",
               baseRefName: "main",
@@ -173,7 +173,7 @@ describe("GitHub app navigation", () => {
       "Expand removed.ts diff",
     );
     await act(async () => diffToggle.click());
-    const diff = slot.getByTestId("bb-diff");
+    const diff = slot.getByTestId("cc-diff");
     expect(diff.getAttribute("data-path")).toBe("removed.ts");
     expect(diffToggle.getAttribute("aria-label")).toBe(
       "Collapse removed.ts diff",

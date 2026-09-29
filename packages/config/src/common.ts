@@ -4,24 +4,24 @@ import {
   resolveEnvLoader,
   type EnvLoaderArgs,
 } from "./env.js";
-import { BB_LOG_LEVEL_ENV } from "./env-vars.js";
-import { resolveRuntimeDataDir, type BbRuntimeMode } from "./runtime.js";
+import { CC_LOG_LEVEL_ENV } from "./env-vars.js";
+import { resolveRuntimeDataDir, type CcRuntimeMode } from "./runtime.js";
 
 export interface LogLevelConfig {
-  BB_LOG_LEVEL: string;
+  CC_LOG_LEVEL: string;
 }
 
 type LoadLogLevelConfigArgs = EnvLoaderArgs;
 
 export interface CommonConfig extends LogLevelConfig {
-  BB_DATA_DIR: string;
+  CC_DATA_DIR: string;
 }
 
 export interface LoadCommonConfigArgs extends EnvLoaderArgs {
   repoRoot?: string;
 }
 
-function resolveDefaultLogLevel(mode: BbRuntimeMode): string {
+function resolveDefaultLogLevel(mode: CcRuntimeMode): string {
   return mode === "prod" ? DEFAULTS.logLevel.prod : DEFAULTS.logLevel.dev;
 }
 
@@ -30,10 +30,10 @@ export function loadLogLevelConfig(
 ): LogLevelConfig {
   const loader = resolveEnvLoader(args);
   return {
-    BB_LOG_LEVEL: readEnvVarWithDefault({
+    CC_LOG_LEVEL: readEnvVarWithDefault({
       context: loader.context,
       defaultValue: resolveDefaultLogLevel(loader.mode),
-      definition: BB_LOG_LEVEL_ENV,
+      definition: CC_LOG_LEVEL_ENV,
       env: loader.env,
     }),
   };
@@ -51,7 +51,7 @@ export function loadCommonConfig(
 
   return {
     ...logLevelConfig,
-    BB_DATA_DIR: resolveRuntimeDataDir({
+    CC_DATA_DIR: resolveRuntimeDataDir({
       env: loader.env,
       homeDir: loader.context.homeDir,
       mode: loader.mode,

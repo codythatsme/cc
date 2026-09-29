@@ -1,9 +1,9 @@
-import { providerInfoSchema } from "@bb/domain";
+import { providerInfoSchema } from "@cc/domain";
 import { z } from "zod";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 
 const providerListCache = createLastKnownCache({
-  prefix: "bb.provider-list",
+  prefix: "cc.provider-list",
   version: "2",
   schema: z.array(providerInfoSchema),
   maxEntries: 16,

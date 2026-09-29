@@ -7,7 +7,7 @@ import {
   desktopBrowserBrokerDescriptorSchema,
   desktopBrowserBrokerRequestSchema,
   desktopBrowserResultSchemas,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type { DesktopBrowserBroker } from "./desktop-browser-broker.js";
 
 async function readBrokerDescriptor(dataDir: string) {
@@ -43,7 +43,7 @@ async function readServerBrokerDescriptor(args: {
   );
   const dataDirs = new Set([
     args.dataDir,
-    join(args.homeDir, ".bb-machines", serverHost),
+    join(args.homeDir, ".cc-machines", serverHost),
   ]);
   for (const dataDir of dataDirs) {
     try {

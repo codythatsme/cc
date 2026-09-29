@@ -3,11 +3,11 @@
   "name": "workflow-progress",
   "type": "registry:ui",
   "title": "workflow-progress",
-  "description": "BB ui \"workflow-progress\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"workflow-progress\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/activity-row-styles",
-    "@bb/icon",
-    "@bb/utils"
+    "@cc/activity-row-styles",
+    "@cc/icon",
+    "@cc/utils"
   ],
   "files": [
     {

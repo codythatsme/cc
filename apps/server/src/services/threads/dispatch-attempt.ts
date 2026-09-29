@@ -11,7 +11,7 @@ import {
   listRunningThreads,
   type ClaimedQueuedThreadMessageRow,
   type RunningThreadRow,
-} from "@bb/db";
+} from "@cc/db";
 import {
   promptInputSchema,
   type PromptInput,
@@ -23,12 +23,12 @@ import {
   type Thread,
   type ThreadCreateOrigin,
   type ThreadQueuedMessage,
-} from "@bb/domain";
-import type { SendMessageRequest } from "@bb/server-contract";
+} from "@cc/domain";
+import type { SendMessageRequest } from "@cc/server-contract";
 import type {
   MessageDispatchHookContext,
   PluginDispatchEnvironmentIntent,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";

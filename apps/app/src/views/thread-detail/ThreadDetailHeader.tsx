@@ -7,11 +7,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import { useAtomValue } from "jotai";
-import { COARSE_POINTER_TOOLBAR_ACTION_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
-import { Pill } from "@bb/shared-ui/pill";
+import { COARSE_POINTER_TOOLBAR_ACTION_BUTTON_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@cc/shared-ui/icon";
+import { Pill } from "@cc/shared-ui/pill";
 import { SplitButton } from "@/components/ui/split-button.js";
 import {
   AppPageHeader,
@@ -21,11 +21,11 @@ import {
 } from "@/components/layout/AppPageHeader";
 import type { ThreadGitActionDialogTarget } from "@/components/dialogs/ThreadGitActionDialog";
 import {
-  getBbDesktopInfo,
+  getCcDesktopInfo,
   MACOS_WINDOW_NO_DRAG_CLASS,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@/lib/cc-desktop";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { useAppCommandShortcut } from "@/components/commands/AppCommandProvider";
 import { AppCommandShortcutHint } from "@/components/commands/AppCommandShortcutHint";
 import { useSidebarRename } from "@/components/sidebar/SidebarInlineRename";
@@ -33,8 +33,8 @@ import { useThreadActions } from "@/components/thread/ThreadActionsProvider";
 import { ThreadTitle } from "@/components/thread/ThreadTitleMentions";
 import { SecondaryPanelHostLayoutContext } from "@/components/secondary-panel/SecondaryPanelHostLayoutContext";
 import { RIGHT_PANEL_TOGGLE_ICON_NAME } from "@/components/secondary-panel/panelToggleControlState";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@cc/shared-ui/chrome-style-tokens";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { dimInactiveSplitsAtom } from "@/lib/split-layout/atoms";
 import {
   CONTEXT_INACTIVE_TEXT_CLASS,
@@ -91,7 +91,7 @@ export function ThreadDetailHeader({
     label: "Thread name",
     onSave: handleRename,
   });
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getCcDesktopInfo);
   const dimsInactiveSplits = useAtomValue(dimInactiveSplitsAtom);
   const panelShortcut = useAppCommandShortcut("panel.toggle");
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);

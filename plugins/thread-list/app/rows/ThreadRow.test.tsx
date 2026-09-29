@@ -10,13 +10,13 @@ import type {
   PluginSidebarThread,
   PluginSidebarThreadRowStatus,
   PluginProvidersState,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import {
   installTestPluginRuntime,
   renderSlot,
   type PluginSdkTestFakes,
   type RenderedSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk/testing/app";
 import { NO_COLLAPSED_CHILD_ACTIVITY } from "../model/thread-activity.js";
 import { makeSidebarThread } from "../model/fixtures.js";
 import { sidebarShowProviderIconsAtom } from "../preferences/atoms.js";
@@ -352,8 +352,8 @@ describe("ThreadRow", () => {
     ).toEqual(["Pin", "Copy thread link", "Archive thread", "Thread actions"]);
     expect(
       document
-        .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-        ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+        .querySelector<HTMLElement>(".cc-sidebar-hover-actions-inset")
+        ?.style.getPropertyValue("--cc-sidebar-hover-actions-inset"),
     ).toBe("calc(var(--spacing) * 22.5)");
     fireEvent.click(screen.getByRole("button", { name: "Pin" }));
     expect(slot.inspection.sidebarActionCalls).toEqual([
@@ -368,8 +368,8 @@ describe("ThreadRow", () => {
     expect(screen.getByRole("button", { name: "Thread actions" })).toBeTruthy();
     expect(
       document
-        .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-        ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+        .querySelector<HTMLElement>(".cc-sidebar-hover-actions-inset")
+        ?.style.getPropertyValue("--cc-sidebar-hover-actions-inset"),
     ).toBe("calc(var(--spacing) * 0)");
   });
 
@@ -382,8 +382,8 @@ describe("ThreadRow", () => {
       });
       expect(
         document
-          .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-          ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+          .querySelector<HTMLElement>(".cc-sidebar-hover-actions-inset")
+          ?.style.getPropertyValue("--cc-sidebar-hover-actions-inset"),
       ).toBe("calc(var(--spacing) * 7.5)");
     },
   );
@@ -429,8 +429,8 @@ describe("ThreadRow", () => {
     expect(screen.queryByRole("button", { name: "Move to section" })).toBeNull();
     expect(
       document
-        .querySelector<HTMLElement>(".bb-sidebar-hover-actions-inset")
-        ?.style.getPropertyValue("--bb-sidebar-hover-actions-inset"),
+        .querySelector<HTMLElement>(".cc-sidebar-hover-actions-inset")
+        ?.style.getPropertyValue("--cc-sidebar-hover-actions-inset"),
     ).toBe("calc(var(--spacing) * 7.5)");
   });
 
@@ -681,13 +681,13 @@ describe("ThreadRow", () => {
 
   it("marks the row as open in a split and omits the map when the thread is in no pane", () => {
     const { container, unmount } = renderSplitThreadRow();
-    expect(container.querySelector(".bb-sidebar-open-in-split-row")).not.toBeNull();
+    expect(container.querySelector(".cc-sidebar-open-in-split-row")).not.toBeNull();
     unmount();
 
     const other = renderThreadRow({ splitLayout: twoPaneLayout("thr_other") });
     expect(screen.queryByRole("img", { name: /open in split/ })).toBeNull();
     expect(
-      other.container.querySelector(".bb-sidebar-open-in-split-row"),
+      other.container.querySelector(".cc-sidebar-open-in-split-row"),
     ).toBeNull();
   });
 
@@ -981,7 +981,7 @@ describe("ThreadRow", () => {
     expect(marker?.querySelector('[data-icon="FolderExport"]')).not.toBeNull();
     expect(
       marker?.parentElement?.previousElementSibling?.querySelector(
-        ".bb-thread-title",
+        ".cc-thread-title",
       ),
     ).not.toBeNull();
     expect(
@@ -1149,16 +1149,16 @@ describe("ThreadRow", () => {
       const navigationTarget = link.parentElement;
       const titleWrapper = link.nextElementSibling;
       expect(
-        titleContainer?.classList.contains("bb-sidebar-hover-actions-inset"),
+        titleContainer?.classList.contains("cc-sidebar-hover-actions-inset"),
       ).toBe(false);
       expect(
         titleContainer?.classList.contains(
-          "pr-(--bb-sidebar-hover-actions-inset)",
+          "pr-(--cc-sidebar-hover-actions-inset)",
         ),
       ).toBe(true);
       expect(
         titleContainer?.style.getPropertyValue(
-          "--bb-sidebar-hover-actions-inset",
+          "--cc-sidebar-hover-actions-inset",
         ),
       ).toBe("calc(var(--spacing) * 7.5)");
       expect(
@@ -1249,7 +1249,7 @@ describe("ThreadRow", () => {
       const toggle = screen.getByRole("button", {
         name: `${isCollapsed ? "Expand" : "Collapse"} Parent thread threads`,
       });
-      expect(toggle.classList.contains("bb-sidebar-hover-actions")).toBe(
+      expect(toggle.classList.contains("cc-sidebar-hover-actions")).toBe(
         expectedHoverReveal,
       );
     },
@@ -1272,7 +1272,7 @@ describe("ThreadRow", () => {
       '[data-sidebar-sticky-tier="parent"]',
     );
     expect(tier).not.toBeNull();
-    expect(tier?.style.getPropertyValue("--bb-sidebar-sticky-parent-level")).toBe("1");
+    expect(tier?.style.getPropertyValue("--cc-sidebar-sticky-parent-level")).toBe("1");
     expect(tier?.style.paddingLeft).toBe("56px");
     expect(tier?.querySelector('[aria-hidden="true"].w-px')).not.toBeNull();
   });

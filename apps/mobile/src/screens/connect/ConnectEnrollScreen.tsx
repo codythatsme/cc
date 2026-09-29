@@ -1,4 +1,4 @@
-import type { ConnectCredential } from "@bb/connect-client";
+import type { ConnectCredential } from "@cc/connect-client";
 import {
   Stack,
   useLocalSearchParams,
@@ -9,7 +9,6 @@ import { useState } from "react";
 import { View } from "react-native";
 import { useProfiles } from "@/app-shell";
 import {
-  DEFAULT_CONNECT_APEX_URL,
   describeEnrollmentError,
   redeemEnrollment,
   resolveEnrollmentTarget,
@@ -158,7 +157,7 @@ export function ConnectEnrollScreen() {
       <>
         <Stack.Screen
           options={{
-            title: reauth ? "Paired again" : "Paired with bb connect",
+            title: reauth ? "Paired again" : "Paired with cc connect",
           }}
         />
         {IS_IOS ? (
@@ -173,7 +172,7 @@ export function ConnectEnrollScreen() {
           </Stack.Toolbar>
         ) : null}
         <GroupedScreen testID="connect-enrolled-screen">
-          <SettingsSection footnote="This phone is now a device on your getbb.app account. You can revoke it any time in the dashboard under Machines.">
+          <SettingsSection footnote="This phone is now a device on your connect service account. You can revoke it any time in the dashboard under Machines.">
             <View
               className="flex-row items-center gap-3 px-4 py-3"
               testID="connect-enrolled-card"
@@ -218,8 +217,8 @@ export function ConnectEnrollScreen() {
           title: reauth
             ? `Sign in again to ${reauth.label}`
             : firstRun
-              ? "Connect to getbb.app"
-              : "Pair with bb connect",
+              ? "Connect to your connect service"
+              : "Pair with cc connect",
         }}
       />
       {IS_IOS ? (
@@ -238,7 +237,7 @@ export function ConnectEnrollScreen() {
           footnote={
             reauth
               ? "This phone's access was revoked or has expired. Generate a new pairing code on the server and enter it here; your saved server keeps its place."
-              : "Pair this phone with your bb server through getbb.app. Generate a code in bb Settings → Remote access → Add mobile device, or run `bb connect machine-code`."
+              : "Pair this phone with your cc server through your connect service. Generate a code in cc Settings → Remote access → Add mobile device, or run `cc connect machine-code`."
           }
         >
           <GroupedRow
@@ -297,7 +296,7 @@ export function ConnectEnrollScreen() {
             ) : reauth ? (
               "The server is fixed when signing in again."
             ) : (
-              "Optional: the code already names the server. A URL also sets the bb connect address for self-hosted gates."
+              "Optional: the code already names the server. A URL also sets the cc connect address for self-hosted gates."
             )
           }
         >
@@ -305,7 +304,7 @@ export function ConnectEnrollScreen() {
             <Input
               value={server}
               onChangeText={setServer}
-              placeholder="bee or https://bee.getbb.app"
+              placeholder="bee or https://bee.cc.example.invalid"
               keyboardType="url"
               autoCapitalize="none"
               autoCorrect={false}
@@ -322,14 +321,14 @@ export function ConnectEnrollScreen() {
 
         {showAdvanced ? (
           <SettingsSection
-            title="bb connect address"
+            title="cc connect address"
             footnote={
               fieldError?.field === "apexUrl" ? (
                 <Text variant="footnote" tone="destructive">
                   {fieldError.message}
                 </Text>
               ) : (
-                "The self-hosted bb connect gate this phone pairs through."
+                "The self-hosted cc connect gate this phone pairs through."
               )
             }
           >
@@ -337,7 +336,7 @@ export function ConnectEnrollScreen() {
               <Input
                 value={apexUrl}
                 onChangeText={setApexUrl}
-                placeholder={DEFAULT_CONNECT_APEX_URL}
+                placeholder="https://connect.example.com"
                 keyboardType="url"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -357,7 +356,7 @@ export function ConnectEnrollScreen() {
             onPress={() => setShowAdvanced(true)}
             testID="connect-advanced-toggle"
           >
-            Self-hosted bb connect…
+            Self-hosted cc connect…
           </Button>
         )}
 
@@ -455,7 +454,7 @@ function SessionStatusLine({ session }: { session: SessionState | null }) {
           selectable
           testID="connect-session-auth-required"
         >
-          bb connect rejected the new credential: {session.detail}
+          cc connect rejected the new credential: {session.detail}
         </Text>
       );
     case "error":

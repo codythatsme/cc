@@ -61,7 +61,7 @@ export function AddServerScreen() {
       const where =
         probe.stage === "health"
           ? "Could not reach the server"
-          : "Reached the server, but it does not look like bb";
+          : "Reached the server, but it does not look like cc";
       setSubmit({ phase: "failed", message: `${where}: ${probe.error}` });
       return;
     }
@@ -92,12 +92,12 @@ export function AddServerScreen() {
   return (
     <>
       <Stack.Screen
-        options={{ title: firstRun ? "Connect to a bb server" : "Add server" }}
+        options={{ title: firstRun ? "Connect to a cc server" : "Add server" }}
       />
       <GroupedScreen testID="add-server-screen">
-        <SettingsSection footnote="Pair through getbb.app from anywhere: scan or type a pairing code from bb Settings → Remote access.">
+        <SettingsSection footnote="Pair through your connect service from anywhere: scan or type a pairing code from cc Settings → Remote access.">
           <GroupedRow
-            title="Connect with bb connect"
+            title="Connect with cc connect"
             badge={{ icon: "Globe", symbol: "globe", color: colors.blue }}
             trailing="chevron"
             onPress={() => router.push(connectEnrollHref())}
@@ -139,7 +139,7 @@ export function AddServerScreen() {
                 if (submit.phase === "failed") setSubmit({ phase: "idle" });
               }}
               onBlur={() => setUrlTouched(true)}
-              placeholder="https://bb.example.ts.net"
+              placeholder="https://cc.example.ts.net"
               keyboardType="url"
               textContentType="URL"
               autoCapitalize="none"

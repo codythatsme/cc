@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import type { Host } from "@bb/domain";
-import { OptionDisplay } from "@bb/shared-ui/option-display";
+import type { Host } from "@cc/domain";
+import { OptionDisplay } from "@cc/shared-ui/option-display";
 import {
   OptionPicker,
   type PickerOption,

@@ -14,11 +14,11 @@ const USAGE =
 const defaultRepoRoot = resolve(dirname(scriptPath), "..");
 const packageTargets = [
   {
-    label: "bb-app",
-    path: "packages/bb-app/package.json",
+    label: "cc-app",
+    path: "packages/cc-app/package.json",
   },
   {
-    label: "@bb/desktop",
+    label: "@cc/desktop",
     path: "apps/desktop/package.json",
   },
 ];
@@ -120,11 +120,11 @@ export async function bumpVersion(options) {
       `${update.target.label.replaceAll("/", "-")}.json`,
     updates,
   });
-  log(`Bumped: bb-app + @bb/desktop → ${newVersion}`);
+  log(`Bumped: cc-app + @cc/desktop → ${newVersion}`);
 }
 
 async function main() {
-  const repoRoot = process.env.BB_BUMP_VERSION_REPO_ROOT ?? defaultRepoRoot;
+  const repoRoot = process.env.CC_BUMP_VERSION_REPO_ROOT ?? defaultRepoRoot;
 
   await bumpVersion({
     args: process.argv.slice(2),

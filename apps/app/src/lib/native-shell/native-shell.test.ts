@@ -4,7 +4,7 @@ import {
   buildBridgeInjectionScript,
   parsePageToShellMessage,
   type NativeShellHandshake,
-} from "@bb/mobile-bridge";
+} from "@cc/mobile-bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getNativeShell,
@@ -55,7 +55,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  Reflect.deleteProperty(window as unknown as Record<string, unknown>, "bb");
+  Reflect.deleteProperty(window as unknown as Record<string, unknown>, "cc");
   Reflect.deleteProperty(
     window as unknown as Record<string, unknown>,
     "ReactNativeWebView",
@@ -85,7 +85,7 @@ describe("getNativeShell", () => {
   });
 
   it("ignores a global that is not a usable bridge", () => {
-    Object.defineProperty(window, "bb", {
+    Object.defineProperty(window, "cc", {
       configurable: true,
       value: { native: { post: "not a function" } },
     });

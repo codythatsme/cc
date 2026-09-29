@@ -57,7 +57,7 @@ const AUTOMATION_STATUS_FILTER_OPTIONS = [
   { id: "paused", label: "Paused" },
 ] as const;
 
-export const CREATE_AUTOMATION_PROMPT = "Create a new bb automation to ";
+export const CREATE_AUTOMATION_PROMPT = "Create a new cc automation to ";
 export const AUTOMATION_CREATE_TEMPLATES = [
   {
     label: "CI failure triage",
@@ -650,7 +650,7 @@ export function AutomationOverviewView({
   return (
     <ResourceCollectionPage
       id="automations-collection"
-      description="Manage scheduled bb work across projects and folders. Automations run recurring or one-time tasks without manual prompting."
+      description="Manage scheduled cc work across projects and folders. Automations run recurring or one-time tasks without manual prompting."
       modes={[
         {
           id: "installed",

@@ -2,14 +2,14 @@ import type {
   HostDaemonCommand,
   HostDaemonOnlineRpcRequestMessage,
   HostDaemonOnlineRpcResponseMessage,
-} from "@bb/host-daemon-contract";
-import { WorkspaceError } from "@bb/host-workspace";
+} from "@cc/host-daemon-contract";
+import { WorkspaceError } from "@cc/host-workspace";
 import {
   encodeClientTurnRequestIdNumber,
   type ClientTurnRequestId,
   type PromptInput,
-} from "@bb/domain";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@cc/domain";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import {
   CommandRouter,
@@ -76,7 +76,7 @@ function createRouter(
   args: CreateRouterArgs = {},
 ): CommandRouter {
   return new CommandRouter({
-    dataDir: "/tmp/bb-router-test-data",
+    dataDir: "/tmp/cc-router-test-data",
     eventSink: noopEventSink,
     fetchProjectAttachment: unexpectedProjectAttachmentFetch,
     fetchPluginHostArtifact: fetchDispatchTestArtifact,
@@ -88,7 +88,7 @@ function createRouter(
     },
     resolveInteractiveRequest: args.resolveInteractiveRequest,
     runtimeManager: args.runtimeManager ?? harness.manager,
-    threadStorageRootPath: "/tmp/bb-router-test-thread-storage",
+    threadStorageRootPath: "/tmp/cc-router-test-thread-storage",
   });
 }
 

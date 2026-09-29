@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import plugin, {
   MAX_PREVIEW_BYTES,
   requireRelativePreviewFile,
@@ -32,7 +32,7 @@ async function load(sdk: {
     pluginId: "inline-vis",
     sdk,
   });
-  await plugin(host.bb);
+  await plugin(host.cc);
   return host;
 }
 
@@ -234,7 +234,7 @@ describe("preparePreview rpc", () => {
     ).rejects.toThrow(/no workspace path/);
   });
 
-  it("reads through bb.sdk.files with hostId + rootPath confinement", async () => {
+  it("reads through cc.sdk.files with hostId + rootPath confinement", async () => {
     const { harness } = await load({
       threads: {
         get: (args) => {

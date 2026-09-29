@@ -181,7 +181,7 @@ describe("commit message generation", () => {
         throw new Error("Codex request failed");
       });
       await expect(commitThroughRoute(harness)).resolves.toBe(
-        "bb: automated commit",
+        "cc: automated commit",
       );
     });
   });

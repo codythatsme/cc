@@ -4,8 +4,8 @@ import {
   type DbConnection,
   type PluginMarketplaceIconRow,
   type UpsertPluginMarketplaceIconInput,
-} from "@bb/db";
-import { assertValidPluginCompactIconSvg } from "@bb/plugin-build";
+} from "@cc/db";
+import { assertValidPluginCompactIconSvg } from "@cc/plugin-build";
 import {
   assertPublicMarketplaceUrl,
   boundedResponseBytes,

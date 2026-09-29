@@ -93,7 +93,7 @@ describe("frame round-trips", () => {
       streamId: 20,
       path: "/ws",
       headers: [["cookie", "a=b"]],
-      protocols: ["bb.v1"],
+      protocols: ["cc.v1"],
     };
     const out = roundTrip(open);
     expect(out).toEqual(open);
@@ -137,11 +137,11 @@ describe("frame round-trips", () => {
       protocol: null,
     });
     expect(
-      roundTrip({ type: "ws-open-ack", streamId: 20, protocol: "bb.v1" }),
+      roundTrip({ type: "ws-open-ack", streamId: 20, protocol: "cc.v1" }),
     ).toEqual({
       type: "ws-open-ack",
       streamId: 20,
-      protocol: "bb.v1",
+      protocol: "cc.v1",
     });
 
     const text = roundTrip({

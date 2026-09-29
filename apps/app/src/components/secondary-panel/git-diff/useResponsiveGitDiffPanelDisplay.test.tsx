@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, expect, it } from "vitest";

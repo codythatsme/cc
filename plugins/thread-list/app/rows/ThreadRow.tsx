@@ -43,7 +43,7 @@ import {
   useSidebarThreadShortcut,
   type PluginSidebarSplitPane,
   type PluginSidebarThreadRowStatus,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import type { SidebarThread } from "../model/sidebar-thread.js";
 import { useSidebarProjectName } from "../model/use-sidebar-data.js";
 import {
@@ -178,7 +178,7 @@ export const REORDER_PLACEMENT_CLASS: Record<SidebarReorderPlacement, string> =
 
 function getHoverActionsInsetStyle(actionCount: number): CSSProperties {
   return {
-    "--bb-sidebar-hover-actions-inset": `calc(var(--spacing) * ${7.5 * actionCount})`,
+    "--cc-sidebar-hover-actions-inset": `calc(var(--spacing) * ${7.5 * actionCount})`,
   } as CSSProperties;
 }
 
@@ -516,7 +516,7 @@ function ThreadRowComponent({
           !shortcut &&
             !isEditing &&
             (reserveActionSpace
-              ? "pr-(--bb-sidebar-hover-actions-inset) max-md:pointer-coarse:pr-0"
+              ? "pr-(--cc-sidebar-hover-actions-inset) max-md:pointer-coarse:pr-0"
               : SIDEBAR_HOVER_ACTIONS_INSET_CLASS),
         )}
         style={getHoverActionsInsetStyle(
@@ -595,7 +595,7 @@ function ThreadRowComponent({
               ) : null}
               <span
                 className={cn(
-                  "bb-thread-title",
+                  "cc-thread-title",
                   crossProjectLabel !== null && "min-w-0 truncate",
                 )}
                 title={labelTitle}

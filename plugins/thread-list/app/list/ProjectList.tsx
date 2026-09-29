@@ -21,7 +21,7 @@ import {
   experimental_useSidebarThreadActions,
   useSdk,
   useSidebarThreadDraftIds,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import {
   SidebarRenameProvider,
   useSidebarRename,

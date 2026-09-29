@@ -2,8 +2,8 @@ import { Buffer } from "node:buffer";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
-import { isPathWithinDirectory } from "@bb/process-utils";
+import type { HostDaemonOnlineRpcResult } from "@cc/host-daemon-contract";
+import { isPathWithinDirectory } from "@cc/process-utils";
 import { CommandDispatchError } from "../command-dispatch-support.js";
 import type { CommandOf } from "../command-dispatch-support.js";
 import { isFsErrorWithCode } from "../fs-errors.js";
@@ -154,7 +154,7 @@ async function writeResolvedHostFile(
     if (command.expectedSha256 === undefined) {
       await fs.writeFile(target.writePath, contents, writeOptions);
     } else {
-      temporaryPath = `${target.writePath}.bb-write-${randomUUID()}`;
+      temporaryPath = `${target.writePath}.cc-write-${randomUUID()}`;
       const handle = await fs.open(temporaryPath, "wx", writeOptions.mode);
       try {
         await handle.writeFile(contents);

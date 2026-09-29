@@ -112,27 +112,27 @@ const OVERVIEW_ENTRIES: AutomationsOverviewResponse["automations"] = [
   },
   {
     automation: automation("release", "Release readiness", {
-      projectId: "proj_bb",
+      projectId: "proj_cc",
       lastRunStatus: "running",
       nextRunAt: now + 3_600_000,
     }),
-    project: { id: "proj_bb", name: "bb" },
+    project: { id: "proj_cc", name: "cc" },
   },
   {
     automation: automation("pending-reminder", "A pending launch reminder", {
-      projectId: "proj_bb",
+      projectId: "proj_cc",
       trigger: { triggerType: "once", runAt: now + 86_400_000 },
       nextRunAt: now + 86_400_000,
     }),
-    project: { id: "proj_bb", name: "bb" },
+    project: { id: "proj_cc", name: "cc" },
   },
   {
     automation: automation("dependencies", "Dependency drift", {
-      projectId: "proj_bb",
+      projectId: "proj_cc",
       enabled: false,
       nextRunAt: null,
     }),
-    project: { id: "proj_bb", name: "bb" },
+    project: { id: "proj_cc", name: "cc" },
   },
   {
     automation: automation("one-shot", "Prepare launch notes", {
@@ -178,7 +178,7 @@ const DETAIL_AUTOMATION = automation("nightly-digest", "Nightly digest", {
 
 const PROJECT_AUTOMATION: AutomationResponse = {
   ...DETAIL_AUTOMATION,
-  projectId: "proj_bb",
+  projectId: "proj_cc",
   lastRunAt: now,
   runCount: 3,
   lastRunStatus: "running",
@@ -194,7 +194,7 @@ const PROJECT_AUTOMATION: AutomationResponse = {
 
       workspace: {
         type: "unmanaged",
-        path: "/Users/you/Code/bb",
+        path: "/Users/you/Code/cc",
         branch: { kind: "existing", name: "agent/tools-hub-schedules" },
       },
     },
@@ -223,13 +223,13 @@ mkdir -p "$output_dir"
 for repository in api app docs integrations; do
   echo "Collecting $repository activity for $report_date"
   gh pr list \\
-    --repo "bb/$repository" \\
+    --repo "cc/$repository" \\
     --state all \\
     --json number,title,state,updatedAt \\
     > "$output_dir/$repository-$report_date.json"
 
   gh issue list \\
-    --repo "bb/$repository" \\
+    --repo "cc/$repository" \\
     --state all \\
     --json number,title,state,updatedAt \\
     > "$output_dir/$repository-issues-$report_date.json"
@@ -244,7 +244,7 @@ echo "Reports written to $output_dir"`,
     interpreter: "bash",
     timeoutMs: 60_000,
     env: {
-      REPORT_OUTPUT: "/tmp/bb-reports",
+      REPORT_OUTPUT: "/tmp/cc-reports",
       GH_HOST: "github.com",
     },
   },
@@ -310,7 +310,7 @@ function PromptVariant({
         personalProject={value.projectId === "proj_personal"}
         projectContextLabel={
           projectLabel ??
-          (value.projectId === "proj_personal" ? "Personal" : "bb")
+          (value.projectId === "proj_personal" ? "Personal" : "cc")
         }
         pending={false}
         onCancel={() => setEditing(false)}
@@ -588,7 +588,7 @@ export function DetailStates() {
             execution={{
               mode: "script",
               workingDirectory: { type: "project" },
-              resolvedWorkingDirectory: "/srv/projects/bb",
+              resolvedWorkingDirectory: "/srv/projects/cc",
               script: 'echo "Preparing report"',
               interpreter: "bash",
               timeoutMs: 60000,

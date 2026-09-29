@@ -1,5 +1,5 @@
-import { openSecondaryPanelTabInState } from "@bb/client-core";
-import type { ThreadTab } from "@bb/server-contract";
+import { openSecondaryPanelTabInState } from "@cc/client-core";
+import type { ThreadTab } from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   createEmptyFixedPanelTabsState,

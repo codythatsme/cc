@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
-import { machine, server } from "@bb/connect-db";
+import { machine, server } from "@cc/connect-db";
 import {
   HEARTBEAT_REQUEST,
   HEARTBEAT_RESPONSE,
@@ -10,7 +10,7 @@ import {
   encodeFrame,
   type Frame,
   type HeaderPair,
-} from "@bb/tunnel-contract";
+} from "@cc/tunnel-contract";
 import { relayedResponse } from "./response-encoding.js";
 import { TUNNEL_TARGET_HEADER } from "./protocol-headers.js";
 
@@ -36,7 +36,7 @@ const CLEAN_CLOSE_CODE = 1000;
 
 const WS_READY_STATE_OPEN = 1;
 
-export const TUNNEL_OFFLINE_HEADER = "x-bb-tunnel-offline";
+export const TUNNEL_OFFLINE_HEADER = "x-cc-tunnel-offline";
 export const TUNNEL_RESTART_REASON =
   "the tunnel socket disappeared without a close; restarting this object";
 
@@ -74,7 +74,7 @@ export function parseClientProtocolVersion(raw: string | null): number {
 }
 
 const PORT_SHARE_TOO_OLD =
-  "this bb's connect plugin is too old for port sharing — update bb and reconnect";
+  "this cc's connect plugin is too old for port sharing — update cc and reconnect";
 
 interface PendingHttp {
   resolve: (response: Response) => void;
@@ -165,7 +165,7 @@ export class TunnelDO {
   ): Response | Promise<Response> {
     const target = readTunnelTarget(request.headers);
     if (target !== undefined && this.clientProtocolVersion < 1) {
-      return new Response(`bb connect: ${PORT_SHARE_TOO_OLD}\n`, {
+      return new Response(`cc connect: ${PORT_SHARE_TOO_OLD}\n`, {
         status: 502,
         headers: { "content-type": "text/plain; charset=utf-8" },
       });
@@ -199,7 +199,7 @@ export class TunnelDO {
 
   private offlineResponse(): Response {
     return new Response(
-      "bb connect: this server is offline (no tunnel connected)\n",
+      "cc connect: this server is offline (no tunnel connected)\n",
       {
         status: 503,
         headers: {
@@ -483,7 +483,7 @@ export class TunnelDO {
         .catch(() => {});
     } else {
       entry.resolve(
-        new Response(`bb connect: ${message}\n`, {
+        new Response(`cc connect: ${message}\n`, {
           status,
           headers: { "content-type": "text/plain; charset=utf-8" },
         }),
@@ -565,7 +565,7 @@ export class TunnelDO {
           this.pendingHttp.delete(frame.streamId);
           entry.resolve(
             new Response(
-              `bb connect: unrelayable origin response (status ${frame.status})\n`,
+              `cc connect: unrelayable origin response (status ${frame.status})\n`,
               {
                 status: 502,
                 headers: { "content-type": "text/plain; charset=utf-8" },

@@ -14,8 +14,8 @@ const HOST_SOURCE = `
 `;
 
 const REGISTER_AI_SERVICE_SOURCE = (id: string): string => `
-  export default function plugin(bb: any) {
-    bb.experimental_aiServices.register({
+  export default function plugin(cc: any) {
+    cc.experimental_aiServices.register({
       id: ${JSON.stringify(id)},
       displayName: "Acme AI",
       complete: async (prompt) => prompt.toUpperCase(),
@@ -30,13 +30,13 @@ const REGISTER_AI_SERVICE_AND_PROVIDER_SOURCE = (
   order: "service-first" | "provider-first",
 ): string => {
   const service = `
-    bb.experimental_aiServices.register({
+    cc.experimental_aiServices.register({
       id: ${JSON.stringify(id)},
       displayName: "Acme AI",
       complete: async () => "reply",
     });`;
   const provider = `
-    bb.providers.register({
+    cc.providers.register({
       id: ${JSON.stringify(id)},
       displayName: "Acme Agent",
       icon: "./icons/agent.svg",
@@ -54,7 +54,7 @@ const REGISTER_AI_SERVICE_AND_PROVIDER_SOURCE = (
       composerActions: ["plan"],
     });`;
   return `
-  export default function plugin(bb: any) {
+  export default function plugin(cc: any) {
     ${order === "service-first" ? service + provider : provider + service}
   }
 `;
@@ -72,7 +72,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "AI service fixture",
         description: "AI service registration fixture.",
         branding: { icon: "Zap" },
@@ -90,11 +90,11 @@ async function writePlugin(
 
 const ACME_AI = { pluginId: "acme-ai", serviceId: "acme-ai" };
 
-describe("bb.experimental_aiServices.register (server)", () => {
+describe("cc.experimental_aiServices.register (server)", () => {
   let workDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-ai-service-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-ai-service-test-"));
   });
 
   afterEach(async () => {
@@ -104,7 +104,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
   it("lands the service when the load commits and removes it when the plugin is disabled", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-acme-ai",
+        name: "cc-plugin-acme-ai",
         serverSource: REGISTER_AI_SERVICE_SOURCE("acme-ai"),
         withHost: false,
       });
@@ -137,10 +137,10 @@ describe("bb.experimental_aiServices.register (server)", () => {
   it("fails the load of a plugin whose service answers nothing", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-empty-ai",
+        name: "cc-plugin-empty-ai",
         serverSource: `
-          export default function plugin(bb: any) {
-            bb.experimental_aiServices.register({ id: "empty-ai", displayName: "Empty" });
+          export default function plugin(cc: any) {
+            cc.experimental_aiServices.register({ id: "empty-ai", displayName: "Empty" });
           }
         `,
         withHost: false,
@@ -159,10 +159,10 @@ describe("bb.experimental_aiServices.register (server)", () => {
     });
   });
 
-  it("fails the load on the host build error when a first install's bb.host entry does not build", async () => {
+  it("fails the load on the host build error when a first install's cc.host entry does not build", async () => {
     await withTestHarness(async (harness) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-broken-host-ai",
+        name: "cc-plugin-broken-host-ai",
         serverSource: REGISTER_AI_SERVICE_SOURCE("broken-host-ai"),
       });
       await writeFile(
@@ -172,7 +172,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
       const entry = await harness.pluginService.installPath(rootDir);
       expect(entry.status).toBe("error");
       expect(entry.statusDetail).toContain("Could not resolve");
-      expect(entry.statusDetail).not.toContain("needs a bb.host entry");
+      expect(entry.statusDetail).not.toContain("needs a cc.host entry");
       expect(
         harness.deps.aiServices.get({
           pluginId: "broken-host-ai",
@@ -189,7 +189,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
       await withTestHarness(async (harness) => {
         const id = `dual-${order}`;
         const rootDir = await writePlugin(workDir, {
-          name: `bb-plugin-${id}`,
+          name: `cc-plugin-${id}`,
           serverSource: REGISTER_AI_SERVICE_AND_PROVIDER_SOURCE(id, order),
         });
         await writeFile(
@@ -248,13 +248,13 @@ describe("bb.experimental_aiServices.register (server)", () => {
     await withTestHarness(async (harness) => {
       const first = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-first-ai",
+          name: "cc-plugin-first-ai",
           serverSource: REGISTER_AI_SERVICE_SOURCE("codex"),
         }),
       );
       const second = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-second-ai",
+          name: "cc-plugin-second-ai",
           serverSource: REGISTER_AI_SERVICE_SOURCE("codex"),
         }),
       );
@@ -283,12 +283,12 @@ describe("bb.experimental_aiServices.register (server)", () => {
     await withTestHarness(async (harness) => {
       const entry = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-twice-ai",
+          name: "cc-plugin-twice-ai",
           serverSource: `
-            export default function plugin(bb: any) {
+            export default function plugin(cc: any) {
               const complete = async () => "reply";
-              bb.experimental_aiServices.register({ id: "twice", displayName: "Twice", complete });
-              bb.experimental_aiServices.register({ id: "twice", displayName: "Twice again", complete });
+              cc.experimental_aiServices.register({ id: "twice", displayName: "Twice", complete });
+              cc.experimental_aiServices.register({ id: "twice", displayName: "Twice again", complete });
             }
           `,
           withHost: false,
@@ -306,7 +306,7 @@ describe("bb.experimental_aiServices.register (server)", () => {
     await withTestHarness(async (harness) => {
       const entry = await harness.pluginService.installPath(
         await writePlugin(workDir, {
-          name: "bb-plugin-reserved-ai",
+          name: "cc-plugin-reserved-ai",
           serverSource: REGISTER_AI_SERVICE_SOURCE("automatic"),
           withHost: false,
         }),

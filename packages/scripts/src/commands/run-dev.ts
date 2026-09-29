@@ -5,7 +5,7 @@ import {
   resolveCurrentDevInstanceConfig,
   toDevProcessEnv,
   type DevInstanceConfig,
-} from "@bb/config/runtime";
+} from "@cc/config/runtime";
 import { migrateLegacyDevData } from "../lib/legacy-dev-data-migration.js";
 import { runScriptProcess } from "../lib/process-helpers.js";
 import { repoRoot, runMainIfEntrypoint } from "../lib/script-entry.js";
@@ -31,9 +31,9 @@ function createDevTurboCommand(): DevCommand {
       "turbo",
       "run",
       "dev",
-      "--filter=@bb/app",
-      "--filter=@bb/server",
-      "--filter=@bb/host-daemon",
+      "--filter=@cc/app",
+      "--filter=@cc/server",
+      "--filter=@cc/host-daemon",
       "--ui",
       "tui",
       "--concurrency",
@@ -50,7 +50,7 @@ export function createStartWorktreeCommand(dryRun = false): DevCommand {
       "--conditions=source",
       "--import",
       "tsx",
-      resolve(repoRoot, "scripts", "start-bb.mjs"),
+      resolve(repoRoot, "scripts", "start-cc.mjs"),
       "--worktree-runtime-policy",
       ...(dryRun ? ["--dryrun"] : []),
     ],
@@ -83,8 +83,7 @@ export function toDevLaunchProcessEnv(args: {
     return env;
   }
 
-  delete env.BB_DEV_APP_PORT;
-  env.BB_TELEMETRY = "false";
+  delete env.CC_DEV_APP_PORT;
   env.NODE_ENV = "production";
   return env;
 }
@@ -165,7 +164,7 @@ async function main(): Promise<void> {
     });
     if (migration.skippedReason === "legacy-dev-process-running") {
       throw new Error(
-        "[dev] Legacy ~/.bb-dev data was found, but an old dev server or host-daemon is still running. Stop the old dev process and rerun pnpm dev to migrate it.",
+        "[dev] Legacy ~/.cc-dev data was found, but an old dev server or host-daemon is still running. Stop the old dev process and rerun pnpm dev to migrate it.",
       );
     }
     await assertPortsAvailable(config, mode);

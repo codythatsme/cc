@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import type { BbDesktopWindowState } from "@bb/desktop-contract";
+import type { CcDesktopWindowState } from "@cc/desktop-contract";
 import {
   DEFAULT_DESKTOP_WINDOW_STATE,
-  getBbDesktopInfo,
-} from "@/lib/bb-desktop";
+  getCcDesktopInfo,
+} from "@/lib/cc-desktop";
 
-export function useDesktopWindowState(): BbDesktopWindowState {
-  const [windowState, setWindowState] = useState<BbDesktopWindowState>(
+export function useDesktopWindowState(): CcDesktopWindowState {
+  const [windowState, setWindowState] = useState<CcDesktopWindowState>(
     DEFAULT_DESKTOP_WINDOW_STATE,
   );
 
   useEffect(() => {
-    const desktopApi = getBbDesktopInfo();
+    const desktopApi = getCcDesktopInfo();
     let cancelled = false;
 
     const unsubscribe = desktopApi?.onWindowStateChange?.((nextState) => {

@@ -1,12 +1,12 @@
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
-import type { ServerMoveMode } from "@bb/domain";
-import { SERVER_MOVED_FILE_NAME } from "@bb/server-archive";
+  formatCcAppConfigPath,
+  parseCcAppManagedConfig,
+} from "@cc/config/cc-app-managed-config";
+import { mutateManagedJsonFile } from "@cc/config/managed-json-file";
+import type { ServerMoveMode } from "@cc/domain";
+import { SERVER_MOVED_FILE_NAME } from "@cc/server-archive";
 import { parseManagedConfigObject, readOptionalText } from "./managed-files.js";
 
 const OLD_SERVER_KEPT_ENTRIES: ReadonlySet<string> = new Set([
@@ -56,14 +56,14 @@ function nextOldServerDaemonConfig(
       ? { serverHeaders: args.headers }
       : {}),
   };
-  parseBbAppManagedConfig(next);
+  parseCcAppManagedConfig(next);
   return next;
 }
 
 export async function validateOldServerDaemonConfig(
   args: WriteOldServerDaemonConfigArgs,
 ): Promise<void> {
-  const path = formatBbAppConfigPath(args.dataDir);
+  const path = formatCcAppConfigPath(args.dataDir);
   nextOldServerDaemonConfig(
     parseManagedConfigObject(path, await readOptionalText(path)),
     args,
@@ -73,7 +73,7 @@ export async function validateOldServerDaemonConfig(
 export async function writeOldServerDaemonConfig(
   args: WriteOldServerDaemonConfigArgs,
 ): Promise<OldServerDaemonConfigBackup> {
-  const path = formatBbAppConfigPath(args.dataDir);
+  const path = formatCcAppConfigPath(args.dataDir);
   const backup: OldServerDaemonConfigBackup = { originalText: null, path };
   await mutateManagedJsonFile({
     path,

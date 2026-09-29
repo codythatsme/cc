@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PluginCliContext, PluginCliResult } from "@get-bb/plugin-sdk";
+import type { PluginCliContext, PluginCliResult } from "@codythatsme/plugin-sdk";
 import {
   browserCliFailure,
   createBrowserAutomationCli,
@@ -232,8 +232,8 @@ describe("CLI boundaries", () => {
     const { registration, invoke, execute } = cli();
     const top = await invoke(["--help"]);
     expect(top.exitCode).toBe(0);
-    expect(top.stdout).toContain("bb browser-automation open");
-    expect(top.stdout).toContain("bb browser-automation screenshot");
+    expect(top.stdout).toContain("cc browser-automation open");
+    expect(top.stdout).toContain("cc browser-automation screenshot");
 
     const runHelp = await invoke(["run", "--help"]);
     expect(runHelp.exitCode).toBe(0);
@@ -269,7 +269,7 @@ describe("CLI boundaries", () => {
       error: {
         code: "session_unavailable",
         message: "Session stopped or expired; open a new session",
-        hint: expect.stringContaining("bb browser-automation open"),
+        hint: expect.stringContaining("cc browser-automation open"),
       },
     });
     expect(json.stderr).toContain("Session stopped or expired");

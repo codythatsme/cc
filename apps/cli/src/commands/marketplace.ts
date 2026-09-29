@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import { Command } from "commander";
-import type { PluginMarketplace } from "@bb/server-contract";
+import type { PluginMarketplace } from "@cc/server-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliCcSdk } from "../client.js";
 import { renderBorderlessTable } from "../table.js";
 import { outputJson, type JsonOutputOptions } from "./helpers.js";
 
@@ -38,7 +38,7 @@ export function registerMarketplaceCommands(
 ): void {
   const marketplace = program
     .command("marketplace")
-    .description("Manage the plugin marketplaces bb reads catalogs from");
+    .description("Manage the plugin marketplaces cc reads catalogs from");
 
   marketplace
     .command("add <source>")
@@ -48,7 +48,7 @@ export function registerMarketplaceCommands(
     .option("--json", "Output JSON")
     .action(
       action(async (source: string, opts: JsonOutputOptions) => {
-        const added = await createCliBbSdk(getUrl()).plugins.marketplaces.add({
+        const added = await createCliCcSdk(getUrl()).plugins.marketplaces.add({
           source: normalizeSource(source),
         });
         if (opts.json) {
@@ -58,19 +58,19 @@ export function registerMarketplaceCommands(
         console.log(`Added marketplace ${added.name}:`);
         printMarketplace(added);
         console.log(
-          `Adding a marketplace installs nothing. Install an entry with \`bb plugin install <id>@${added.name}\`.`,
+          `Adding a marketplace installs nothing. Install an entry with \`cc plugin install <id>@${added.name}\`.`,
         );
       }),
     );
 
   marketplace
     .command("list")
-    .description("List the marketplaces bb reads catalogs from")
+    .description("List the marketplaces cc reads catalogs from")
     .option("--json", "Output JSON")
     .action(
       action(async (opts: JsonOutputOptions) => {
         const marketplaces =
-          await createCliBbSdk(getUrl()).plugins.marketplaces.list();
+          await createCliCcSdk(getUrl()).plugins.marketplaces.list();
         if (opts.json) {
           outputJson(opts, marketplaces);
           return;
@@ -103,7 +103,7 @@ export function registerMarketplaceCommands(
     .option("--json", "Output JSON")
     .action(
       action(async (name: string | undefined, opts: JsonOutputOptions) => {
-        const results = await createCliBbSdk(
+        const results = await createCliCcSdk(
           getUrl(),
         ).plugins.marketplaces.refresh(name === undefined ? {} : { name });
         if (opts.json) {
@@ -124,12 +124,12 @@ export function registerMarketplaceCommands(
   marketplace
     .command("remove <name>")
     .description(
-      "Forget a marketplace. bb-official and bb-community cannot be removed. Installed plugins keep their direct sources",
+      "Forget a marketplace. cc-official and cc-community cannot be removed. Installed plugins keep their direct sources",
     )
     .option("--json", "Output JSON")
     .action(
       action(async (name: string, opts: JsonOutputOptions) => {
-        const removed = await createCliBbSdk(
+        const removed = await createCliCcSdk(
           getUrl(),
         ).plugins.marketplaces.remove({ name });
         if (opts.json) {

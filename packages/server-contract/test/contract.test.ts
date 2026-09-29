@@ -1,8 +1,8 @@
 import {
   collectOptionalFieldPaths,
   makeWorkspaceStatus,
-} from "@bb/test-helpers";
-import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
+} from "@cc/test-helpers";
+import type { WorkspaceResolutionFailure } from "@cc/host-daemon-contract";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -12,7 +12,7 @@ import {
   TERMINAL_DATA_MAX_BASE64_LENGTH,
   TERMINAL_DATA_MAX_BYTES,
   TERMINAL_ROWS_MAX,
-} from "@bb/domain";
+} from "@cc/domain";
 import { describe, expect, it } from "vitest";
 import * as contract from "../src/index.js";
 import {
@@ -66,7 +66,7 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "A submitted plugin form leaves on its row only what the plugin's describeSubmission returned, and the whole description is absent when the plugin declares no describeSubmission or when that call throws or times out. Within one, an absent title means the presentation's completed label stands, an absent detail means the title is the whole row, and an absent payload means the row renders without handing anything to the plugin's own timeline renderer. bb never stores the form's payload or the submitted value, so these fields are the entire record of what happened.",
+      "A submitted plugin form leaves on its row only what the plugin's describeSubmission returned, and the whole description is absent when the plugin declares no describeSubmission or when that call throws or times out. Within one, an absent title means the presentation's completed label stands, an absent detail means the title is the whole row, and an absent payload means the row renders without handing anything to the plugin's own timeline renderer. cc never stores the form's payload or the submitted value, so these fields are the entire record of what happened.",
     fields: [
       "threadPendingInteractionsResponseSchema.resolution.description",
       "threadPendingInteractionsResponseSchema.resolution.description.detail",
@@ -122,7 +122,7 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "A row carries a declarative presentation only when a bridge or plugin attached one; rows persisted before grammar v2, and rows from a bridge that declares none, have no presentation and clients fall back to bb's own rendering for the row kind.",
+      "A row carries a declarative presentation only when a bridge or plugin attached one; rows persisted before grammar v2, and rows from a bridge that declares none, have no presentation and clients fall back to cc's own rendering for the row kind.",
     fields: [
       "threadPendingInteractionsResponseSchema.payload.presentation",
       "threadTimelineResponseSchema.activeBackgroundCommands.presentation",
@@ -285,7 +285,7 @@ const OPTIONAL_SERVER_FIELD_GROUPS: readonly OptionalServerFieldGroup[] = [
   },
   {
     reason:
-      "A provider interaction carries an explicit origin only since bb began recording which provider raised it; absence means an older row whose provider is still readable from the providerId, providerThreadId, and providerRequestId beside it.",
+      "A provider interaction carries an explicit origin only since cc began recording which provider raised it; absence means an older row whose provider is still readable from the providerId, providerThreadId, and providerRequestId beside it.",
     fields: ["threadPendingInteractionsResponseSchema.origin"],
   },
   {
@@ -706,7 +706,7 @@ describe("git branch name contract", () => {
       "release/1.2",
       "feature.foo",
       "user_name",
-      "bb/thread-123",
+      "cc/thread-123",
     ];
 
     for (const name of validNames) {
@@ -1230,7 +1230,7 @@ describe("server-contract canonical schemas", () => {
           hasPendingInteraction: true,
           environmentHostId: "host_123",
           environmentName: null,
-          environmentBranchName: "bb/test",
+          environmentBranchName: "cc/test",
           environmentPath: null,
           environmentProviderId: "git-worktree",
           environmentIsWorktree: true,
@@ -1245,7 +1245,7 @@ describe("server-contract canonical schemas", () => {
         hasPendingInteraction: true,
         environmentHostId: "host_123",
         environmentName: null,
-        environmentBranchName: "bb/test",
+        environmentBranchName: "cc/test",
         environmentPath: null,
         environmentProviderId: "git-worktree",
         environmentIsWorktree: true,
@@ -1437,7 +1437,7 @@ describe("server-contract canonical schemas", () => {
     expect(() =>
       contract.updateProjectSourceRequestSchema.parse({
         type: "local_path",
-        path: " C:\\Users\\michael\\bb\\ ",
+        path: " C:\\Users\\michael\\cc\\ ",
       }),
     ).toThrow("Native Windows paths are not supported");
 

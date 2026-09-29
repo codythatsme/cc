@@ -3,12 +3,12 @@
   "name": "resource-detail-controls",
   "type": "registry:ui",
   "title": "resource-detail-controls",
-  "description": "BB ui \"resource-detail-controls\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"resource-detail-controls\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon",
-    "@bb/tooltip",
-    "@bb/utils"
+    "@cc/button",
+    "@cc/icon",
+    "@cc/tooltip",
+    "@cc/utils"
   ],
   "files": [
     {

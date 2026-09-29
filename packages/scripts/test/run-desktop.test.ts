@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveDevInstanceConfig } from "@bb/config/runtime";
+import { resolveDevInstanceConfig } from "@cc/config/runtime";
 import {
   createDesktopPackageCommand,
   createDesktopRunCommand,
@@ -12,7 +12,7 @@ import {
 
 const config = resolveDevInstanceConfig({
   homeDir: "/Users/tester",
-  repoRoot: "/Users/tester/checkouts/bb",
+  repoRoot: "/Users/tester/checkouts/cc",
 });
 
 describe("desktop launch mode", () => {
@@ -36,7 +36,7 @@ describe("desktop packaging task", () => {
       /supported on macOS and Linux/u,
     );
     expect(createDesktopPackageCommand("darwin").args).toEqual(
-      expect.arrayContaining(["run", "package", "--filter=@bb/desktop"]),
+      expect.arrayContaining(["run", "package", "--filter=@cc/desktop"]),
     );
   });
 
@@ -53,9 +53,8 @@ describe("desktop launch environment", () => {
   it("isolates the worktree launch onto this checkout's data directory and ports", () => {
     const env = toDesktopLaunchProcessEnv({
       baseEnv: {
-        BB_DATA_DIR: "/Users/tester/.bb",
-        BB_DEV_APP_PORT: "5173",
-        BB_TELEMETRY: "true",
+        CC_DATA_DIR: "/Users/tester/.cc",
+        CC_DEV_APP_PORT: "5173",
         NODE_ENV: "development",
         OPENAI_API_KEY: "test-key",
       },
@@ -64,18 +63,17 @@ describe("desktop launch environment", () => {
     });
 
     expect(env).toMatchObject({
-      BB_DATA_DIR: config.dataDir,
-      BB_DESKTOP_OPEN_DEVTOOLS: "0",
-      BB_DESKTOP_USER_DATA_DIR: join(config.dataDir, "desktop"),
-      BB_HOST_DAEMON_PORT: String(config.ports.hostDaemonPort),
-      BB_SERVER_PORT: String(config.ports.serverPort),
-      BB_TELEMETRY: "false",
+      CC_DATA_DIR: config.dataDir,
+      CC_DESKTOP_OPEN_DEVTOOLS: "0",
+      CC_DESKTOP_USER_DATA_DIR: join(config.dataDir, "desktop"),
+      CC_HOST_DAEMON_PORT: String(config.ports.hostDaemonPort),
+      CC_SERVER_PORT: String(config.ports.serverPort),
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });
-    expect(env.BB_DATA_DIR).not.toBe("/Users/tester/.bb");
-    expect(env.BB_SERVER_PORT).not.toBe("38886");
-    expect(env.BB_DEV_APP_PORT).toBeUndefined();
+    expect(env.CC_DATA_DIR).not.toBe("/Users/tester/.cc");
+    expect(env.CC_SERVER_PORT).not.toBe("38886");
+    expect(env.CC_DEV_APP_PORT).toBeUndefined();
   });
 
   it("keeps the worktree build off the installed Electron user data directory", () => {
@@ -85,22 +83,22 @@ describe("desktop launch environment", () => {
       mode: "worktree",
     });
 
-    expect(env.BB_DESKTOP_USER_DATA_DIR?.startsWith(config.dataDir)).toBe(true);
-    expect(env.BB_DESKTOP_USER_DATA_DIR).not.toContain("Application Support");
+    expect(env.CC_DESKTOP_USER_DATA_DIR?.startsWith(config.dataDir)).toBe(true);
+    expect(env.CC_DESKTOP_USER_DATA_DIR).not.toContain("Application Support");
   });
 
   it("preserves an explicit Electron user data directory", () => {
-    const userDataDir = "/tmp/bb-desktop-profile";
+    const userDataDir = "/tmp/cc-desktop-profile";
     const env = toDesktopLaunchProcessEnv({
-      baseEnv: { BB_DESKTOP_USER_DATA_DIR: ` ${userDataDir} ` },
+      baseEnv: { CC_DESKTOP_USER_DATA_DIR: ` ${userDataDir} ` },
       config,
       mode: "worktree",
     });
 
-    expect(env.BB_DESKTOP_USER_DATA_DIR).toBe(userDataDir);
+    expect(env.CC_DESKTOP_USER_DATA_DIR).toBe(userDataDir);
     expect(
       resolveDesktopUserDataDir(
-        { BB_DESKTOP_USER_DATA_DIR: "relative-profile" },
+        { CC_DESKTOP_USER_DATA_DIR: "relative-profile" },
         config,
       ),
     ).toBe(join(process.cwd(), "relative-profile"));
@@ -108,12 +106,12 @@ describe("desktop launch environment", () => {
 
   it("lets an explicit devtools choice survive the worktree default", () => {
     const env = toDesktopLaunchProcessEnv({
-      baseEnv: { BB_DESKTOP_OPEN_DEVTOOLS: "1" },
+      baseEnv: { CC_DESKTOP_OPEN_DEVTOOLS: "1" },
       config,
       mode: "worktree",
     });
 
-    expect(env.BB_DESKTOP_OPEN_DEVTOOLS).toBe("1");
+    expect(env.CC_DESKTOP_OPEN_DEVTOOLS).toBe("1");
   });
 
   it("leaves the installed data directory and ports alone without --worktree", () => {
@@ -123,12 +121,12 @@ describe("desktop launch environment", () => {
       mode: "prod",
     });
 
-    expect(env.BB_DATA_DIR).toBeUndefined();
-    expect(env.BB_SERVER_PORT).toBeUndefined();
-    expect(env.BB_HOST_DAEMON_PORT).toBeUndefined();
-    expect(env.BB_DESKTOP_USER_DATA_DIR).toBeUndefined();
+    expect(env.CC_DATA_DIR).toBeUndefined();
+    expect(env.CC_SERVER_PORT).toBeUndefined();
+    expect(env.CC_HOST_DAEMON_PORT).toBeUndefined();
+    expect(env.CC_DESKTOP_USER_DATA_DIR).toBeUndefined();
     expect(env).toMatchObject({
-      BB_DESKTOP_OPEN_DEVTOOLS: "0",
+      CC_DESKTOP_OPEN_DEVTOOLS: "0",
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });

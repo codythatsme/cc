@@ -1,4 +1,4 @@
-import { getSessionById } from "@bb/db";
+import { getSessionById } from "@cc/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HEARTBEAT_INTERVAL_MS,

@@ -2,9 +2,7 @@ import {
   deriveConnectBaseUrl,
   parseMobilePairingPayload,
   serverUrlForHandle,
-} from "@bb/connect-client";
-
-export const DEFAULT_CONNECT_APEX_URL = "https://getbb.app";
+} from "@cc/connect-client";
 
 export interface ConnectPairingInput {
   code: string;
@@ -145,7 +143,7 @@ export function resolveEnrollmentTarget(
       return {
         ok: false,
         field: "apexUrl",
-        message: "The bb connect address must be an http(s) URL.",
+        message: "The cc connect address must be an http(s) URL.",
       };
     }
   }
@@ -163,7 +161,13 @@ export function resolveEnrollmentTarget(
       }
       apexUrl ??= deriveConnectBaseUrl(serverUrl);
     } else if (/^[a-z0-9-]+$/iu.test(server)) {
-      apexUrl ??= DEFAULT_CONNECT_APEX_URL;
+      if (apexUrl === null) {
+        return {
+          ok: false,
+          field: "apexUrl",
+          message: "Enter your connect service URL when using a handle.",
+        };
+      }
       serverUrl = serverUrlForHandle(apexUrl, server.toLowerCase());
     } else {
       return {
@@ -173,10 +177,17 @@ export function resolveEnrollmentTarget(
       };
     }
   }
+  if (apexUrl === null) {
+    return {
+      ok: false,
+      field: "apexUrl",
+      message: "Enter your connect service URL or the full server URL.",
+    };
+  }
   return {
     ok: true,
     code,
-    apexUrl: apexUrl ?? DEFAULT_CONNECT_APEX_URL,
+    apexUrl,
     serverUrl,
   };
 }

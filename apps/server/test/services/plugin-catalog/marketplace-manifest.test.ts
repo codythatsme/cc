@@ -17,8 +17,8 @@ import {
   type MarketplaceEntry,
 } from "../../../src/services/plugin-catalog/marketplace-manifest.js";
 
-const MANIFEST_URL = "https://getbb.app/marketplace/v1/marketplace.json";
-const MANIFEST_V2_URL = "https://getbb.app/marketplace/v2/marketplace.json";
+const MANIFEST_URL = "https://cc.example.invalid/marketplace/v1/marketplace.json";
+const MANIFEST_V2_URL = "https://cc.example.invalid/marketplace/v2/marketplace.json";
 
 const publishedSchemaShape = z.object({
   $defs: z.object({
@@ -66,8 +66,8 @@ function entry(overrides: Record<string, unknown> = {}): unknown {
 function manifest(plugins: unknown[]): unknown {
   return {
     schemaVersion: 1,
-    name: "bb-community",
-    displayName: "BB Community",
+    name: "cc-community",
+    displayName: "CC Community",
     plugins,
   };
 }
@@ -78,8 +78,8 @@ function manifestV2(
 ): unknown {
   return {
     schemaVersion: 2,
-    name: "bb-community",
-    displayName: "BB Community",
+    name: "cc-community",
+    displayName: "CC Community",
     plugins,
     ...overrides,
   };
@@ -174,7 +174,7 @@ describe("marketplace manifest schema", () => {
           manifestUrl: MANIFEST_V2_URL,
         }),
       ).toEqual([
-        "https://getbb.app/marketplace/v2/screenshots/widgets/widgets.png",
+        "https://cc.example.invalid/marketplace/v2/screenshots/widgets/widgets.png",
       ]);
     });
 
@@ -232,7 +232,7 @@ describe("marketplace manifest schema", () => {
             entry({
               source: {
                 npm: {
-                  package: "bb-plugin-widgets",
+                  package: "cc-plugin-widgets",
                   regsitry: "https://npm.test/",
                 },
               },
@@ -250,7 +250,7 @@ describe("marketplace manifest schema", () => {
           entry({
             id: "invalid-range",
             source: {
-              npm: { package: "bb-plugin-invalid", range: "not-semver" },
+              npm: { package: "cc-plugin-invalid", range: "not-semver" },
             },
           }),
           entry(),
@@ -317,7 +317,7 @@ describe("marketplace manifest schema", () => {
       const bundled = {
         schemaVersion: 2,
         name: BUNDLED_MARKETPLACE_NAME,
-        displayName: "BB Official",
+        displayName: "CC Official",
         plugins: [entry({ source: { bundled: { plugin: "docs" } } })],
       };
       expect(() =>
@@ -381,7 +381,7 @@ describe("marketplace manifest schema", () => {
         ),
       ).toEqual({
         kind: "remote",
-        url: "https://getbb.app/marketplace/v1/icons/widgets.svg",
+        url: "https://cc.example.invalid/marketplace/v1/icons/widgets.svg",
       });
       expect(
         resolveEntryIcon(firstEntry([entry()]), {
@@ -460,7 +460,7 @@ describe("marketplace manifest schema", () => {
           entry({
             source: {
               npm: {
-                package: "bb-plugin-widgets",
+                package: "cc-plugin-widgets",
                 range: "^1.0.0",
                 tag: "beta",
               },
@@ -587,7 +587,7 @@ describe("marketplace manifest schema", () => {
         entry({
           source: {
             npm: {
-              package: "bb-plugin-widgets",
+              package: "cc-plugin-widgets",
               range: "^1.0.0",
               registry: "https://npm.acme.test",
             },
@@ -595,7 +595,7 @@ describe("marketplace manifest schema", () => {
         }),
       ]);
       expect(resolvedEntrySource(npm)).toEqual({
-        source: "npm:bb-plugin-widgets@^1.0.0",
+        source: "npm:cc-plugin-widgets@^1.0.0",
         selection: { kind: "root" },
         npmRegistry: "https://npm.acme.test",
       });
@@ -667,7 +667,7 @@ describe("marketplace manifest schema", () => {
         entry({
           source: {
             npm: {
-              package: "bb-plugin-widgets",
+              package: "cc-plugin-widgets",
               range: "^1.0.0",
               registry: "https://npm.acme.test",
             },
@@ -681,9 +681,9 @@ describe("marketplace manifest schema", () => {
   describe("engines policy", () => {
     it("refuses an entry that declares engine ranges", () => {
       for (const engines of [
-        { bb: ">=1.0.0" },
-        { bbPluginSdk: "^0.5.0" },
-        { bb: ">=1.0.0", bbPluginSdk: "^0.5.0" },
+        { cc: ">=1.0.0" },
+        { ccPluginSdk: "^0.5.0" },
+        { cc: ">=1.0.0", ccPluginSdk: "^0.5.0" },
       ]) {
         expect(() => parse([entry({ engines })])).toThrow(/engines/u);
       }

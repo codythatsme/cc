@@ -8,10 +8,10 @@ export const RESERVED_HANDLES: ReadonlySet<string> = new Set([
   "default",
   "api",
   "app",
-  "bb",
+  "cc",
   "connect",
   "dashboard",
-  "getbb",
+  "getcc",
 
   "about",
   "blog",

@@ -1,4 +1,4 @@
-import { defineRpcContract } from "@get-bb/plugin-sdk";
+import { defineRpcContract } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import {
   TASK_SORTS,
@@ -109,7 +109,7 @@ const projectSchema = z
     nextTaskNumber: z.number().int().positive(),
     color: z.string(),
     folderId: idSchema.nullable(),
-    linkedBbProjectId: z.string().startsWith("proj_").nullable(),
+    linkedCcProjectId: z.string().startsWith("proj_").nullable(),
     createdAt: z.string(),
   })
   .strict();
@@ -322,7 +322,7 @@ const updateProjectInputSchema = z
     name: nonBlankStringSchema.optional(),
     color: nonBlankStringSchema.optional(),
     folderId: idSchema.nullable().optional(),
-    linkedBbProjectId: z.string().startsWith("proj_").nullable().optional(),
+    linkedCcProjectId: z.string().startsWith("proj_").nullable().optional(),
   })
   .strict()
   .refine(
@@ -330,7 +330,7 @@ const updateProjectInputSchema = z
       input.name !== undefined ||
       input.color !== undefined ||
       input.folderId !== undefined ||
-      input.linkedBbProjectId !== undefined,
+      input.linkedCcProjectId !== undefined,
     { message: "at least one project field must be updated" },
   );
 
@@ -442,7 +442,7 @@ export const tasksRpcContract = defineRpcContract({
         prefix: projectPrefixSchema,
         color: nonBlankStringSchema,
         folderId: idSchema.nullable().default(null),
-        linkedBbProjectId: z
+        linkedCcProjectId: z
           .string()
           .startsWith("proj_")
           .nullable()
@@ -693,11 +693,11 @@ export const tasksRpcContract = defineRpcContract({
       })
       .strict(),
   },
-  listBbProjects: {
+  listCcProjects: {
     input: z.null(),
     output: z
       .object({
-        bbProjects: z.array(
+        ccProjects: z.array(
           z
             .object({ id: z.string().startsWith("proj_"), name: z.string() })
             .strict(),
@@ -745,9 +745,9 @@ export type TaskPullRequest = z.infer<typeof taskPullRequestSchema>;
 export type Preset = z.infer<typeof presetSchema>;
 export type TasksDomainError = z.infer<typeof tasksDomainErrorSchema>;
 export type TaskMutationResult = z.infer<typeof taskMutationResultSchema>;
-export type BbProjectOption = z.infer<
-  (typeof tasksRpcContract)["listBbProjects"]["output"]
->["bbProjects"][number];
+export type CcProjectOption = z.infer<
+  (typeof tasksRpcContract)["listCcProjects"]["output"]
+>["ccProjects"][number];
 export type SidebarProjectSummary = z.infer<
   (typeof tasksRpcContract)["sidebarSummary"]["output"]
 >["projects"][number];

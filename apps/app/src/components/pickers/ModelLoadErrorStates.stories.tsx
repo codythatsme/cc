@@ -1,5 +1,5 @@
-import type { ReasoningLevel } from "@bb/domain";
-import type { SystemExecutionOptionsModelLoadError } from "@bb/server-contract";
+import type { ReasoningLevel } from "@cc/domain";
+import type { SystemExecutionOptionsModelLoadError } from "@cc/server-contract";
 import { ModelPickerStoryQueryProvider } from "../../../.ladle/model-picker-query-provider";
 import { STORY_PROVIDER_OPTIONS } from "../../../.ladle/story-fixtures";
 import { ModelReasoningPicker } from "./ModelReasoningPicker";
@@ -84,7 +84,7 @@ export function MissingCli() {
         providerId: "codex",
         code: "missing_executable",
         detail:
-          "bb could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
+          "cc could not find the Codex CLI on this machine. Install Codex (https://developers.openai.com/codex/cli) or put `codex` on PATH, then retry.",
       }}
     />
   );

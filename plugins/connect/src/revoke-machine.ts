@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   deriveConnectBaseUrl,
   type ConnectCredential,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 
 const revokeMachineResponseSchema = z.object({ ok: z.literal(true) });
 
@@ -15,7 +15,7 @@ export async function revokeMachine(
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-bb-connect-machine": credential.credential,
+      "x-cc-connect-machine": credential.credential,
     },
     body: JSON.stringify({ machineId }),
     signal: AbortSignal.timeout(10_000),

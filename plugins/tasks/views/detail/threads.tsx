@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UrlLink, useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
+import { UrlLink, useCcNavigate, useRpc } from "@codythatsme/plugin-sdk/app";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
 import type {
   Preset,
@@ -76,7 +76,7 @@ function ThreadCard({
   busy: boolean;
   onDetach: () => void;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const meta = THREAD_STATUS_META[thread.liveStatus];
   return (
     <div className="mb-2 flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 shadow-2xs">
@@ -124,7 +124,7 @@ function ThreadCard({
   );
 }
 
-const LAST_PRESET_STORAGE_KEY = "bb-tasks:last-dispatch-preset";
+const LAST_PRESET_STORAGE_KEY = "cc-tasks:last-dispatch-preset";
 
 function loadLastPresetId(): string | null {
   try {
@@ -335,7 +335,7 @@ export function ThreadsSection({
         title="Detach thread?"
         description={
           confirm
-            ? `"${confirm.title}" will no longer be listed on this task. The thread itself is not deleted; re-attach it with bb tasks attach.`
+            ? `"${confirm.title}" will no longer be listed on this task. The thread itself is not deleted; re-attach it with cc tasks attach.`
             : ""
         }
         confirmLabel="Detach"

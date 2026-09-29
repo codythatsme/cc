@@ -8,8 +8,8 @@ describe("getFilePreviewLeaseBaseUrl", () => {
       "/api/v1/file-previews/lease-1",
     ],
     [
-      "https://bb.test/api/v1/file-previews/lease-2/docs/readme.md",
-      "https://bb.test/api/v1/file-previews/lease-2",
+      "https://cc.test/api/v1/file-previews/lease-2/docs/readme.md",
+      "https://cc.test/api/v1/file-previews/lease-2",
     ],
     ["/workspace/file-previews/not-a-lease/readme.md", null],
   ])("extracts only a file-preview API lease from %s", (url, expected) => {

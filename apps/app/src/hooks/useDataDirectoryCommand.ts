@@ -1,8 +1,8 @@
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getCcDesktopInfo } from "@/lib/cc-desktop";
 
 export function useDataDirectoryCommand(): void {
-  const desktopApi = getBbDesktopInfo();
+  const desktopApi = getCcDesktopInfo();
   const openDataDirectory = desktopApi?.openDataDirectory;
 
   useAppCommandHandler(

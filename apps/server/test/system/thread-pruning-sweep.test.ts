@@ -8,7 +8,7 @@ import {
   getThreadEventRewriteGeneration,
   threadPruningCursors,
   threads,
-} from "@bb/db";
+} from "@cc/db";
 import {
   runThreadPruningSweep,
   THREAD_PRUNING_SWEEP_LIMITS,

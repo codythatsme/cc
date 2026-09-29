@@ -4,8 +4,8 @@ import {
   makeQueueEntry,
   makeTurnFailedEvent,
   type CreateFakePluginHostOptions,
-} from "@get-bb/plugin-sdk/testing";
-import type { PluginTurnFailedEvent } from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk/testing";
+import type { PluginTurnFailedEvent } from "@codythatsme/plugin-sdk";
 import plugin from "./server.js";
 import {
   MAX_RETRY_ATTEMPTS,
@@ -347,7 +347,7 @@ describe("provider retry plugin", () => {
 
   it("listens for one event and answers no hook", async () => {
     const host = createHost();
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     expect(host.harness.registrations.settingsDescriptors).toEqual({
       maximumWait: {
@@ -371,7 +371,7 @@ describe("provider retry plugin", () => {
 
   it("asks core to retry the failed turn at the reset window", async () => {
     const host = createHost();
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     const { errors } = await host.harness.behavior.emitThreadEvent(
       "turn.failed",
@@ -390,7 +390,7 @@ describe("provider retry plugin", () => {
 
   it("asks core to retry an overloaded turn after backoff", async () => {
     const host = createHost();
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     const { errors } = await host.harness.behavior.emitThreadEvent(
       "turn.failed",
@@ -415,7 +415,7 @@ describe("provider retry plugin", () => {
 
   it("leaves ordinary failures alone", async () => {
     const host = createHost();
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     await host.harness.behavior.emitThreadEvent(
       "turn.failed",
@@ -434,7 +434,7 @@ describe("provider retry plugin", () => {
 
   it("re-reads the maximum wait when the setting changes", async () => {
     const host = createHost();
-    await plugin(host.bb);
+    await plugin(host.cc);
     const beyondSixHours = failure({
       rateLimits: rateLimits({
         windows: [
@@ -459,7 +459,7 @@ describe("provider retry plugin", () => {
 
   it("reports pending retries from the queue rather than private state", async () => {
     const host = createHost([queuedRetry()]);
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     const status = await host.harness.runCli(["status", THREAD_ID, "--json"]);
     expect(status.exitCode).toBe(0);
@@ -480,7 +480,7 @@ describe("provider retry plugin", () => {
 
   it("cancels by deleting the queued row and retries by sending it now", async () => {
     const host = createHost([queuedRetry()]);
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     const cancelled = await host.harness.runCli(["cancel", THREAD_ID]);
     expect(cancelled.exitCode).toBe(0);
@@ -498,7 +498,7 @@ describe("provider retry plugin", () => {
 
   it("reports no pending retry when no row is queued", async () => {
     const host = createHost();
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     const status = await host.harness.runCli(["status"]);
     expect(status.stdout).toBe("No provider retries are pending.\n");
@@ -510,7 +510,7 @@ describe("provider retry plugin", () => {
 
   it("acts on the invoking thread and says how to name one outside a thread", async () => {
     const host = createHost([queuedRetry()]);
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     const cancelled = await host.harness.runCli(["cancel"], {
       threadId: THREAD_ID,
@@ -523,17 +523,17 @@ describe("provider retry plugin", () => {
     const missing = await host.harness.runCli(["cancel"]);
     expect(missing.exitCode).toBe(2);
     expect(missing.stderr).toContain(
-      "A thread id is required: bb provider-retry cancel <thread-id>",
+      "A thread id is required: cc provider-retry cancel <thread-id>",
     );
     await host.harness.dispose();
   });
 
   it("documents the optional thread id, exits 2 on usage errors, and reports errors as JSON", async () => {
     const host = createHost();
-    await plugin(host.bb);
+    await plugin(host.cc);
 
     const help = (await host.harness.runCli(["retry", "--help"])).stdout;
-    expect(help).toContain("bb provider-retry retry");
+    expect(help).toContain("cc provider-retry retry");
     expect(help).toContain("[<thread-id>]");
 
     const stray = await host.harness.runCli(["retry", THREAD_ID, "extra"]);

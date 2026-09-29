@@ -7,7 +7,7 @@ import { experimental_scanPublicSdkOnly as scanPublicSdkOnly } from "../index.js
 let packageRoot: string;
 
 function plant(files: Record<string, string>, manifest: object = {}): void {
-  packageRoot = mkdtempSync(join(tmpdir(), "bb-public-sdk-only-"));
+  packageRoot = mkdtempSync(join(tmpdir(), "cc-public-sdk-only-"));
   writeFileSync(
     join(packageRoot, "package.json"),
     JSON.stringify({ name: "planted", ...manifest }),
@@ -25,12 +25,12 @@ afterEach(() => {
 describe("experimental_scanPublicSdkOnly", () => {
   it("walks the package, skipping node_modules and dist, and accepts the published SDK surface", () => {
     plant({
-      "server.ts": `import { z } from "zod";\nimport type { BbPluginApi } from "@get-bb/plugin-sdk";\nimport { join } from "node:path";\nimport { helper } from "./src/helper.js";\n`,
-      "src/helper.ts": `import "@get-bb/plugin-sdk/provider-bridge";\nimport "@get-bb/plugin-sdk/provider-bridge/acp";\nimport "@get-bb/plugin-sdk/host";\nexport const helper = 1;\n`,
-      "app.tsx": `import "@get-bb/plugin-sdk/app";\n`,
-      "server.test.ts": `import { it } from "vitest";\nimport "@get-bb/plugin-sdk/testing";\nimport "@get-bb/plugin-sdk/provider-bridge/testing";\n`,
-      "node_modules/dep/index.js": `require("@bb/domain");\n`,
-      "dist/server.js": `import "@bb/domain";\n`,
+      "server.ts": `import { z } from "zod";\nimport type { CcPluginApi } from "@codythatsme/plugin-sdk";\nimport { join } from "node:path";\nimport { helper } from "./src/helper.js";\n`,
+      "src/helper.ts": `import "@codythatsme/plugin-sdk/provider-bridge";\nimport "@codythatsme/plugin-sdk/provider-bridge/acp";\nimport "@codythatsme/plugin-sdk/host";\nexport const helper = 1;\n`,
+      "app.tsx": `import "@codythatsme/plugin-sdk/app";\n`,
+      "server.test.ts": `import { it } from "vitest";\nimport "@codythatsme/plugin-sdk/testing";\nimport "@codythatsme/plugin-sdk/provider-bridge/testing";\n`,
+      "node_modules/dep/index.js": `require("@cc/domain");\n`,
+      "dist/server.js": `import "@cc/domain";\n`,
     });
     const scan = scanPublicSdkOnly(packageRoot);
     expect(scan.files.sort()).toEqual([
@@ -45,15 +45,15 @@ describe("experimental_scanPublicSdkOnly", () => {
 
   it("reports a private workspace import, a specifier outside the allowlist, and a testing subpath in plugin code", () => {
     plant({
-      "server.ts": `import { events } from "@bb/db";\nimport yaml from "yaml";\nimport "@get-bb/plugin-sdk/testing";\n`,
-      "server.test.ts": `import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";\nimport { describe } from "vitest";\n`,
+      "server.ts": `import { events } from "@cc/db";\nimport yaml from "yaml";\nimport "@codythatsme/plugin-sdk/testing";\n`,
+      "server.test.ts": `import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";\nimport { describe } from "vitest";\n`,
     });
     expect(scanPublicSdkOnly(packageRoot).violations).toEqual([
-      { file: "server.ts", specifier: "@bb/db", reason: "private-package" },
+      { file: "server.ts", specifier: "@cc/db", reason: "private-package" },
       { file: "server.ts", specifier: "yaml", reason: "outside-allowlist" },
       {
         file: "server.ts",
-        specifier: "@get-bb/plugin-sdk/testing",
+        specifier: "@codythatsme/plugin-sdk/testing",
         reason: "outside-allowlist",
       },
     ]);
@@ -100,9 +100,9 @@ describe("experimental_scanPublicSdkOnly", () => {
     plant({
       "server.ts": [
         `const name = "domain";`,
-        `const spec = "@bb/" + name;`,
+        `const spec = "@cc/" + name;`,
         `const a = await import(spec);`,
-        "const b = await import(`@bb/${name}`);",
+        "const b = await import(`@cc/${name}`);",
         `const c = require(spec);`,
         `const d = await import("./literal.js");`,
         "",
@@ -113,24 +113,24 @@ describe("experimental_scanPublicSdkOnly", () => {
       { file: "server.ts", specifier: "spec", reason: "dynamic-specifier" },
       {
         file: "server.ts",
-        specifier: "`@bb/${name}`",
+        specifier: "`@cc/${name}`",
         reason: "dynamic-specifier",
       },
       { file: "server.ts", specifier: "spec", reason: "dynamic-specifier" },
     ]);
   });
 
-  it("lists @bb/* names from both dependency blocks of package.json", () => {
+  it("lists @cc/* names from both dependency blocks of package.json", () => {
     plant(
       { "server.ts": "" },
       {
-        dependencies: { "@get-bb/plugin-sdk": "^0.4.0", "@bb/domain": "*" },
-        devDependencies: { vitest: "^4", "@bb/test-helpers": "*" },
+        dependencies: { "@codythatsme/plugin-sdk": "^0.4.0", "@cc/domain": "*" },
+        devDependencies: { vitest: "^4", "@cc/test-helpers": "*" },
       },
     );
     expect(scanPublicSdkOnly(packageRoot).privateDependencies).toEqual([
-      "@bb/domain",
-      "@bb/test-helpers",
+      "@cc/domain",
+      "@cc/test-helpers",
     ]);
   });
 });

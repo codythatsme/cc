@@ -1,5 +1,5 @@
-import type { BbPluginApi, MachineBootstrapRequest } from "@get-bb/plugin-sdk";
-import type { PluginMachineProviderResource } from "@get-bb/plugin-sdk/machine-provider";
+import type { CcPluginApi, MachineBootstrapRequest } from "@codythatsme/plugin-sdk";
+import type { PluginMachineProviderResource } from "@codythatsme/plugin-sdk/machine-provider";
 import { errorMessage } from "../error-message.js";
 import type { SandboxBackend } from "./sandbox-backend.js";
 
@@ -7,7 +7,7 @@ export function registerSandboxBackend<
   Inputs,
   Resource extends PluginMachineProviderResource,
 >(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   backend: SandboxBackend<Inputs, Resource>,
   options: {
     now: () => number;
@@ -20,14 +20,14 @@ export function registerSandboxBackend<
     request: MachineBootstrapRequest,
   ): Promise<{ hostId: string }> {
     const connectStartedAt = options.now();
-    const result = await bb.experimental_machines.bootstrap(request);
+    const result = await cc.experimental_machines.bootstrap(request);
     request.report.log(
       `${definition.runtimeName} daemon connected in ${options.now() - connectStartedAt} ms\n`,
     );
     return result;
   }
 
-  bb.experimental_environments.register({
+  cc.experimental_environments.register({
     id: definition.id,
     displayName: definition.displayName,
     description: definition.environmentDescription,
@@ -36,7 +36,7 @@ export function registerSandboxBackend<
     environmentProviderId: "project-checkout",
   });
 
-  bb.experimental_machines.register({
+  cc.experimental_machines.register({
     id: definition.id,
     displayName: definition.displayName,
     description: definition.description,

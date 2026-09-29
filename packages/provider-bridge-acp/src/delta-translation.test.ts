@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { threadScope, turnScope, type ThreadEvent } from "@bb/domain";
-import type { ProviderRuntimeEvent } from "@bb/provider-bridge-protocol/bridge-kit";
-import { createDeltaAssembler } from "@bb/provider-bridge-protocol/assembler";
-import type { DeltaAssembler } from "@bb/provider-bridge-protocol/assembler";
+import { threadScope, turnScope, type ThreadEvent } from "@cc/domain";
+import type { ProviderRuntimeEvent } from "@cc/provider-bridge-protocol/bridge-kit";
+import { createDeltaAssembler } from "@cc/provider-bridge-protocol/assembler";
+import type { DeltaAssembler } from "@cc/provider-bridge-protocol/assembler";
 import {
   ACP_COMPACTION_COMPLETED_METHOD,
   ACP_COMPACTION_STARTED_METHOD,
@@ -2172,7 +2172,7 @@ describe("acp delta translation (raw payloads and real results)", () => {
 
     const bound = harness.translator.notePermissionToolCall(THREAD_ID, {
       toolCallId: "call-mcp",
-      title: "bb-bridge-AskUserQuestion: AskUserQuestion",
+      title: "cc-bridge-AskUserQuestion: AskUserQuestion",
       kind: "other",
       rawInput: { question: "Which one?" },
     });
@@ -2193,7 +2193,7 @@ describe("acp delta translation (raw payloads and real results)", () => {
         type: "toolCall",
         tool: "other",
         arguments: { question: "Which one?" },
-        presentation: { title: "bb-bridge-AskUserQuestion: AskUserQuestion" },
+        presentation: { title: "cc-bridge-AskUserQuestion: AskUserQuestion" },
       },
     });
   });
@@ -2538,7 +2538,7 @@ describe("acp delta translation (dialects)", () => {
     });
   });
 
-  it("keeps a bb-injected tool binding ahead of the dialect", () => {
+  it("keeps a cc-injected tool binding ahead of the dialect", () => {
     const harness = dialectHarness("cursor");
     harness.translator.configureInjectedTools([{ name: "AskUserQuestion" }]);
     harness.translator.noteInjectedToolCall(THREAD_ID, "AskUserQuestion");
@@ -2546,7 +2546,7 @@ describe("acp delta translation (dialects)", () => {
       harness.translate(
         updateEvent({
           sessionUpdate: "tool_call",
-          toolCallId: "call-bb",
+          toolCallId: "call-cc",
           title: "MCP: AskUserQuestion",
           kind: "other",
           status: "pending",
@@ -2555,12 +2555,12 @@ describe("acp delta translation (dialects)", () => {
       )[0],
     ).toMatchObject({
       type: "item/started",
-      item: { type: "toolCall", tool: "AskUserQuestion", server: "bb" },
+      item: { type: "toolCall", tool: "AskUserQuestion", server: "cc" },
     });
   });
 });
 
-describe("acp delta translation (bb-injected tools)", () => {
+describe("acp delta translation (cc-injected tools)", () => {
   const ASK_PRESENTATION = {
     label: { pending: "Asking a question", completed: "Asked a question" },
     icon: { glyph: "MessageQuestion" },
@@ -2572,7 +2572,7 @@ describe("acp delta translation (bb-injected tools)", () => {
     const translator = createAcpDeltaTranslator({ cwd: SESSION_CWD });
     translator.configureInjectedTools([
       { name: "ask_user_question", presentation: ASK_PRESENTATION },
-      { name: "bb_workflow_run" },
+      { name: "cc_workflow_run" },
     ]);
     const assembler = harness.assembler;
     const translate = (event: ProviderRuntimeEvent) =>
@@ -2584,7 +2584,7 @@ describe("acp delta translation (bb-injected tools)", () => {
     return { translate, translator };
   }
 
-  it("binds the agent's announced MCP call when the proxy forwards the bb tool call", () => {
+  it("binds the agent's announced MCP call when the proxy forwards the cc tool call", () => {
     const { translate, translator } = injectedHarness();
     const [started] = translate(
       updateEvent({
@@ -2613,7 +2613,7 @@ describe("acp delta translation (bb-injected tools)", () => {
     );
     expect(completed).toMatchObject({
       type: "toolCall",
-      server: "bb",
+      server: "cc",
       tool: "ask_user_question",
       status: "completed",
       presentation: ASK_PRESENTATION,
@@ -2622,7 +2622,7 @@ describe("acp delta translation (bb-injected tools)", () => {
 
   it("holds a proxied call until the agent announces it, and presents an unknown definition generically", () => {
     const { translate, translator } = injectedHarness();
-    translator.noteInjectedToolCall(THREAD_ID, "bb_workflow_run");
+    translator.noteInjectedToolCall(THREAD_ID, "cc_workflow_run");
     translator.noteInjectedToolCall(THREAD_ID, "not_configured");
 
     const first = completedItems(
@@ -2637,12 +2637,12 @@ describe("acp delta translation (bb-injected tools)", () => {
     );
     expect(first[0]).toMatchObject({
       type: "toolCall",
-      server: "bb",
-      tool: "bb_workflow_run",
+      server: "cc",
+      tool: "cc_workflow_run",
       presentation: {
         label: {
-          pending: "Running bb_workflow_run",
-          completed: "Ran bb_workflow_run",
+          pending: "Running cc_workflow_run",
+          completed: "Ran cc_workflow_run",
         },
         icon: { glyph: "Toolbox" },
       },
@@ -2660,7 +2660,7 @@ describe("acp delta translation (bb-injected tools)", () => {
     );
     expect(second[0]).toMatchObject({
       type: "toolCall",
-      server: "bb",
+      server: "cc",
       tool: "not_configured",
     });
   });
@@ -2681,17 +2681,17 @@ describe("acp delta translation (bb-injected tools)", () => {
       updateEvent({
         sessionUpdate: "tool_call",
         toolCallId: "mcp-4",
-        title: "ask_user_question (bb-bridge MCP Server)",
+        title: "ask_user_question (cc-bridge MCP Server)",
         kind: "other",
         status: "pending",
       }),
     );
     expect(named).toMatchObject({
       type: "item/started",
-      item: { type: "toolCall", server: "bb", tool: "ask_user_question" },
+      item: { type: "toolCall", server: "cc", tool: "ask_user_question" },
     });
 
-    translator.noteInjectedToolCall(THREAD_ID, "bb_workflow_run");
+    translator.noteInjectedToolCall(THREAD_ID, "cc_workflow_run");
     const settled = completedItems(translate(turnCompletedEvent("end_turn")));
     expect(settled.map((item) => item.type)).toEqual([
       "commandExecution",

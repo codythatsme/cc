@@ -3,7 +3,7 @@ import {
   APP_COMMAND_IDS,
   type AppDefaultKeybindings,
   type AppKeybindings,
-} from "@bb/domain";
+} from "@cc/domain";
 import { APP_COMMAND_GROUPS } from "./app-command-metadata";
 import {
   appShortcutFromInput,

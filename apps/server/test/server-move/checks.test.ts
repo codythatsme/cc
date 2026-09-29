@@ -8,13 +8,13 @@ import {
   upsertHost,
   upsertInstalledPlugin,
   upsertPluginSchedule,
-} from "@bb/db";
-import type { ServerMoveInspectResult } from "@bb/host-daemon-contract";
+} from "@cc/db";
+import type { ServerMoveInspectResult } from "@cc/host-daemon-contract";
 import {
   listServerOwnedEntries,
   writeLastServerMoveFile,
-} from "@bb/server-archive";
-import type { ServerMoveCheckRequest } from "@bb/server-contract";
+} from "@cc/server-archive";
+import type { ServerMoveCheckRequest } from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import {
   runServerMoveCheck,
@@ -118,7 +118,7 @@ function builtinPlugin(id: string): UpsertInstalledPluginInput {
       statusDetail: null,
     },
     activeArtifactId: null,
-    rootDir: `/opt/bb-app/plugins/${id}`,
+    rootDir: `/opt/cc-app/plugins/${id}`,
     version: "1.0.0",
     enabled: true,
   };
@@ -249,7 +249,7 @@ describe("server move checks", () => {
         severity: "info",
         title: "Laptop will keep running as a machine in the background",
         detail:
-          "This server runs in the bb desktop app. After the move, the app installs a background service that keeps this computer connected to the new server and updates it with the server, even while the app is closed. The service needs Node.js 22.19 or newer on this computer; without it, the computer stays connected only while the app is open.",
+          "This server runs in the cc desktop app. After the move, the app installs a background service that keeps this computer connected to the new server and updates it with the server, even while the app is closed. The service needs Node.js 22.19 or newer on this computer; without it, the computer stays connected only while the app is open.",
       });
       expect(desktop.response.canMove).toBe(web.response.canMove);
       expect(itemIds(web.response.items)).not.toContain(
@@ -310,7 +310,7 @@ describe("server move checks", () => {
         afterDelete.response.items.find(
           (item) => item.id === "target-has-server-data",
         )?.title,
-      ).toBe("Desktop already has bb server data");
+      ).toBe("Desktop already has cc server data");
     }));
 
   it("requires an address other machines can reach in direct mode", () => {
@@ -386,11 +386,11 @@ describe("server move checks", () => {
         NEW,
         inspectResult({
           platform: "unknown",
-          dataDir: "/home/me/.bb-machines/laptop",
+          dataDir: "/home/me/.cc-machines/laptop",
           dataDirHasServerData: true,
           portAvailable: false,
           serverEntryAvailable: false,
-          existingServerData: { path: "/home/me/.bb", sizeBytes: 2_048 },
+          existingServerData: { path: "/home/me/.cc", sizeBytes: 2_048 },
           pathsExist: { "/home/me/code/local-plugin": false },
           ghAuthenticated: false,
           codexCredentialsPresent: false,
@@ -412,8 +412,8 @@ describe("server move checks", () => {
         mode: "direct",
         requiresServerUrl: true,
         serverUrl: DIRECT_URL,
-        targetDataDir: "/home/me/.bb-machines/laptop",
-        existingTargetServerData: { path: "/home/me/.bb", sizeBytes: 2_048 },
+        targetDataDir: "/home/me/.cc-machines/laptop",
+        existingTargetServerData: { path: "/home/me/.cc", sizeBytes: 2_048 },
         canMove: false,
       });
       expect(itemIds(result.response.items)).toEqual([
@@ -446,7 +446,7 @@ describe("server move checks", () => {
       ).toContain("Studio");
     }));
 
-  it("offers the full bb-app artifact to an out-of-date target and blocks without one", () =>
+  it("offers the full cc-app artifact to an out-of-date target and blocks without one", () =>
     withTestHarness(async (harness) => {
       seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
@@ -454,7 +454,7 @@ describe("server move checks", () => {
       registerInspectingDaemon(
         harness,
         NEW,
-        inspectResult({ bbAppVersion: "0.0.0-alpha.1" }),
+        inspectResult({ ccAppVersion: "0.0.0-alpha.1" }),
       );
 
       const withArtifact = await runServerMoveCheck(
@@ -472,14 +472,14 @@ describe("server move checks", () => {
       expect(byId.get("target-update")).toEqual({
         id: "target-update",
         severity: "info",
-        title: "bb 0.0.0-test will be installed on Desktop",
+        title: "cc 0.0.0-test will be installed on Desktop",
         detail: "The update stays on Desktop even if the move is cancelled.",
       });
       expect(byId.get("managed-config-replaced")).toEqual({
         id: "managed-config-replaced",
         severity: "info",
         title:
-          "This server's bb skill settings and other configuration will replace matching settings on Desktop",
+          "This server's cc skill settings and other configuration will replace matching settings on Desktop",
         detail: null,
       });
 
@@ -493,7 +493,7 @@ describe("server move checks", () => {
       ]);
     }));
 
-  it("blocks a target that runs a newer bb than this server", () =>
+  it("blocks a target that runs a newer cc than this server", () =>
     withTestHarness(async (harness) => {
       seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
@@ -501,7 +501,7 @@ describe("server move checks", () => {
       registerInspectingDaemon(
         harness,
         NEW,
-        inspectResult({ bbAppVersion: "0.0.1" }),
+        inspectResult({ ccAppVersion: "0.0.1" }),
       );
 
       const result = await runServerMoveCheck(
@@ -521,9 +521,9 @@ describe("server move checks", () => {
       ).toEqual({
         id: "target-newer-version",
         severity: "blocker",
-        title: "Desktop runs a newer bb than this server",
+        title: "Desktop runs a newer cc than this server",
         detail:
-          "Desktop runs bb 0.0.1 and this server runs bb 0.0.0-test. Update the server to bb 0.0.1 first, then check again.",
+          "Desktop runs cc 0.0.1 and this server runs cc 0.0.0-test. Update the server to cc 0.0.1 first, then check again.",
       });
     }));
 
@@ -573,7 +573,7 @@ describe("server move checks", () => {
             severity: "blocker",
             title: "Desktop doesn't have room for the server data",
             detail:
-              "The move needs about 1.0 GB free in /home/me/.bb-machines/laptop, but only 1.0 GB is available. Free up space on Desktop, then check again.",
+              "The move needs about 1.0 GB free in /home/me/.cc-machines/laptop, but only 1.0 GB is available. Free up space on Desktop, then check again.",
           },
         ],
       });
@@ -587,7 +587,7 @@ describe("server move checks", () => {
             severity: "warning",
             title: "Space is tight on Desktop",
             detail:
-              "The move needs about 1.0 GB of the 1.0 GB free in /home/me/.bb-machines/laptop, which leaves little room for the server to grow.",
+              "The move needs about 1.0 GB of the 1.0 GB free in /home/me/.cc-machines/laptop, which leaves little room for the server to grow.",
           },
         ],
       });
@@ -599,7 +599,7 @@ describe("server move checks", () => {
       expect(await diskItems()).toEqual({ canMove: true, items: [] });
 
       inspect = inspectResult({
-        bbAppVersion: "0.0.0-alpha.1",
+        ccAppVersion: "0.0.0-alpha.1",
         diskFreeBytes: 10 * GIB,
       });
       expect(await diskItems()).toMatchObject({
@@ -621,7 +621,7 @@ describe("server move checks", () => {
       registerInspectingDaemon(
         harness,
         NEW,
-        inspectResult({ bbAppVersion: "0.0.0-alpha.1" }),
+        inspectResult({ ccAppVersion: "0.0.0-alpha.1" }),
       );
       const dataDir = harness.config.dataDir;
       let serverDiskFreeBytes: number | null = 4 * GIB;
@@ -712,21 +712,21 @@ describe("server move checks", () => {
       await writeFile(
         join(dataDir, "config.json"),
         JSON.stringify({
-          config: { BB_APP_URL: "http://laptop.lan.test:38887" },
+          config: { CC_APP_URL: "http://laptop.lan.test:38887" },
         }),
       );
       await writeFile(
         join(dataDir, "env.json"),
         JSON.stringify({
           env: {
-            BB_EXTERNAL_URL: "http://127.0.0.1:5173",
+            CC_EXTERNAL_URL: "http://127.0.0.1:5173",
             CACHE_DIR: "~/tool-cache",
             NAME: "plain value",
             TOOL_HOME: "/opt/tools",
           },
         }),
       );
-      const outside = await mkdtemp(join(tmpdir(), "bb-server-move-link-"));
+      const outside = await mkdtemp(join(tmpdir(), "cc-server-move-link-"));
       try {
         await mkdir(join(dataDir, "skills"), { recursive: true });
         await symlink(outside, join(dataDir, "skills", "linked-skill"));
@@ -767,10 +767,10 @@ describe("server move checks", () => {
           "skills/linked-skill",
         );
         expect(byId.get("app-url-rewrite")?.title).toBe(
-          `BB_APP_URL in config.json will change to ${DIRECT_URL}`,
+          `CC_APP_URL in config.json will change to ${DIRECT_URL}`,
         );
         expect(byId.get("external-url-address")?.title).toBe(
-          "BB_EXTERNAL_URL in env.json points at http://127.0.0.1:5173",
+          "CC_EXTERNAL_URL in env.json points at http://127.0.0.1:5173",
         );
         expect(byId.get("env-paths-missing")?.detail).toContain(
           "TOOL_HOME (/opt/tools)",
@@ -814,7 +814,7 @@ describe("server move checks", () => {
       }
     }));
 
-  it("keeps the bb connect address and blocks when connect status is unavailable", () =>
+  it("keeps the cc connect address and blocks when connect status is unavailable", () =>
     withTestHarness(async (harness) => {
       seedHost(harness.deps, { id: OLD, name: "Laptop" });
       seedPrimaryHost(harness.deps, OLD);
@@ -846,13 +846,13 @@ describe("server move checks", () => {
       expect(
         connect.response.items.find((item) => item.id === "offline-machines")
           ?.detail,
-      ).toContain("bb connect");
+      ).toContain("cc connect");
 
       const unavailable = await runServerMoveCheck(
         checkEnvironment(harness, {
           resolveMode: async () => ({
             mode: "unavailable",
-            message: "bb connect isn't running",
+            message: "cc connect isn't running",
           }),
         }),
         { moveInProgress: false, request: request({ serverUrl: null }) },

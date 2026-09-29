@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { getTimelineGroupingContext } from "../../../src/services/threads/timeline-context-order.js";
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { prependOlderTimelineRows } from "@cc/client-core";
 import {
   threadTimelineResponseSchema,
   type TimelineRow,
-} from "@bb/server-contract";
-import { defaultFeatureFlags } from "@bb/domain";
+} from "@cc/server-contract";
+import { defaultFeatureFlags } from "@cc/domain";
 import { createTestAppHarness } from "../../helpers/test-app.js";
 import {
   mergeLoadedTimelineWithLatest,
   buildLoadedTimelineState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { ClientTurnRequestId, Thread } from "@bb/domain";
+} from "@cc/domain";
+import type { ClientTurnRequestId, Thread } from "@cc/domain";
 import {
   createConnection,
   createProject,
@@ -25,12 +25,12 @@ import {
   migrate,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import type { DbConnection } from "@bb/db";
+} from "@cc/db";
+import type { DbConnection } from "@cc/db";
 import type {
   ThreadTimelineResponse,
   TimelinePaginationCursor,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { buildThreadTimelineWithProfile } from "../../../src/services/threads/timeline.js";
 
 const LARGE_BUDGET = 1_000_000;

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@cc/domain";
 import { promptTextInput } from "./test/prompt-input.js";
 import {
   createScriptedEchoLaunch,
@@ -25,7 +25,7 @@ describe("createAgentRuntime lifecycle", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "bb-runtime-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "cc-runtime-test-"));
   });
 
   afterEach(() => {
@@ -258,11 +258,11 @@ describe("createAgentRuntime lifecycle", () => {
           threadStorageRootPath,
           env: record.env,
           shellEnv: {
-            PATH: "/tmp/bb-bin:/usr/bin",
-            BB_HOST_DAEMON_PORT: "3002",
-            BB_PROJECT_ID: "wrong-project",
-            BB_SERVER_URL: "http://127.0.0.1:3334",
-            BB_THREAD_ID: "wrong-thread",
+            PATH: "/tmp/cc-bin:/usr/bin",
+            CC_HOST_DAEMON_PORT: "3002",
+            CC_PROJECT_ID: "wrong-project",
+            CC_SERVER_URL: "http://127.0.0.1:3334",
+            CC_THREAD_ID: "wrong-thread",
           },
           onEvent: (event) => events.push(event),
         },
@@ -287,12 +287,12 @@ describe("createAgentRuntime lifecycle", () => {
             envVars: {
               PATH: "/plugin/bin",
               AUTH_PROXY_URL: "http://127.0.0.1:3334/plugins/env-test/auth",
-              BB_HOST_DAEMON_PORT: "3002",
-              BB_PROJECT_ID: "p1",
-              BB_SERVER_URL: "http://127.0.0.1:3334",
-              BB_THREAD_STORAGE: join(threadStorageRootPath, "t1"),
-              BB_THREAD_ID: "t1",
-              BB_ENVIRONMENT_ID: "env-1",
+              CC_HOST_DAEMON_PORT: "3002",
+              CC_PROJECT_ID: "p1",
+              CC_SERVER_URL: "http://127.0.0.1:3334",
+              CC_THREAD_STORAGE: join(threadStorageRootPath, "t1"),
+              CC_THREAD_ID: "t1",
+              CC_ENVIRONMENT_ID: "env-1",
             },
           }),
         }),
@@ -452,7 +452,7 @@ describe("createAgentRuntime lifecycle", () => {
           contributedEnv: [],
         });
         const options = record.last("turn/start")?.params?.options;
-        expect(options).toHaveProperty("envVars.BB_PROJECT_ID", "project-a");
+        expect(options).toHaveProperty("envVars.CC_PROJECT_ID", "project-a");
         expect(options).not.toHaveProperty("envVars.PROJECT_SECRET");
         expect(
           JSON.stringify(
@@ -512,7 +512,7 @@ describe("createAgentRuntime lifecycle", () => {
             source: { plugin: "env-test" },
             value: { masked: true },
             reason:
-              "Use the authenticated server proxy (dropped: no BB_SERVER_URL)",
+              "Use the authenticated server proxy (dropped: no CC_SERVER_URL)",
           },
         ]),
       });
@@ -561,9 +561,9 @@ describe("createAgentRuntime lifecycle", () => {
           env: record.env,
           skillRoots: [
             {
-              id: "bb-cli",
+              id: "cc-cli",
               path: skillRootPath,
-              skills: [{ name: "bb-cli", description: "Use the bb CLI." }],
+              skills: [{ name: "cc-cli", description: "Use the cc CLI." }],
             },
           ],
           onEvent: () => undefined,
@@ -581,9 +581,9 @@ describe("createAgentRuntime lifecycle", () => {
       expect(record.last("skills/configure")?.params).toEqual({
         roots: [
           {
-            id: "bb-cli",
+            id: "cc-cli",
             path: skillRootPath,
-            skills: [{ name: "bb-cli", description: "Use the bb CLI." }],
+            skills: [{ name: "cc-cli", description: "Use the cc CLI." }],
           },
         ],
       });
@@ -604,7 +604,7 @@ describe("createAgentRuntime lifecycle", () => {
         runtime: {
           workspacePath: tmpDir,
           env: record.env,
-          skillRoots: [{ id: "bb-cli", path: skillRootPath, skills: [] }],
+          skillRoots: [{ id: "cc-cli", path: skillRootPath, skills: [] }],
           onEvent: () => undefined,
         },
       });
@@ -618,7 +618,7 @@ describe("createAgentRuntime lifecycle", () => {
       });
 
       expect(record.last("skills/configure")?.params).toEqual({
-        roots: [{ id: "bb-cli", path: skillRootPath, skills: [] }],
+        roots: [{ id: "cc-cli", path: skillRootPath, skills: [] }],
       });
 
       await runtime.shutdown();
@@ -711,9 +711,9 @@ describe("createAgentRuntime lifecycle", () => {
           workspacePath: tmpDir,
           env: record.env,
           shellEnv: {
-            PATH: "/tmp/bb-bin:/usr/bin",
-            BB_HOST_DAEMON_PORT: "3002",
-            BB_SERVER_URL: "http://127.0.0.1:3334",
+            PATH: "/tmp/cc-bin:/usr/bin",
+            CC_HOST_DAEMON_PORT: "3002",
+            CC_SERVER_URL: "http://127.0.0.1:3334",
           },
           onEvent: () => undefined,
         },
@@ -737,12 +737,12 @@ describe("createAgentRuntime lifecycle", () => {
           cwd: tmpDir,
           options: expect.objectContaining({
             envVars: {
-              PATH: "/tmp/bb-bin:/usr/bin",
-              BB_HOST_DAEMON_PORT: "3002",
-              BB_SERVER_URL: "http://127.0.0.1:3334",
-              BB_PROJECT_ID: "p1",
-              BB_THREAD_ID: "t1",
-              BB_ENVIRONMENT_ID: "env-1",
+              PATH: "/tmp/cc-bin:/usr/bin",
+              CC_HOST_DAEMON_PORT: "3002",
+              CC_SERVER_URL: "http://127.0.0.1:3334",
+              CC_PROJECT_ID: "p1",
+              CC_THREAD_ID: "t1",
+              CC_ENVIRONMENT_ID: "env-1",
             },
           }),
         }),

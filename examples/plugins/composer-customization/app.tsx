@@ -3,7 +3,7 @@ import {
   definePluginApp,
   useComposer,
   useComposerView,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import "./app.css";
 
 function ComposerAction() {

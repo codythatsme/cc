@@ -75,7 +75,7 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     expect(harness.pendingDelays).toEqual([HOUR_MS - LEAD_MS]);
 
@@ -84,7 +84,7 @@ describe("createConnectSessionRenewal", () => {
     await harness.renewal.renewNow();
 
     expect(authenticate).toHaveBeenCalledWith(
-      "https://laptop.getbb.app",
+      "https://laptop.cc.example.invalid",
       expect.any(Function),
     );
     expect(harness.pendingDelays).toEqual([HOUR_MS]);
@@ -102,7 +102,7 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     const renewing = harness.renewal.renewNow();
 
@@ -125,7 +125,7 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     const renewing = harness.renewal.renewNow();
 
@@ -149,7 +149,7 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     const renewing = harness.renewal.renewNow();
     harness.renewal.stop();
@@ -170,7 +170,7 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     await harness.renewal.renewNow();
 
@@ -189,7 +189,7 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     harness.renewal.renewIfDue();
     expect(authenticate).not.toHaveBeenCalled();
@@ -211,7 +211,7 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     harness.renewal.stop();
     expect(harness.pendingDelays).toEqual([]);
@@ -222,11 +222,11 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://phone.getbb.app",
+      remoteServerUrl: "https://phone.cc.example.invalid",
     });
     await harness.renewal.renewNow();
     expect(authenticate).toHaveBeenCalledWith(
-      "https://phone.getbb.app",
+      "https://phone.cc.example.invalid",
       expect.any(Function),
     );
   });
@@ -241,13 +241,13 @@ describe("createConnectSessionRenewal", () => {
 
     harness.renewal.start({
       expiresAt: 1_000_000 + HOUR_MS,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     });
     const renewing = harness.renewal.renewNow();
 
     harness.renewal.start({
       expiresAt: 1_000_000 + 3 * HOUR_MS,
-      remoteServerUrl: "https://phone.getbb.app",
+      remoteServerUrl: "https://phone.cc.example.invalid",
     });
     gate.release();
     await renewing;

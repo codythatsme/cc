@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   installTestPluginRuntime,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
 
 if (!window.matchMedia) {
@@ -36,9 +36,9 @@ function RailHarness(props: ComponentProps<typeof PropertiesRail>) {
 afterEach(cleanup);
 
 const PROJECT_ID = "01HZZZZZZZZZZZZZZZZZZZZZP1";
-const BB_PROJECT_ID = "proj_bb0000000000000000000001";
+const CC_PROJECT_ID = "proj_bb0000000000000000000001";
 
-function projectRow(linkedBbProjectId: string | null) {
+function projectRow(linkedCcProjectId: string | null) {
   return {
     id: PROJECT_ID,
     name: "Tasks Plugin",
@@ -46,7 +46,7 @@ function projectRow(linkedBbProjectId: string | null) {
     nextTaskNumber: 6,
     color: "blue",
     folderId: null,
-    linkedBbProjectId,
+    linkedCcProjectId,
     createdAt: "2026-07-15T00:00:00.000Z",
   };
 }
@@ -60,10 +60,10 @@ const task = makeTask({
   position: 1,
 });
 
-function railProps(linkedBbProjectId: string | null) {
+function railProps(linkedCcProjectId: string | null) {
   return {
     task,
-    project: projectRow(linkedBbProjectId),
+    project: projectRow(linkedCcProjectId),
     labels: [],
     threads: [],
     presets: [],
@@ -73,51 +73,51 @@ function railProps(linkedBbProjectId: string | null) {
 }
 
 describe("dispatch target rail control", () => {
-  it("links a discovered bb project", async () => {
+  it("links a discovered cc project", async () => {
     const updateCalls: Array<Record<string, unknown>> = [];
     const slot = renderSlot({ component: RailHarness }, railProps(null), {
       rpc: {
-        listBbProjects: () => ({
-          bbProjects: [{ id: BB_PROJECT_ID, name: "bb monorepo" }],
+        listCcProjects: () => ({
+          ccProjects: [{ id: CC_PROJECT_ID, name: "cc monorepo" }],
         }),
         updateProject: (raw: unknown) => {
           const input = rpcInput(raw);
           updateCalls.push(input);
           return {
             project: {
-              ...projectRow(input.linkedBbProjectId as string | null),
+              ...projectRow(input.linkedCcProjectId as string | null),
             },
           };
         },
       },
     });
     fireEvent.click(slot.getByRole("button", { name: "Edit dispatch target" }));
-    fireEvent.click(await slot.findByLabelText("Linked bb project"));
-    fireEvent.click(await slot.findByRole("option", { name: "bb monorepo" }));
+    fireEvent.click(await slot.findByLabelText("Linked cc project"));
+    fireEvent.click(await slot.findByRole("option", { name: "cc monorepo" }));
     fireEvent.click(slot.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateCalls).toHaveLength(1));
     expect(updateCalls[0]).toEqual({
       projectId: PROJECT_ID,
-      linkedBbProjectId: BB_PROJECT_ID,
+      linkedCcProjectId: CC_PROJECT_ID,
     });
   });
 
-  it("shows the linked bb project's name and unlinks it", async () => {
+  it("shows the linked cc project's name and unlinks it", async () => {
     const updateCalls: Array<Record<string, unknown>> = [];
     const slot = renderSlot(
       { component: RailHarness },
-      railProps(BB_PROJECT_ID),
+      railProps(CC_PROJECT_ID),
       {
         rpc: {
-          listBbProjects: () => ({
-            bbProjects: [{ id: BB_PROJECT_ID, name: "bb monorepo" }],
+          listCcProjects: () => ({
+            ccProjects: [{ id: CC_PROJECT_ID, name: "cc monorepo" }],
           }),
           updateProject: (raw: unknown) => {
             const input = rpcInput(raw);
             updateCalls.push(input);
             return {
               project: {
-                ...projectRow(input.linkedBbProjectId as string | null),
+                ...projectRow(input.linkedCcProjectId as string | null),
               },
             };
           },
@@ -127,14 +127,14 @@ describe("dispatch target rail control", () => {
     const trigger = slot.getByRole("button", {
       name: "Edit dispatch target",
     });
-    await slot.findByText("bb monorepo");
+    await slot.findByText("cc monorepo");
 
     fireEvent.click(trigger);
     fireEvent.click(await slot.findByRole("button", { name: "Unlink" }));
     await waitFor(() => expect(updateCalls).toHaveLength(1));
     expect(updateCalls[0]).toEqual({
       projectId: PROJECT_ID,
-      linkedBbProjectId: null,
+      linkedCcProjectId: null,
     });
   });
 });

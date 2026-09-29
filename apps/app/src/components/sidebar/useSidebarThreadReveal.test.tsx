@@ -5,9 +5,9 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ThreadListEntry } from "@bb/domain";
-import type { SidebarBootstrapResponse } from "@bb/server-contract";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import type { ThreadListEntry } from "@cc/domain";
+import type { SidebarBootstrapResponse } from "@cc/server-contract";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,

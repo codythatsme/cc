@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ComposerView } from "@get-bb/plugin-sdk";
+import type { ComposerView } from "@codythatsme/plugin-sdk";
 import {
   cleanup,
   fireEvent,
@@ -16,7 +16,7 @@ import {
   type PluginComposerHost,
 } from "@/components/plugin/plugin-composer-host";
 import type { PluginComposerPlusMenuContribution } from "@/components/plugin/PluginComposerActions";
-import { emptyPromptDraftState } from "@bb/client-core";
+import { emptyPromptDraftState } from "@cc/client-core";
 import {
   resetPluginLogoStoreForTest,
   setPluginLogoUrls,

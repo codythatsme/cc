@@ -13,9 +13,9 @@ async function workspace(
   kind: "setup" | "teardown",
   script: string,
 ): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "bb-core-hooks-"));
+  const directory = await mkdtemp(join(tmpdir(), "cc-core-hooks-"));
   directories.push(directory);
-  await writeFile(join(directory, `.bb-env-${kind}.sh`), script);
+  await writeFile(join(directory, `.cc-env-${kind}.sh`), script);
   return directory;
 }
 
@@ -70,7 +70,7 @@ describe("core environment scripts", () => {
     );
     expect(output).toContain("second");
     expect(output).toContain("stderr");
-    expect(output).toContain("Running .bb-env-setup.sh");
+    expect(output).toContain("Running .cc-env-setup.sh");
   });
 
   it("surfaces output before setup failure", async () => {
@@ -148,9 +148,9 @@ describe("core environment scripts", () => {
     expect(() =>
       buildLifecycleScriptCommand({
         kind: "setup",
-        scriptName: ".bb-env-setup.sh",
+        scriptName: ".cc-env-setup.sh",
         platform: "win32",
-        scriptPath: ".bb-env-setup.sh",
+        scriptPath: ".cc-env-setup.sh",
       }),
     ).toThrow("POSIX shell setup scripts are not supported on Windows");
     const workspacePath = await workspace("teardown", "exit 0\n");

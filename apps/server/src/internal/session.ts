@@ -5,7 +5,7 @@ import {
   openSession,
   upsertHost,
   updateHost,
-} from "@bb/db";
+} from "@cc/db";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   hostDaemonProjectAttachmentContentQuerySchema,
@@ -14,7 +14,7 @@ import {
   typedRoutes,
   type HostDaemonInternalSchema,
   type ServerMovedErrorDetails,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { AppDeps } from "../types.js";
@@ -83,7 +83,7 @@ export function registerInternalSessionRoutes(
       throw new ApiError(
         410,
         SERVER_MOVED_ERROR_CODE,
-        `This bb server moved to ${movedTo.toHostName} (${movedTo.serverUrl})`,
+        `This cc server moved to ${movedTo.toHostName} (${movedTo.serverUrl})`,
         { details: movedTo, retryable: false },
       );
     }
@@ -113,7 +113,7 @@ export function registerInternalSessionRoutes(
           daemonProtocolVersion: compatibility.data.protocolVersion,
           serverProtocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
         },
-        "Rejecting daemon session: protocol version mismatch. An older auto-update-enabled daemon will install this server's bb-app; a newer daemon requires the server to be updated.",
+        "Rejecting daemon session: protocol version mismatch. An older auto-update-enabled daemon will install this server's cc-app; a newer daemon requires the server to be updated.",
       );
       throw new ApiError(
         400,

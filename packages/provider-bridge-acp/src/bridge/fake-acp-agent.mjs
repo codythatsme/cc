@@ -449,7 +449,7 @@ async function handlePrompt(message) {
   } else if (text.includes("request-external-directory-permission")) {
     // opencode's external_directory permission: the running edit tool asks
     // with the generic kind "other", a bare directory title, and
-    // locations = [file, parentDir]. Mirrors get-bb/bb#1719.
+    // locations = [file, parentDir]. Mirrors codythatsme/cc#1719.
     notifyUpdate({
       sessionUpdate: "tool_call",
       toolCallId: "write-tool-1",

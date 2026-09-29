@@ -2,7 +2,7 @@ import {
   createServerAccessRecheck,
   registerServerAccess,
 } from "./server-access.js";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { registerConnectCli } from "./cli.js";
 import { createKvCredentialStore } from "./credential.js";
 import {
@@ -20,13 +20,13 @@ import {
   REMOTE_ACTIVITY_INSTRUCTIONS_MS,
 } from "./types.js";
 
-export default async function plugin(bb: BbPluginApi) {
-  const settings = bb.settings.define({
+export default async function plugin(cc: CcPluginApi) {
+  const settings = cc.settings.define({
     sendRemoteInstructions: {
       type: "boolean",
       label: "Tell agents about remote access",
       description:
-        "When you use BB remotely, tell agents to share servers through Connect. Applies to new agent sessions.",
+        "When you use CC remotely, tell agents to share servers through Connect. Applies to new agent sessions.",
       default: true,
     },
   });
@@ -34,57 +34,57 @@ export default async function plugin(bb: BbPluginApi) {
   settings.onChange((next) => {
     currentSettings = next;
   });
-  const store = createKvCredentialStore(bb.storage.kv);
+  const store = createKvCredentialStore(cc.storage.kv);
   let tunnel!: ConnectTunnel;
-  const hostResolver = new ShareHostResolver(() => bb.sdk);
+  const hostResolver = new ShareHostResolver(() => cc.sdk);
   const getLoopbackBaseUrl = () =>
     resolveLocalCloudLoopbackUrl(
       tunnel.getCredential()?.serverUrl,
-      process.env.BB_DEV_APP_PORT,
-    ) ?? bb.server.loopbackBaseUrl;
+      process.env.CC_DEV_APP_PORT,
+    ) ?? cc.server.loopbackBaseUrl;
 
   const shares = new ShareRegistry({
-    kv: bb.storage.kv,
-    hosts: bb.hosts,
+    kv: cc.storage.kv,
+    hosts: cc.hosts,
     hostResolver,
     getLoopbackBaseUrl,
     getCredential: () => tunnel.getCredential(),
-    log: bb.log,
+    log: cc.log,
     onChange: () => {
-      bb.realtime.publish(CONNECT_REALTIME_CHANNEL, tunnel.status());
+      cc.realtime.publish(CONNECT_REALTIME_CHANNEL, tunnel.status());
     },
   });
 
-  bb.events.on("experimental_host.deleted", async ({ host }) => {
+  cc.events.on("experimental_host.deleted", async ({ host }) => {
     await shares.pruneHost(host.id);
   });
 
-  const recheckServerAccess = createServerAccessRecheck(bb);
+  const recheckServerAccess = createServerAccessRecheck(cc);
   tunnel = new ConnectTunnel({
     store,
     shares,
     defaultBaseUrl: resolveDefaultConnectBaseUrl(process.env),
     getLoopbackBaseUrl,
-    log: bb.log,
+    log: cc.log,
     onStatusChange: (status) => {
-      bb.realtime.publish(CONNECT_REALTIME_CHANNEL, status);
+      cc.realtime.publish(CONNECT_REALTIME_CHANNEL, status);
       recheckServerAccess(status);
     },
   });
 
-  await registerServerAccess(bb, tunnel);
+  await registerServerAccess(cc, tunnel);
 
   const mobilePairing: MobilePairingGate = {
-    enabled: async () => (await bb.sdk.system.config()).experiments.mobileApp,
+    enabled: async () => (await cc.sdk.system.config()).experiments.mobileApp,
   };
 
-  bb.rpc.register(
+  cc.rpc.register(
     connectRpcContract,
     createRpcHandlers(tunnel, hostResolver, mobilePairing),
   );
-  registerConnectCli({ bb, tunnel, hostResolver, mobilePairing });
+  registerConnectCli({ cc, tunnel, hostResolver, mobilePairing });
 
-  bb.agents.contributeInstructions(() => {
+  cc.agents.contributeInstructions(() => {
     if (!currentSettings.sendRemoteInstructions) return null;
     const status = tunnel.status();
     if (!status.paired || status.url === null) return null;
@@ -95,13 +95,13 @@ export default async function plugin(bb: BbPluginApi) {
           REMOTE_ACTIVITY_INSTRUCTIONS_MS);
     if (!recent) return null;
     return (
-      `The user is currently viewing this bb remotely at ${status.url}. ` +
-      "Port shares work from a thread on any enrolled host: when you start an HTTP server they should see, run `bb connect expose <port>` from that thread. " +
+      `The user is currently viewing this cc remotely at ${status.url}. ` +
+      "Port shares work from a thread on any enrolled host: when you start an HTTP server they should see, run `cc connect expose <port>` from that thread. " +
       "The command returns the correct public URL for the thread's host; give it to them as a markdown link because a localhost URL will not work remotely."
     );
   });
 
-  bb.background.service("tunnel", {
+  cc.background.service("tunnel", {
     async start(signal) {
       await tunnel.start();
       await new Promise<void>((resolve) => {

@@ -13,7 +13,7 @@ import { dirname, join } from "node:path";
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 
 import { createStore } from "../api";
@@ -81,13 +81,13 @@ function stdout(result: {
   return result.stdout;
 }
 
-describe("bb tasks CLI", () => {
+describe("cc tasks CLI", () => {
   it("lists seed-demo in help while retaining the explicit confirmation guard", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
 
     expect(stdout(await harness.runCli(["--help"]))).toContain(
-      "bb tasks seed-demo          Create sample folders, projects, labels, tasks, and comments",
+      "cc tasks seed-demo          Create sample folders, projects, labels, tasks, and comments",
     );
     await expect(harness.runCli(["seed-demo"])).resolves.toMatchObject({
       exitCode: 1,
@@ -101,7 +101,7 @@ describe("bb tasks CLI", () => {
   });
 
   it("runs create, list, show, update, and comment through case-insensitive key addressing", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         threads: {
@@ -119,7 +119,7 @@ describe("bb tasks CLI", () => {
         },
       },
     });
-    await plugin(bb);
+    await plugin(cc);
 
     const projectResult = await harness.runCli([
       "project",
@@ -213,7 +213,7 @@ describe("bb tasks CLI", () => {
 
     const commentResult = await harness.runCli(
       ["comment", "CLI-1", "--body", "Ready for review.", "--json"],
-      { threadId: "thr_cli_worker", projectId: "proj_bb" },
+      { threadId: "thr_cli_worker", projectId: "proj_cc" },
     );
     expect(JSON.parse(stdout(commentResult))).toMatchObject({
       comment: {
@@ -271,8 +271,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("assigns and promotes task parents by key or ID with stable JSON output", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
 
     stdout(
       await harness.runCli([
@@ -361,8 +361,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("rejects conflicting or invalid parent updates without mutation", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
 
     for (const project of [
       { name: "Relationships", prefix: "REL" },
@@ -415,7 +415,7 @@ describe("bb tasks CLI", () => {
       "--parent and --no-parent cannot be combined",
     );
     expect(conflicting.stderr).toContain(
-      "Usage:\n  bb tasks update <key-or-id>",
+      "Usage:\n  cc tasks update <key-or-id>",
     );
     await expect(harness.runCli(["update", "REL-3"])).resolves.toEqual({
       exitCode: 1,
@@ -469,8 +469,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("sorts list output by priority or due date and rejects unknown sorts", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
 
     stdout(
       await harness.runCli([
@@ -572,9 +572,9 @@ describe("bb tasks CLI", () => {
   });
 
   it("traverses a project whose former single JSON response exceeds 64 KiB", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
-    const store = createStore(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
+    const store = createStore(cc);
     const project = store.tasks.createProject({
       name: "Large project",
       prefix: "BIG",
@@ -653,8 +653,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("defaults create and list to the tracker project linked to CLI project context", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     const context = { projectId: "proj_linked" };
 
     stdout(
@@ -665,7 +665,7 @@ describe("bb tasks CLI", () => {
         "Linked",
         "--prefix",
         "LINK",
-        "--link-bb-project",
+        "--link-cc-project",
         context.projectId,
       ]),
     );
@@ -696,15 +696,15 @@ describe("bb tasks CLI", () => {
       exitCode: 1,
       stdout: "",
       stderr:
-        "no tracker project is linked to BB project proj_missing; pass --project or link one with bb tasks project update\n",
+        "no tracker project is linked to CC project proj_missing; pass --project or link one with cc tasks project update\n",
     });
 
     await harness.dispose();
   });
 
   it("returns single-line friendly errors for invalid statuses and unknown keys", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -758,8 +758,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("validates combined project and folder updates before mutating", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -780,7 +780,7 @@ describe("bb tasks CLI", () => {
       "ATOM",
       "--rename-prefix",
       "NEXT",
-      "--link-bb-project",
+      "--link-cc-project",
       "not-a-project-id",
     ]);
     expect(invalidProjectUpdate).toMatchObject({ exitCode: 1, stdout: "" });
@@ -788,7 +788,7 @@ describe("bb tasks CLI", () => {
       JSON.parse(
         stdout(await harness.runCli(["project", "show", "ATOM", "--json"])),
       ).project,
-    ).toMatchObject({ prefix: "ATOM", linkedBbProjectId: null });
+    ).toMatchObject({ prefix: "ATOM", linkedCcProjectId: null });
 
     await expect(
       harness.runCli([
@@ -818,8 +818,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("deletes a folder by name or id and unfiles its projects and subfolders", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     const parent = JSON.parse(
       stdout(
         await harness.runCli([
@@ -924,8 +924,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("fails folder delete when another client removed the folder first", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    const store = createStore(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const store = createStore(cc);
     const racingStore = {
       ...store,
       tasks: {
@@ -936,7 +936,7 @@ describe("bb tasks CLI", () => {
         },
       },
     };
-    registerTasksCli(bb, racingStore, { name: "tasks", version: "test" });
+    registerTasksCli(cc, racingStore, { name: "tasks", version: "test" });
     const folder = store.tasks.createFolder({ name: "Racing" });
 
     const plain = await harness.runCli(["folder", "delete", "Racing"]);
@@ -966,7 +966,7 @@ describe("bb tasks CLI", () => {
   });
 
   it("creates, updates, lists, and deletes delegation presets", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         hosts: {
@@ -977,7 +977,7 @@ describe("bb tasks CLI", () => {
         },
       },
     });
-    await plugin(bb);
+    await plugin(cc);
 
     const created = JSON.parse(
       stdout(
@@ -1081,8 +1081,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("reports friendly preset target validation errors", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     const required = [
       "preset",
       "create",
@@ -1123,8 +1123,8 @@ describe("bb tasks CLI", () => {
     await harness.dispose();
   });
 
-  it("self-attaches through BB_THREAD_ID and lists the live thread status", async () => {
-    const { bb, harness } = createFakePluginHost({
+  it("self-attaches through CC_THREAD_ID and lists the live thread status", async () => {
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         threads: {
@@ -1138,7 +1138,7 @@ describe("bb tasks CLI", () => {
         },
       },
     });
-    await plugin(bb);
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -1159,15 +1159,15 @@ describe("bb tasks CLI", () => {
       ]),
     );
 
-    const previousThreadId = process.env.BB_THREAD_ID;
-    process.env.BB_THREAD_ID = "thr_cli_self";
+    const previousThreadId = process.env.CC_THREAD_ID;
+    process.env.CC_THREAD_ID = "thr_cli_self";
     try {
       expect(
         JSON.parse(stdout(await harness.runCli(["attach", "ATT-1", "--json"]))),
       ).toMatchObject({ task: { key: "ATT-1" }, threadId: "thr_cli_self" });
     } finally {
-      if (previousThreadId === undefined) delete process.env.BB_THREAD_ID;
-      else process.env.BB_THREAD_ID = previousThreadId;
+      if (previousThreadId === undefined) delete process.env.CC_THREAD_ID;
+      else process.env.CC_THREAD_ID = previousThreadId;
     }
 
     const threads = JSON.parse(
@@ -1180,7 +1180,7 @@ describe("bb tasks CLI", () => {
         presetName: "Attached",
       }),
     ]);
-    const taskStore = createStore(bb).tasks;
+    const taskStore = createStore(cc).tasks;
     taskStore.createComment({
       taskId: threads.task.id,
       kind: "agent",
@@ -1202,7 +1202,7 @@ describe("bb tasks CLI", () => {
             "--notify",
             "--json",
           ],
-          { threadId: "thr_cli_sender", projectId: "proj_bb" },
+          { threadId: "thr_cli_sender", projectId: "proj_cc" },
         ),
       ),
     ).comment;
@@ -1232,8 +1232,8 @@ describe("bb tasks CLI", () => {
     await harness.dispose();
   });
 
-  it("detaches a thread with `bb tasks detach` and lists live threads first", async () => {
-    const { bb, harness } = createFakePluginHost({
+  it("detaches a thread with `cc tasks detach` and lists live threads first", async () => {
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         threads: {
@@ -1247,7 +1247,7 @@ describe("bb tasks CLI", () => {
         },
       },
     });
-    await plugin(bb);
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -1263,7 +1263,7 @@ describe("bb tasks CLI", () => {
     );
 
     expect(stdout(await harness.runCli(["--help"]))).toContain(
-      "bb tasks detach             Detach an agent thread from a task",
+      "cc tasks detach             Detach an agent thread from a task",
     );
 
     stdout(
@@ -1296,20 +1296,20 @@ describe("bb tasks CLI", () => {
       stderr: "Thread thr_dead_worker is not attached to DET-1\n",
     });
 
-    const previousThreadId = process.env.BB_THREAD_ID;
-    process.env.BB_THREAD_ID = "thr_live_worker";
+    const previousThreadId = process.env.CC_THREAD_ID;
+    process.env.CC_THREAD_ID = "thr_live_worker";
     try {
       expect(
         JSON.parse(stdout(await harness.runCli(["detach", "DET-1", "--json"]))),
       ).toMatchObject({ task: { key: "DET-1" }, threadId: "thr_live_worker" });
-      delete process.env.BB_THREAD_ID;
+      delete process.env.CC_THREAD_ID;
       await expect(harness.runCli(["detach", "DET-1"])).resolves.toMatchObject({
         exitCode: 1,
-        stderr: "missing --thread and BB_THREAD_ID is not set\n",
+        stderr: "missing --thread and CC_THREAD_ID is not set\n",
       });
     } finally {
-      if (previousThreadId === undefined) delete process.env.BB_THREAD_ID;
-      else process.env.BB_THREAD_ID = previousThreadId;
+      if (previousThreadId === undefined) delete process.env.CC_THREAD_ID;
+      else process.env.CC_THREAD_ID = previousThreadId;
     }
     expect(
       JSON.parse(stdout(await harness.runCli(["threads", "DET-1", "--json"])))
@@ -1320,7 +1320,7 @@ describe("bb tasks CLI", () => {
   });
 
   it("creates a task with --attach files after validating every source path", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "bb-tasks-cli-"));
+    const directory = await mkdtemp(join(tmpdir(), "cc-tasks-cli-"));
     const notesPath = join(directory, "notes.txt");
     const pngPath = join(directory, "pixel.png");
     await writeFile(notesPath, "attach me at create\n", "utf8");
@@ -1328,11 +1328,11 @@ describe("bb tasks CLI", () => {
       pngPath,
       new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     );
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: { files: localFilesSdk() },
     });
-    await plugin(bb);
+    await plugin(cc);
 
     try {
       stdout(
@@ -1431,18 +1431,18 @@ describe("bb tasks CLI", () => {
   });
 
   it("attempts every --attach file after create and reports failures truthfully", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "bb-tasks-cli-"));
+    const directory = await mkdtemp(join(tmpdir(), "cc-tasks-cli-"));
     const firstPath = join(directory, "first.txt");
     const boomPath = join(directory, "boom.bin");
     const lastPath = join(directory, "last.txt");
     await writeFile(firstPath, "first", "utf8");
     await writeFile(boomPath, "will fail at blob write", "utf8");
     await writeFile(lastPath, "last", "utf8");
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: { files: localFilesSdk() },
     });
-    await plugin(bb);
+    await plugin(cc);
 
     try {
       stdout(
@@ -1505,7 +1505,7 @@ describe("bb tasks CLI", () => {
         `Failed to attach ${boomPath}: simulated blob write failure`,
       );
       expect(human.stdout).toContain(
-        `Retry with: bb tasks attachment add MIX-2 --file ${boomPath}`,
+        `Retry with: cc tasks attachment add MIX-2 --file ${boomPath}`,
       );
     } finally {
       await rm(directory, { recursive: true, force: true });
@@ -1514,7 +1514,7 @@ describe("bb tasks CLI", () => {
   });
 
   it("shows attached-thread pull requests in show output and JSON", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         threads: {
@@ -1539,11 +1539,11 @@ describe("bb tasks CLI", () => {
                   outcome: "available",
                   pullRequest: {
                     number: 12,
-                    title: "BB-15 Show PRs in tasks",
+                    title: "CC-15 Show PRs in tasks",
                     state: "draft",
-                    url: "https://github.com/acme/bb/pull/12",
+                    url: "https://github.com/acme/cc/pull/12",
                     baseRefName: "main",
-                    headRefName: "bb/bb-15",
+                    headRefName: "cc/cc-15",
                     updatedAt: "2026-07-16T10:00:00.000Z",
                     checks: {
                       state: "pending",
@@ -1564,7 +1564,7 @@ describe("bb tasks CLI", () => {
         },
       },
     });
-    await plugin(bb);
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -1596,8 +1596,8 @@ describe("bb tasks CLI", () => {
 
     const shown = stdout(await harness.runCli(["show", "PRS-1"]));
     expect(shown).toContain("Pull requests");
-    expect(shown).toContain("#12  draft  BB-15 Show PRs in tasks");
-    expect(shown).toContain("https://github.com/acme/bb/pull/12");
+    expect(shown).toContain("#12  draft  CC-15 Show PRs in tasks");
+    expect(shown).toContain("https://github.com/acme/cc/pull/12");
     expect(shown).not.toContain("PR lookup unavailable");
 
     const payload = JSON.parse(
@@ -1605,9 +1605,9 @@ describe("bb tasks CLI", () => {
     );
     expect(payload.pullRequests).toEqual([
       {
-        url: "https://github.com/acme/bb/pull/12",
+        url: "https://github.com/acme/cc/pull/12",
         number: 12,
-        title: "BB-15 Show PRs in tasks",
+        title: "CC-15 Show PRs in tasks",
         state: "draft",
         updatedAt: "2026-07-16T10:00:00.000Z",
         threadIds: ["thr_pr_worker"],
@@ -1619,7 +1619,7 @@ describe("bb tasks CLI", () => {
   });
 
   it("flags threads whose PR lookup failed in show output", async () => {
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         threads: {
@@ -1639,7 +1639,7 @@ describe("bb tasks CLI", () => {
         },
       },
     });
-    await plugin(bb);
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -1670,7 +1670,7 @@ describe("bb tasks CLI", () => {
   });
 
   it("adds and downloads an attachment with an exact file round-trip", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "bb-tasks-cli-"));
+    const directory = await mkdtemp(join(tmpdir(), "cc-tasks-cli-"));
     const inputPath = join(directory, "input.txt");
     const pngPath = join(directory, "pixel.png");
     const outputPath = join(directory, "nested", "output.txt");
@@ -1679,11 +1679,11 @@ describe("bb tasks CLI", () => {
       pngPath,
       new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     );
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: { files: localFilesSdk() },
     });
-    await plugin(bb);
+    await plugin(cc);
 
     try {
       stdout(
@@ -1908,7 +1908,7 @@ describe("bb tasks CLI", () => {
         Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
       ],
     ]);
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
       sdk: {
         threads: {
@@ -1948,7 +1948,7 @@ describe("bb tasks CLI", () => {
         },
       },
     });
-    await plugin(bb);
+    await plugin(cc);
     const threadCtx = { threadId: "thr_remote_worker", cwd: "/remote" };
 
     stdout(
@@ -2038,8 +2038,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("returns a friendly dispatch error when the task project is not linked", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -2085,7 +2085,7 @@ describe("bb tasks CLI", () => {
     expect(result).toEqual({
       exitCode: 1,
       stdout: "",
-      stderr: 'Task project "Unlinked CLI" is not linked to a bb project\n',
+      stderr: 'Task project "Unlinked CLI" is not linked to a cc project\n',
     });
     const aliased = await harness.runCli([
       "delegate",
@@ -2094,7 +2094,7 @@ describe("bb tasks CLI", () => {
       "CLI worker",
     ]);
     expect(aliased.stderr).toBe(
-      'Task project "Unlinked CLI" is not linked to a bb project\n',
+      'Task project "Unlinked CLI" is not linked to a cc project\n',
     );
     expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
 
@@ -2102,16 +2102,16 @@ describe("bb tasks CLI", () => {
   });
 
   it("prints help at every level and never runs a command for it", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
 
     const top = await harness.runCli(["--help"]);
     expect(top).toMatchObject({ exitCode: 0, stderr: "" });
-    expect(top.stdout).toContain("bb tasks list               List and filter");
+    expect(top.stdout).toContain("cc tasks list               List and filter");
 
     const statusHelp = stdout(await harness.runCli(["status", "--help"]));
     expect(statusHelp).toContain("Plugin health only");
-    expect(statusHelp).toContain("bb tasks list --status <status>");
+    expect(statusHelp).toContain("cc tasks list --status <status>");
 
     const listHelp = stdout(await harness.runCli(["list", "-h"]));
     expect(listHelp).toContain("--limit <1-500>");
@@ -2127,8 +2127,8 @@ describe("bb tasks CLI", () => {
     expect(createHelp).toContain("At most one of:");
 
     const groupHelp = stdout(await harness.runCli(["preset", "--help"]));
-    expect(groupHelp).toContain("bb tasks preset list");
-    expect(groupHelp).toContain("bb tasks preset delete");
+    expect(groupHelp).toContain("cc tasks preset list");
+    expect(groupHelp).toContain("cc tasks preset delete");
 
     for (const group of [
       "project",
@@ -2139,12 +2139,12 @@ describe("bb tasks CLI", () => {
     ]) {
       const help = await harness.runCli([group, "--help"]);
       expect(help.exitCode, group).toBe(0);
-      expect(help.stdout, group).toContain(`bb tasks ${group} `);
+      expect(help.stdout, group).toContain(`cc tasks ${group} `);
     }
 
     const bareGroup = await harness.runCli(["preset"]);
     expect(bareGroup.exitCode).toBe(1);
-    expect(bareGroup.stdout).toContain("bb tasks preset show");
+    expect(bareGroup.stdout).toContain("cc tasks preset show");
 
     const unknownSubcommand = await harness.runCli(["preset", "bogus"]);
     expect(unknownSubcommand.exitCode).toBe(1);
@@ -2159,8 +2159,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("rejects unknown flags and stray arguments instead of ignoring them", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -2176,7 +2176,7 @@ describe("bb tasks CLI", () => {
     expect(unknownOption).toMatchObject({ exitCode: 1, stdout: "" });
     expect(unknownOption.stderr).toContain("unknown option '--lim'");
     expect(unknownOption.stderr).toContain("(Did you mean --limit?)");
-    expect(unknownOption.stderr).toContain("Usage:\n  bb tasks list");
+    expect(unknownOption.stderr).toContain("Usage:\n  cc tasks list");
 
     const strayTitle = await harness.runCli([
       "create",
@@ -2204,8 +2204,8 @@ describe("bb tasks CLI", () => {
   });
 
   it("reports every missing required value at once, in JSON when asked", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
 
     const missing = await harness.runCli(["preset", "create"]);
     expect(missing).toMatchObject({ exitCode: 1, stdout: "" });
@@ -2230,16 +2230,16 @@ describe("bb tasks CLI", () => {
       "missing required arguments: <key-or-id>",
     );
     expect(missingKey.stderr).toContain(
-      "Usage:\n  bb tasks attach <key-or-id>",
+      "Usage:\n  cc tasks attach <key-or-id>",
     );
-    expect(missingKey.stderr).not.toContain("bb tasks project create");
+    expect(missingKey.stderr).not.toContain("cc tasks project create");
 
     await harness.dispose();
   });
 
-  it("answers `bb tasks get` and points --project at tracker projects", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    await plugin(bb);
+  it("answers `cc tasks get` and points --project at tracker projects", async () => {
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    await plugin(cc);
     stdout(
       await harness.runCli([
         "project",
@@ -2248,7 +2248,7 @@ describe("bb tasks CLI", () => {
         "Linked",
         "--prefix",
         "LINK",
-        "--link-bb-project",
+        "--link-cc-project",
         "proj_linked",
       ]),
     );
@@ -2270,30 +2270,30 @@ describe("bb tasks CLI", () => {
         .task,
     ).toMatchObject({ id: task.id, key: "LINK-1" });
 
-    const unknownBbProject = await harness.runCli([
+    const unknownCcProject = await harness.runCli([
       "list",
       "--project",
       "proj_unknown",
     ]);
-    expect(unknownBbProject.exitCode).toBe(1);
-    expect(unknownBbProject.stderr).toContain(
+    expect(unknownCcProject.exitCode).toBe(1);
+    expect(unknownCcProject.stderr).toContain(
       "project not found: proj_unknown",
     );
-    expect(unknownBbProject.stderr).toContain("is a bb project id");
-    expect(unknownBbProject.stderr).toContain("bb tasks project list");
+    expect(unknownCcProject.stderr).toContain("is a cc project id");
+    expect(unknownCcProject.stderr).toContain("cc tasks project list");
 
-    const linkedBbProject = await harness.runCli([
+    const linkedCcProject = await harness.runCli([
       "list",
       "--project",
       "proj_linked",
       "--json",
     ]);
-    expect(linkedBbProject.exitCode).toBe(1);
-    expect(JSON.parse(linkedBbProject.stdout)).toMatchObject({
+    expect(linkedCcProject.exitCode).toBe(1);
+    expect(JSON.parse(linkedCcProject.stdout)).toMatchObject({
       ok: false,
       error: {
         code: "project_not_found",
-        hint: "proj_linked is a bb project id; its tracker project is LINK — re-run with --project LINK",
+        hint: "proj_linked is a cc project id; its tracker project is LINK — re-run with --project LINK",
       },
     });
 

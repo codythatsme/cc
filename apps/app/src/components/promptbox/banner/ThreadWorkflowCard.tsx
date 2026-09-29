@@ -1,5 +1,5 @@
-import { isSettledWorkflowAgentState } from "@bb/domain";
-import type { TimelineWorkflowWorkRow } from "@bb/server-contract";
+import { isSettledWorkflowAgentState } from "@cc/domain";
+import type { TimelineWorkflowWorkRow } from "@cc/server-contract";
 import { AnimatedBody } from "@/components/promptbox/banner/AnimatedBody";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
@@ -14,9 +14,9 @@ import {
   activityMetaClass,
   activityRowClass,
   activityTextClass,
-} from "@bb/shared-ui/activity-row-styles";
-import { Icon } from "@bb/shared-ui/icon";
-import { WorkflowPhaseStrip } from "@bb/shared-ui/workflow-progress";
+} from "@cc/shared-ui/activity-row-styles";
+import { Icon } from "@cc/shared-ui/icon";
+import { WorkflowPhaseStrip } from "@cc/shared-ui/workflow-progress";
 
 const BODY_ID = "thread-workflow-card-body";
 const TOGGLE_ID = "thread-workflow-card-toggle";

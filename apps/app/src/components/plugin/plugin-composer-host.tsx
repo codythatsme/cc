@@ -16,9 +16,9 @@ import type {
   ExperimentalComposerSubmitOptions,
   JsonValue,
   PluginComposerScope,
-} from "@get-bb/plugin-sdk";
-import { isComposerDraftEmpty } from "@get-bb/plugin-sdk/internal/composer-view";
-import type { PromptDraftState } from "@bb/client-core";
+} from "@codythatsme/plugin-sdk";
+import { isComposerDraftEmpty } from "@codythatsme/plugin-sdk/internal/composer-view";
+import type { PromptDraftState } from "@cc/client-core";
 
 export interface PluginComposerHost {
   scope: PluginComposerScope;

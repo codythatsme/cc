@@ -23,7 +23,7 @@ const direct = {
 };
 const connect = {
   mode: "connect" as const,
-  serverUrl: "https://bee.getbb.app",
+  serverUrl: "https://bee.cc.example.invalid",
   label: "bee",
   handle: "bee",
   credential: "bbcm_secret",

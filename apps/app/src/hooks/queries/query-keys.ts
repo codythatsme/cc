@@ -1,6 +1,6 @@
-import type { WorkspaceDiffTarget } from "@bb/domain";
-import type { ThreadListFilters, ThreadSearchFilters } from "@bb/client-core";
-import type { EnvironmentFilePreviewSource } from "@bb/client-core";
+import type { WorkspaceDiffTarget } from "@cc/domain";
+import type { ThreadListFilters, ThreadSearchFilters } from "@cc/client-core";
+import type { EnvironmentFilePreviewSource } from "@cc/client-core";
 import {
   DEFAULT_THREAD_STORAGE_FILE_LIST_OPTIONS,
   type ThreadStorageFileListOptions,

@@ -1,4 +1,4 @@
-import { createNodeBbSdk, type BbSdk } from "@bb/sdk/node";
+import { createNodeCcSdk, type CcSdk } from "@cc/sdk/node";
 import type { Dispatcher } from "undici";
 
 type CliRequestInit = RequestInit & { dispatcher?: Dispatcher };
@@ -10,6 +10,6 @@ export function cliFetch(
   return fetch(input, init);
 }
 
-export function createCliBbSdk(baseUrl: string): BbSdk {
-  return createNodeBbSdk({ baseUrl, fetch: cliFetch });
+export function createCliCcSdk(baseUrl: string): CcSdk {
+  return createNodeCcSdk({ baseUrl, fetch: cliFetch });
 }

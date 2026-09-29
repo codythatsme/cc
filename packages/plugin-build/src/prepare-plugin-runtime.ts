@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { isPluginOwnedIconPath, pluginPackageJsonSchema } from "@bb/domain";
+import { isPluginOwnedIconPath, pluginPackageJsonSchema } from "@cc/domain";
 import { buildPluginApp } from "./build-plugin-app.js";
 import { buildPluginServer } from "./build-plugin-server.js";
 import { buildPluginHost } from "./build-plugin-host.js";
@@ -39,11 +39,11 @@ async function writeRuntimePackageJson(args: {
     `${JSON.stringify(
       {
         ...packageJson,
-        bb: {
-          ...packageJson.bb,
+        cc: {
+          ...packageJson.cc,
           server: "./dist/server.js",
-          ...(packageJson.bb.app === undefined ? {} : { app: "./dist/app.js" }),
-          ...(packageJson.bb.host === undefined
+          ...(packageJson.cc.app === undefined ? {} : { app: "./dist/app.js" }),
+          ...(packageJson.cc.host === undefined
             ? {}
             : { host: "./dist/host.js" }),
         },
@@ -83,12 +83,12 @@ export async function copyPluginRuntime(args: {
       await readFile(path.join(args.sourceRoot, "package.json"), "utf8"),
     ),
   );
-  const logo = packageJson.bb.branding.logo;
-  const compactIcon = isPluginOwnedIconPath(packageJson.bb.branding.icon ?? "")
-    ? packageJson.bb.branding.icon
+  const logo = packageJson.cc.branding.logo;
+  const compactIcon = isPluginOwnedIconPath(packageJson.cc.branding.icon ?? "")
+    ? packageJson.cc.branding.icon
     : undefined;
   const declaredIcons = Object.values(
-    packageJson.bb.branding.experimental_icons ?? {},
+    packageJson.cc.branding.experimental_icons ?? {},
   );
   for (const asset of [
     compactIcon,
@@ -116,7 +116,7 @@ export async function copyPluginRuntime(args: {
 export async function preparePluginRuntime(args: {
   sourceRoot: string;
   targetDir: string;
-  bbVersion: string;
+  ccVersion: string;
   toolchain: PluginBuildToolchain;
 }): Promise<void> {
   const buildRoot = await mkdtemp(
@@ -141,13 +141,13 @@ export async function preparePluginRuntime(args: {
     const manifest = pluginPackageJsonSchema.parse(
       JSON.parse(await readFile(path.join(buildRoot, "package.json"), "utf8")),
     );
-    await buildPluginServer(buildRoot, args.bbVersion, args.toolchain, {
+    await buildPluginServer(buildRoot, args.ccVersion, args.toolchain, {
       hostProvidedZod: true,
     });
-    if (manifest.bb.app !== undefined)
-      await buildPluginApp(buildRoot, args.bbVersion, args.toolchain);
-    if (manifest.bb.host !== undefined)
-      await buildPluginHost(buildRoot, args.bbVersion, args.toolchain);
+    if (manifest.cc.app !== undefined)
+      await buildPluginApp(buildRoot, args.ccVersion, args.toolchain);
+    if (manifest.cc.host !== undefined)
+      await buildPluginHost(buildRoot, args.ccVersion, args.toolchain);
     await runStageAssets(buildRoot);
     await copyPluginRuntime({
       sourceRoot: buildRoot,

@@ -2,10 +2,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  readBbAppRuntimeFile,
-  writeBbAppRuntimeFile,
-} from "@bb/config/app-runtime-file";
-import type { VerifiedProcessOps } from "@bb/config/verified-process-stop";
+  readCcAppRuntimeFile,
+  writeCcAppRuntimeFile,
+} from "@cc/config/app-runtime-file";
+import type { VerifiedProcessOps } from "@cc/config/verified-process-stop";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   readForeignRuntimeDetails,
@@ -17,7 +17,7 @@ const tempDirs: string[] = [];
 const STARTED_AT = new Date(Date.now() - 30 * 60_000).toISOString();
 
 async function createDataDir(): Promise<string> {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-foreign-runtime-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-foreign-runtime-"));
   tempDirs.push(dataDir);
   return dataDir;
 }
@@ -28,7 +28,7 @@ function createProcessOps(
   return {
     isRunning: vi.fn(() => true),
     kill: vi.fn(),
-    readCommand: vi.fn(async () => "node /opt/bb/bb-app.js start"),
+    readCommand: vi.fn(async () => "node /opt/cc/cc-app.js start"),
     readElapsedSeconds: vi.fn(async () => 30 * 60),
     waitForExit: vi.fn(async () => true),
     ...overrides,
@@ -42,9 +42,9 @@ async function writeRuntimeFile(args: {
   serverUrl?: string;
   startedAt?: string;
 }): Promise<void> {
-  await writeBbAppRuntimeFile({
+  await writeCcAppRuntimeFile({
     dataDir: args.dataDir,
-    entryPath: args.entryPath ?? "/opt/bb/bb-app.js",
+    entryPath: args.entryPath ?? "/opt/cc/cc-app.js",
     pid: args.pid ?? 4_242,
     serverUrl: args.serverUrl ?? "http://127.0.0.1:38886",
     startedAt: args.startedAt ?? STARTED_AT,
@@ -56,7 +56,7 @@ async function writeRuntimeFile(args: {
 function detailsFor(dataDir: string): ForeignRuntimeDetails {
   return {
     dataDir,
-    entryPath: "/opt/bb/bb-app.js",
+    entryPath: "/opt/cc/cc-app.js",
     pid: 4_242,
     startedAt: STARTED_AT,
     surface: "web",
@@ -74,7 +74,7 @@ afterEach(async () => {
 });
 
 describe("readForeignRuntimeDetails", () => {
-  it("describes the running bb when the runtime file matches the probed server", async () => {
+  it("describes the running cc when the runtime file matches the probed server", async () => {
     const dataDir = await createDataDir();
     await writeRuntimeFile({ dataDir });
 
@@ -98,7 +98,7 @@ describe("readForeignRuntimeDetails", () => {
     ).resolves.toBeNull();
   });
 
-  it("returns null for a bb that writes no runtime file", async () => {
+  it("returns null for a cc that writes no runtime file", async () => {
     const dataDir = await createDataDir();
 
     await expect(
@@ -125,7 +125,7 @@ describe("stopForeignRuntime", () => {
       }),
     ).resolves.toEqual({ kind: "stopped" });
     expect(processOps.kill).toHaveBeenCalledWith(4_242, "SIGTERM");
-    await expect(readBbAppRuntimeFile(dataDir)).resolves.toBeNull();
+    await expect(readCcAppRuntimeFile(dataDir)).resolves.toBeNull();
   });
 
   it("recognises a launcher that was started with a relative path", async () => {
@@ -133,7 +133,7 @@ describe("stopForeignRuntime", () => {
     await writeRuntimeFile({ dataDir });
     const processOps = createProcessOps({
       readCommand: vi.fn(
-        async () => "node packages/bb-app/dist/bb-app.js start",
+        async () => "node packages/cc-app/dist/cc-app.js start",
       ),
     });
 
@@ -218,10 +218,10 @@ describe("stopForeignRuntime", () => {
         timeoutMs: 1_000,
       }),
     ).resolves.toEqual({ kind: "still-running", pid: 4_242 });
-    await expect(readBbAppRuntimeFile(dataDir)).resolves.not.toBeNull();
+    await expect(readCcAppRuntimeFile(dataDir)).resolves.not.toBeNull();
   });
 
-  it("refuses to signal a recycled pid that no longer looks like bb", async () => {
+  it("refuses to signal a recycled pid that no longer looks like cc", async () => {
     const dataDir = await createDataDir();
     await writeRuntimeFile({ dataDir });
     const processOps = createProcessOps({

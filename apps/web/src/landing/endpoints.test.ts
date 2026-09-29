@@ -18,20 +18,15 @@ describe("marketing download redirect", () => {
       return new Response(
         JSON.stringify({
           files: [
-            { url: "bb-0.0.26-arm64.zip" },
-            { url: "bb-0.0.26-arm64.dmg" },
+            { url: "cc-0.0.26-arm64.zip" },
+            { url: "cc-0.0.26-arm64.dmg" },
           ],
         }),
       );
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await handleDownload(
-      "macos",
-      new Request("https://getbb.app/download/macos?placement=hero"),
-      {},
-      vi.fn(),
-    );
+    const response = await handleDownload("macos");
 
     expect(fetchMock).toHaveBeenCalledWith(
       DESKTOP_DOWNLOADS.macos.versionFeedUrl,
@@ -39,7 +34,7 @@ describe("marketing download redirect", () => {
     );
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(
-      `${DOWNLOAD_RELEASE_ASSET_BASE_URL}/bb-0.0.26-arm64.dmg`,
+      `${DOWNLOAD_RELEASE_ASSET_BASE_URL}/cc-0.0.26-arm64.dmg`,
     );
   });
 
@@ -48,20 +43,15 @@ describe("marketing download redirect", () => {
       return new Response(
         JSON.stringify({
           files: [
-            { url: "bb-0.42.1-x86_64.AppImage" },
-            { url: "bb-0.42.1-x86_64.AppImage.blockmap" },
+            { url: "cc-0.42.1-x86_64.AppImage" },
+            { url: "cc-0.42.1-x86_64.AppImage.blockmap" },
           ],
         }),
       );
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await handleDownload(
-      "linux",
-      new Request("https://getbb.app/download/linux?placement=hero"),
-      {},
-      vi.fn(),
-    );
+    const response = await handleDownload("linux");
 
     expect(fetchMock).toHaveBeenCalledWith(
       DESKTOP_DOWNLOADS.linux.versionFeedUrl,
@@ -69,7 +59,7 @@ describe("marketing download redirect", () => {
     );
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(
-      `${DOWNLOAD_RELEASE_ASSET_BASE_URL}/bb-0.42.1-x86_64.AppImage`,
+      `${DOWNLOAD_RELEASE_ASSET_BASE_URL}/cc-0.42.1-x86_64.AppImage`,
     );
   });
 
@@ -78,17 +68,12 @@ describe("marketing download redirect", () => {
       "fetch",
       vi.fn(async () => {
         return new Response(
-          JSON.stringify({ files: [{ url: "bb-0.42.1-arm64.dmg" }] }),
+          JSON.stringify({ files: [{ url: "cc-0.42.1-arm64.dmg" }] }),
         );
       }),
     );
 
-    const response = await handleDownload(
-      "linux",
-      new Request("https://getbb.app/download/linux"),
-      {},
-      vi.fn(),
-    );
+    const response = await handleDownload("linux");
 
     expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
   });
@@ -101,44 +86,24 @@ describe("marketing download redirect", () => {
       }),
     );
 
-    const response = await handleDownload(
-      "macos",
-      new Request("https://getbb.app/download/macos"),
-      {},
-      vi.fn(),
-    );
+    const response = await handleDownload("macos");
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
   });
 
-  it("tracks the click through waitUntil when a PostHog key is set", async () => {
-    const fetchMock = vi.fn(
-      async (..._args: Parameters<typeof fetch>) => new Response("{}"),
-    );
+  it("only fetches the release feed when downloading", async () => {
+    const fetchMock = vi.fn(async () => new Response("{}"));
     vi.stubGlobal("fetch", fetchMock);
-    const waitUntil = vi.fn<(promise: Promise<void>) => void>();
 
-    await handleDownload(
-      "linux",
-      new Request("https://getbb.app/download/linux?placement=nav"),
-      { LANDING_POSTHOG_KEY: "phc_test" },
-      waitUntil,
-    );
+    const response = await handleDownload("linux");
 
-    expect(waitUntil).toHaveBeenCalledTimes(1);
-    await waitUntil.mock.calls[0]?.[0];
-    const captureCall = fetchMock.mock.calls.find(
-      ([url]) => typeof url === "string" && url.includes("posthog"),
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      DESKTOP_DOWNLOADS.linux.versionFeedUrl,
+      { headers: { accept: "application/json" } },
     );
-    expect(captureCall).toBeTruthy();
-    const body = JSON.parse(String(captureCall?.[1]?.body)) as {
-      event: string;
-      properties: { download_target: string; placement: string };
-    };
-    expect(body.event).toBe("landing_download_linux_clicked");
-    expect(body.properties.download_target).toBe("linux");
-    expect(body.properties.placement).toBe("nav");
+    expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });
 
@@ -149,7 +114,7 @@ describe("marketing subscribe endpoint", () => {
   });
 
   function subscribeRequest(email: unknown): Request {
-    return new Request("https://getbb.app/api/subscribe", {
+    return new Request("https://cc.example.invalid/api/subscribe", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email }),

@@ -15,11 +15,11 @@ import {
 } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import semver from "semver";
-import { resolveBundledNpmCli } from "@bb/plugin-build";
+import { resolveBundledNpmCli } from "@cc/plugin-build";
 import {
   omitNpmScriptPolicyEnv,
   spawnPortableOutputProcess,
-} from "@bb/process-utils";
+} from "@cc/process-utils";
 
 type ParsedGitSelector =
   | { kind: "ref"; ref: string }

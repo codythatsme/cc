@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import type { Host } from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
+import type { Host } from "@cc/domain";
+import { Button } from "@cc/shared-ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,8 +8,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Input } from "@bb/shared-ui/input";
+} from "@cc/shared-ui/dialog";
+import { Input } from "@cc/shared-ui/input";
 import { useRenameDialogAutoFocus } from "@/components/dialogs/useRenameDialogAutoFocus.js";
 
 const HOST_NAME_MAX_LENGTH = 100;

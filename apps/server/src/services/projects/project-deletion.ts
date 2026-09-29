@@ -15,8 +15,8 @@ import {
   projects,
   threads,
   type DbQueryConnection,
-} from "@bb/db";
-import type { Thread, ThreadStatus } from "@bb/domain";
+} from "@cc/db";
+import type { Thread, ThreadStatus } from "@cc/domain";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,

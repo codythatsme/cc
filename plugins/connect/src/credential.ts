@@ -1,6 +1,6 @@
-import { connectCredentialSchema } from "@bb/connect-client";
-import type { ConnectCredential } from "@bb/connect-client";
-import type { PluginKvStorage } from "@get-bb/plugin-sdk";
+import { connectCredentialSchema } from "@cc/connect-client";
+import type { ConnectCredential } from "@cc/connect-client";
+import type { PluginKvStorage } from "@codythatsme/plugin-sdk";
 
 export const CREDENTIAL_KV_KEY = "credential";
 

@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { AvailableModel } from "@bb/domain";
+import type { AvailableModel } from "@cc/domain";
 import type {
   SystemExecutionOptionsResponse,
   SystemProviderStatesResponse,
-} from "@bb/server-contract";
-import type { ProviderInfo } from "@bb/domain";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
-import type { ProviderCliStatusResponse } from "@bb/host-daemon-contract";
+} from "@cc/server-contract";
+import type { ProviderInfo } from "@cc/domain";
+import { makeProviderInfo } from "@cc/test-helpers/domain-fixtures";
+import type { ProviderCliStatusResponse } from "@cc/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -28,7 +28,7 @@ import {
 } from "./system-queries";
 
 vi.mock("@/lib/sdk", () => ({
-  BbHttpError: class BbHttpError extends Error {},
+  CcHttpError: class CcHttpError extends Error {},
   sdk: {
     hosts: { providerCliStatus: vi.fn() },
     providers: { list: vi.fn() },

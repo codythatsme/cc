@@ -1,6 +1,6 @@
-import type { ApplyThreadLifecycleEventOutcome, HostRow } from "@bb/db";
-import type { PendingInteraction, Thread } from "@bb/domain";
-import type { ThreadQueuedMessage } from "@bb/domain";
+import type { ApplyThreadLifecycleEventOutcome, HostRow } from "@cc/db";
+import type { PendingInteraction, Thread } from "@cc/domain";
+import type { ThreadQueuedMessage } from "@cc/domain";
 import type { PluginThreadEventEmitter } from "./plugin-service.js";
 
 const pendingThreadEvents = new Map<string, ReturnType<typeof setTimeout>>();
@@ -76,7 +76,7 @@ export function emitPluginTurnFailed(threadId: string): void {
  *
  * These, plus archive and delete above, are the fanout a plugin whose waits
  * depend on capacity subscribes to; it answers by calling
- * `bb.experimental_hooks.recheck()`. Core deliberately does not derive
+ * `cc.experimental_hooks.recheck()`. Core deliberately does not derive
  * "a slot freed" here itself: the wait is the plugin's, and so is the
  * condition that ends it.
  */
@@ -104,7 +104,7 @@ export function emitPluginThreadEvents(threadId: string): void {
 }
 
 export function emitPluginTerminalInput(
-  terminal: import("@bb/server-contract").TerminalSession,
+  terminal: import("@cc/server-contract").TerminalSession,
 ): void {
   emitter?.emitTerminalInput(terminal);
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ThreadListEntry, ThreadWithRuntime } from "@bb/domain";
+import type { ThreadListEntry, ThreadWithRuntime } from "@cc/domain";
 import {
   act,
   cleanup,
@@ -17,7 +17,7 @@ import type {
   SidebarBootstrapResponse,
   TimelineConversationRow,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { commandRow } from "@/test/fixtures/thread-timeline-rows";
 
 vi.mock("@/components/ui/bottom-anchored-scroll-body.js", () => ({
@@ -41,8 +41,8 @@ import {
   type TocItem,
 } from "./ThreadTableOfContents";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
-import { makeThreadListEntry as makeThreadListEntryFixture } from "@bb/test-helpers/domain-fixtures";
-import { makeThreadWithRuntime as makeThreadWithRuntimeFixture } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry as makeThreadListEntryFixture } from "@cc/test-helpers/domain-fixtures";
+import { makeThreadWithRuntime as makeThreadWithRuntimeFixture } from "@cc/test-helpers/domain-fixtures";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,
@@ -730,7 +730,7 @@ describe("ThreadTableOfContents", () => {
         id: "u2",
         role: "user",
         preview:
-          "[bb message from thread:thr_worker] Release bug report: the calendar is stale.",
+          "[cc message from thread:thr_worker] Release bug report: the calendar is stale.",
         attachmentSummary: null,
       },
       {
@@ -749,7 +749,7 @@ describe("ThreadTableOfContents", () => {
       screen.getByText("Release bug report: the calendar is stale."),
     ).not.toBeNull();
     expect(
-      screen.queryByText(/\[bb message from thread:thr_worker\]/),
+      screen.queryByText(/\[cc message from thread:thr_worker\]/),
     ).toBeNull();
   });
 
@@ -783,7 +783,7 @@ describe("ThreadTableOfContents", () => {
         id: "u2",
         role: "user",
         preview:
-          "[bb message from thread:thr_worker] Release bug report: the calendar is stale.",
+          "[cc message from thread:thr_worker] Release bug report: the calendar is stale.",
         attachmentSummary: null,
       },
       {

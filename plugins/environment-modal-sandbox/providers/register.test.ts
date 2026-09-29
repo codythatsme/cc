@@ -1,6 +1,6 @@
-import type { JsonValue } from "@get-bb/plugin-sdk";
-import type { PluginMachineProviderProgress } from "@get-bb/plugin-sdk/machine-provider";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import type { JsonValue } from "@codythatsme/plugin-sdk";
+import type { PluginMachineProviderProgress } from "@codythatsme/plugin-sdk/machine-provider";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import { expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { SandboxBackend } from "./sandbox-backend.js";
@@ -52,12 +52,12 @@ it("registers a non-Modal backend through the shared extension point", async () 
     displayName: ({ hostId }) => `Example ${hostId}`,
     close() {},
   };
-  const { bb, harness } = createFakePluginHost({ pluginId: "test-plugin" });
+  const { cc, harness } = createFakePluginHost({ pluginId: "test-plugin" });
   const bootstrap = vi.fn(async () => ({ hostId: "host_example" }));
-  Object.assign(bb.experimental_machines, { bootstrap });
+  Object.assign(cc.experimental_machines, { bootstrap });
   const onConnected = vi.fn(async () => {});
 
-  registerSandboxBackend(bb, backend, {
+  registerSandboxBackend(cc, backend, {
     now: () => 1,
     onConnected,
   });

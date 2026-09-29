@@ -9,21 +9,21 @@ import {
 } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { POINTER_COARSE_QUERY } from "@bb/shared-ui/hooks/use-pointer-coarse";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { POINTER_COARSE_QUERY } from "@cc/shared-ui/hooks/use-pointer-coarse";
+import { CompactViewportOverrideProvider } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Popover, PopoverContent } from "@bb/shared-ui/popover";
-import { DropdownMenu, DropdownMenuContent } from "@bb/shared-ui/dropdown-menu";
+} from "@cc/shared-ui/dialog";
+import { Popover, PopoverContent } from "@cc/shared-ui/popover";
+import { DropdownMenu, DropdownMenuContent } from "@cc/shared-ui/dropdown-menu";
 import {
   measureDrawerKeyboardOverlap,
   PersistentResponsiveDrawerShell,
   ResponsiveDrawerShell,
-} from "@bb/shared-ui/responsive-overlay";
+} from "@cc/shared-ui/responsive-overlay";
 
 afterEach(() => {
   cleanup();
@@ -397,7 +397,7 @@ describe("PersistentResponsiveDrawerShell", () => {
     );
 
     const nestedAction = document.createElement("button");
-    nestedAction.setAttribute("data-bb-portaled-overlay", "");
+    nestedAction.setAttribute("data-cc-portaled-overlay", "");
     nestedAction.addEventListener("keydown", (event) => {
       event.preventDefault();
     });
@@ -424,7 +424,7 @@ describe("PersistentResponsiveDrawerShell", () => {
     );
 
     const nestedAction = document.createElement("button");
-    nestedAction.setAttribute("data-bb-portaled-overlay", "");
+    nestedAction.setAttribute("data-cc-portaled-overlay", "");
     document.body.appendChild(nestedAction);
     nestedAction.focus();
 
@@ -758,7 +758,7 @@ describe("drawer software keyboard inset", () => {
         for (const frame of frames.splice(0)) frame(0);
       });
       expect(panel.style.bottom).toBe("336px");
-      expect(panel.style.getPropertyValue("--bb-drawer-keyboard-inset")).toBe(
+      expect(panel.style.getPropertyValue("--cc-drawer-keyboard-inset")).toBe(
         "336px",
       );
 
@@ -768,7 +768,7 @@ describe("drawer software keyboard inset", () => {
         for (const frame of frames.splice(0)) frame(0);
       });
       expect(panel.style.bottom).toBe("");
-      expect(panel.style.getPropertyValue("--bb-drawer-keyboard-inset")).toBe(
+      expect(panel.style.getPropertyValue("--cc-drawer-keyboard-inset")).toBe(
         "",
       );
     } finally {
@@ -813,7 +813,7 @@ describe("drawer software keyboard inset", () => {
       });
 
       expect(panel.style.bottom).toBe("");
-      expect(panel.style.getPropertyValue("--bb-drawer-keyboard-inset")).toBe(
+      expect(panel.style.getPropertyValue("--cc-drawer-keyboard-inset")).toBe(
         "",
       );
     } finally {

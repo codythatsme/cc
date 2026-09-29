@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { PERSONAL_PROJECT_ID, type ProviderInfo } from "@bb/domain";
-import { UPDATE_ACTION_ICON } from "@bb/domain/update-state";
+import { PERSONAL_PROJECT_ID, type ProviderInfo } from "@cc/domain";
+import { UPDATE_ACTION_ICON } from "@cc/domain/update-state";
 import type {
   SidebarBootstrapResponse,
   SystemVersionResponse,
-} from "@bb/server-contract";
-import type { ProviderCliStatusResponse } from "@bb/host-daemon-contract";
+} from "@cc/server-contract";
+import type { ProviderCliStatusResponse } from "@cc/host-daemon-contract";
 import {
   hostProviderCliStatusQueryKey,
   hostsQueryKey,
@@ -31,10 +31,10 @@ import {
   MANUAL_MACHINE_PROVIDER,
   MODAL_MACHINE_PROVIDER,
 } from "./machine-story-fixtures";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+import { makeProviderInfo } from "@cc/test-helpers/domain-fixtures";
 import { getSettingsRoutePath } from "../src/lib/route-paths";
 import {
-  BbAppUpdateRows,
+  CcAppUpdateRows,
   MachineUpdatesFleetSection,
   MachineUpdatesRows,
   MachineUpdatesSection,
@@ -135,14 +135,14 @@ const remoteProviderStatus = {
 } satisfies ProviderCliStatusResponse;
 
 const project = makeProject({
-  id: PROJECT_IDS.bb,
-  gitRemoteUrl: "git@github.com:get-bb/bb.git",
+  id: PROJECT_IDS.cc,
+  gitRemoteUrl: "git@github.com:codythatsme/cc.git",
   sources: [...STORY_PROJECT_SOURCES],
 });
 const pierreProject = makeProject({
   id: PROJECT_IDS.pierre,
   name: PROJECT_NAMES.pierre,
-  gitRemoteUrl: "https://github.com/get-bb/pierre.git",
+  gitRemoteUrl: "https://github.com/get-cc/pierre.git",
   sources: [
     {
       id: "src_pierre_remote",
@@ -176,9 +176,9 @@ const sidebarNavigation = {
       ...project,
       defaultExecutionOptions: null,
       threads: [
-        makeThreadListEntry({ id: "thr_bb_1", projectId: PROJECT_IDS.bb }),
-        makeThreadListEntry({ id: "thr_bb_2", projectId: PROJECT_IDS.bb }),
-        makeThreadListEntry({ id: "thr_bb_3", projectId: PROJECT_IDS.bb }),
+        makeThreadListEntry({ id: "thr_cc_1", projectId: PROJECT_IDS.cc }),
+        makeThreadListEntry({ id: "thr_cc_2", projectId: PROJECT_IDS.cc }),
+        makeThreadListEntry({ id: "thr_cc_3", projectId: PROJECT_IDS.cc }),
       ],
     },
     {
@@ -204,7 +204,7 @@ const systemConfig = makeSystemConfig({
   primaryHostId: HOST_IDS.local,
   primaryHostPlatform: "darwin",
   voiceTranscriptionEnabled: true,
-  dataDir: "/Users/michael/.bb",
+  dataDir: "/Users/michael/.cc",
 });
 
 const systemVersion = {
@@ -213,7 +213,7 @@ const systemVersion = {
   source: "npm",
   updateAvailable: false,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "npx cc-app@latest",
 } satisfies SystemVersionResponse;
 
 const systemProviders = [
@@ -270,7 +270,7 @@ export function SettingsUpdatesStory() {
         isThisMachine={false}
         showServerBadge={false}
       >
-        <BbAppUpdateRows
+        <CcAppUpdateRows
           systemVersion={systemVersion}
           desktopInfo={null}
           isDesktop={false}
@@ -313,14 +313,14 @@ function createSettingsStoryQueryClient() {
     variables: STORY_GLOBAL_VARIABLES,
     inheritedVariables: [],
   });
-  queryClient.setQueryData(machineEnvironmentQueryKey(PROJECT_IDS.bb), {
+  queryClient.setQueryData(machineEnvironmentQueryKey(PROJECT_IDS.cc), {
     builtInGit: STORY_GIT_HEALTH,
     variables: [
       {
         name: "DATABASE_URL",
         value: null,
         secret: true,
-        note: "Points at the bb sandbox.",
+        note: "Points at the cc sandbox.",
       },
     ],
     inheritedVariables: STORY_GLOBAL_VARIABLES,

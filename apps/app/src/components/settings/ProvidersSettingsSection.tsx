@@ -4,12 +4,12 @@ import type {
   AppSettings,
   CompletedTurnDisplay,
   ProviderInfo,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Switch } from "@bb/shared-ui/switch";
+} from "@cc/domain";
+import { Button } from "@cc/shared-ui/button";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { Switch } from "@cc/shared-ui/switch";
 import {
   SettingsBadge,
   SettingsRow,

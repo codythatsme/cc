@@ -3,7 +3,7 @@ import {
   makePluginAgentConfigurationContext,
   makeHostResponse,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import plugin from "./server.js";
 import { rpcContract } from "./contracts.js";
@@ -99,7 +99,7 @@ async function setup() {
     makeHostResponse({ id: "local-host", name: "Lab workstation" }),
     makeHostResponse({ id: "desktop-host", name: "Lab desktop" }),
   ]);
-  await plugin(host.bb);
+  await plugin(host.cc);
   async function open(tabId?: string) {
     const result = await host.harness.behavior.callRpc("open", {
       threadId: "thread-test",

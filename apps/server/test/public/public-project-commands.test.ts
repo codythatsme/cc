@@ -1,13 +1,13 @@
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@cc/domain";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
   DiscoveredSkill,
   HostProviderCommand,
   HostDaemonOnlineRpcRequestMessage,
-} from "@bb/host-daemon-contract";
-import { commandListResponseSchema } from "@bb/server-contract";
-import type { ExperimentalNativeRootsResolveAnswer } from "@get-bb/plugin-sdk/host";
+} from "@cc/host-daemon-contract";
+import { commandListResponseSchema } from "@cc/server-contract";
+import type { ExperimentalNativeRootsResolveAnswer } from "@codythatsme/plugin-sdk/host";
 import { describe, expect, it, vi } from "vitest";
 import { COMMAND_TIMEOUT_MS } from "../../src/constants.js";
 import { registerHostRpcResponder } from "../helpers/host-rpc.js";
@@ -25,7 +25,7 @@ import {
   seedProjectWithSource,
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
-import type { PluginProviderDeclaration } from "@get-bb/plugin-sdk";
+import type { PluginProviderDeclaration } from "@codythatsme/plugin-sdk";
 
 const NO_RESOLVED_ROOTS = { skills: [], commands: [] };
 
@@ -201,7 +201,7 @@ describe("public project command typeahead route", () => {
         });
         expect(stub.skillRequests[0]?.command).toEqual({
           type: "host.list_skills",
-          providerId: "bb-shared",
+          providerId: "cc-shared",
           cwd: "/tmp/shared-skills",
           nativeRoots: {
             skills: {
@@ -668,10 +668,10 @@ describe("public project command typeahead route", () => {
     });
   });
 
-  it("keeps inherited bb skill roots out of provider-native discovery", async () => {
+  it("keeps inherited cc skill roots out of provider-native discovery", async () => {
     await withTestHarness(
       {
-        inheritedSkillsRootPaths: ["/tmp/bb-parent-skills"],
+        inheritedSkillsRootPaths: ["/tmp/cc-parent-skills"],
       },
       async (harness) => {
         const { host, session } = seedHostSession(harness.deps, {
@@ -801,7 +801,7 @@ describe("public project command typeahead route", () => {
       const stub = registerCommandRpc(harness, {
         hostId: host.id,
         sessionId: session.id,
-        commands: [skill("bb-cli", "user", { description: "Use the bb CLI" })],
+        commands: [skill("cc-cli", "user", { description: "Use the cc CLI" })],
       });
 
       const response = await harness.app.request(
@@ -813,7 +813,7 @@ describe("public project command typeahead route", () => {
       expect(body.commands.map((command) => command.name)).toEqual([
         "clear",
         "compact",
-        "bb-cli",
+        "cc-cli",
       ]);
       expect(stub.requests[0]?.command).toEqual({
         type: "host.list_commands",

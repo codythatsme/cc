@@ -1,7 +1,7 @@
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import type Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { createStore } from "../api";
@@ -53,11 +53,11 @@ function fixture(taskCount: number, mappingCount: number) {
       },
     },
   });
-  const bb = host.bb;
-  const db = bb.storage.database();
+  const cc = host.cc;
+  const db = cc.storage.database();
   db.pragma("synchronous = OFF");
   recordStatements(db, queries);
-  const store = createStore(bb);
+  const store = createStore(cc);
   const project = store.tasks.createProject({
     name: "Query counts",
     prefix: "QUERY",
@@ -77,7 +77,7 @@ function fixture(taskCount: number, mappingCount: number) {
   );
   return {
     ...host,
-    bb,
+    cc,
     db,
     store,
     tasks,
@@ -114,7 +114,7 @@ describe("lifecycle SQL scope", () => {
     async (tasks, mappings) => {
       const f = fixture(tasks, mappings);
       try {
-        await registerLifecycle(f.bb, f.store);
+        await registerLifecycle(f.cc, f.store);
         f.queries.length = 0;
         await emitAllEvents(f, "thr_unrelated");
         console.log(
@@ -151,7 +151,7 @@ describe("lifecycle SQL scope", () => {
             liveStatus: "working",
           });
         }
-        await registerLifecycle(f.bb, f.store);
+        await registerLifecycle(f.cc, f.store);
         const transition = async (
           status: "active" | "idle" | "error" | "deleted",
           expected: string,
@@ -248,7 +248,7 @@ describe("lifecycle SQL scope", () => {
     async (status, deletedAt, expected, statements) => {
       const f = fixture(1, 1);
       try {
-        await registerLifecycle(f.bb, f.store);
+        await registerLifecycle(f.cc, f.store);
         f.queries.length = 0;
         await f.harness.emitThreadEvent("thread.created", {
           thread: makeThreadResponse({ id: "thr_worker_0", status, deletedAt }),
@@ -266,7 +266,7 @@ describe("lifecycle SQL scope", () => {
   it("tracks workers across task status changes without changing task status", async () => {
     const f = fixture(1, 1);
     try {
-      await registerLifecycle(f.bb, f.store);
+      await registerLifecycle(f.cc, f.store);
       for (const status of [
         "todo",
         "in_progress",
@@ -315,7 +315,7 @@ describe("lifecycle SQL scope", () => {
       ).toBe(true);
       f.store.tasks.deleteTask(f.tasks[0]!.id);
       expect(f.store.tasks.getTaskThread(f.mappings[0]!.id)).toBeUndefined();
-      await registerLifecycle(f.bb, f.store);
+      await registerLifecycle(f.cc, f.store);
       f.queries.length = 0;
       await emitAllEvents(f, "thr_worker_0");
       expect(f.queries).toHaveLength(5);

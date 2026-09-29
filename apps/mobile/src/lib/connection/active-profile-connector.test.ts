@@ -1,4 +1,4 @@
-import type { DesktopSession } from "@bb/connect-client";
+import type { DesktopSession } from "@cc/connect-client";
 import { QueryObserver } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -34,7 +34,7 @@ const direct: DirectServerProfile = {
 const connect: ConnectServerProfile = {
   id: "c1",
   mode: "connect",
-  serverUrl: "https://bee.getbb.app",
+  serverUrl: "https://bee.cc.example.invalid",
   label: "bee",
   handle: "bee",
   credential: "bbcm_one",
@@ -128,9 +128,9 @@ function signInPage(): Response {
 function sessionCookie(value: string): DesktopSession {
   return {
     cookie: {
-      name: "bb_desktop_session",
+      name: "cc_desktop_session",
       value,
-      domain: ".getbb.app",
+      domain: ".cc.example.invalid",
       expiresAt: Date.now() + 3_600_000,
     },
   };
@@ -212,25 +212,25 @@ describe("createActiveProfileConnector", () => {
 
     resolveSession({
       cookie: {
-        name: "bb_desktop_session",
+        name: "cc_desktop_session",
         value: "s",
-        domain: ".getbb.app",
+        domain: ".cc.example.invalid",
         expiresAt: Date.now() + 3_600_000,
       },
     });
     await flush();
     expect(connector.getSnapshot()?.session.status).toBe("authenticated");
     expect(sockets.sockets).toHaveLength(1);
-    expect(sockets.latest().url).toBe("wss://bee.getbb.app/ws");
+    expect(sockets.latest().url).toBe("wss://bee.cc.example.invalid/ws");
   });
 
   it("closes the socket and stops when the credential is rejected, and rebuilds on a new credential", async () => {
     const { sockets, fetchSession, schedulers, connector } = setup();
     fetchSession.mockResolvedValueOnce({
       cookie: {
-        name: "bb_desktop_session",
+        name: "cc_desktop_session",
         value: "s",
-        domain: ".getbb.app",
+        domain: ".cc.example.invalid",
         expiresAt: Date.now() + 3_600_000,
       },
     });
@@ -249,9 +249,9 @@ describe("createActiveProfileConnector", () => {
 
     fetchSession.mockResolvedValueOnce({
       cookie: {
-        name: "bb_desktop_session",
+        name: "cc_desktop_session",
         value: "s2",
-        domain: ".getbb.app",
+        domain: ".cc.example.invalid",
         expiresAt: Date.now() + 3_600_000,
       },
     });
@@ -520,9 +520,9 @@ describe("createActiveProfileConnector", () => {
 
     resolveSession({
       cookie: {
-        name: "bb_desktop_session",
+        name: "cc_desktop_session",
         value: "s",
-        domain: ".getbb.app",
+        domain: ".cc.example.invalid",
         expiresAt: Date.now() + 3_600_000,
       },
     });

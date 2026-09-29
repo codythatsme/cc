@@ -43,7 +43,7 @@ import {
   type InitializeResult,
   type ThreadDelta,
   type ThreadEventContextWindowUsage,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 import type { ImageContent } from "@earendil-works/pi-ai";
 import { createPiDeltaTranslator } from "../delta-translation.js";
 import {
@@ -52,7 +52,7 @@ import {
   type PiSessionParams,
 } from "../session-params.js";
 import { piSessionNeedsRelocation } from "./session-cwd.js";
-import { BB_PI_EXTENSION_SOURCE } from "./bb-pi-extension.js";
+import { CC_PI_EXTENSION_SOURCE } from "./cc-pi-extension.js";
 import {
   createExtensionUiCoordinator,
   type ExtensionUiCoordinator,
@@ -230,7 +230,7 @@ function requireScratchDir(): string {
   if (scratchDir === null) {
     scratchDir = join(
       tmpdir(),
-      `bb-pi-bridge-${process.pid}-${Math.random().toString(16).slice(2)}`,
+      `cc-pi-bridge-${process.pid}-${Math.random().toString(16).slice(2)}`,
     );
     scratchDirIsPrivate = true;
     mkdirSync(scratchDir, { recursive: true });
@@ -240,8 +240,8 @@ function requireScratchDir(): string {
 
 function requireExtensionPath(): string {
   if (extensionPath === null) {
-    const path = join(requireScratchDir(), "bb-pi-extension.mjs");
-    writeFileSync(path, BB_PI_EXTENSION_SOURCE, "utf8");
+    const path = join(requireScratchDir(), "cc-pi-extension.mjs");
+    writeFileSync(path, CC_PI_EXTENSION_SOURCE, "utf8");
     extensionPath = path;
   }
   return extensionPath;
@@ -1010,7 +1010,7 @@ async function reconcileTurnOptions(
   const construction = threadSession.construction;
   const shellEnvOverrides =
     options.envVars && Object.keys(options.envVars).length > 0
-      ? { BB_THREAD_ID: threadId, ...buildShellEnvOverrides(options.envVars) }
+      ? { CC_THREAD_ID: threadId, ...buildShellEnvOverrides(options.envVars) }
       : undefined;
   const environmentChanged =
     shellEnvOverrides !== undefined &&

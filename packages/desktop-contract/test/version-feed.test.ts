@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  bbDesktopInfoSchema,
-  bbDesktopThemeSchema,
-  bbDesktopVersionFeedSchema,
-  bbDesktopWindowStateSchema,
-  createBbDesktopVersionFeedFileName,
+  ccDesktopInfoSchema,
+  ccDesktopThemeSchema,
+  ccDesktopVersionFeedSchema,
+  ccDesktopWindowStateSchema,
+  createCcDesktopVersionFeedFileName,
 } from "../src/index.js";
 
 const checkedAt = "2026-05-21T00:00:00.000Z";
@@ -12,7 +12,7 @@ const checkedAt = "2026-05-21T00:00:00.000Z";
 describe("desktop info schema", () => {
   it("accepts the desktop update info payload", () => {
     expect(
-      bbDesktopInfoSchema.safeParse({
+      ccDesktopInfoSchema.safeParse({
         lastCheckedAt: checkedAt,
         latestVersion: "0.0.2",
         pendingVersion: null,
@@ -25,11 +25,11 @@ describe("desktop info schema", () => {
   });
 
   it("accepts the desktop theme values", () => {
-    expect(bbDesktopThemeSchema.safeParse("dark").success).toBe(true);
-    expect(bbDesktopThemeSchema.safeParse("light").success).toBe(true);
-    expect(bbDesktopThemeSchema.safeParse("system").success).toBe(true);
+    expect(ccDesktopThemeSchema.safeParse("dark").success).toBe(true);
+    expect(ccDesktopThemeSchema.safeParse("light").success).toBe(true);
+    expect(ccDesktopThemeSchema.safeParse("system").success).toBe(true);
     expect(
-      bbDesktopThemeSchema.safeParse({
+      ccDesktopThemeSchema.safeParse({
         canvasColor: "oklch(0.195 0 0)",
         inkColor: "oklch(0.81 0 0)",
         mode: "dark",
@@ -39,10 +39,10 @@ describe("desktop info schema", () => {
 
   it("accepts strict desktop window state payloads", () => {
     expect(
-      bbDesktopWindowStateSchema.safeParse({ isFullScreen: true }).success,
+      ccDesktopWindowStateSchema.safeParse({ isFullScreen: true }).success,
     ).toBe(true);
     expect(
-      bbDesktopWindowStateSchema.safeParse({
+      ccDesktopWindowStateSchema.safeParse({
         isFullScreen: true,
         extra: true,
       }).success,
@@ -53,20 +53,20 @@ describe("desktop info schema", () => {
 describe("desktop version feed schema", () => {
   it("accepts a valid desktop-version.json payload", () => {
     expect(
-      bbDesktopVersionFeedSchema.safeParse({
+      ccDesktopVersionFeedSchema.safeParse({
         channel: "latest",
         files: [
           {
             sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
             size: 123456789,
-            url: "bb-0.0.2-universal.zip",
+            url: "cc-0.0.2-universal.zip",
           },
         ],
         minimumSystemVersion: null,
-        path: "bb-0.0.2-universal.zip",
+        path: "cc-0.0.2-universal.zip",
         platform: "macos",
         releaseDate: checkedAt,
-        releaseName: "bb desktop 0.0.2",
+        releaseName: "cc desktop 0.0.2",
         releaseNotes: null,
         schemaVersion: 1,
         sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
@@ -78,20 +78,20 @@ describe("desktop version feed schema", () => {
 
   it("accepts the isolated nightly desktop channel", () => {
     expect(
-      bbDesktopVersionFeedSchema.safeParse({
+      ccDesktopVersionFeedSchema.safeParse({
         channel: "nightly",
         files: [
           {
             sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
             size: 123456789,
-            url: "bb-nightly-0.0.2-nightly.1.1-arm64.zip",
+            url: "cc-nightly-0.0.2-nightly.1.1-arm64.zip",
           },
         ],
         minimumSystemVersion: null,
-        path: "bb-nightly-0.0.2-nightly.1.1-arm64.zip",
+        path: "cc-nightly-0.0.2-nightly.1.1-arm64.zip",
         platform: "macos",
         releaseDate: checkedAt,
-        releaseName: "bb Nightly desktop 0.0.2-nightly.1.1",
+        releaseName: "cc Nightly desktop 0.0.2-nightly.1.1",
         releaseNotes: null,
         schemaVersion: 1,
         sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
@@ -103,20 +103,20 @@ describe("desktop version feed schema", () => {
 
   it("accepts a Linux AppImage version feed payload", () => {
     expect(
-      bbDesktopVersionFeedSchema.safeParse({
+      ccDesktopVersionFeedSchema.safeParse({
         channel: "latest",
         files: [
           {
             sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
             size: 123456789,
-            url: "bb-0.0.2-x86_64.AppImage",
+            url: "cc-0.0.2-x86_64.AppImage",
           },
         ],
         minimumSystemVersion: null,
-        path: "bb-0.0.2-x86_64.AppImage",
+        path: "cc-0.0.2-x86_64.AppImage",
         platform: "linux",
         releaseDate: checkedAt,
-        releaseName: "bb desktop 0.0.2",
+        releaseName: "cc desktop 0.0.2",
         releaseNotes: null,
         schemaVersion: 1,
         sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",
@@ -127,24 +127,24 @@ describe("desktop version feed schema", () => {
   });
 
   it("keeps the macOS feed file name unsuffixed so shipped builds keep updating", () => {
-    expect(createBbDesktopVersionFeedFileName("macos")).toBe(
+    expect(createCcDesktopVersionFeedFileName("macos")).toBe(
       "desktop-version.json",
     );
-    expect(createBbDesktopVersionFeedFileName("linux")).toBe(
+    expect(createCcDesktopVersionFeedFileName("linux")).toBe(
       "desktop-version-linux.json",
     );
   });
 
   it("rejects malformed version feed payloads", () => {
     expect(
-      bbDesktopVersionFeedSchema.safeParse({
+      ccDesktopVersionFeedSchema.safeParse({
         channel: "latest",
         files: [],
         minimumSystemVersion: null,
-        path: "bb-0.0.2-universal.zip",
+        path: "cc-0.0.2-universal.zip",
         platform: "macos",
         releaseDate: checkedAt,
-        releaseName: "bb desktop 0.0.2",
+        releaseName: "cc desktop 0.0.2",
         releaseNotes: null,
         schemaVersion: 1,
         sha512: "BASE64_SHA512_FROM_ELECTRON_BUILDER",

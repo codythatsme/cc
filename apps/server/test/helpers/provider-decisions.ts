@@ -1,10 +1,10 @@
-import { jsonValueSchema, type JsonValue } from "@bb/domain";
-import type { PluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk";
+import { jsonValueSchema, type JsonValue } from "@cc/domain";
+import type { PluginEnvironmentProviderDeclaration } from "@codythatsme/plugin-sdk";
 import type {
   PluginEnvironmentProviderCreateContext,
   PluginEnvironmentProviderRestoreContext,
-} from "@get-bb/plugin-sdk/environment-provider";
-import type { ProviderReadyEnvironmentInput } from "@bb/server-contract";
+} from "@codythatsme/plugin-sdk/environment-provider";
+import type { ProviderReadyEnvironmentInput } from "@cc/server-contract";
 
 export type TestProviderDecision =
   | {
@@ -19,7 +19,7 @@ export type TestEnvironmentProviderContext = Pick<
   PluginEnvironmentProviderCreateContext,
   "thread" | "project" | "host" | "projectCheckout" | "gitRemote"
 > & {
-  machine: import("@bb/domain").EnvironmentMachineSelection;
+  machine: import("@cc/domain").EnvironmentMachineSelection;
   inputs: JsonValue | null;
   environment:
     | PluginEnvironmentProviderRestoreContext["previous"]["environment"]

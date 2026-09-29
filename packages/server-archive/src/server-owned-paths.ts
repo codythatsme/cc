@@ -1,14 +1,13 @@
-import { pluginIdSchema } from "@bb/domain";
+import { pluginIdSchema } from "@cc/domain";
 import { isSafeRelativePath } from "./relative-path.js";
 
 export const SERVER_OWNED_TOP_LEVEL_FILES: readonly string[] = [
-  "bb.db",
+  "cc.db",
   "config.json",
   "env.json",
   "auth-secret",
   "machine-environment-key",
   "AGENTS.md",
-  "telemetry-id",
 ];
 export const SERVER_OWNED_TOP_LEVEL_DIRECTORIES: readonly string[] = [
   "attachments",
@@ -37,7 +36,7 @@ const HOST_OWNED_PLUGIN_CHILDREN: ReadonlySet<string> = new Set([
   "data.db-journal",
 ]);
 const TOOLCHAIN_PLUGIN_DIR_PREFIX = "toolchain-";
-const SERVER_DATABASE_PATH = "bb.db";
+const SERVER_DATABASE_PATH = "cc.db";
 const PLUGIN_DATABASE_FILE_NAME = "data.db";
 
 export interface ServerOwnedRoot {

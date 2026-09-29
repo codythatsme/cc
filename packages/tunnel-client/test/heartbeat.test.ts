@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebSocket as NodeWebSocket } from "ws";
-import { HEARTBEAT_REQUEST, HEARTBEAT_RESPONSE } from "@bb/tunnel-contract";
+import { HEARTBEAT_REQUEST, HEARTBEAT_RESPONSE } from "@cc/tunnel-contract";
 import { TunnelSession } from "../src/session.js";
 
 class FakeTunnel extends EventEmitter {

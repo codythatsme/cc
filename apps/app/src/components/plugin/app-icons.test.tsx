@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { Icon, preloadExtendedIcons } from "@bb/shared-ui/icon";
-import { setPluginAssetIcons } from "@bb/shared-ui/icon-registry";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import type { ExperimentalIconRegistration } from "@get-bb/plugin-sdk/app";
+import { Icon, preloadExtendedIcons } from "@cc/shared-ui/icon";
+import { setPluginAssetIcons } from "@cc/shared-ui/icon-registry";
+import { collectPluginAppRegistrations } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
+import type { ExperimentalIconRegistration } from "@codythatsme/plugin-sdk/app";
 import {
   beginPluginSlotBatch,
   getPluginSlotSnapshot,
@@ -30,7 +30,7 @@ function OtherMark() {
 
 function registrations(...icons: ExperimentalIconRegistration[]) {
   return collectPluginAppRegistrations({
-    __bbPluginApp: true,
+    __ccPluginApp: true,
     setup(app) {
       for (const icon of icons) app.experimental_icons.register(icon);
     },

@@ -1,9 +1,9 @@
-import { normalizePromptTextMentions } from "@bb/client-core";
+import { normalizePromptTextMentions } from "@cc/client-core";
 import type { ComponentType } from "react";
 import type { Nodes, Parent, PhrasingContent, Text } from "mdast";
 import type {} from "mdast-util-to-hast";
 import { visit } from "unist-util-visit";
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@cc/domain";
 import { PromptMentionPill } from "@/components/thread/timeline/ConversationMessageMentions.js";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import type { TimelineTitleLinkResolver } from "@/components/thread/timeline/TimelineTitleView.js";
@@ -16,7 +16,7 @@ const PROMPT_MENTION_PATTERN = new RegExp(
   "gu",
 );
 
-const PROMPT_MENTION_HAST_NAME = "bb-prompt-mention";
+const PROMPT_MENTION_HAST_NAME = "cc-prompt-mention";
 const PROMPT_MENTION_INDEX_PROPERTY = "dataMentionIndex";
 
 function promptMentionSentinel(index: number): string {
@@ -114,7 +114,7 @@ interface PromptMentionElementProps {
 declare module "react" {
   namespace JSX {
     interface IntrinsicElements {
-      "bb-prompt-mention": PromptMentionElementProps;
+      "cc-prompt-mention": PromptMentionElementProps;
     }
   }
 }

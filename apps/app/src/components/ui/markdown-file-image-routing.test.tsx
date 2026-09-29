@@ -150,18 +150,18 @@ describe("Markdown file preview image routing", () => {
   it("routes absolute and file-relative images in thread-storage Markdown previews", () => {
     renderMarkdownFilePreview({
       content: [
-        "![absolute](/Users/me/.bb/thread-storage/thr_preview/generated.png)",
+        "![absolute](/Users/me/.cc/thread-storage/thr_preview/generated.png)",
         "![relative](screenshots/chart.png)",
       ].join("\n\n"),
       imageContent: { kind: "thread-storage", threadId: "thr_preview" },
       path: "reports/nested/report.md",
-      rootPath: "/Users/me/.bb/thread-storage/thr_preview",
+      rootPath: "/Users/me/.cc/thread-storage/thr_preview",
     });
 
     expect(
       screen.getByRole("img", { name: "absolute" }).getAttribute("src"),
     ).toBe(
-      "/api/v1/threads/thr_preview/host-files/content?path=%2FUsers%2Fme%2F.bb%2Fthread-storage%2Fthr_preview%2Fgenerated.png",
+      "/api/v1/threads/thr_preview/host-files/content?path=%2FUsers%2Fme%2F.cc%2Fthread-storage%2Fthr_preview%2Fgenerated.png",
     );
     expect(
       screen.getByRole("img", { name: "relative" }).getAttribute("src"),

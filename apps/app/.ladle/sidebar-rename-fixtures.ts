@@ -1,4 +1,4 @@
-import type { Host } from "@bb/domain";
+import type { Host } from "@cc/domain";
 import {
   updateEnvironmentRequestSchema,
   updateHostRequestSchema,
@@ -6,7 +6,7 @@ import {
   updateThreadRequestSchema,
   updateThreadSectionRequestSchema,
   type SidebarBootstrapResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { makeThreadResponse } from "../src/test/fixtures/thread-responses";
 import { makeEnvironment } from "./story-fixtures";
 

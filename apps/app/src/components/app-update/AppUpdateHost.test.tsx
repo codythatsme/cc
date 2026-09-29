@@ -11,7 +11,7 @@ import {
 import type {
   SystemAppUpdateResult,
   SystemAppUpdateStatus,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appToast } from "@/components/ui/app-toast";
 import { systemAppUpdateQueryKey } from "@/hooks/queries/query-keys";
@@ -101,7 +101,7 @@ describe("AppUpdateHost", () => {
     renderHost();
 
     await waitFor(() => {
-      expect(appToast.success).toHaveBeenCalledWith("Updated bb to 1.1.0");
+      expect(appToast.success).toHaveBeenCalledWith("Updated cc to 1.1.0");
     });
     await waitFor(() => {
       expect(sdk.system.acknowledgeAppUpdate).toHaveBeenCalledWith({
@@ -152,7 +152,7 @@ describe("AppUpdateHost", () => {
     });
   });
 
-  it("covers the app while bb restarts into the new version", async () => {
+  it("covers the app while cc restarts into the new version", async () => {
     vi.mocked(sdk.system.appUpdate).mockResolvedValue(
       status({
         activity: {
@@ -165,7 +165,7 @@ describe("AppUpdateHost", () => {
 
     renderHost();
 
-    expect(await screen.findByText("Updating bb to 1.2.0")).toBeDefined();
+    expect(await screen.findByText("Updating cc to 1.2.0")).toBeDefined();
     expect(
       document.querySelector("[data-app-update-overlay]")?.getAttribute("role"),
     ).toBe("dialog");
@@ -230,7 +230,7 @@ describe("AppUpdateHost", () => {
       status({ lastResult: failed }),
     );
     vi.mocked(sdk.system.acknowledgeAppUpdate).mockRejectedValue(
-      new Error("The bb-app launcher did not respond."),
+      new Error("The cc-app launcher did not respond."),
     );
     renderHost();
     await waitFor(() => expect(appToast.error).toHaveBeenCalled());
@@ -242,7 +242,7 @@ describe("AppUpdateHost", () => {
       expect(appToast.error).toHaveBeenCalledWith(
         "Couldn't dismiss the update result",
         expect.objectContaining({
-          description: "The bb-app launcher did not respond.",
+          description: "The cc-app launcher did not respond.",
         }),
       );
     });

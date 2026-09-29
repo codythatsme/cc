@@ -1,4 +1,4 @@
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import type { CcDesktopInfo } from "@cc/desktop-contract";
 
 export function getDesktopVersion(version: string | undefined): string {
   if (version === undefined || version.length === 0) {
@@ -7,8 +7,8 @@ export function getDesktopVersion(version: string | undefined): string {
   return version;
 }
 
-export function resolveBbDesktopPlatform(
+export function resolveCcDesktopPlatform(
   platform: NodeJS.Platform,
-): BbDesktopInfo["platform"] {
+): CcDesktopInfo["platform"] {
   return platform === "darwin" ? "macos" : "linux";
 }

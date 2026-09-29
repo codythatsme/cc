@@ -5,7 +5,7 @@ import {
   type HostType,
   type JsonValue,
   type PermissionMode,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { DbConnection, DbTransaction } from "../connection.js";
 import type { DbNotifier } from "../notifier.js";
 import { environments, hosts } from "../schema.js";

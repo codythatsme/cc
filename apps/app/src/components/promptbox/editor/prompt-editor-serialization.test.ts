@@ -3,7 +3,7 @@ import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { Node, Slice } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@cc/domain";
 import { PromptMentionExtension } from "./prompt-mention-extension";
 import {
   promptCommandResourceFromSuggestion,

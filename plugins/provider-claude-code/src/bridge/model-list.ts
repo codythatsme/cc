@@ -1,4 +1,5 @@
-import { type AvailableModel } from "@get-bb/plugin-sdk/provider-bridge";
+import { withoutClaudeReporting } from "./privacy.js";
+import { type AvailableModel } from "@codythatsme/plugin-sdk/provider-bridge";
 import { query, type Options } from "@anthropic-ai/claude-agent-sdk";
 import { buildClaudeCodeModels } from "../model-list.js";
 import { translateMissingClaudeCliCatalogError } from "./missing-cli-error.js";
@@ -8,6 +9,7 @@ function buildModelProbeOptions(env: NodeJS.ProcessEnv): Options {
   const pathToClaudeCodeExecutable = resolveClaudeCodeExecutable({ env });
   return {
     cwd: process.cwd(),
+    env: withoutClaudeReporting(env),
     maxTurns: 0,
     persistSession: false,
     settingSources: ["user", "project", "local"],

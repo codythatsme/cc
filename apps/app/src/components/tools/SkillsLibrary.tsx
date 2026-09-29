@@ -11,13 +11,13 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import { buildSkillEditThreadPrompt } from "@bb/shared-ui/resource-edit-prompt";
-import type { EditableSkillScope, SkillSummary } from "@bb/server-contract";
+import { PERSONAL_PROJECT_ID } from "@cc/domain";
+import { buildSkillEditThreadPrompt } from "@cc/shared-ui/resource-edit-prompt";
+import type { EditableSkillScope, SkillSummary } from "@cc/server-contract";
 import {
   ResourceListState,
   useResourceRouteLabel,
-} from "@bb/shared-ui/resource-list";
+} from "@cc/shared-ui/resource-list";
 import {
   RegistrySkillDetailView,
   RegistrySkillsBrowsePage,
@@ -30,7 +30,7 @@ import {
 } from "@/components/tools/SkillsCollection";
 import { useSystemProviders } from "@/hooks/queries/system-queries";
 import { isSkillEditable } from "@/components/tools/skill-taxonomy";
-import { CREATE_SKILL_PROMPT } from "@bb/client-core";
+import { CREATE_SKILL_PROMPT } from "@cc/client-core";
 import { usePrimaryHost } from "@/hooks/queries/host-queries";
 import { useHostFilePreview } from "@/hooks/queries/host-file-preview-query";
 import { getAbsoluteDirname } from "@/lib/absolute-file-path";
@@ -573,7 +573,7 @@ export function SkillsLibrary() {
               action={
                 <CreateWithTemplatesButton
                   kind="skill"
-                  label="New bb skill"
+                  label="New cc skill"
                   onCreate={handleCreateSkill}
                 />
               }

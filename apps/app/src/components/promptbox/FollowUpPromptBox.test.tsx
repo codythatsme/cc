@@ -11,7 +11,7 @@ import {
 import { Profiler, startTransition, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@bb/client-core";
+import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@cc/client-core";
 import { AppCommandProvider } from "@/components/commands/AppCommandProvider";
 import {
   resetPluginSlotStoreForTest,
@@ -46,11 +46,11 @@ vi.mock("@/components/ui/bottom-anchored-scroll-body.js", () => ({
   }),
 }));
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@cc/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => mocks.isCompactViewport,
 }));
 
-vi.mock("@bb/shared-ui/hooks/use-pointer-coarse", () => ({
+vi.mock("@cc/shared-ui/hooks/use-pointer-coarse", () => ({
   usePointerCoarse: () => mocks.isPointerCoarse,
 }));
 
@@ -421,7 +421,7 @@ describe("FollowUpPromptBox", () => {
     const initialMinHeight = Number(promptBox.getAttribute("data-min-height"));
     const stackElement = screen
       .getByText("Expandable plugin banner")
-      .closest("[data-bb-plugin-root]")?.parentElement;
+      .closest("[data-cc-plugin-root]")?.parentElement;
     if (!stackElement) throw new Error("Expected measured composer stack");
     Object.defineProperty(stackElement, "offsetHeight", {
       configurable: true,
@@ -486,7 +486,7 @@ describe("FollowUpPromptBox", () => {
 
     const pluginHeaderRoot = screen
       .getByTestId("plugin-header")
-      .closest("[data-bb-plugin-root]");
+      .closest("[data-cc-plugin-root]");
     const queuedMessages = screen.getByTestId("queued-messages");
     expect(queuedMessages.previousElementSibling).toBe(pluginHeaderRoot);
   });

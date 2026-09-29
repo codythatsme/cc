@@ -1,8 +1,8 @@
 import type {
-  BbPluginApi,
+  CcPluginApi,
   PluginSettingDescriptors,
   PluginSettingsValues,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 
 interface IntegerField {
@@ -173,9 +173,9 @@ interface WorkflowSettingsHandle {
 }
 
 export function registerWorkflowSettings(
-  bb: Pick<BbPluginApi, "settings">,
+  cc: Pick<CcPluginApi, "settings">,
 ): WorkflowSettingsHandle {
-  const handle = bb.settings.define(WORKFLOW_SETTING_DESCRIPTORS);
+  const handle = cc.settings.define(WORKFLOW_SETTING_DESCRIPTORS);
   let lastValid = DEFAULT_WORKFLOW_SETTINGS;
   return {
     async get() {

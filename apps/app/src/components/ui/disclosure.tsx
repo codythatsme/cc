@@ -8,13 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   observedBorderBoxBlockSize,
   observeSharedResize,
 } from "@/lib/shared-resize-observer";
 import { layoutAnimationInFlightCountAtom } from "./layoutAnimationAtoms.js";
-import { CONTROL_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+import { CONTROL_HOVER_TRANSITION } from "@cc/shared-ui/motion";
 
 const EXPANDABLE_PANEL_TRANSITION_MS = 200;
 
@@ -44,7 +44,7 @@ function Chevron({ className }: ChevronProps) {
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className={cn("bb-icon-stroke", className)}
+      className={cn("cc-icon-stroke", className)}
       aria-hidden="true"
       data-icon-root=""
     >

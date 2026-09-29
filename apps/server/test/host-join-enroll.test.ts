@@ -1,10 +1,10 @@
-import { authApiKeys, getHost } from "@bb/db";
+import { authApiKeys, getHost } from "@cc/db";
 import { eq } from "drizzle-orm";
 import {
   hostDaemonEnrollKeyResponseSchema,
   hostDaemonEnrollResponseSchema,
   type HostDaemonEnrollKeyResponse,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { errorToResponse } from "../src/errors.js";
@@ -59,7 +59,7 @@ async function requestHostEnrollKey(
 }
 
 describe("host enroll routes", () => {
-  it("creates local enroll-key material without BB_APP_URL", async () => {
+  it("creates local enroll-key material without CC_APP_URL", async () => {
     const harness = await createTestAppHarness({ appUrl: undefined });
     const app = createInternalHostRouteApp({
       deps: harness.deps,
@@ -126,7 +126,7 @@ describe("host enroll routes", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-bb-gate-auth": "machine",
+          "x-cc-gate-auth": "machine",
         },
         body: JSON.stringify({ hostId: "host_forbidden_machine" }),
       });

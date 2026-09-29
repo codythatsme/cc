@@ -1,4 +1,4 @@
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { describe, expect, it } from "vitest";
 import {
   withThreadContextClearGuard,

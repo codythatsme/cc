@@ -1,13 +1,13 @@
 {
-  "name": "bb-plugin-inline-vis",
+  "name": "cc-plugin-inline-vis",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Render workspace or thread-storage HTML visualizations and Markdown documents inline in assistant messages.",
   "engines": {
-    "bb": ">=0.0"
+    "cc": ">=0.0"
   },
-  "bb": {
+  "cc": {
     "name": "Inline visualizations",
     "description": "Render workspace or thread-storage HTML visualizations and Markdown documents inline in assistant messages.",
     "branding": {
@@ -20,21 +20,21 @@
     ]
   },
   "keywords": [
-    "bb-plugin"
+    "cc-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "cc-plugin-build prepare-bundled"
   },
   "dependencies": {
-    "@bb/shared-ui": "workspace:*",
+    "@cc/shared-ui": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@cc/plugin-build": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7.6.12",

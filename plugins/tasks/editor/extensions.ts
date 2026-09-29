@@ -53,7 +53,7 @@ function mentionIconSpec(icon: IconSvgElement): DOMOutputSpec {
     {
       viewBox: "0 0 24 24",
       fill: "none",
-      class: "bb-tasks-mention-icon",
+      class: "cc-tasks-mention-icon",
       "aria-hidden": "true",
     },
     ...icon.map(([tag, attrs]): DOMOutputSpec => [
@@ -276,7 +276,7 @@ const TaskMention = createMentionNode({
   idAttribute: "key",
   dataAttribute: "data-task-mention",
   scheme: MENTION_SCHEME,
-  className: "bb-tasks-mention",
+  className: "cc-tasks-mention",
 });
 
 const ThreadMention = createMentionNode({
@@ -284,7 +284,7 @@ const ThreadMention = createMentionNode({
   idAttribute: "threadId",
   dataAttribute: "data-thread-mention",
   scheme: THREAD_MENTION_SCHEME,
-  className: "bb-tasks-mention bb-tasks-thread-mention",
+  className: "cc-tasks-mention cc-tasks-thread-mention",
   role: "link",
   icon: BubbleChatIcon,
 });

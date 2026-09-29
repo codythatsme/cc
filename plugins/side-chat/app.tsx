@@ -10,7 +10,7 @@ import {
   type PluginThreadPanelActionContext,
   type PluginThreadPanelProps,
   type ThreadChatMessageAction,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 
 const PLUGIN_ID = "side-chat";
 const PANEL_ACTION_ID = "side-chat";

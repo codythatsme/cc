@@ -1,9 +1,24 @@
 import { z } from "zod";
-import { deriveConnectBaseUrl } from "@bb/connect-client";
-export const DEFAULT_CONNECT_BASE_URL = "https://getbb.app";
+import { deriveConnectBaseUrl } from "@cc/connect-client";
+export const DEFAULT_CONNECT_BASE_URL = "";
 
 export function resolveDefaultConnectBaseUrl(env: NodeJS.ProcessEnv): string {
-  const configured = env.BB_DEV_CONNECT_BASE_URL?.trim();
+  const service = env.CC_CONNECT_BASE_URL?.trim();
+  if (service) {
+    const url = new URL(service);
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      (url.pathname !== "" && url.pathname !== "/")
+    ) {
+      throw new Error("CC_CONNECT_BASE_URL must be an http(s) origin");
+    }
+    return url.origin;
+  }
+  const configured = env.CC_DEV_CONNECT_BASE_URL?.trim();
   if (env.NODE_ENV !== "development" || !configured) {
     return DEFAULT_CONNECT_BASE_URL;
   }
@@ -13,12 +28,12 @@ export function resolveDefaultConnectBaseUrl(env: NodeJS.ProcessEnv): string {
     url = new URL(configured);
   } catch {
     throw new Error(
-      "BB_DEV_CONNECT_BASE_URL must be an http://bb.localhost:<port> origin",
+      "CC_DEV_CONNECT_BASE_URL must be an http://cc.localhost:<port> origin",
     );
   }
   if (
     url.protocol !== "http:" ||
-    url.hostname !== "bb.localhost" ||
+    url.hostname !== "cc.localhost" ||
     url.port.length === 0 ||
     url.username.length > 0 ||
     url.password.length > 0 ||
@@ -27,7 +42,7 @@ export function resolveDefaultConnectBaseUrl(env: NodeJS.ProcessEnv): string {
     url.hash.length > 0
   ) {
     throw new Error(
-      "BB_DEV_CONNECT_BASE_URL must be an http://bb.localhost:<port> origin",
+      "CC_DEV_CONNECT_BASE_URL must be an http://cc.localhost:<port> origin",
     );
   }
   return url.origin;

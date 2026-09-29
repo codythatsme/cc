@@ -2,27 +2,27 @@ import { StringDecoder } from "node:string_decoder";
 import {
   DEFAULT_ENV_SETUP_SCRIPT_NAME,
   DEFAULT_ENV_TEARDOWN_SCRIPT_NAME,
-} from "@bb/domain";
+} from "@cc/domain";
 import { operationEnvironment } from "./operation-environment.js";
-import type { HostDaemonContributedEnvEntry } from "@bb/host-daemon-contract";
+import type { HostDaemonContributedEnvEntry } from "@cc/host-daemon-contract";
 import {
   isProcessGroupAlive,
   killProcessGroup,
   spawnPortableOutputProcess,
   supportsProcessGroups,
-} from "@bb/process-utils";
+} from "@cc/process-utils";
 import fs from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
-import { WorkspaceError } from "bb-environment-provider-host/git";
-import { createTerminalOutputLineReader } from "bb-environment-provider-host/terminal-output";
+import { WorkspaceError } from "cc-environment-provider-host/git";
+import { createTerminalOutputLineReader } from "cc-environment-provider-host/terminal-output";
 import {
   createProvisionCancelledError,
   emitOutput,
   emitStep,
   throwIfProvisionAborted,
   type ProgressCallback,
-} from "bb-environment-provider-host/transcript";
+} from "cc-environment-provider-host/transcript";
 
 export interface RunSetupScriptArgs {
   workspacePath: string;

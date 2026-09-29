@@ -6,20 +6,20 @@ import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type HostDaemonOnlineRpcRequestMessage,
   type HostDaemonRpcCommand,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import {
   extractServerArchive,
   readLastServerMoveFile,
   readServerMovedFile,
   writeLastServerMoveFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import {
   serverMoveStatusResponseSchema,
   serverMoveStatusSchema,
-} from "@bb/server-contract";
-import { setExperiments } from "@bb/db";
-import { defaultExperiments } from "@bb/domain";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@cc/server-contract";
+import { setExperiments } from "@cc/db";
+import { defaultExperiments } from "@cc/domain";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { afterEach, describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";
 import {
@@ -53,7 +53,7 @@ afterEach(async () => {
 });
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "bb-server-move-routes-"));
+  const dir = await mkdtemp(join(tmpdir(), "cc-server-move-routes-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -159,7 +159,7 @@ describe("server move routes", () => {
               return {
                 ok: true,
                 result: inspectResult({
-                  bbAppVersion: harness.config.appVersion,
+                  ccAppVersion: harness.config.appVersion,
                 }),
               };
             case "server_move.prepare":
@@ -270,7 +270,7 @@ describe("server move routes", () => {
       expect(
         (
           await harness.app.request(
-            `/internal/server-move/${started.moveId}/bb-app.tgz`,
+            `/internal/server-move/${started.moveId}/cc-app.tgz`,
             { headers: daemonHeaders(NEW) },
           )
         ).status,
@@ -293,7 +293,7 @@ describe("server move routes", () => {
         archivePath: downloaded,
         destinationDir: await makeTempDir(),
       });
-      expect(manifest.entries.map((entry) => entry.path)).toContain("bb.db");
+      expect(manifest.entries.map((entry) => entry.path)).toContain("cc.db");
 
       releasePrepare.resolve();
       await expect
@@ -354,7 +354,7 @@ describe("server move routes", () => {
           hostName: "Worker",
           hasMachineCredential: false,
           platform: "linux",
-          dataDir: "/home/me/.bb-machines/laptop",
+          dataDir: "/home/me/.cc-machines/laptop",
           localApiPort: 38_888,
           protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
           activeThreads: [],
@@ -377,7 +377,7 @@ describe("server move routes", () => {
   it("refuses machine credentials on every server move route", () =>
     withTestHarness(async (harness) => {
       seedTopology(harness);
-      const machine = { "x-bb-gate-auth": "machine" };
+      const machine = { "x-cc-gate-auth": "machine" };
       const responses = await Promise.all([
         postJson(
           harness,
@@ -481,10 +481,10 @@ describe("server move routes", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toBe("application/gzip");
       expect(response.headers.get("content-disposition")).toMatch(
-        /^attachment; filename="bb-server-\d{4}-\d{2}-\d{2}\.tar\.gz"$/u,
+        /^attachment; filename="cc-server-\d{4}-\d{2}-\d{2}\.tar\.gz"$/u,
       );
       const bytes = Buffer.from(await response.arrayBuffer());
-      expect(response.headers.get("x-bb-archive-sha256")).toBe(
+      expect(response.headers.get("x-cc-archive-sha256")).toBe(
         createHash("sha256").update(bytes).digest("hex"),
       );
       const exportPath = join(await makeTempDir(), "export.tar.gz");
@@ -497,7 +497,7 @@ describe("server move routes", () => {
         sourceDataDir: harness.config.dataDir,
         sourceServerHostId: OLD,
       });
-      expect(manifest.entries.map((entry) => entry.path)).toContain("bb.db");
+      expect(manifest.entries.map((entry) => entry.path)).toContain("cc.db");
       await expect
         .poll(
           async () =>

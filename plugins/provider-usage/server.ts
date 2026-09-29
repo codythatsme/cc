@@ -2,7 +2,7 @@ import {
   normalizeUsageMeasurement,
   selectUsageResources,
 } from "./usage-normalization.js";
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod/mini";
 import {
   usageSnapshotSchema,
@@ -89,7 +89,7 @@ function normalizedUsage(
 }
 
 type Provider = Awaited<
-  ReturnType<BbPluginApi["sdk"]["providers"]["list"]>
+  ReturnType<CcPluginApi["sdk"]["providers"]["list"]>
 >[number];
 
 function normalizedProvider(
@@ -153,7 +153,7 @@ function resourceProvider(
   };
 }
 
-export default function providerUsagePlugin(bb: BbPluginApi): void {
+export default function providerUsagePlugin(cc: CcPluginApi): void {
   const inventories = new Map<string, SourceResult>();
   const measurements = new Map<
     string,
@@ -178,7 +178,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
       await running.promise.catch(() => undefined);
       return fetchResource(pluginId, resourceId, force);
     }
-    const promise = bb.sdk.plugins
+    const promise = cc.sdk.plugins
       .callRpc({
         pluginId,
         method: usageFetchMethod,
@@ -201,18 +201,18 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
   const readUsage = async (request: UsageRequest): Promise<UsageSnapshot> => {
     const hostId = request.machineIds?.find((id) => !id.startsWith("source:"));
     const [hosts, sources, providers, config] = await Promise.all([
-      bb.sdk.hosts
+      cc.sdk.hosts
         .list()
         .then((hosts) => hosts.filter((host) => host.type !== "ephemeral")),
-      bb.sdk.plugins.experimental_discoverRpc({ method: usageListMethod }),
-      bb.sdk.providers
+      cc.sdk.plugins.experimental_discoverRpc({ method: usageListMethod }),
+      cc.sdk.providers
         .list(
           hostId === undefined
             ? { capability: "usage" }
             : { capability: "usage", hostId },
         )
         .catch(() => []),
-      bb.sdk.system.config().catch(() => null),
+      cc.sdk.system.config().catch(() => null),
     ]);
     hosts.sort(
       (a, b) =>
@@ -226,7 +226,7 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
       await Promise.all(
         sources.slice(offset, offset + 3).map(async (source) => {
           try {
-            const inventory = await bb.sdk.plugins.callRpc({
+            const inventory = await cc.sdk.plugins.callRpc({
               pluginId: source.pluginId,
               method: usageListMethod,
               input: {},
@@ -371,10 +371,10 @@ export default function providerUsagePlugin(bb: BbPluginApi): void {
       );
     return { machines };
   };
-  bb.rpc.register(providerUsageRpcContract, { getUsage: readUsage });
+  cc.rpc.register(providerUsageRpcContract, { getUsage: readUsage });
   const markDirty = () => {
     for (const value of measurements.values()) value.loadedAt = 0;
   };
-  bb.events.on("thread.idle", markDirty);
-  bb.events.on("thread.failed", markDirty);
+  cc.events.on("thread.idle", markDirty);
+  cc.events.on("thread.failed", markDirty);
 }

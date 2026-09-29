@@ -8,10 +8,10 @@ import {
   useSyncExternalStore,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { ExperimentalSidebarFooterCommandKind } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Icon } from "@bb/shared-ui/icon";
+import type { ExperimentalSidebarFooterCommandKind } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@cc/shared-ui/icon";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -30,14 +30,14 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-} from "@bb/shared-ui/context-menu";
+} from "@cc/shared-ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@cc/shared-ui/dropdown-menu";
 import {
   useSidebarFooterPreferences,
   useMeasureSidebarFooterCapacity,

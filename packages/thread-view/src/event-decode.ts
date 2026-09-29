@@ -1,5 +1,5 @@
-import { getThreadEventScopeTurnId } from "@bb/domain";
-import type { ThreadEvent } from "@bb/domain";
+import { getThreadEventScopeTurnId } from "@cc/domain";
+import type { ThreadEvent } from "@cc/domain";
 import { assertNever } from "./assert-never.js";
 
 export function getEventTurnId(decoded: ThreadEvent): string | undefined {

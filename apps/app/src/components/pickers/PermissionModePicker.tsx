@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import type { PermissionMode } from "@bb/domain";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { PermissionMode } from "@cc/domain";
+import { LIST_HOVER_TRANSITION } from "@cc/shared-ui/motion";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { OptionPicker, type PickerOption } from "./OptionPicker";
 
 type PermissionModeOption = PickerOption<PermissionMode>;

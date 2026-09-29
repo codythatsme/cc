@@ -1,9 +1,9 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@cc/domain";
 import type {
   HostDaemonEventBatchResponse,
   HostDaemonEventEnvelope,
   HostDaemonRejectedEvent,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { normalizeCaughtError, runtimeErrorLogFields } from "./error-utils.js";
 import type { HostDaemonLogger } from "./logger.js";
 import { ServerResponseError } from "./server-client.js";

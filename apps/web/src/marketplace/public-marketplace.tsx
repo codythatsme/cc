@@ -42,7 +42,6 @@ import {
   useState,
 } from "react";
 
-import { initAnalytics, trackLandingEvent } from "../landing/analytics.js";
 import { CommandButton } from "../landing/command-button.js";
 import { SiteFooter, SiteNav } from "../landing/site-chrome.js";
 import {
@@ -252,7 +251,9 @@ function InstallCount({
     return <span className={`${className} is-new`}>New</span>;
   }
   const formatted =
-    variant === "detail" ? total.toLocaleString("en-US") : formatInstalls(total);
+    variant === "detail"
+      ? total.toLocaleString("en-US")
+      : formatInstalls(total);
   return (
     <span
       className={className}
@@ -371,7 +372,8 @@ function Shelf({
       <div className="marketplace-section-head">
         <div>
           <h2>
-            {shelf.label}{"\u00a0"}
+            {shelf.label}
+            {"\u00a0"}
             <span>{shelf.entries.length}</span>
           </h2>
           {description === undefined ? null : <p>{description}</p>}
@@ -425,7 +427,7 @@ export function PublicMarketplaceUnavailablePage() {
       <main className="marketplace-main">
         <header className="plugin-page-head marketplace-page-head">
           <h1>Plugin Marketplace</h1>
-          <p>Find plugins that add new features to bb.</p>
+          <p>Find plugins that add new features to cc.</p>
         </header>
         <MarketplaceState
           title="The Marketplace is not available"
@@ -548,9 +550,9 @@ function MarketplaceToolbar({
     <>
       {hero ? (
         <header className="marketplace-hero">
-          <h1 aria-label="Make bb yours">
+          <h1 aria-label="Make cc yours">
             Make{" "}
-            <span className="bb-mark marketplace-heading-mark" aria-hidden />{" "}
+            <span className="cc-mark marketplace-heading-mark" aria-hidden />{" "}
             yours
           </h1>
           <p>
@@ -674,7 +676,6 @@ function MarketplaceBrowser({
   stats,
   state,
   onStateChange,
-  analyticsAuthor,
   hero,
 }: {
   manifest: MarketplaceV2Manifest;
@@ -682,7 +683,6 @@ function MarketplaceBrowser({
   stats: MarketplaceStats | null;
   state: MarketplaceIndexState;
   onStateChange: (state: MarketplaceIndexState) => void;
-  analyticsAuthor?: string;
   hero: boolean;
 }) {
   const [query, setQuery] = useState("");
@@ -690,10 +690,6 @@ function MarketplaceBrowser({
   const activeCategory = options.some((option) => option.id === state.category)
     ? state.category
     : undefined;
-  useMarketplacePageAnalytics(
-    { category: activeCategory, sort: state.sort },
-    analyticsAuthor,
-  );
   const searched = filterMarketplaceEntries(manifest, entries, query);
   const filtered = filterMarketplaceCategory(
     manifest,
@@ -759,23 +755,6 @@ function MarketplaceBrowser({
       </div>
     </section>
   );
-}
-
-function useMarketplacePageAnalytics(
-  state: MarketplaceIndexState,
-  author?: string,
-): void {
-  useEffect(() => {
-    initAnalytics();
-    trackLandingEvent({
-      name: "marketplace_page_viewed",
-      properties: {
-        ...(state.category === undefined ? {} : { category: state.category }),
-        sort: state.sort ?? "featured",
-        ...(author === undefined ? {} : { author }),
-      },
-    });
-  }, [author, state.category, state.sort]);
 }
 
 export function PublicMarketplacePage({
@@ -859,7 +838,8 @@ function MoreInCategory({
       <div className="marketplace-section-head">
         <div>
           <h2>
-            More in {categoryName}{"\u00a0"}
+            More in {categoryName}
+            {"\u00a0"}
             <span>{entries.length}</span>
           </h2>
           {category?.description === undefined ? null : (
@@ -890,13 +870,6 @@ export function PublicMarketplaceDetailPage({
   entry: MarketplaceV2Entry;
   stats: MarketplaceStats | null;
 }) {
-  useEffect(() => {
-    initAnalytics();
-    trackLandingEvent({
-      name: "marketplace_plugin_detail_viewed",
-      properties: { plugin_id: entry.id },
-    });
-  }, [entry.id]);
   const categoryDefinition = resolveMarketplaceCategory(manifest, entry);
   const category = categoryDefinition?.displayName ?? "More plugins";
   const categoryId = categoryDefinition?.id ?? UNCATEGORIZED_CATEGORY_ID;
@@ -950,7 +923,6 @@ export function PublicMarketplaceDetailPage({
                 {category}
               </MarketplaceLink>
               <InstallCount entry={entry} stats={stats} variant="detail" />
-
             </div>
           </div>
           <div className="marketplace-detail-install">
@@ -959,13 +931,6 @@ export function PublicMarketplaceDetailPage({
                 command={installCommand}
                 label={`Copy ${installCommand}`}
                 size="compact"
-                onCopy={(copied) => {
-                  if (!copied) return;
-                  trackLandingEvent({
-                    name: "marketplace_install_command_copied",
-                    properties: { plugin_id: entry.id },
-                  });
-                }}
               />
               <MarketplaceLink
                 className="marketplace-detail-source marketplace-detail-download"
@@ -991,15 +956,15 @@ export function PublicMarketplaceDetailPage({
               <hr className="marketplace-overview-rule" />
               <div className="marketplace-overview-heading">
                 <h2>Overview</h2>
-              <a
-                className="marketplace-detail-source"
-                href={repository}
-                target="_blank"
-                rel="noreferrer"
-              >
-                View source
-                <HugeiconsIcon icon={LinkSquare02Icon} aria-hidden />
-              </a>
+                <a
+                  className="marketplace-detail-source"
+                  href={repository}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View source
+                  <HugeiconsIcon icon={LinkSquare02Icon} aria-hidden />
+                </a>
               </div>
               {entry.overview === undefined ? null : (
                 <MarketplaceOverview markdown={entry.overview} />
@@ -1075,7 +1040,6 @@ export function PublicMarketplaceAuthorPage({
           stats={stats}
           state={state}
           onStateChange={onStateChange}
-          analyticsAuthor={author.github}
           hero={false}
         />
       </main>

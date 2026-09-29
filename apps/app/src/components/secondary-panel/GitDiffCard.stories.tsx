@@ -41,10 +41,10 @@ const PROJECT_ROW_TSX = `import {
   memo,
   useMemo,
 } from "react";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@cc/shared-ui/icon";
 import { Sidebar, SidebarMenuButton, SidebarMenuItem, SidebarMenuSkeleton } from "@/components/ui/sidebar.js";
 import { useThreadList } from "@/hooks/queries/thread-queries";
-import type { Project } from "@bb/domain";
+import type { Project } from "@cc/domain";
 import { ThreadRow } from "./ThreadRow";
 
 export interface ProjectRowProps {
@@ -139,10 +139,10 @@ ProjectRow.displayName = "ProjectRow";
 
 const THREAD_ROW_TSX = `import { memo, useMemo } from "react";
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar.js";
-import { Pill } from "@bb/shared-ui/pill";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Pill } from "@cc/shared-ui/pill";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { getEnvironmentDisplayIconName } from "@/lib/environment-workspace-display";
-import type { ThreadListEntry } from "@bb/server-contract";
+import type { ThreadListEntry } from "@cc/server-contract";
 
 export interface ThreadRowProps {
   thread: ThreadListEntry;

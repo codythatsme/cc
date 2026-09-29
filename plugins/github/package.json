@@ -1,16 +1,16 @@
 {
-  "name": "bb-plugin-github",
+  "name": "cc-plugin-github",
   "version": "0.2.1",
-  "description": "Browse GitHub issues and pull requests in BB, then send them to agents.",
+  "description": "Browse GitHub issues and pull requests in CC, then send them to agents.",
   "private": true,
   "license": "MIT",
-  "homepage": "https://github.com/get-bb/bb#readme",
+  "homepage": "https://github.com/codythatsme/cc#readme",
   "bugs": {
-    "url": "https://github.com/get-bb/bb/issues"
+    "url": "https://github.com/codythatsme/cc/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-bb/bb.git",
+    "url": "git+https://github.com/codythatsme/cc.git",
     "directory": "plugins/github"
   },
   "type": "module",
@@ -22,12 +22,12 @@
     "README.md"
   ],
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.102"
+    "cc": ">=0.0",
+    "ccPluginSdk": ">=0.4.102"
   },
-  "bb": {
+  "cc": {
     "name": "GitHub",
-    "description": "Browse GitHub issues and pull requests in BB, then send them to agents.",
+    "description": "Browse GitHub issues and pull requests in CC, then send them to agents.",
     "branding": {
       "icon": "Github"
     },
@@ -35,18 +35,18 @@
     "app": "./app.tsx"
   },
   "keywords": [
-    "bb-plugin"
+    "cc-plugin"
   ],
   "scripts": {
     "build": "node --conditions=source --import tsx ../../scripts/build-official-plugins.mjs github",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
     "test": "vitest run --config vitest.config.ts",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "cc-plugin-build prepare-bundled"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@cc/plugin-build": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.19",
     "@radix-ui/react-dropdown-menu": "^2.1.20",
     "@testing-library/dom": "^10.4.1",
@@ -68,7 +68,7 @@
     "vitest": "^4.1.1"
   },
   "dependencies": {
-    "@bb/shared-ui": "workspace:*",
+    "@cc/shared-ui": "workspace:*",
     "@radix-ui/react-slot": "^1.3.0",
     "zod": "^4.3.6"
   }

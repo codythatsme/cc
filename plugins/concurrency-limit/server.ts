@@ -3,10 +3,10 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type CcPluginApi,
   type MessageDispatchHookDecision,
   type PluginThreadEventName,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import { concurrencyLimitHostContract } from "./contract.js";
 import {
@@ -187,19 +187,19 @@ function formatHostLine(host: {
 }
 
 export default async function concurrencyLimitPlugin(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
 ): Promise<void> {
-  const hostClient = bb.hosts.experimental_client({
+  const hostClient = cc.hosts.experimental_client({
     contract: concurrencyLimitHostContract,
   });
   const storedConfiguration = configurationSchema.safeParse(
-    await bb.storage.kv.get<unknown>(CONFIGURATION_KEY),
+    await cc.storage.kv.get<unknown>(CONFIGURATION_KEY),
   );
   let configuration = storedConfiguration.success
     ? normalizeConfiguration(storedConfiguration.data)
     : DEFAULT_CONFIGURATION;
   const storedCapacities = capacityRecordsSchema.safeParse(
-    await bb.storage.kv.get<unknown>(CAPACITIES_KEY),
+    await cc.storage.kv.get<unknown>(CAPACITIES_KEY),
   );
   const capacities = new Map<string, number>(
     (storedCapacities.success ? storedCapacities.data : []).map((record) => [
@@ -209,7 +209,7 @@ export default async function concurrencyLimitPlugin(
   );
 
   async function readConfiguration() {
-    const availableHosts = await bb.sdk.hosts.list();
+    const availableHosts = await cc.sdk.hosts.list();
     return {
       ...configuration,
       hosts: availableHosts.map(({ id, name, status }) => {
@@ -234,10 +234,10 @@ export default async function concurrencyLimitPlugin(
 
   async function saveConfiguration(next: Configuration): Promise<void> {
     const normalized = normalizeConfiguration(next);
-    await bb.storage.kv.set(CONFIGURATION_KEY, normalized);
+    await cc.storage.kv.set(CONFIGURATION_KEY, normalized);
     configuration = normalized;
-    bb.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
-    await bb.experimental_hooks.recheck("message.dispatch");
+    cc.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
+    await cc.experimental_hooks.recheck("message.dispatch");
   }
 
   async function persistCapacities(): Promise<void> {
@@ -247,10 +247,10 @@ export default async function concurrencyLimitPlugin(
         availableParallelism,
       }))
       .sort((left, right) => left.hostId.localeCompare(right.hostId));
-    await bb.storage.kv.set(CAPACITIES_KEY, records);
+    await cc.storage.kv.set(CAPACITIES_KEY, records);
   }
 
-  bb.rpc.register(concurrencyLimitRpcContract, {
+  cc.rpc.register(concurrencyLimitRpcContract, {
     getConfiguration: readConfiguration,
     async setConfiguration(next) {
       await saveConfiguration(next);
@@ -261,11 +261,11 @@ export default async function concurrencyLimitPlugin(
   function unknownHost(hostId: string): PluginCliError {
     return new PluginCliError(`Unknown host: ${hostId}`, {
       code: "unknown_host",
-      hint: "Run `bb machine list` for the enrolled host ids.",
+      hint: "Run `cc machine list` for the enrolled host ids.",
     });
   }
 
-  bb.cli.register(
+  cc.cli.register(
     defineCli({
       name: "concurrency-limit",
       summary: "Configure global and per-host thread limits",
@@ -321,7 +321,7 @@ export default async function concurrencyLimitPlugin(
           positionals: [
             {
               name: "host-id",
-              description: "Enrolled host id, as `bb machine list` prints it",
+              description: "Enrolled host id, as `cc machine list` prints it",
               required: true,
             },
             {
@@ -378,7 +378,7 @@ export default async function concurrencyLimitPlugin(
     hostIds: ReadonlySet<string>,
   ): Promise<RefreshOutcome> {
     try {
-      const availableHosts = await bb.sdk.hosts.list({ signal });
+      const availableHosts = await cc.sdk.hosts.list({ signal });
       let changed = false;
       if (refreshAll) {
         const availableHostIds = new Set(availableHosts.map((host) => host.id));
@@ -411,7 +411,7 @@ export default async function concurrencyLimitPlugin(
           } catch (error) {
             if (signal.aborted) return;
             retry = true;
-            bb.log.warn(
+            cc.log.warn(
               `Could not detect capacity for host ${availableHost.id}: ${errorMessage(error)}`,
             );
           }
@@ -419,13 +419,13 @@ export default async function concurrencyLimitPlugin(
       );
       if (changed) {
         await persistCapacities();
-        bb.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
-        await bb.experimental_hooks.recheck("message.dispatch");
+        cc.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
+        await cc.experimental_hooks.recheck("message.dispatch");
       }
       return retry ? "retry" : "settled";
     } catch (error) {
       if (!signal.aborted) {
-        bb.log.warn(
+        cc.log.warn(
           `Could not load hosts for capacity detection: ${errorMessage(error)}`,
         );
       }
@@ -462,9 +462,9 @@ export default async function concurrencyLimitPlugin(
     });
   }
 
-  bb.background.service("capacity-detector", {
+  cc.background.service("capacity-detector", {
     async start(signal) {
-      const unsubscribeHost = bb.sdk.subscribe({
+      const unsubscribeHost = cc.sdk.subscribe({
         event: "host:changed",
         callback: (event) => {
           if (
@@ -473,12 +473,12 @@ export default async function concurrencyLimitPlugin(
                 change === "host-connected" || change === "host-disconnected",
             )
           )
-            bb.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
+            cc.realtime.publish(CONFIGURATION_CHANGED_CHANNEL, {});
           if (event.changes.includes("host-connected"))
             requestRefresh(event.id);
         },
       });
-      const unsubscribeRealtime = bb.sdk.subscribe({
+      const unsubscribeRealtime = cc.sdk.subscribe({
         event: "realtime:connection",
         callback: (event) => {
           if (event.state === "connected" && event.reconnected)
@@ -516,12 +516,12 @@ export default async function concurrencyLimitPlugin(
   });
 
   for (const event of CAPACITY_FREED_EVENTS) {
-    bb.events.on(event, async () => {
-      await bb.experimental_hooks.recheck("message.dispatch");
+    cc.events.on(event, async () => {
+      await cc.experimental_hooks.recheck("message.dispatch");
     });
   }
 
-  bb.experimental_hooks.on("message.dispatch", async (context) => {
+  cc.experimental_hooks.on("message.dispatch", async (context) => {
     if (
       context.attempt === "join-turn" ||
       context.thread.status === "active" ||
@@ -534,7 +534,7 @@ export default async function concurrencyLimitPlugin(
     if (configuration.globalLimit === null && host === null) {
       return { action: "proceed" };
     }
-    const running = await bb.sdk.threads.listRunning();
+    const running = await cc.sdk.threads.listRunning();
 
     if (
       configuration.globalLimit !== null &&

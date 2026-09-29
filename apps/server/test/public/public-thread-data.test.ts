@@ -18,14 +18,14 @@ import {
   setQueuedThreadMessageGroupBoundary,
   setThreadExecutionOverride,
   threads as threadRows,
-} from "@bb/db";
+} from "@cc/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadQueuedMessageSchema,
   threadScope,
   threadSchema,
   turnScope,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   type TimelineRow,
   sidebarBootstrapResponseSchema,
@@ -38,11 +38,10 @@ import {
   threadWithIncludesResponseSchema,
   timelineTurnSummaryDetailsResponseSchema,
   uploadedPromptAttachmentSchema,
-} from "@bb/server-contract";
-import { renderTemplate } from "@bb/templates";
+} from "@cc/server-contract";
+import { renderTemplate } from "@cc/templates";
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
-import type { TelemetryService } from "../../src/services/system/telemetry.js";
 import {
   reportNextEnvironmentAttachSuccess,
   reportQueuedCommandError,
@@ -2672,8 +2671,6 @@ describe("public thread data routes", () => {
 
   it("creates and deletes thread queued messages", async () => {
     await withTestHarness(async (harness) => {
-      const capture = vi.fn<TelemetryService["capture"]>();
-      harness.deps.telemetry = { ...harness.deps.telemetry, capture };
       const { environment, thread } = seedThreadFixture(harness);
       seedEvent(harness.deps, {
         threadId: thread.id,
@@ -2725,14 +2722,6 @@ describe("public thread data routes", () => {
         getQueuedThreadMessage(harness.db, queuedMessage.id),
       ).toMatchObject({
         id: queuedMessage.id,
-      });
-      expect(capture).toHaveBeenCalledWith({
-        name: "user_message_sent",
-        properties: {
-          is_child_thread: false,
-          message_source: "queued_message",
-          provider: "codex",
-        },
       });
       const queuedMessageBeforeUpdate = getQueuedThreadMessage(
         harness.db,
@@ -2807,8 +2796,6 @@ describe("public thread data routes", () => {
 
   it("queues public send requests with sender context while the target thread is active", async () => {
     await withTestHarness(async (harness) => {
-      const capture = vi.fn<TelemetryService["capture"]>();
-      harness.deps.telemetry = { ...harness.deps.telemetry, capture };
       const { project, thread } = seedThreadFixture(harness, {
         thread: {
           status: "active",
@@ -2866,7 +2853,6 @@ describe("public thread data routes", () => {
           .where(eq(events.threadId, thread.id))
           .all(),
       ).toEqual([]);
-      expect(capture).not.toHaveBeenCalled();
     });
   });
 
@@ -3667,7 +3653,7 @@ describe("public thread data routes", () => {
         path: "/tmp/queued-message-reprovision",
         status: "error",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "bb-plugin-environment-personal-workspace",
+        environmentProviderPluginId: "cc-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
       const thread = seedThread(harness.deps, {
@@ -3676,7 +3662,7 @@ describe("public thread data routes", () => {
       });
       installFakeEnvironmentProvider({
         id: "personal-workspace",
-        pluginId: "bb-plugin-environment-personal-workspace",
+        pluginId: "cc-plugin-environment-personal-workspace",
         displayName: "Personal workspace",
         requires: {
           projectCheckout: false,
@@ -3844,7 +3830,7 @@ describe("public thread data routes", () => {
         path: "/tmp/queued-message-immediate-reprovision",
         status: "error",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "bb-plugin-environment-personal-workspace",
+        environmentProviderPluginId: "cc-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
       const thread = seedThread(harness.deps, {
@@ -3857,7 +3843,7 @@ describe("public thread data routes", () => {
       });
       installFakeEnvironmentProvider({
         id: "personal-workspace",
-        pluginId: "bb-plugin-environment-personal-workspace",
+        pluginId: "cc-plugin-environment-personal-workspace",
         displayName: "Personal workspace",
         requires: {
           projectCheckout: false,
@@ -3914,7 +3900,7 @@ describe("public thread data routes", () => {
                 path: request.command.path,
                 isGitRepo: true,
                 isWorktree: false,
-                branchName: `bb/${thread.id}`,
+                branchName: `cc/${thread.id}`,
                 defaultBranch: "main",
                 transcript: [],
               },
@@ -3986,7 +3972,7 @@ describe("public thread data routes", () => {
         path: "/tmp/grouped-queued-message-reprovision",
         status: "error",
         environmentProviderId: "personal-workspace",
-        environmentProviderPluginId: "bb-plugin-environment-personal-workspace",
+        environmentProviderPluginId: "cc-plugin-environment-personal-workspace",
         isGitRepo: false,
       });
       const thread = seedThread(harness.deps, {
@@ -4003,7 +3989,7 @@ describe("public thread data routes", () => {
       });
       installFakeEnvironmentProvider({
         id: "personal-workspace",
-        pluginId: "bb-plugin-environment-personal-workspace",
+        pluginId: "cc-plugin-environment-personal-workspace",
         displayName: "Personal workspace",
         requires: {
           projectCheckout: false,
@@ -4339,7 +4325,7 @@ describe("public thread data routes", () => {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const threadStoragePath = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const threadStoragePath = `/tmp/cc-host-data/${host.id}/thread-storage/${thread.id}`;
 
       const filesPromise = harness.app.request(
         `/api/v1/threads/${thread.id}/thread-storage/files?query=notes`,
@@ -4401,7 +4387,7 @@ describe("public thread data routes", () => {
         threadStorageLocationResponseSchema.parse(await readJson(response)),
       ).toEqual({
         hostId: host.id,
-        storageRootPath: `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`,
+        storageRootPath: `/tmp/cc-host-data/${host.id}/thread-storage/${thread.id}`,
       });
     });
   });
@@ -4422,7 +4408,7 @@ describe("public thread data routes", () => {
         projectId: project.id,
         environmentId: environment.id,
       });
-      const threadStoragePath = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const threadStoragePath = `/tmp/cc-host-data/${host.id}/thread-storage/${thread.id}`;
 
       const pathsPromise = harness.app.request(
         `/api/v1/threads/${thread.id}/thread-storage/paths?query=notes&includeFiles=true&includeDirectories=true`,
@@ -4513,7 +4499,7 @@ describe("public thread data routes", () => {
         environmentId: environment.id,
         status: "starting",
       });
-      const threadStoragePath = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const threadStoragePath = `/tmp/cc-host-data/${host.id}/thread-storage/${thread.id}`;
 
       const filesPromise = harness.app.request(
         `/api/v1/threads/${thread.id}/thread-storage/files`,
@@ -4556,7 +4542,7 @@ describe("public thread data routes", () => {
         environmentId: environment.id,
       });
       const pngBytes = Uint8Array.from([137, 80, 78, 71]);
-      const threadStorageRoot = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const threadStorageRoot = `/tmp/cc-host-data/${host.id}/thread-storage/${thread.id}`;
       const threadStorageFilePath = `${threadStorageRoot}/images/diagram.png`;
 
       const filePromise = harness.app.request(
@@ -4583,8 +4569,8 @@ describe("public thread data routes", () => {
       const fileResponse = await filePromise;
       expect(fileResponse.status).toBe(200);
       expect(fileResponse.headers.get("content-type")).toBe("image/png");
-      expect(fileResponse.headers.get("x-bb-content-encoding")).toBeNull();
-      expect(fileResponse.headers.get("x-bb-size-bytes")).toBeNull();
+      expect(fileResponse.headers.get("x-cc-content-encoding")).toBeNull();
+      expect(fileResponse.headers.get("x-cc-size-bytes")).toBeNull();
       expect(new Uint8Array(await fileResponse.arrayBuffer())).toEqual(
         pngBytes,
       );
@@ -4682,7 +4668,7 @@ describe("public thread data routes", () => {
       expect(fileResponse.headers.get("cache-control")).toBe("no-store");
       const body = await fileResponse.text();
       expect(body).toBe(html);
-      expect(body).not.toContain("window.bb");
+      expect(body).not.toContain("window.cc");
     });
   });
 
@@ -5153,7 +5139,7 @@ describe("public thread data routes", () => {
   it("maps thread storage root-escape failures to invalid_path", async () => {
     await withTestHarness(async (harness) => {
       const { host, thread } = seedThreadFixture(harness);
-      const threadStorageRoot = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const threadStorageRoot = `/tmp/cc-host-data/${host.id}/thread-storage/${thread.id}`;
 
       const filePromise = harness.app.request(
         `/api/v1/threads/${thread.id}/thread-storage/content?path=${encodeURIComponent("notes/secrets")}`,
@@ -5191,7 +5177,7 @@ describe("public thread data routes", () => {
   it("returns an empty thread storage file list when the durable storage is absent", async () => {
     await withTestHarness(async (harness) => {
       const { host, thread } = seedThreadFixture(harness);
-      const threadStoragePath = `/tmp/bb-host-data/${host.id}/thread-storage/${thread.id}`;
+      const threadStoragePath = `/tmp/cc-host-data/${host.id}/thread-storage/${thread.id}`;
 
       const filesPromise = harness.app.request(
         `/api/v1/threads/${thread.id}/thread-storage/files`,

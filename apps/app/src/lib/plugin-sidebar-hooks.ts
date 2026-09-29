@@ -4,8 +4,8 @@ import {
   PERSONAL_PROJECT_ID,
   type Host,
   type ThreadListEntry,
-} from "@bb/domain";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+} from "@cc/domain";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import type {
   PluginSdkApp,
   PluginSidebarProject,
@@ -17,7 +17,7 @@ import type {
   PluginSidebarThreadRowStatus,
   PluginSidebarThreadShortcut,
   PluginSidebarThreadsState,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { useSidebarThreadShortcut as useHostSidebarThreadShortcut } from "@/components/sidebar/sidebarThreadShortcuts";
 import {
   useThreadTitleMentionResources,

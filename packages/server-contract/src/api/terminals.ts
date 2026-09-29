@@ -5,7 +5,7 @@ import {
   terminalRowsSchema,
   terminalSessionCloseReasonSchema,
   terminalSessionStatusSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 
 export const terminalSessionSchema = z.object({
   id: z.string().min(1),

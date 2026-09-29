@@ -13,17 +13,17 @@ import {
   openSession,
   threads,
   upsertHost,
-} from "@bb/db";
+} from "@cc/db";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   HOST_ID_FILE_NAME,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import {
   encodeClientTurnRequestIdNumber,
   parseStoredThreadEvent,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   EnvironmentProviderSelection,
   EnvironmentStatus,
@@ -38,7 +38,7 @@ import type {
   ThreadOriginKind,
   ThreadStatus,
   ThreadVisibility,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { AppDeps } from "../../src/types.js";
 import { ARCHIVE_UNDO_GRACE_MS } from "../../src/constants.js";
 import { registerTestHostRpcCapture } from "./commands.js";
@@ -118,7 +118,7 @@ export function seedSession(
     hostId,
     instanceId: options.instanceId ?? "instance-1",
     hostName: "Test Host",
-    dataDir: `/tmp/bb-host-data/${hostId}`,
+    dataDir: `/tmp/cc-host-data/${hostId}`,
     protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
     heartbeatIntervalMs: 5_000,
     leaseTimeoutMs: 30_000,
@@ -185,7 +185,7 @@ export function seedEnvironment(
           },
         }
       : {}),
-    branchName: args.branchName !== undefined ? args.branchName : "bb/test",
+    branchName: args.branchName !== undefined ? args.branchName : "cc/test",
     baseBranch: args.baseBranch !== undefined ? args.baseBranch : null,
     defaultBranch:
       args.defaultBranch !== undefined ? args.defaultBranch : "main",

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BRIDGE_JSON_RPC_ERRORS } from "@get-bb/plugin-sdk/provider-bridge";
+import { BRIDGE_JSON_RPC_ERRORS } from "@codythatsme/plugin-sdk/provider-bridge";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PI_BRIDGE_ARGS_ENV, PI_BRIDGE_COMMAND_ENV } from "./rpc-child.js";
 import {
@@ -19,7 +19,7 @@ function nextRequestId(): number {
 
 beforeEach(async () => {
   harness = await startFakePiBridge({
-    prefix: "bb-pi-install-gate-",
+    prefix: "cc-pi-install-gate-",
     initialize: true,
   });
 });

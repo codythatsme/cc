@@ -4,7 +4,7 @@ import type {
   PermissionMode,
   ReasoningLevel,
   ServiceTier,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { DbConnection } from "../connection.js";
 import { projectExecutionDefaults } from "../schema.js";
 

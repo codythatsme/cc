@@ -1,4 +1,4 @@
-const DESKTOP_RELEASE_CHANNEL_ENV_NAME = "BB_DESKTOP_RELEASE_CHANNEL";
+const DESKTOP_RELEASE_CHANNEL_ENV_NAME = "CC_DESKTOP_RELEASE_CHANNEL";
 
 export function resolveDesktopReleaseChannel(env) {
   const rawChannel = env[DESKTOP_RELEASE_CHANNEL_ENV_NAME]?.trim();
@@ -30,13 +30,13 @@ export function resolveDesktopBuildPlatform(nodePlatform) {
 export function createDesktopReleaseConfig(channel) {
   if (channel === "nightly") {
     return {
-      appId: "dev.bb.desktop.nightly",
-      applicationName: "bb Nightly",
-      artifactName: "bb-nightly-${version}-${arch}.${ext}",
+      appId: "io.github.codythatsme.cc.nightly",
+      applicationName: "cc Nightly",
+      artifactName: "cc-nightly-${version}-${arch}.${ext}",
       iconFileName: "icon-nightly.png",
       // The Linux binary name must differ from stable so both channels can be
       // installed at once without one shadowing the other on PATH.
-      linuxExecutableName: "bb-nightly",
+      linuxExecutableName: "cc-nightly",
       macIconPath: "assets/icon-nightly.icns",
       releaseTag: "desktop-nightly",
       updateMetadataFileNames: {
@@ -47,11 +47,11 @@ export function createDesktopReleaseConfig(channel) {
   }
 
   return {
-    appId: "dev.bb.desktop",
-    applicationName: "bb",
+    appId: "io.github.codythatsme.cc",
+    applicationName: "cc",
     artifactName: "${productName}-${version}-${arch}.${ext}",
     iconFileName: "icon.png",
-    linuxExecutableName: "bb",
+    linuxExecutableName: "cc",
     macIconPath: "assets/icon.icns",
     releaseTag: "desktop-latest",
     updateMetadataFileNames: {
@@ -62,5 +62,5 @@ export function createDesktopReleaseConfig(channel) {
 }
 
 export function createDesktopUpdateReleaseBaseUrl(releaseTag) {
-  return `https://github.com/get-bb/bb/releases/download/${releaseTag}/`;
+  return `https://github.com/codythatsme/cc/releases/download/${releaseTag}/`;
 }

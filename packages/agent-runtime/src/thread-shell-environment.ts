@@ -19,12 +19,12 @@ export function buildThreadShellEnvironment(
 ): Record<string, string> {
   return {
     ...(args.baseShellEnv ?? {}),
-    ...(args.projectId ? { BB_PROJECT_ID: args.projectId } : {}),
+    ...(args.projectId ? { CC_PROJECT_ID: args.projectId } : {}),
     ...(args.threadStoragePath
-      ? { BB_THREAD_STORAGE: args.threadStoragePath }
+      ? { CC_THREAD_STORAGE: args.threadStoragePath }
       : {}),
-    BB_THREAD_ID: args.threadId,
-    BB_ENVIRONMENT_ID: args.environmentId,
+    CC_THREAD_ID: args.threadId,
+    CC_ENVIRONMENT_ID: args.environmentId,
   };
 }
 
@@ -63,13 +63,13 @@ export function resolveThreadEnvironment(args: ResolveThreadEnvironmentArgs): {
     if (typeof contribution.value === "string") {
       value = contribution.value;
     } else {
-      const serverUrl = args.baseShellEnv?.BB_SERVER_URL;
+      const serverUrl = args.baseShellEnv?.CC_SERVER_URL;
       if (serverUrl === undefined) {
         entries.push({
           name: contribution.name,
           source: contribution.source,
           value: { masked: true },
-          reason: `${contribution.reason} (dropped: no BB_SERVER_URL)`,
+          reason: `${contribution.reason} (dropped: no CC_SERVER_URL)`,
         });
         droppedContributions.push({
           name: contribution.name,

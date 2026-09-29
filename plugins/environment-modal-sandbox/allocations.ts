@@ -1,6 +1,6 @@
 import { errorMessage } from "./error-message.js";
 import { createHash } from "node:crypto";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import type {
   ModalSandboxClient,
@@ -18,26 +18,26 @@ const allocationSchema = z.object({
 export type ModalAllocation = z.infer<typeof allocationSchema>;
 
 export function modalAllocations(
-  bb: Pick<BbPluginApi, "storage" | "log">,
+  cc: Pick<CcPluginApi, "storage" | "log">,
   now: () => number,
 ) {
   const allocating = new Set<string>();
   const keyForId = (id: string) => `${prefix}sandbox/${id}`;
   async function remember(allocation: ModalAllocation & { sandboxId: string }) {
-    await bb.storage.kv.set(keyForId(allocation.sandboxId), allocation);
+    await cc.storage.kv.set(keyForId(allocation.sandboxId), allocation);
   }
   async function forget(sandboxId: string) {
-    await bb.storage.kv.delete(keyForId(sandboxId));
+    await cc.storage.kv.delete(keyForId(sandboxId));
   }
   return {
     remember,
     forget,
-    keys: () => bb.storage.kv.list(prefix),
+    keys: () => cc.storage.kv.list(prefix),
     read: async (key: string) => {
-      const value = await bb.storage.kv.get<unknown>(key);
+      const value = await cc.storage.kv.get<unknown>(key);
       return value === undefined ? null : allocationSchema.parse(value);
     },
-    remove: (key: string) => bb.storage.kv.delete(key),
+    remove: (key: string) => cc.storage.kv.delete(key),
     isAllocating: (key: string) => allocating.has(key),
     wrap(client: ModalSandboxClient): ModalSandboxClient {
       function wrapHandle(sandbox: ModalSandboxHandle): ModalSandboxHandle {
@@ -49,7 +49,7 @@ export function modalAllocations(
               if ((await client.fromId(sandbox.sandboxId)) === null)
                 await forget(sandbox.sandboxId);
             } catch (error) {
-              bb.log.warn(
+              cc.log.warn(
                 `Modal stopped ${sandbox.sandboxId}; allocation tracking will retry: ${errorMessage(error)}`,
               );
             }
@@ -59,7 +59,7 @@ export function modalAllocations(
       return {
         ...client,
         async create(request) {
-          if (!request.tags.bbMachineKey || request.tags.bbDebug === "true")
+          if (!request.tags.ccMachineKey || request.tags.ccDebug === "true")
             return client.create(request);
           const accountIdentity = await client.accountIdentity();
           const key = `${prefix}pending/${createHash("sha256")
@@ -76,10 +76,10 @@ export function modalAllocations(
           };
           allocating.add(key);
           try {
-            await bb.storage.kv.set(key, allocation);
+            await cc.storage.kv.set(key, allocation);
             const sandbox = await client.create(request);
             await remember({ ...allocation, sandboxId: sandbox.sandboxId });
-            await bb.storage.kv.delete(key);
+            await cc.storage.kv.delete(key);
             return wrapHandle(sandbox);
           } finally {
             allocating.delete(key);

@@ -9,7 +9,7 @@
     "builtin": true
   },
   "rules": {
-    "bb/no-comments": "error"
+    "cc/no-comments": "error"
   },
   "ignorePatterns": [
     "**/node_modules/**",
@@ -32,7 +32,7 @@
         "packages/plugin-sdk/src/testing/*.{ts,tsx}"
       ],
       "rules": {
-        "bb/no-comments": "off"
+        "cc/no-comments": "off"
       }
     },
     {
@@ -76,7 +76,7 @@
             ]
           }
         ],
-        "bb/no-blocking-child-process-call": "error"
+        "cc/no-blocking-child-process-call": "error"
       }
     },
     {
@@ -88,7 +88,7 @@
       ],
       "rules": {
         "no-restricted-imports": "off",
-        "bb/no-blocking-child-process-call": "off"
+        "cc/no-blocking-child-process-call": "off"
       }
     },
     {
@@ -99,11 +99,11 @@
           {
             "paths": [
               {
-                "name": "@bb/host-workspace",
+                "name": "@cc/host-workspace",
                 "message": "Server must not access workspaces directly. Use daemon commands instead."
               },
               {
-                "name": "@bb/host-watcher",
+                "name": "@cc/host-watcher",
                 "message": "Server must not access host watchers directly. Use daemon commands instead."
               },
               {
@@ -136,14 +136,14 @@
           {
             "paths": [
               {
-                "name": "@bb/sdk",
-                "message": "Import @bb/sdk/browser: the root entry resolves to the Node SDK under Metro's source condition."
+                "name": "@cc/sdk",
+                "message": "Import @cc/sdk/browser: the root entry resolves to the Node SDK under Metro's source condition."
               }
             ],
             "patterns": [
               {
-                "group": ["@bb/shared-ui", "@bb/shared-ui/*"],
-                "message": "@bb/shared-ui is React DOM + Radix. Use the mobile primitives instead."
+                "group": ["@cc/shared-ui", "@cc/shared-ui/*"],
+                "message": "@cc/shared-ui is React DOM + Radix. Use the mobile primitives instead."
               }
             ]
           }
@@ -153,8 +153,8 @@
     {
       "files": ["apps/app/src/**/*.{ts,tsx}"],
       "rules": {
-        "bb/no-native-title-with-aria-label": "error",
-        "bb/no-native-title-on-button": "error"
+        "cc/no-native-title-with-aria-label": "error",
+        "cc/no-native-title-on-button": "error"
       }
     },
     {
@@ -164,14 +164,14 @@
         "apps/app/src/**/*.stories.tsx"
       ],
       "rules": {
-        "bb/no-native-title-with-aria-label": "off",
-        "bb/no-native-title-on-button": "off"
+        "cc/no-native-title-with-aria-label": "off",
+        "cc/no-native-title-on-button": "off"
       }
     },
     {
       "files": ["plugins/**/*.{ts,tsx,mts,cts,js,mjs,cjs}"],
       "rules": {
-        "bb/forkable-plugin-imports": "error"
+        "cc/forkable-plugin-imports": "error"
       }
     }
   ]

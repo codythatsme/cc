@@ -50,7 +50,7 @@ export function forkablePluginPaths(appSourceDir: string): Plugin {
   const plugins = readForkablePluginPaths();
   const appSourcePrefix = `${appSourceDir}${sep}`;
   return {
-    name: "bb:forkable-plugin-paths",
+    name: "cc:forkable-plugin-paths",
     enforce: "pre",
     resolveId(source, importer, options) {
       if (importer === undefined || !source.startsWith(appSourcePrefix)) {

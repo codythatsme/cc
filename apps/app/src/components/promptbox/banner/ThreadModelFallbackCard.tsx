@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { ThreadTimelineModelFallback } from "@bb/domain";
-import { Icon } from "@bb/shared-ui/icon";
+import type { ThreadTimelineModelFallback } from "@cc/domain";
+import { Icon } from "@cc/shared-ui/icon";
 import { PromptStackCard } from "@/components/promptbox/banner/PromptStackCard";
 import { rawStringLocalStorage } from "@/lib/browser-storage";
 
@@ -10,7 +10,7 @@ interface ThreadModelFallbackCardProps {
 }
 
 function dismissalStorageKey(threadId: string): string {
-  return `bb.thread.model-fallback-dismissed.${threadId}`;
+  return `cc.thread.model-fallback-dismissed.${threadId}`;
 }
 
 function modelLabel(model: string): string {

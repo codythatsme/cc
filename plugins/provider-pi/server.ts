@@ -1,9 +1,9 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { piProviderDeclaration } from "./src/declaration.js";
 
-export default function plugin(bb: BbPluginApi): void {
-  const registered = bb.providers.register(piProviderDeclaration());
-  bb.onDispose(() => {
+export default function plugin(cc: CcPluginApi): void {
+  const registered = cc.providers.register(piProviderDeclaration());
+  cc.onDispose(() => {
     registered.dispose();
   });
 }

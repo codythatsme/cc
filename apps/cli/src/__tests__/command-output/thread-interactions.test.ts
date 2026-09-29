@@ -10,13 +10,13 @@ import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import * as fixtures from "../helpers/command-output-fixtures.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread interactions command output", () => {
+describe("cc thread interactions command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("bb thread interactions list renders the shared borderless table", async () => {
+  it("cc thread interactions list renders the shared borderless table", async () => {
     const listInteractions = vi.fn(async () => [
       fixtures.makePendingInteraction({
         id: "int-1",
@@ -45,8 +45,8 @@ describe("bb thread interactions command output", () => {
     expect(lines[2]).toBe("");
   });
 
-  it("bb thread interactions show prints interaction details", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-interaction");
+  it("cc thread interactions show prints interaction details", async () => {
+    vi.stubEnv("CC_THREAD_ID", "thread-show-interaction");
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-show",
@@ -86,7 +86,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions show prints a tool-use approval from its presentation", async () => {
+  it("cc thread interactions show prints a tool-use approval from its presentation", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-tool-use",
@@ -103,7 +103,7 @@ describe("bb thread interactions command output", () => {
             presentation: {
               label: { pending: "Creating issue", completed: "Created issue" },
               icon: { glyph: "Globe" },
-              title: "get-bb/bb#42",
+              title: "codythatsme/cc#42",
               detail: "Opens a bug issue",
             },
           },
@@ -123,14 +123,14 @@ describe("bb thread interactions command output", () => {
     expect(lines).toContain("  Kind: tool-use");
     expect(lines.slice(5)).toEqual([
       "  Tool: mcp__github__create_issue",
-      "  get-bb/bb#42",
+      "  codythatsme/cc#42",
       "  Opens a bug issue",
       "  Decisions: allow_once, deny",
     ]);
   });
 
-  it("bb thread interactions show prints user question details", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-question");
+  it("cc thread interactions show prints user question details", async () => {
+    vi.stubEnv("CC_THREAD_ID", "thread-show-question");
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question",
@@ -171,7 +171,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions answer resolves single-question interactions with shorthand flags", async () => {
+  it("cc thread interactions answer resolves single-question interactions with shorthand flags", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-answer",
@@ -240,7 +240,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions answer resolves multi-question interactions with explicit question ids", async () => {
+  it("cc thread interactions answer resolves multi-question interactions with explicit question ids", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-multi",
@@ -312,7 +312,7 @@ describe("bb thread interactions command output", () => {
     });
   });
 
-  it("bb thread interactions answer rejects shorthand for multi-question interactions", async () => {
+  it("cc thread interactions answer rejects shorthand for multi-question interactions", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-shorthand",
@@ -348,7 +348,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions answer rejects unknown explicit text question ids", async () => {
+  it("cc thread interactions answer rejects unknown explicit text question ids", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-question-unknown-text",
@@ -384,7 +384,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions answer rejects approvals and invalid question choices before posting", async () => {
+  it("cc thread interactions answer rejects approvals and invalid question choices before posting", async () => {
     const getInteraction = vi
       .fn()
       .mockResolvedValueOnce(
@@ -444,7 +444,7 @@ describe("bb thread interactions command output", () => {
     expect(errorOutput).toContain("does not offer choice 'qa'");
   });
 
-  it("bb thread interactions show prints a provider's plugin-defined request with its form and data", async () => {
+  it("cc thread interactions show prints a provider's plugin-defined request with its form and data", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-plugin-request",
@@ -479,7 +479,7 @@ describe("bb thread interactions command output", () => {
     expect(lines).toContain('  Data: {"fields":["TOKEN"]}');
   });
 
-  it("bb thread interactions respond posts the form's JSON value", async () => {
+  it("cc thread interactions respond posts the form's JSON value", async () => {
     const respond = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-plugin-request",
@@ -519,7 +519,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions respond rejects a value that is not JSON", async () => {
+  it("cc thread interactions respond rejects a value that is not JSON", async () => {
     await expect(
       runCommand(
         [
@@ -539,8 +539,8 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions show indicates when resolution delivery is in progress", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-show-resolving");
+  it("cc thread interactions show indicates when resolution delivery is in progress", async () => {
+    vi.stubEnv("CC_THREAD_ID", "thread-show-resolving");
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-show-resolving",
@@ -569,7 +569,7 @@ describe("bb thread interactions command output", () => {
     expect(lines).toContain("  Decision: allow_for_session");
   });
 
-  it("bb thread interactions approve resolves command approvals for the current turn", async () => {
+  it("cc thread interactions approve resolves command approvals for the current turn", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-approve",
@@ -616,7 +616,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions approve falls back to accept when session approval is unavailable", async () => {
+  it("cc thread interactions approve falls back to accept when session approval is unavailable", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-approve-no-session",
@@ -677,7 +677,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions approve errors when no allow decision is available", async () => {
+  it("cc thread interactions approve errors when no allow decision is available", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-approve-amendment",
@@ -713,7 +713,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions deny uses decline when it is available", async () => {
+  it("cc thread interactions deny uses decline when it is available", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-deny",
@@ -758,7 +758,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions deny errors when deny is unavailable", async () => {
+  it("cc thread interactions deny errors when deny is unavailable", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-cancel",
@@ -788,7 +788,7 @@ describe("bb thread interactions command output", () => {
     );
   });
 
-  it("bb thread interactions approve resolves file-change approvals without granting extra permissions", async () => {
+  it("cc thread interactions approve resolves file-change approvals without granting extra permissions", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-file-change",
@@ -843,7 +843,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions grant resolves permission requests", async () => {
+  it("cc thread interactions grant resolves permission requests", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-permission-grant",
@@ -914,7 +914,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions grant builds a semantic turn-scoped resolution from server interaction data", async () => {
+  it("cc thread interactions grant builds a semantic turn-scoped resolution from server interaction data", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-claude-permission-grant",
@@ -987,7 +987,7 @@ describe("bb thread interactions command output", () => {
     ]);
   });
 
-  it("bb thread interactions deny resolves permission requests as denied", async () => {
+  it("cc thread interactions deny resolves permission requests as denied", async () => {
     const getInteraction = vi.fn(async () =>
       fixtures.makePendingInteraction({
         id: "int-permission-deny",

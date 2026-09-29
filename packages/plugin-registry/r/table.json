@@ -3,9 +3,9 @@
   "name": "table",
   "type": "registry:ui",
   "title": "table",
-  "description": "BB ui \"table\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"table\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@cc/utils"
   ],
   "files": [
     {

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Move bb's built-in sidebar thread list out of `apps/app` and into a bundled
+Move cc's built-in sidebar thread list out of `apps/app` and into a bundled
 first-party plugin that registers `app.slots.experimental_threadList`. The
 plugin must reproduce the current list feature for feature: Pinned and Threads
 sections, named collapsible sections, nested child threads, environment and
@@ -11,13 +11,13 @@ hide-from-list, windowing, keyboard shortcuts, and mobile behavior.
 
 Every capability the built-in list needs that a third-party list could not
 reach today becomes public plugin API, so a third party could build the same
-list. The plugin uses only `@get-bb/plugin-sdk/app`, `@bb/shared-ui`, and
+list. The plugin uses only `@codythatsme/plugin-sdk/app`, `@cc/shared-ui`, and
 bundled workspace packages, never `@/` app internals.
 
 ## Decisions taken (2026-09-21)
 
 - Sections get first-class read API: the section list rides on the sidebar
-  threads state. Section CRUD and thread moves are bb SDK calls (they already
+  threads state. Section CRUD and thread moves are cc SDK calls (they already
   have routes, CLI commands, and realtime fan-out), made from the plugin
   frontend through the per-plugin client from `useSdk()` (1g) rather than
   wrapped one by
@@ -25,7 +25,7 @@ bundled workspace packages, never `@/` app internals.
 - Organization state (organization mode, sort, section orders, hidden groups,
   collapsed ids) moves off the closed `sidebar.*` UI preference enum and onto
   the plugin's own KV storage, reached from the frontend through the plugin's
-  RPC and kept live across clients with `bb.realtime`. No new preference API.
+  RPC and kept live across clients with `cc.realtime`. No new preference API.
 - The `PluginSidebarThread` DTO stays a curated copy of `ThreadListEntry`, and
   the missing columns are added rather than exposing the internal row type.
 - Data layer stays on React Query (decision 2026-09-21 after evaluating
@@ -62,7 +62,7 @@ bundled workspace packages, never `@/` app internals.
 Owner decision (2026-09-21): the built-in list is deleted outright. There is
 no second list kept around for crashes or a disabled plugin.
 
-`PluginReplacementSlot` currently renders `original` (bb's list) when no
+`PluginReplacementSlot` currently renders `original` (cc's list) when no
 provider is registered, when the pinned provider is unavailable, and when a
 plugin crashes. For the thread-list slot `original` becomes a host-owned
 `ThreadListPlaceholder` with three states:
@@ -136,18 +136,18 @@ the mapper test and the DTO scope item in the audit entry.
 `data.sections` from the same `useSidebarNavigation()` query, so no extra
 request. Memoize per section object like threads.
 
-### 1c. Mutations go through the bb SDK, not new host actions
+### 1c. Mutations go through the cc SDK, not new host actions
 
 Every mutation the list performs is already a public API call with a CLI
 command and realtime fan-out, so the host does not need to wrap it:
 
 | Operation | SDK call | CLI |
 |---|---|---|
-| create, rename, delete section | `threadSections.create/update/delete` | `bb thread section create/update/delete` |
-| move to section, nest, detach | `threads.update({ sectionId, parentThreadId })` | `bb thread update` |
-| pin, unpin, reorder pinned | `threads.pin/unpin/reorderPinned` | `bb thread pin ...` |
-| unarchive | `threads.unarchive` | `bb thread unarchive` |
-| rename environment, archive its threads | `environments.update/archiveThreads` | `bb environment ...` |
+| create, rename, delete section | `threadSections.create/update/delete` | `cc thread section create/update/delete` |
+| move to section, nest, detach | `threads.update({ sectionId, parentThreadId })` | `cc thread update` |
+| pin, unpin, reorder pinned | `threads.pin/unpin/reorderPinned` | `cc thread pin ...` |
+| unarchive | `threads.unarchive` | `cc thread unarchive` |
+| rename environment, archive its threads | `environments.update/archiveThreads` | `cc environment ...` |
 
 `apps/server/src/routes/thread-sections.ts` passes the realtime hub into every
 section mutation, and thread updates fan out on the thread list channel, so
@@ -160,17 +160,17 @@ origin, so a plain `fetch("/api/v1/...")` carries the user's session;
 today. The app-surface header is optional: `apps/server/src/request-context.ts`
 defaults a missing header to the `api` surface, which only affects telemetry.
 
-What is missing is a typed client. `@bb/sdk/browser` (`createBrowserBbSdk`,
+What is missing is a typed client. `@cc/sdk/browser` (`createBrowserCcSdk`,
 used by `apps/app/src/lib/sdk.ts`) is workspace-private and not in the runtime
 shims, so third parties would hand-roll fetch calls, and the guide currently
-steers plugins toward a server-side RPC proxy into `bb.sdk`.
+steers plugins toward a server-side RPC proxy into `cc.sdk`.
 
-`@bb/sdk` is not published to npm and does not need to be. The backend
-already hands third parties `bb.sdk` by injecting the host's instance and
-inlining the `BbSdk` declarations into the published bundled types
+`@cc/sdk` is not published to npm and does not need to be. The backend
+already hands third parties `cc.sdk` by injecting the host's instance and
+inlining the `CcSdk` declarations into the published bundled types
 (`packages/plugin-sdk/scripts/build-bundled-dts.mjs`). The frontend uses the
 same mechanism; see 1g. The first-party plugin uses 1g rather than bundling
-`@bb/sdk`, so it exercises the public path.
+`@cc/sdk`, so it exercises the public path.
 
 What stays on `PluginSidebarThreadActions`, because it touches client-only
 state:
@@ -211,7 +211,7 @@ per thread id that clears when the DTO catches up.
 The host cannot fold draft and row-status into `indicator`, because both are
 per-client state read per row. The plugin composes them itself: the DTO's
 `indicator` plus the two row hooks, run through `resolveThreadListIndicator`
-from `@bb/client-core`. Document that composition in the guide.
+from `@cc/client-core`. Document that composition in the guide.
 
 ### 1e. Title rendering
 
@@ -235,12 +235,12 @@ Titles carry `@project:`, `@section:`, and `@thread:` mentions rendered by
 
 ### 1g. `useSdk()`
 
-Add `useSdk(): PluginBrowserBbSdk` to `PluginSdkApp` and export it from
-`@get-bb/plugin-sdk/app` beside `useRpc`. The host implementation in
+Add `useSdk(): PluginBrowserCcSdk` to `PluginSdkApp` and export it from
+`@codythatsme/plugin-sdk/app` beside `useRpc`. The host implementation in
 `apps/app/src/lib/plugin-sdk-hooks.ts` reads `usePluginId()` from the plugin
 boundary context exactly as `useRpc` does, and memoizes one client per plugin
 id: the app's `sdk` instance from `apps/app/src/lib/sdk.ts` (session plus
-app-surface header) with the same narrowing the backend `PluginBbSdk`
+app-surface header) with the same narrowing the backend `PluginCcSdk`
 applies, so `threads.spawn` stamps `origin: "plugin"` and `originPluginId`,
 and the plugin-metadata calls default `pluginId`. No collector change and no
 module-scope variable; callbacks created inside components and hooks
@@ -254,9 +254,9 @@ function ThreadList(props: PluginThreadListProps) {
 }
 ```
 
-The bundled-types build inlines the `@bb/sdk/browser` declarations into
-`bb-plugin-sdk-app.d.ts` exactly as it does for the backend `bb.sdk`, so no
-npm publish of `@bb/sdk` is needed. The testing harness in
+The bundled-types build inlines the `@cc/sdk/browser` declarations into
+`cc-plugin-sdk-app.d.ts` exactly as it does for the backend `cc.sdk`, so no
+npm publish of `@cc/sdk` is needed. The testing harness in
 `packages/plugin-sdk/src/testing/app.tsx` provides a recording fake per
 `renderSlot` mount, matching how the other hooks are faked, so tests assert
 calls through `inspection`. This is the one member that unblocks every
@@ -265,17 +265,17 @@ mutation in 1c.
 ## Phase 2: plugin scaffolding and state
 
 Create `plugins/thread-list/` following `plugins/drafts/` (manifest in
-`package.json` under `bb`, `server.ts`, `app.tsx`, `vitest.config.ts`,
-`prepare:bundled`). Add it to `plugins/bb-official.json`.
+`package.json` under `cc`, `server.ts`, `app.tsx`, `vitest.config.ts`,
+`prepare:bundled`). Add it to `plugins/cc-official.json`.
 
-Dependencies: `@bb/shared-ui` and `@bb/client-core` as bundled workspace
-packages (not `@bb/sdk`; the plugin reaches the API through 1g), `@dnd-kit/*` for drag-and-drop, `react`, `sonner`,
+Dependencies: `@cc/shared-ui` and `@cc/client-core` as bundled workspace
+packages (not `@cc/sdk`; the plugin reaches the API through 1g), `@dnd-kit/*` for drag-and-drop, `react`, `sonner`,
 `@radix-ui/react-*` menu packages (shimmed at runtime per
 `packages/plugin-build/src/runtime-shims.mjs`).
 
 ### Organization state
 
-`server.ts` stores one JSON document per preference in `bb.storage.kv` with
+`server.ts` stores one JSON document per preference in `cc.storage.kv` with
 keys matching today's names minus the prefix (`organizationMode`,
 `chronologicalSort`, `sortDirection`, `sectionOrder`, `manualSectionOrder`,
 `machineSectionOrder`, `hiddenGroups`, `collapsedSections`,
@@ -287,19 +287,19 @@ RPC: `preferences.list()` and `preferences.set({ key, value })`. Every write
 publishes `{ key, value }` on a `preferences` realtime channel. The frontend
 keeps a jotai-free local store: `useSyncExternalStore` over a module map,
 hydrated from `preferences.list()`, patched by `useRealtime("preferences")`,
-mirrored to `localStorage` under `bb.thread-list.preferences` for first paint,
+mirrored to `localStorage` under `cc.thread-list.preferences` for first paint,
 and written back through a debounced scheduler so a collapse toggle burst is
 one RPC call.
 
 Migration: on first server start with no KV rows, the plugin copies the
 current values from the `sidebar.*` UI preferences through
-`bb.sdk.system.uiPreferences` and marks migration done. Leave the `sidebar.*`
+`cc.sdk.system.uiPreferences` and marks migration done. Leave the `sidebar.*`
 keys in place for one release, then remove the thirteen list-specific keys
 from `UI_PREFERENCE_KEYS`, keeping `sidebar.threadListProvider`,
 `sidebar.navigationProvider`, `sidebar.pluginPanelOrder`, and the footer keys.
 
-CLI: register `bb thread-list prefs list` and `bb thread-list prefs set <key>
-<value>` through `bb.cli` so the settings remain scriptable. Update
+CLI: register `cc thread-list prefs list` and `cc thread-list prefs set <key>
+<value>` through `cc.cli` so the settings remain scriptable. Update
 `apps/cli/src/commands/settings.ts` help text and
 `docs/cli-guide-and-skill.md` once the `sidebar.*` keys are removed.
 
@@ -311,17 +311,17 @@ Work in vertical slices, each landing with its tests moved from
 1. Flat rows: `ThreadRow` with indicator glyph, split mini-map via
    `experimental_useSidebarThreadSplit`, cmd-click split, draft and row-status
    hooks, shortcut pill, hover actions, context and dropdown menus through
-   vendored `@bb/shared-ui` menus, copy link, mark read, pin, rename, archive,
+   vendored `@cc/shared-ui` menus, copy link, mark read, pin, rename, archive,
    delete. The DOM contract (`data-sidebar-thread-shortcut-target`,
    `data-sidebar-thread-id`, `data-sidebar-windowed-nav`) stays.
 2. Trees: child nesting with `SidebarChildToggleChevron`, guide lines, sticky
    parent tiers, cross-project glyph, collapsed-child activity rollups from
    `getCollapsedChildActivity`.
 3. Grouping: pinned, threads, named sections, project mode, machine mode,
-   by-environment groups, all from `@bb/client-core` builders. Hidden groups
+   by-environment groups, all from `@cc/client-core` builders. Hidden groups
    and the More popover. Empty and loading states, the `Threads unavailable`
    state, progressive disclosure behind the experiment flag (read through
-   `useRpc` from `bb.sdk.system.config`, or drop the experiment).
+   `useRpc` from `cc.sdk.system.config`, or drop the experiment).
 4. Header menu: New project, New section, Organize submenu, Sort submenu,
    section rename and delete, hide and customize. Compact viewport paged
    drawer behavior.
@@ -333,7 +333,7 @@ Work in vertical slices, each landing with its tests moved from
    pinned reorder. All commits are SDK calls per Phase 1c.
 7. Windowing: port `SidebarWindowedItems` as-is; the scroll root becomes
    `element.closest('[data-sidebar="content"]')`.
-8. Auto-reveal: port `useSidebarThreadReveal`, driven by `useBbContext()` for
+8. Auto-reveal: port `useSidebarThreadReveal`, driven by `useCcContext()` for
    the routed thread and by `isUnread` transitions in the threads state.
 9. Mobile: `onNavigate` after every open, drawer menus, coarse-pointer sizing,
    split disabled on compact.
@@ -381,7 +381,7 @@ plugin instead.
   useSidebarThreads entry's items 1, 5.
 - `packages/plugin-api-map/src/surfaces.ts` and the anatomy manifest.
 - Plugin Guide references under
-  `plugins/bb-guide/skills/bb-plugin-authoring/references/frontend-registration.md`;
+  `plugins/cc-guide/skills/cc-plugin-authoring/references/frontend-registration.md`;
   `apps/server/test/services/plugins/plugin-authoring-docs.test.ts` enforces
   parity.
 - `docs/plugin-sidebar-thread-list.md`: fix the stale `archive` and `delete`
@@ -397,7 +397,7 @@ through `updateCachedThreadListStatusState`, one membership refetch that
 changes 50 rows, and one pin (median of 5). Run with:
 
 ```
-cd apps/app && BB_SIDEBAR_BENCH=1 pnpm exec vitest run src/components/sidebar/sidebar.bench.test.tsx
+cd apps/app && CC_SIDEBAR_BENCH=1 pnpm exec vitest run src/components/sidebar/sidebar.bench.test.tsx
 ```
 
 Both lists run through the same harness (the plugin mounted through
@@ -422,8 +422,8 @@ in the desktop app with the React profiler covers layout.
 Verification per phase:
 
 ```
-pnpm exec turbo run typecheck --filter=@get-bb/plugin-sdk --filter=@bb/app --filter=bb-plugin-thread-list
-pnpm exec turbo run test --filter=@bb/app --filter=bb-plugin-thread-list --filter=@get-bb/plugin-sdk
+pnpm exec turbo run typecheck --filter=@codythatsme/plugin-sdk --filter=@cc/app --filter=cc-plugin-thread-list
+pnpm exec turbo run test --filter=@cc/app --filter=cc-plugin-thread-list --filter=@codythatsme/plugin-sdk
 ```
 
 Manual pass on the running app for each Phase 3 slice: chronological mode
@@ -436,14 +436,14 @@ survived.
 
 The new member should not ship with one consumer. These first-party
 frontends reach the public API today by raw fetch or by a server RPC that is
-a pure pass-through to `bb.sdk`; each becomes a direct call.
+a pure pass-through to `cc.sdk`; each becomes a direct call.
 
 | Plugin | Today | After |
 |---|---|---|
 | `plugins/plugin-api-docs/app.tsx:61` | `fetch("/api/v1/plugins")` and `fetch("/api/v1/plugin-catalog/search?q=")` with hand-parsed bodies | `sdk.plugins.list()` and `sdk.plugins.catalog.search({ q: "" })` |
-| `plugins/side-chat/server.ts:126` `sendToMain` | RPC wrapping `bb.sdk.threads.queuedMessages.create` | frontend calls `sdk.threads.queuedMessages.create` directly; `createSideChat` stays server-side (fork plus KV bookkeeping) |
-| `plugins/theme-preview/server.ts:622` `themeCatalog`, `setTheme` | RPC wrapping `bb.sdk.theme.catalog` and `bb.sdk.theme.set` | frontend calls `sdk.theme.*`; check what `catalogLoader` adds beyond caching before removing it |
-| Plugin Guide `experimental_NewThreadComposer` example (`frontend-components.md:276-310`) | forward the request to an RPC that calls `bb.sdk.threads.spawn` | `sdk.threads.spawn(request)` from `onSubmit`; the bound client stamps the plugin origin |
+| `plugins/side-chat/server.ts:126` `sendToMain` | RPC wrapping `cc.sdk.threads.queuedMessages.create` | frontend calls `sdk.threads.queuedMessages.create` directly; `createSideChat` stays server-side (fork plus KV bookkeeping) |
+| `plugins/theme-preview/server.ts:622` `themeCatalog`, `setTheme` | RPC wrapping `cc.sdk.theme.catalog` and `cc.sdk.theme.set` | frontend calls `sdk.theme.*`; check what `catalogLoader` adds beyond caching before removing it |
+| Plugin Guide `experimental_NewThreadComposer` example (`frontend-components.md:276-310`) | forward the request to an RPC that calls `cc.sdk.threads.spawn` | `sdk.threads.spawn(request)` from `onSubmit`; the bound client stamps the plugin origin |
 
 Stay server-side, because the RPC does real work the browser must not or
 cannot: `monaco-editor` (path confinement in `resolveTarget`), `docs`,
@@ -455,7 +455,7 @@ environment providers.
 Each migration is its own small PR after 1g lands, and each deletes the
 RPC method it replaces along with its contract entry and tests. Update
 `frontend-hooks-and-ui.md` to name `useSdk()` as the first choice for
-reading and mutating bb state from a frontend, with the server RPC reserved
+reading and mutating cc state from a frontend, with the server RPC reserved
 for work that needs secrets or host files.
 
 ## Open questions

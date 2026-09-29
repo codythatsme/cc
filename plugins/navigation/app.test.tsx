@@ -6,8 +6,8 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import type {
   ExperimentalSidebarNavigationItem,
   ExperimentalSidebarNavigationProps,
-} from "@get-bb/plugin-sdk/app";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 import { useSidebarReorderDnd } from "./app/ui/useSidebarReorderDnd.js";
 
 vi.mock("./app/ui/useSidebarReorderDnd.js", async (importOriginal) => {
@@ -67,7 +67,7 @@ function panelItem(
 
 const ITEMS = [
   hostItem(
-    "__bb__/new-thread",
+    "__cc__/new-thread",
     "New thread",
     { kind: "new-thread" },
     {
@@ -75,7 +75,7 @@ const ITEMS = [
     },
   ),
   hostItem(
-    "__bb__/search-threads",
+    "__cc__/search-threads",
     "Search threads",
     { kind: "search-threads" },
     { isVisible: false },
@@ -84,7 +84,7 @@ const ITEMS = [
   panelItem("tasks", "board", "Tasks", {
     experimental_Accessory: () => <span>7</span>,
   }),
-  hostItem("__bb__/skills", "Skills", { kind: "open-skills" }),
+  hostItem("__cc__/skills", "Skills", { kind: "open-skills" }),
 ];
 
 const PROPS: ExperimentalSidebarNavigationProps = {
@@ -119,10 +119,10 @@ describe("navigation plugin", () => {
     renderNavigation();
 
     expect(rowOrder()).toEqual([
-      "__bb__/new-thread",
+      "__cc__/new-thread",
       "docs/main",
       "tasks/board",
-      "__bb__/skills",
+      "__cc__/skills",
     ]);
     expect(
       screen.getByRole("button", { name: "More sidebar navigation" }),
@@ -133,9 +133,9 @@ describe("navigation plugin", () => {
     expect(screen.getByText("7")).toBeDefined();
   });
 
-  it("does not mark New thread as the current page, like bb's rows", () => {
+  it("does not mark New thread as the current page, like cc's rows", () => {
     renderSlot(registration!, PROPS, {
-      sidebarNavigation: { items: ITEMS, activeItemId: "__bb__/new-thread" },
+      sidebarNavigation: { items: ITEMS, activeItemId: "__cc__/new-thread" },
     });
 
     expect(
@@ -155,11 +155,11 @@ describe("navigation plugin", () => {
 
     expect(view.inspection.sidebarNavigationCalls).toEqual([
       { method: "activate", itemId: "docs/main", openInSplit: true },
-      { method: "activate", itemId: "__bb__/skills", openInSplit: false },
+      { method: "activate", itemId: "__cc__/skills", openInSplit: false },
     ]);
   });
 
-  it("hides a panel and opens bb's editor from the row menu", async () => {
+  it("hides a panel and opens cc's editor from the row menu", async () => {
     const view = renderNavigation();
 
     fireEvent.contextMenu(screen.getByRole("button", { name: "Docs" }));
@@ -206,7 +206,7 @@ describe("navigation plugin", () => {
     );
 
     expect(view.inspection.sidebarNavigationCalls).toEqual([
-      { method: "setVisible", itemId: "__bb__/skills", isVisible: false },
+      { method: "setVisible", itemId: "__cc__/skills", isVisible: false },
       { method: "openCustomize" },
     ]);
   });
@@ -265,11 +265,11 @@ describe("navigation plugin", () => {
       {
         method: "setOrder",
         itemIds: [
-          "__bb__/new-thread",
-          "__bb__/search-threads",
+          "__cc__/new-thread",
+          "__cc__/search-threads",
           "tasks/board",
           "docs/main",
-          "__bb__/skills",
+          "__cc__/skills",
         ],
       },
     ]);

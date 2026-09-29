@@ -2,7 +2,7 @@ import type {
   DesktopBrowserImportFailureReason,
   DesktopBrowserImportOutcome,
   DesktopBrowserImportSource,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 
 export interface BrowserImportRecord {
   at: number;
@@ -16,7 +16,7 @@ export type BrowserImportRecords = Readonly<
   Partial<Record<DesktopBrowserImportSource["id"], BrowserImportRecord>>
 >;
 
-export const BROWSER_IMPORT_RECORDS_STORAGE_KEY = "bb:browser-import:records";
+export const BROWSER_IMPORT_RECORDS_STORAGE_KEY = "cc:browser-import:records";
 
 export function readBrowserImportRecords(
   storage: Pick<Storage, "getItem"> | null,

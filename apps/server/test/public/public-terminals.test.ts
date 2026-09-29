@@ -6,13 +6,13 @@ import {
   listTerminalSessions,
   updateTerminalSession,
   updateTerminalSessions,
-} from "@bb/db";
-import type { EnvironmentStatus, TerminalSessionCloseReason } from "@bb/domain";
+} from "@cc/db";
+import type { EnvironmentStatus, TerminalSessionCloseReason } from "@cc/domain";
 import {
   hostDaemonOnlineRpcResponseMessageSchema,
   hostDaemonServerWsMessageSchema,
   type HostDaemonServerWsMessage,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import {
   apiErrorSchema,
   terminalListResponseSchema,
@@ -20,7 +20,7 @@ import {
   terminalOutputResponseSchema,
   type TerminalServerMessage,
   terminalSessionSchema,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readJson } from "../helpers/json.js";
 import {
@@ -718,7 +718,7 @@ describe("public terminal routes", () => {
       kind: "host_path",
       cwd: null,
     });
-    acknowledgeTerminalOpen(fixture, openMessage, "/home/bb");
+    acknowledgeTerminalOpen(fixture, openMessage, "/home/cc");
 
     const response = await responsePromise;
     expect(response.status).toBe(201);
@@ -726,7 +726,7 @@ describe("public terminal routes", () => {
       {
         environmentId: null,
         hostId: fixture.host.id,
-        initialCwd: "/home/bb",
+        initialCwd: "/home/cc",
         threadId: null,
         status: "running",
       },

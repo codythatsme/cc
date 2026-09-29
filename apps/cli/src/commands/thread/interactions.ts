@@ -7,7 +7,7 @@ import {
   formatPendingInteractionSummary,
   formatPendingInteractionUserQuestionOptionLabel,
   summarizePendingInteractionRequestedPermissions,
-} from "@bb/core-ui";
+} from "@cc/core-ui";
 import {
   isApprovalPendingInteraction,
   isApprovalPendingInteractionPayload,
@@ -30,9 +30,9 @@ import {
   PendingInteractionResolution,
   type UserQuestionPendingInteraction,
   type UserQuestionPendingInteractionPayload,
-} from "@bb/domain";
+} from "@cc/domain";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliCcSdk } from "../../client.js";
 import { printBorderlessTable } from "../../table.js";
 import {
   collectOption,
@@ -338,14 +338,14 @@ function printPluginRequestInteraction(
   );
   console.log(`  Data: ${JSON.stringify(interaction.payload.data)}`);
   console.log(
-    "  Answer: bb thread interactions respond <interactionId> --value '<json>'",
+    "  Answer: cc thread interactions respond <interactionId> --value '<json>'",
   );
 }
 
 async function fetchInteraction(
   args: FetchInteractionArgs,
 ): Promise<PendingInteraction> {
-  const sdk = createCliBbSdk(args.getUrl());
+  const sdk = createCliCcSdk(args.getUrl());
   return sdk.threads.interactions.get({
     interactionId: args.interactionId,
     threadId: args.threadId,
@@ -559,7 +559,7 @@ async function resolveInteraction(args: ResolveInteractionArgs): Promise<void> {
     threadId: args.threadId,
   });
   const resolution = args.buildResolution(interaction);
-  const sdk = createCliBbSdk(args.getUrl());
+  const sdk = createCliCcSdk(args.getUrl());
   const updated = await sdk.threads.interactions
     .resolve({
       interactionId: args.interactionId,
@@ -621,7 +621,7 @@ function buildBinaryResolution(
     approvalInteraction.payload.subject.kind === "permission_grant"
   ) {
     throw new Error(
-      `Interaction ${interaction.id} is a permission grant; use bb thread interactions grant.`,
+      `Interaction ${interaction.id} is a permission grant; use cc thread interactions grant.`,
     );
   }
   const decision = pickApprovalDecision(approvalInteraction, action);
@@ -688,7 +688,7 @@ function registerBinaryResolutionCommand(
   interactions
     .command(`${name} <interactionId> [id]`)
     .description(description)
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -724,7 +724,7 @@ export function registerInteractionCommands(
   interactions
     .command("list [id]")
     .description("List interactions for a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -733,7 +733,7 @@ export function registerInteractionCommands(
           opts: ThreadInteractionTargetOptions,
         ) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
 
           const items = await sdk.threads.interactions.list({
             threadId,
@@ -767,7 +767,7 @@ export function registerInteractionCommands(
   interactions
     .command("show <interactionId> [id]")
     .description("Show an interaction")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -801,7 +801,7 @@ export function registerInteractionCommands(
   interactions
     .command("grant <interactionId> [id]")
     .description("Grant a permission interaction")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option("--scope <scope>", "Grant scope: turn or session")
     .action(
@@ -830,7 +830,7 @@ export function registerInteractionCommands(
   interactions
     .command("answer <interactionId> [id]")
     .description("Answer a user-question interaction")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option(
       "--choice <questionId=value>",
@@ -875,7 +875,7 @@ export function registerInteractionCommands(
     .description(
       "Answer a plugin form (a plugin's request or a provider's plugin-defined request) with a JSON value",
     )
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .requiredOption(
       "--value <json>",
@@ -890,7 +890,7 @@ export function registerInteractionCommands(
         ) => {
           const threadId = requireThreadIdOrSelf(id, opts);
           const value = parseRespondValue(opts.value);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           const updated = await sdk.threads.interactions
             .respond({ interactionId, threadId, value })
             .catch((error: unknown) => {

@@ -13,9 +13,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadDetailHeader } from "./ThreadDetailHeader";
 import { PaneContext, type PaneContextValue } from "./PaneContext";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import { sdk } from "@/lib/sdk";
-import { createBbDesktopApi } from "@/test/bb-desktop-test-utils";
+import { createCcDesktopApi } from "@/test/cc-desktop-test-utils";
 
 const mocks = vi.hoisted(() => ({
   renameThreadAsync: vi.fn(),
@@ -52,7 +52,7 @@ vi.mock("@/components/layout/AppPageHeader", () => ({
 
 const viewportState = vi.hoisted(() => ({ isCompactViewport: false }));
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@cc/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => viewportState.isCompactViewport,
 }));
 
@@ -79,7 +79,7 @@ afterEach(() => {
   mocks.renameThreadAsync.mockReset();
   vi.restoreAllMocks();
   window.localStorage.clear();
-  delete window.bbDesktop;
+  delete window.ccDesktop;
 });
 
 describe("ThreadDetailHeader", () => {
@@ -630,7 +630,7 @@ describe("ThreadDetailHeader", () => {
   });
 
   it("keeps the header title out of the macOS window-drag region so double click renames", async () => {
-    window.bbDesktop = createBbDesktopApi({
+    window.ccDesktop = createCcDesktopApi({
       lastCheckedAt: null,
       latestVersion: null,
       pendingVersion: null,

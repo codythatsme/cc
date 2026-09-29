@@ -11,7 +11,7 @@ describe("isJsonInvocation", () => {
     [["thread", "tell", "thr_1", "please use --json"], false],
   ];
   it.each(cases)("%j → %s", (args, expected) => {
-    expect(isJsonInvocation(["node", "bb", ...args])).toBe(expected);
+    expect(isJsonInvocation(["node", "cc", ...args])).toBe(expected);
   });
 });
 
@@ -22,7 +22,7 @@ describe("toCliErrorEnvelope", () => {
     ).toEqual({ ok: false, error: { code: "error", message: "boom" } });
   });
 
-  it("carries the hint when bb knows the fix", () => {
+  it("carries the hint when cc knows the fix", () => {
     expect(
       toCliErrorEnvelope({
         code: "missing_required",

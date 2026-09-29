@@ -47,7 +47,7 @@ Migration `0006_account_link_and_ai_usage.sql` rebuilds `connect_code` so
 `ai_usage_day` and `ai_request_log`. Every change is
 additive for the current workers: existing pairing codes keep their owner and
 nothing reads the new tables yet. Apply it before deploying the web worker that
-serves `/api/account/*` or the `bb-ai-gateway` worker.
+serves `/api/account/*` or the `cc-ai-gateway` worker.
 
 On a merge to `main`, `deploy-web.yml` and `deploy-connect.yml` each apply
 pending migrations before their deploy and share the `connect-db-deploy`
@@ -56,7 +56,7 @@ concurrency group, so a migration lands once before either worker ships.
 `ai-gateway-deploy` group: GitHub keeps only one pending run per group, so a
 third workflow in the shared group would cancel one of the other deploys.
 The gateway can therefore deploy before a new migration is applied. Until a
-bb release calls the gateway this is harmless; after that, land a migration
+cc release calls the gateway this is harmless; after that, land a migration
 the gateway needs in an earlier merge than the gateway change that reads it.
 The gateway workflow uploads `OPENROUTER_API_KEY` from the repository's
 Actions secrets with every deploy; add that secret before the first merge, or

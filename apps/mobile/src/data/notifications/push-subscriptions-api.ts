@@ -1,4 +1,4 @@
-import { BbHttpError, createBrowserBbSdk } from "@bb/sdk/browser";
+import { CcHttpError, createBrowserCcSdk } from "@cc/sdk/browser";
 import { z } from "zod";
 import {
   pushSubscriptionsAddOutputSchema,
@@ -63,7 +63,7 @@ function isDisabledPluginMessage(message: string): boolean {
 }
 
 function mapRpcError(error: unknown): Error {
-  if (!(error instanceof BbHttpError)) {
+  if (!(error instanceof CcHttpError)) {
     return error instanceof Error ? error : new Error(String(error));
   }
   const failure = rpcFailureSchema.safeParse(error.body);
@@ -100,13 +100,13 @@ export interface PushSubscriptionsApi {
 export function createPushSubscriptionsApi(
   fetchImpl: typeof fetch,
 ): PushSubscriptionsApi {
-  const clients = new Map<string, ReturnType<typeof createBrowserBbSdk>>();
+  const clients = new Map<string, ReturnType<typeof createBrowserCcSdk>>();
 
   function sdkFor(serverUrl: string) {
     const key = serverUrl.replace(/\/+$/u, "");
     let sdk = clients.get(key);
     if (!sdk) {
-      sdk = createBrowserBbSdk({ baseUrl: key, fetch: fetchImpl });
+      sdk = createBrowserCcSdk({ baseUrl: key, fetch: fetchImpl });
       clients.set(key, sdk);
     }
     return sdk;

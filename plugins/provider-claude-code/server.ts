@@ -1,28 +1,28 @@
 import { registerUsageSource } from "./src/usage-source.js";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { CLAUDE_NATIVE_ROOTS_DECLARATION } from "./src/native-roots.js";
 
-export default function plugin(bb: BbPluginApi) {
-  registerUsageSource(bb);
-  bb.settings.define({
+export default function plugin(cc: CcPluginApi) {
+  registerUsageSource(cc);
+  cc.settings.define({
     memoryEnabled: {
       type: "boolean",
       label: "Claude Code memory",
       description:
-        "Allow Claude Code to read and write its native auto-memory for bb threads.",
+        "Allow Claude Code to read and write its native auto-memory for cc threads.",
       default: true,
     },
     subagentsDisabled: {
       type: "boolean",
       label: "Disable provider subagents",
       description:
-        "Hide Claude Code's native Task tool so agents use bb for delegation.",
+        "Hide Claude Code's native Task tool so agents use cc for delegation.",
       default: false,
     },
     workflowsDisabled: {
       type: "boolean",
       label: "Disable Workflow tool",
-      description: "Hide Claude Code's native Workflow tool for bb threads.",
+      description: "Hide Claude Code's native Workflow tool for cc threads.",
       default: false,
     },
     chromeEnabled: {
@@ -34,7 +34,7 @@ export default function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.providers.register({
+  cc.providers.register({
     id: "claude-code",
     displayName: "Claude Code",
     icon: "./icons/claude-code.svg",
@@ -83,7 +83,7 @@ export default function plugin(bb: BbPluginApi) {
     composerActions: ["plan"],
     completedTurnDisplay: "flat",
     env: {
-      passthrough: ["BB_CLAUDE_CODE_EXECUTABLE", "CLAUDE_CODE_OAUTH_TOKEN"],
+      passthrough: ["CC_CLAUDE_CODE_EXECUTABLE", "CLAUDE_CODE_OAUTH_TOKEN"],
     },
     models: { scope: "host" },
     deriveProviderOptions(context) {

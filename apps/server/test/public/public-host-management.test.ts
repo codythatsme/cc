@@ -9,15 +9,15 @@ import {
   listStoredTurnCompletedKeys,
   replaceStoredProviderModelCatalog,
   updateHost,
-} from "@bb/db";
+} from "@cc/db";
 import {
   createHostJoinCodeResponseSchema,
   type CreateHostJoinCodeResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   hostDaemonSessionOpenResponseSchema,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -125,13 +125,13 @@ describe("public host management", () => {
       expect(prepared.command).toContain("https://relay.example.com/install.sh");
       expect(release).not.toHaveBeenCalled();
       const credentialOf = (command: string) =>
-        /X-BB-Enrollment: ([^']+)/u.exec(command)?.[1] ?? "";
+        /X-CC-Enrollment: ([^']+)/u.exec(command)?.[1] ?? "";
       const credential = credentialOf(prepared.command);
       expect(credential).toMatch(/^bbde_/u);
 
       const superseded = await harness.app.request("/install.sh", {
         headers: {
-          "X-BB-Enrollment": credentialOf(
+          "X-CC-Enrollment": credentialOf(
             ((await readJson(stale)) as { command: string }).command,
           ),
         },
@@ -140,13 +140,13 @@ describe("public host management", () => {
       expect(release).not.toHaveBeenCalled();
 
       const installer = await harness.app.request("/install.sh", {
-        headers: { "X-BB-Enrollment": credential },
+        headers: { "X-CC-Enrollment": credential },
       });
       expect(installer.status).toBe(200);
       const script = await installer.text();
-      expect(script).toContain("--bootstrap-env BB_ENROLLMENT");
+      expect(script).toContain("--bootstrap-env CC_ENROLLMENT");
       expect(script).toContain('"reconnect":true');
-      expect(script).toContain(`"dataDir":"/tmp/bb-host-data/${host.id}"`);
+      expect(script).toContain(`"dataDir":"/tmp/cc-host-data/${host.id}"`);
       expect(script).toContain("new-access");
       expect(script).not.toContain("old-access");
       expect(release).toHaveBeenCalledOnce();
@@ -166,7 +166,7 @@ describe("public host management", () => {
         destroyedAt: null,
       });
       const reused = await harness.app.request("/install.sh", {
-        headers: { "X-BB-Enrollment": credential },
+        headers: { "X-CC-Enrollment": credential },
       });
       expect(reused.status).toBe(403);
       expect(reused.headers.get("content-type")).toContain("text/x-shellscript");
@@ -247,8 +247,8 @@ describe("public host management", () => {
           headers: {
             authorization: `Bearer ${issued.joinCode}`,
             "content-type": "application/json",
-            "x-bb-gate-auth": "machine",
-            "x-bb-gate-machine-id": "machine-cloud-1",
+            "x-cc-gate-auth": "machine",
+            "x-cc-gate-machine-id": "machine-cloud-1",
           },
           body: JSON.stringify({
             hostId: issued.hostId,
@@ -285,12 +285,12 @@ describe("public host management", () => {
           headers: {
             authorization: `Bearer ${enrolled.hostKey}`,
             "content-type": "application/json",
-            "x-bb-gate-auth": "machine",
-            "x-bb-gate-machine-id": "machine-cloud-2",
+            "x-cc-gate-auth": "machine",
+            "x-cc-gate-machine-id": "machine-cloud-2",
           },
           body: JSON.stringify({
             activeThreads: [],
-            dataDir: "/tmp/remote-bb",
+            dataDir: "/tmp/remote-cc",
             hasMachineCredential: true,
             hostId: issued.hostId,
             hostName: "Build Machine",
@@ -333,8 +333,8 @@ describe("public host management", () => {
         headers: {
           authorization: `Bearer ${issued.joinCode}`,
           "content-type": "application/json",
-          "x-bb-gate-auth": "machine",
-          "x-bb-gate-machine-id": "machine-authenticated",
+          "x-cc-gate-auth": "machine",
+          "x-cc-gate-machine-id": "machine-authenticated",
         },
         body: JSON.stringify({
           connectMachineId: "machine-forged",
@@ -358,7 +358,7 @@ describe("public host management", () => {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "x-bb-gate-auth": "machine",
+            "x-cc-gate-auth": "machine",
           },
           body: JSON.stringify({}),
         }),
@@ -366,39 +366,39 @@ describe("public host management", () => {
           method: "PATCH",
           headers: {
             "content-type": "application/json",
-            "x-bb-gate-auth": "machine",
+            "x-cc-gate-auth": "machine",
           },
           body: JSON.stringify({ name: "forbidden" }),
         }),
         harness.app.request(`${API}/hosts/${host.id}`, {
           method: "DELETE",
-          headers: { "x-bb-gate-auth": "machine" },
+          headers: { "x-cc-gate-auth": "machine" },
         }),
         harness.app.request(`${API}/hosts/${host.id}/retry-update`, {
           method: "POST",
-          headers: { "x-bb-gate-auth": "machine" },
+          headers: { "x-cc-gate-auth": "machine" },
         }),
         harness.app.request(`${API}/hosts/${host.id}/reconnect-commands`, {
           method: "POST",
-          headers: { "x-bb-gate-auth": "machine" },
+          headers: { "x-cc-gate-auth": "machine" },
         }),
         harness.app.request(`${API}/hosts/${host.id}/suspend`, {
           method: "POST",
-          headers: { "x-bb-gate-auth": "machine" },
+          headers: { "x-cc-gate-auth": "machine" },
         }),
         harness.app.request(`${API}/hosts/${host.id}/resume`, {
           method: "POST",
-          headers: { "x-bb-gate-auth": "machine" },
+          headers: { "x-cc-gate-auth": "machine" },
         }),
         harness.app.request(`${API}/hosts/${host.id}/retry-cleanup`, {
           method: "POST",
-          headers: { "x-bb-gate-auth": "machine" },
+          headers: { "x-cc-gate-auth": "machine" },
         }),
         harness.app.request(`${API}/hosts/${host.id}/permission-ceiling`, {
           method: "PATCH",
           headers: {
             "content-type": "application/json",
-            "x-bb-gate-auth": "machine",
+            "x-cc-gate-auth": "machine",
           },
           body: JSON.stringify({ maxPermissionMode: "full" }),
         }),
@@ -452,7 +452,7 @@ describe("public host management", () => {
           method: "PATCH",
           headers: {
             "content-type": "application/json",
-            "x-bb-gate-auth": "session",
+            "x-cc-gate-auth": "session",
           },
           body: JSON.stringify({ maxPermissionMode: "accept-edits" }),
         },
@@ -475,7 +475,7 @@ describe("public host management", () => {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-bb-gate-auth": "session",
+          "x-cc-gate-auth": "session",
         },
         body: JSON.stringify({}),
       });

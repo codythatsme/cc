@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { ThreadListEntry, WorkspaceStatus } from "@bb/domain";
+import type { ThreadListEntry, WorkspaceStatus } from "@cc/domain";
 import {
   makeWorkspaceMergeBase,
   makeWorkspaceStatus,
   makeWorkspaceWorkingTree,
-} from "@bb/test-helpers";
+} from "@cc/test-helpers";
 import type {
   EnvironmentDiffBranchesResponse,
   EnvironmentStatusResponse,
@@ -12,7 +12,7 @@ import type {
   SidebarBootstrapResponse,
   ThreadResponse,
   ThreadTimelineResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,
@@ -43,7 +43,7 @@ import {
 } from "./query-placeholders";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { HttpError } from "@/lib/api";
-import { BbHttpError } from "@/lib/sdk";
+import { CcHttpError } from "@/lib/sdk";
 import { isTransientReadError, requireEnabledQueryArg } from "./query-helpers";
 
 describe("requireEnabledQueryArg", () => {
@@ -90,7 +90,7 @@ describe("isTransientReadError", () => {
     ).toBe(false);
     expect(
       isTransientReadError(
-        new BbHttpError({
+        new CcHttpError({
           status: 404,
           message: "Not found",
           body: { error: "Not found" },

@@ -2,13 +2,13 @@ import {
   PERSONAL_PROJECT_ID,
   type ProjectSource,
   type ThreadListEntry,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ProjectWithThreadsResponse,
   SidebarBootstrapResponse,
   SystemEnvironmentProvider,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import type { ReuseThreadOption } from "@/components/pickers/ReuseEnvironmentPicker";
 import {
@@ -18,7 +18,7 @@ import {
   restorePromptDraftAfterOptionChange,
   type ResolveNewThreadSubmitDisabledReasonArgs,
 } from "@/components/promptbox/NewThreadComposer";
-import { getProjectStoredPromptAttachmentPaths } from "@bb/client-core";
+import { getProjectStoredPromptAttachmentPaths } from "@cc/client-core";
 import {
   buildRootComposeTerminalSessions,
   buildMobileRecentThreads,
@@ -34,7 +34,7 @@ import {
   shouldNavigateAfterThreadCreate,
 } from "./RootComposeView";
 import { resolveRootComposeProjectFileRouting } from "./RootComposePanelTabContent";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import {
   makeProjectWithThreadsResponse,
   makeSidebarBootstrapResponse,
@@ -523,9 +523,9 @@ describe("readInitialPromptFromLocationState", () => {
     expect(
       readInitialPromptFromLocationState({
         focusPrompt: true,
-        initialPrompt: "Create a new bb automation to ",
+        initialPrompt: "Create a new cc automation to ",
       }),
-    ).toBe("Create a new bb automation to ");
+    ).toBe("Create a new cc automation to ");
   });
 
   it("returns null when no usable initialPrompt is present", () => {
@@ -544,13 +544,13 @@ describe("shouldReplaceInitialPromptFromLocationState", () => {
   it("returns true only for explicit replacement seed intents", () => {
     expect(
       shouldReplaceInitialPromptFromLocationState({
-        initialPrompt: "Create a new bb skill to review PRs.",
+        initialPrompt: "Create a new cc skill to review PRs.",
         replaceInitialPrompt: true,
       }),
     ).toBe(true);
     expect(
       shouldReplaceInitialPromptFromLocationState({
-        initialPrompt: "Create a new bb skill to review PRs.",
+        initialPrompt: "Create a new cc skill to review PRs.",
       }),
     ).toBe(false);
     expect(shouldReplaceInitialPromptFromLocationState(null)).toBe(false);

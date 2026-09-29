@@ -1,8 +1,8 @@
-import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
+import { experimental_defineHostEntry } from "@codythatsme/plugin-sdk/host";
 import { readdir, rm } from "node:fs/promises";
-import { createHostProgress } from "bb-environment-provider-host/progress";
+import { createHostProgress } from "cc-environment-provider-host/progress";
 import { worktreeHostContract, worktreeHostSignals } from "./contract.js";
-import { readDefaultBranchRefs } from "bb-environment-provider-host/git";
+import { readDefaultBranchRefs } from "cc-environment-provider-host/git";
 import {
   resolveDefaultWorktreeBaseBranch,
   resolveWorktreeBaseBranch,

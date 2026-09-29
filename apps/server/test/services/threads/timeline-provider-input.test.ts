@@ -3,8 +3,8 @@ import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { Thread } from "@bb/domain";
+} from "@cc/domain";
+import type { Thread } from "@cc/domain";
 import {
   createConnection,
   createProject,
@@ -13,9 +13,9 @@ import {
   migrate,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import type { DbConnection } from "@bb/db";
-import type { TimelineRow } from "@bb/server-contract";
+} from "@cc/db";
+import type { DbConnection } from "@cc/db";
+import type { TimelineRow } from "@cc/server-contract";
 import { buildThreadTimelineWithProfile } from "../../../src/services/threads/timeline.js";
 
 const providerThreadId = "pi-thread-1";

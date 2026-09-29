@@ -1,12 +1,12 @@
 import { useEffect, useId, useState } from "react";
-import { formatServerDataSize, type Host } from "@bb/domain";
+import { formatServerDataSize, type Host } from "@cc/domain";
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckResponse,
   ServerMoveCheckSeverity,
-} from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Checkbox } from "@bb/shared-ui/checkbox";
+} from "@cc/server-contract";
+import { Button } from "@cc/shared-ui/button";
+import { Checkbox } from "@cc/shared-ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/dialog";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   useCheckServerMove,
   useStartServerMove,
@@ -376,7 +376,7 @@ function ServerAddressField({
           aria-describedby={hintId}
           className="min-w-0 flex-1"
           value={value}
-          placeholder="https://bb.example.com"
+          placeholder="https://cc.example.com"
           inputMode="url"
           autoCapitalize="off"
           autoCorrect="off"
@@ -490,10 +490,10 @@ function ArchiveExistingDataConfirmation({
       />
       <span className="min-w-0 flex-1">
         <span className="block text-sm break-words text-foreground">
-          Archive the existing bb data at {path}
+          Archive the existing cc data at {path}
         </span>
         <span className="block text-xs text-subtle-foreground">
-          {formatServerDataSize(sizeBytes)}. bb renames it to a backup folder
+          {formatServerDataSize(sizeBytes)}. cc renames it to a backup folder
           next to it and never merges it.
         </span>
       </span>

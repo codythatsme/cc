@@ -2,12 +2,12 @@ import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-qu
 import { usePluginCollectionParams } from "./usePluginCollectionParams";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Icon } from "@bb/shared-ui/icon";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@cc/shared-ui/icon";
 import { appToast } from "@/components/ui/app-toast";
-import bbLogoUrl from "../../../../../../assets/bb-logo.svg";
+import ccLogoUrl from "../../../../../../assets/cc-logo.svg";
 import { OpenPluginGuideButton } from "./OpenPluginGuideButton";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   ResourceCollectionViewport,
   ResourceListState,
@@ -15,7 +15,7 @@ import {
   ResourceSourceShelf,
   ResourceTabDescription,
   useResourceRouteLabel,
-} from "@bb/shared-ui/resource-list";
+} from "@cc/shared-ui/resource-list";
 import { BrowseArchetypeCards } from "@/components/plugin/browse-hero/BrowseArchetypeCards";
 import { BrowseHeroCarousel } from "@/components/plugin/browse-hero/BrowseHeroCarousel";
 import { nextComposerRequestNonce } from "@/components/plugin/browse-hero/browse-hero-archetypes";
@@ -350,10 +350,10 @@ function BrowseShelf({
       description={shelf.description}
       hideDescriptionOnMobile
       leading={
-        shelf.key === "collection:bb-official" ? (
+        shelf.key === "collection:cc-official" ? (
           <span
             className="size-4 shrink-0 bg-current text-foreground"
-            style={{ mask: `url(${bbLogoUrl}) center / contain no-repeat` }}
+            style={{ mask: `url(${ccLogoUrl}) center / contain no-repeat` }}
             aria-hidden
           />
         ) : shelf.key === "collection:new-and-notable" ? (

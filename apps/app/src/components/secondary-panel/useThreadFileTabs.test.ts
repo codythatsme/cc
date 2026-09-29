@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getActiveSecondaryPanelTab } from "@bb/client-core";
+import { getActiveSecondaryPanelTab } from "@cc/client-core";
 import { useFixedPanelTabsState } from "@/lib/fixed-panel-tabs";
 import {
   createBrowserFixedPanelTab,
@@ -1296,7 +1296,7 @@ describe("useThreadFileTabs file opener diversion", () => {
 
   it("honors a pinned built-in preference from the file search", () => {
     window.localStorage.setItem(
-      "bb.fileOpenerByExtension",
+      "cc.fileOpenerByExtension",
       JSON.stringify({ md: "__builtin__" }),
     );
     registerNotesOpener();
@@ -1350,7 +1350,7 @@ describe("useThreadFileTabs file opener diversion", () => {
 
   it("keeps the built-in preview when Settings pins it", () => {
     window.localStorage.setItem(
-      "bb.fileOpenerByExtension",
+      "cc.fileOpenerByExtension",
       JSON.stringify({ md: "__builtin__" }),
     );
     registerNotesOpener();

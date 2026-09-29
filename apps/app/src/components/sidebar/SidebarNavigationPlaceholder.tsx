@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { Button } from "@bb/shared-ui/button";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@cc/shared-ui/button";
+import { Skeleton } from "@cc/shared-ui/skeleton";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { createLastKnownCache } from "@/lib/last-known-cache";
 import { getPluginsRoutePath } from "@/lib/route-paths";
 
@@ -16,7 +16,7 @@ const LOADING_ROW_PITCH = 30;
 const LOADING_ROW_WIDTHS = ["w-1/2", "w-2/5", "w-1/3", "w-2/5", "w-1/2"];
 
 const heightCache = createLastKnownCache({
-  prefix: "bb.sidebar-navigation-height",
+  prefix: "cc.sidebar-navigation-height",
   version: "1",
   schema: z.number().int().nonnegative(),
   maxEntries: 8,

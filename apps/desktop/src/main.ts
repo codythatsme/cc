@@ -25,27 +25,27 @@ import { autoUpdater } from "electron-updater";
 import {
   APP_SURFACE_DESKTOP,
   APP_SURFACE_ENV_NAME,
-} from "@bb/config/app-surface";
-import { findMachineServiceFile } from "@bb/config/machine-service";
+} from "@cc/config/app-surface";
+import { findMachineServiceFile } from "@cc/config/machine-service";
 import {
   deriveConnectBaseUrl,
   type ConnectCredential,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 import {
   appCommandIdSchema,
   type AppCommandId,
   type AppKeybindings,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
-  bbDesktopBrowserImportCookiesRequestSchema,
-  bbDesktopThemeSchema,
-  type BbDesktopInfo,
-  type BbDesktopWindowState,
-} from "@bb/desktop-contract";
+  ccDesktopBrowserImportCookiesRequestSchema,
+  ccDesktopThemeSchema,
+  type CcDesktopInfo,
+  type CcDesktopWindowState,
+} from "@cc/desktop-contract";
 import {
   serverMessageLenientSchema,
   type ClientMessage,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { z } from "zod";
 import {
   assertPathExists,
@@ -61,11 +61,11 @@ import {
   runMachineInstaller,
 } from "./moved-machine-service.js";
 import {
-  resolveBbAppProcessRuntime,
-  type BbAppProcess,
-  type BbAppProcessExit,
-  startBbAppProcess,
-} from "./bb-process.js";
+  resolveCcAppProcessRuntime,
+  type CcAppProcess,
+  type CcAppProcessExit,
+  startCcAppProcess,
+} from "./cc-process.js";
 import { openExistingServerDialog } from "./existing-server-dialog.js";
 import {
   readForeignRuntimeDetails,
@@ -93,7 +93,7 @@ import {
   writeOwnedRuntimePidFile,
 } from "./owned-runtime-supervisor.js";
 import {
-  probeBbServer,
+  probeCcServer,
   waitForCompatibleServer,
   type CompatibleServerProbeResult,
   type ServerProbeResult,
@@ -104,7 +104,7 @@ import {
   createServerMovedWatcher,
   createServerMoveNoticeStore,
   ensureServerMovedRuntime,
-  hasLiveBbAppLauncher,
+  hasLiveCcAppLauncher,
   openServerMoveTarget,
   probeLocalServerMove,
   readServerMovedConnectCredential,
@@ -173,7 +173,7 @@ import {
 import { registerDesktopContextMenu } from "./desktop-context-menu.js";
 import {
   getDesktopVersion,
-  resolveBbDesktopPlatform,
+  resolveCcDesktopPlatform,
 } from "./desktop-platform.js";
 import { createDesktopUpdateService } from "./desktop-update-check.js";
 import {
@@ -192,25 +192,25 @@ import {
 } from "./desktop-auto-update.js";
 import { mergeDesktopUpdateInfo } from "./desktop-update-info.js";
 import {
-  BB_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
-  BB_DESKTOP_GET_INFO_CHANNEL,
-  BB_DESKTOP_INFO_CHANGED_CHANNEL,
-  BB_DESKTOP_INSTALL_UPDATE_CHANNEL,
-  BB_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
-  BB_DESKTOP_SET_THEME_CHANNEL,
-  BB_DESKTOP_ZOOM_COMMAND_CHANNEL,
+  CC_DESKTOP_CHECK_FOR_UPDATES_CHANNEL,
+  CC_DESKTOP_GET_INFO_CHANNEL,
+  CC_DESKTOP_INFO_CHANGED_CHANNEL,
+  CC_DESKTOP_INSTALL_UPDATE_CHANNEL,
+  CC_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
+  CC_DESKTOP_SET_THEME_CHANNEL,
+  CC_DESKTOP_ZOOM_COMMAND_CHANNEL,
 } from "./desktop-update-ipc.js";
 import {
-  BB_DESKTOP_APP_COMMAND_CHANNEL,
-  BB_DESKTOP_OPEN_WINDOW_FIND_CHANNEL,
-  BB_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
-  BB_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
-  BB_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
-  BB_DESKTOP_GET_WINDOW_STATE_CHANNEL,
-  BB_DESKTOP_OPEN_NEW_TAB_CHANNEL,
-  BB_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL,
-  BB_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
-  BB_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+  CC_DESKTOP_APP_COMMAND_CHANNEL,
+  CC_DESKTOP_OPEN_WINDOW_FIND_CHANNEL,
+  CC_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
+  CC_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
+  CC_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
+  CC_DESKTOP_GET_WINDOW_STATE_CHANNEL,
+  CC_DESKTOP_OPEN_NEW_TAB_CHANNEL,
+  CC_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL,
+  CC_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
+  CC_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
   CLOSE_WINDOW_REQUEST_TIMEOUT_MS,
 } from "./desktop-window-command-ipc.js";
 import {
@@ -231,19 +231,19 @@ import {
 } from "./desktop-browser-broker.js";
 import { createDesktopBrowserBrokerClient } from "./desktop-browser-broker-client.js";
 import {
-  bbDesktopBrowserTabRefSchema,
-  bbDesktopZoomCommandSchema,
-  bbDesktopWindowFindRequestSchema,
-  type BbDesktopZoomCommand,
-} from "@bb/desktop-contract";
+  ccDesktopBrowserTabRefSchema,
+  ccDesktopZoomCommandSchema,
+  ccDesktopWindowFindRequestSchema,
+  type CcDesktopZoomCommand,
+} from "@cc/desktop-contract";
 import { nextZoomFactor } from "./desktop-zoom.js";
 import {
-  BB_DESKTOP_BROWSER_TARGET_CHANNEL,
-  BB_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
-  BB_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
-  BB_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
-  BB_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
-  BB_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
+  CC_DESKTOP_BROWSER_TARGET_CHANNEL,
+  CC_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
+  CC_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
+  CC_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
+  CC_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
+  CC_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
 } from "./desktop-browser-ipc.js";
 import { parseDesktopSystemConfig } from "./desktop-system-config.js";
 import { ensurePackagedUserShellPath } from "./desktop-shell-path.js";
@@ -269,7 +269,7 @@ import {
 } from "./log-viewer-contract.js";
 import {
   ATTACH_PROBE_TIMEOUT_MS,
-  DEFAULT_BB_SERVER_URL,
+  DEFAULT_CC_SERVER_URL,
   PROCESS_LOG_LINE_LIMIT,
   STARTUP_POLL_INTERVAL_MS,
   STARTUP_TIMEOUT_MS,
@@ -284,7 +284,7 @@ const FOREIGN_RUNTIME_KILL_TIMEOUT_MS = 3_000;
 const REMOTE_SYSTEM_CONFIG_POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 interface DesktopRuntime {
-  bbProcess: BbAppProcess | null;
+  ccProcess: CcAppProcess | null;
   ownership: RuntimeOwnership;
   serverUrl: string;
   userDataPath: string | null;
@@ -318,7 +318,7 @@ interface StartOwnedRuntimeArgs {
 }
 
 interface OwnedRuntime {
-  bbProcess: BbAppProcess;
+  ccProcess: CcAppProcess;
   runtime: DesktopRuntime;
 }
 
@@ -338,7 +338,7 @@ type StartupRaceResult =
   | ServerProbeStartupRaceResult;
 
 interface ProcessExitedStartupRaceResult {
-  exit: BbAppProcessExit;
+  exit: CcAppProcessExit;
   kind: "process-exited";
 }
 
@@ -363,7 +363,7 @@ interface ResolveDesktopWindowUrlArgs {
 
 interface ResolveDesktopUpdateFeedUrlArgs {
   env: NodeJS.ProcessEnv;
-  platform: BbDesktopInfo["platform"];
+  platform: CcDesktopInfo["platform"];
 }
 
 interface SystemConfigRequestArgs {
@@ -407,7 +407,7 @@ const splitNavigationCommandsByWebContentsId = new Map<
   number,
   readonly AppCommandId[]
 >();
-let bbAppLoaded = false;
+let ccAppLoaded = false;
 let startupErrorPage: StartupErrorPage | null = null;
 let startupActionPending = false;
 let connectSignInWindow: BrowserWindow | null = null;
@@ -422,7 +422,7 @@ let connectSessionRenewal: ConnectSessionRenewal | null = null;
 let serverTargetGeneration = 0;
 let connectAccountServers: ConnectAccountServer[] = [];
 let connectServerSyncSkipReason: ConnectServerSyncSkipReason | null = null;
-let builtinServerUrl: string = DEFAULT_BB_SERVER_URL;
+let builtinServerUrl: string = DEFAULT_CC_SERVER_URL;
 let desktopBridgePath: string | null = null;
 let desktopUserDataPath: string | null = null;
 let builtinDataDir: string | null = null;
@@ -435,9 +435,9 @@ let serverUrlDialogPreloadPath: string | null = null;
 let existingServerDialogPreloadPath: string | null = null;
 
 function resolveDesktopServerUrl(args: ResolveDesktopServerUrlArgs): string {
-  const rawPort = args.env.BB_SERVER_PORT?.trim();
+  const rawPort = args.env.CC_SERVER_PORT?.trim();
   if (rawPort === undefined || rawPort.length === 0) {
-    return DEFAULT_BB_SERVER_URL;
+    return DEFAULT_CC_SERVER_URL;
   }
 
   const port = Number(rawPort);
@@ -445,11 +445,11 @@ function resolveDesktopServerUrl(args: ResolveDesktopServerUrlArgs): string {
     return `http://127.0.0.1:${port}`;
   }
 
-  throw new Error("BB_SERVER_PORT must be a valid TCP port");
+  throw new Error("CC_SERVER_PORT must be a valid TCP port");
 }
 
 function resolveDesktopWindowUrl(args: ResolveDesktopWindowUrlArgs): string {
-  const rawAppUrl = args.env.BB_DESKTOP_APP_URL?.trim();
+  const rawAppUrl = args.env.CC_DESKTOP_APP_URL?.trim();
   if (rawAppUrl === undefined || rawAppUrl.length === 0) {
     return args.serverUrl;
   }
@@ -457,10 +457,10 @@ function resolveDesktopWindowUrl(args: ResolveDesktopWindowUrlArgs): string {
   try {
     parsedAppUrl = new URL(rawAppUrl);
   } catch {
-    throw new Error("BB_DESKTOP_APP_URL must be a valid URL");
+    throw new Error("CC_DESKTOP_APP_URL must be a valid URL");
   }
   if (parsedAppUrl.protocol !== "http:" && parsedAppUrl.protocol !== "https:") {
-    throw new Error("BB_DESKTOP_APP_URL must be an http(s) URL");
+    throw new Error("CC_DESKTOP_APP_URL must be an http(s) URL");
   }
   return rawAppUrl;
 }
@@ -481,7 +481,7 @@ function canReplaceAppImage(appImagePath: string): boolean {
 function resolveDesktopUpdateFeedUrl(
   args: ResolveDesktopUpdateFeedUrlArgs,
 ): string {
-  const rawFeedUrl = args.env.BB_DESKTOP_VERSION_FEED_URL?.trim();
+  const rawFeedUrl = args.env.CC_DESKTOP_VERSION_FEED_URL?.trim();
   if (rawFeedUrl === undefined || rawFeedUrl.length === 0) {
     return createDesktopUpdateFeedUrl(args.platform);
   }
@@ -491,16 +491,16 @@ function resolveDesktopUpdateFeedUrl(
 function readDesktopAboutFacts(applicationName: string): DesktopAboutFacts {
   return {
     applicationName,
-    buildDate: process.env.BB_DESKTOP_BUILD_DATE ?? "",
+    buildDate: process.env.CC_DESKTOP_BUILD_DATE ?? "",
     channel: DESKTOP_RELEASE_CHANNEL,
-    commit: process.env.BB_DESKTOP_COMMIT ?? "",
+    commit: process.env.CC_DESKTOP_COMMIT ?? "",
     electronVersion: process.versions.electron,
     osArch: arch(),
     osRelease: release(),
     osType: osType(),
     platform: process.platform,
-    pluginSdkVersion: process.env.BB_DESKTOP_PLUGIN_SDK_VERSION ?? "",
-    version: getDesktopVersion(process.env.BB_DESKTOP_VERSION),
+    pluginSdkVersion: process.env.CC_DESKTOP_PLUGIN_SDK_VERSION ?? "",
+    version: getDesktopVersion(process.env.CC_DESKTOP_VERSION),
   };
 }
 
@@ -526,7 +526,7 @@ async function showAboutDialog(): Promise<void> {
   }
 }
 
-function getCurrentDesktopInfo(): BbDesktopInfo | null {
+function getCurrentDesktopInfo(): CcDesktopInfo | null {
   const info = mergeDesktopUpdateInfo({
     autoInfo: desktopAutoUpdateService?.getInfo() ?? null,
     feedInfo: desktopUpdateService?.getInfo() ?? null,
@@ -548,7 +548,7 @@ function resolveApplicationWindow(
 
 function zoomWebContents(
   target: WebContents | null | undefined,
-  command: BbDesktopZoomCommand,
+  command: CcDesktopZoomCommand,
 ): void {
   if (!target) {
     return;
@@ -596,18 +596,18 @@ function sendDesktopInfoChanged(): void {
     if (applicationWindowWebContentsIds.has(browserWindow.webContents.id)) {
       sendToApplicationRenderer(
         browserWindow,
-        BB_DESKTOP_INFO_CHANGED_CHANNEL,
+        CC_DESKTOP_INFO_CHANGED_CHANNEL,
         info,
       );
     } else {
-      browserWindow.webContents.send(BB_DESKTOP_INFO_CHANGED_CHANNEL, info);
+      browserWindow.webContents.send(CC_DESKTOP_INFO_CHANGED_CHANNEL, info);
     }
   }
 }
 
 function getDesktopWindowState(
   browserWindow: Pick<DesktopBrowserWindow, "isFullScreen"> | null,
-): BbDesktopWindowState {
+): CcDesktopWindowState {
   return {
     isFullScreen: browserWindow?.isFullScreen() ?? false,
   };
@@ -615,7 +615,7 @@ function getDesktopWindowState(
 
 function getSenderDesktopWindowState(
   event: IpcMainInvokeEvent,
-): BbDesktopWindowState {
+): CcDesktopWindowState {
   return getDesktopWindowState(resolveApplicationWindow(event.sender));
 }
 
@@ -624,7 +624,7 @@ function sendDesktopWindowStateChanged(
 ): void {
   sendToApplicationRenderer(
     browserWindow as BrowserWindow,
-    BB_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+    CC_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
     getDesktopWindowState(browserWindow),
   );
 }
@@ -642,9 +642,9 @@ const desktopLogger: DesktopAutoUpdateLogger = {
 };
 
 function resolveDataDirFromEnv(args: ResolveDataDirFromEnvArgs): string {
-  const rawDataDir = args.env.BB_DATA_DIR?.trim();
+  const rawDataDir = args.env.CC_DATA_DIR?.trim();
   if (rawDataDir === undefined || rawDataDir.length === 0) {
-    return join(args.homeDir, ".bb");
+    return join(args.homeDir, ".cc");
   }
   if (rawDataDir === "~") {
     return args.homeDir;
@@ -665,7 +665,7 @@ function formatLogDirectory(): string {
   );
 }
 
-function formatExitResult(result: BbAppProcessExit): string {
+function formatExitResult(result: CcAppProcessExit): string {
   if (result.code !== null) {
     return `exit code ${result.code}`;
   }
@@ -707,7 +707,7 @@ function requestRendererWindowClose(browserWindow: BrowserWindow): void {
   );
   sendToApplicationRenderer(
     browserWindow,
-    BB_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
+    CC_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
     null,
   );
 }
@@ -845,12 +845,12 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_OPEN_NEW_TAB_CHANNEL,
+          CC_DESKTOP_OPEN_NEW_TAB_CHANNEL,
           null,
         );
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          CC_DESKTOP_APP_COMMAND_CHANNEL,
           "panel.newTab",
         );
       }
@@ -860,7 +860,7 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          CC_DESKTOP_APP_COMMAND_CHANNEL,
           "thread.new",
         );
       }
@@ -870,7 +870,7 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          CC_DESKTOP_APP_COMMAND_CHANNEL,
           "panel.reopenClosedTab",
         );
       }
@@ -880,7 +880,7 @@ function refreshApplicationMenu(): void {
       if (browserWindow !== null) {
         sendToApplicationRenderer(
           browserWindow,
-          BB_DESKTOP_APP_COMMAND_CHANNEL,
+          CC_DESKTOP_APP_COMMAND_CHANNEL,
           "settings.open",
         );
       }
@@ -1161,14 +1161,14 @@ async function ensureBuiltinRuntimeAttached(): Promise<boolean> {
     return false;
   }
 
-  const existingProbe = await probeBbServer({
+  const existingProbe = await probeCcServer({
     serverUrl: builtinServerUrl,
     timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
   });
 
   if (existingProbe.kind === "compatible") {
     setCurrentRuntime({
-      bbProcess: null,
+      ccProcess: null,
       ownership: "attached",
       serverUrl: existingProbe.serverUrl,
       userDataPath: null,
@@ -1208,7 +1208,7 @@ async function authenticateConnectTarget(
     }
     if (cachedResult.code === "unauthorized") {
       desktopLogger.info(
-        "[desktop] bb Connect refused the cached machine credential — dropping it",
+        "[desktop] cc Connect refused the cached machine credential — dropping it",
       );
       await clearCachedConnectCredential();
     } else if (cachedResult.code === "network") {
@@ -1271,7 +1271,7 @@ async function authenticateConnectTarget(
     return (
       cachedFailure ?? {
         code: "unauthorized",
-        detail: "bb Connect rejected this app",
+        detail: "cc Connect rejected this app",
         ok: false,
       }
     );
@@ -1282,7 +1282,7 @@ async function authenticateConnectTarget(
       cachedFailure ?? {
         code: "network",
         detail:
-          "the local bb server is unavailable, and this app has no stored bb Connect credential",
+          "the local cc server is unavailable, and this app has no stored cc Connect credential",
         ok: false,
       }
     );
@@ -1356,7 +1356,7 @@ async function activateLocalServerMove(move: DesktopServerMove): Promise<void> {
   localServerMove = move;
   stopServerMovedWatcher();
   desktopLogger.info(
-    `[desktop] this computer's bb server moved to ${move.toHostName}; the app now opens that server and runs this computer as a regular machine`,
+    `[desktop] this computer's cc server moved to ${move.toHostName}; the app now opens that server and runs this computer as a regular machine`,
   );
   await applyServerMove({
     move,
@@ -1419,7 +1419,7 @@ function connectMovedMachine(args: {
     await ensureServerMovedRuntime({
       hasLocalRuntime: () => currentRuntime !== null,
       async isLocalAddressFree() {
-        const probe = await probeBbServer({
+        const probe = await probeCcServer({
           serverUrl: builtinServerUrl,
           timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
         });
@@ -1463,7 +1463,7 @@ async function confirmLocalServerMove(
     async hasLiveLocalLauncher() {
       return (
         currentRuntime?.ownership === "spawned" ||
-        (await hasLiveBbAppLauncher({ dataDir }))
+        (await hasLiveCcAppLauncher({ dataDir }))
       );
     },
     intervalMs: SERVER_MOVE_COMMIT_INTERVAL_MS,
@@ -1557,7 +1557,7 @@ async function handleWatchedServerMove(move: DesktopServerMove): Promise<void> {
     await activateLocalServerMove(move);
   } catch (error) {
     desktopLogger.warn(
-      `[desktop] could not switch to the moved bb server: ${error instanceof Error ? error.message : String(error)}`,
+      `[desktop] could not switch to the moved cc server: ${error instanceof Error ? error.message : String(error)}`,
     );
     return;
   }
@@ -1591,7 +1591,7 @@ function ensureDesktopMachineEnrolled(): void {
   }
   if (!cache.canPersist()) {
     desktopLogger.info(
-      "[desktop] no OS keychain available — keeping the local bb server for bb Connect sessions",
+      "[desktop] no OS keychain available — keeping the local cc server for cc Connect sessions",
     );
     return;
   }
@@ -1599,13 +1599,13 @@ function ensureDesktopMachineEnrolled(): void {
     const result = await enrollDesktopMachine({ localServerUrl });
     if (!result.ok) {
       desktopLogger.info(
-        `[desktop] could not enroll this app with bb Connect (${result.code}): ${result.detail}`,
+        `[desktop] could not enroll this app with cc Connect (${result.code}): ${result.detail}`,
       );
       return;
     }
     cachedConnectCredential = result.credential;
     await cache.write(result.credential);
-    desktopLogger.info("[desktop] enrolled this app as a bb Connect machine");
+    desktopLogger.info("[desktop] enrolled this app as a cc Connect machine");
   })().finally(() => {
     enrollingDesktopMachine = null;
   });
@@ -1646,7 +1646,7 @@ async function runStartupAction(
       actions: [],
       details: error instanceof Error ? error.message : String(error),
       logs: "",
-      title: "Could not open bb",
+      title: "Could not open cc",
     });
   } finally {
     startupActionPending = false;
@@ -1672,7 +1672,7 @@ function openConnectSignIn(parentWindow: BrowserWindow | null): void {
   const signInWindow = new BrowserWindow({
     height: 720,
     parent: parentWindow ?? undefined,
-    title: "Reconnect bb Connect",
+    title: "Reconnect cc Connect",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -1715,7 +1715,7 @@ function openConnectSignIn(parentWindow: BrowserWindow | null): void {
     .remove(accountUrl, cookieName)
     .catch((error: unknown) => {
       desktopLogger.warn(
-        `[desktop] could not clear bb Connect sign-in: ${error instanceof Error ? error.message : String(error)}`,
+        `[desktop] could not clear cc Connect sign-in: ${error instanceof Error ? error.message : String(error)}`,
       );
     })
     .then(async () => {
@@ -1725,7 +1725,7 @@ function openConnectSignIn(parentWindow: BrowserWindow | null): void {
     })
     .catch((error: unknown) => {
       desktopLogger.warn(
-        `[desktop] could not open bb Connect sign-in: ${error instanceof Error ? error.message : String(error)}`,
+        `[desktop] could not open cc Connect sign-in: ${error instanceof Error ? error.message : String(error)}`,
       );
       if (!signInWindow.isDestroyed()) signInWindow.close();
     });
@@ -1762,7 +1762,7 @@ async function loadServerMovedView(
       ? "The old copy on this computer is locked after the move."
       : "The old copy on this computer was deleted.",
     logs: "",
-    title: `bb moved to ${move.toHostName}`,
+    title: `cc moved to ${move.toHostName}`,
   });
 }
 
@@ -1797,17 +1797,17 @@ async function applyServerTarget(): Promise<void> {
           { id: "choose-server", label: "Choose server…" },
         ],
         details:
-          `Could not connect to the local bb server on ${process.platform === "darwin" ? "this Mac" : "this computer"}. ` +
-          "Check that the port is free or that a compatible bb server is running.",
+          `Could not connect to the local cc server on ${process.platform === "darwin" ? "this Mac" : "this computer"}. ` +
+          "Check that the port is free or that a compatible cc server is running.",
         logs: "",
-        title: "Could not connect to bb server",
+        title: "Could not connect to cc server",
       });
       refreshApplicationMenu();
       return;
     }
     const localServerUrl = currentRuntime?.serverUrl ?? builtinServerUrl;
     startSystemConfigSync(localServerUrl);
-    await loadBbApp(
+    await loadCcApp(
       resolveDesktopWindowUrl({
         env: process.env,
         serverUrl: localServerUrl,
@@ -1848,7 +1848,7 @@ async function applyServerTarget(): Promise<void> {
           : "The desktop app could not establish a session for this Connect server. " +
             `(${result.code}: ${result.detail})`,
         logs: "",
-        title: "Could not authenticate with bb Connect",
+        title: "Could not authenticate with cc Connect",
       });
       refreshApplicationMenu();
       return;
@@ -1890,7 +1890,7 @@ async function loadRemoteServerTarget(
   if (!loaded || !isCurrent()) {
     return loaded;
   }
-  bbAppLoaded = true;
+  ccAppLoaded = true;
   startRemoteSystemConfigSync(serverUrl);
   return true;
 }
@@ -2022,7 +2022,7 @@ async function loadLogViewerWindow(
     minHeight: 520,
     minWidth: 840,
     show: false,
-    title: "bb - Server & Daemon Logs",
+    title: "cc - Server & Daemon Logs",
     titleBarStyle: "default",
     webPreferences: {
       contextIsolation: true,
@@ -2122,13 +2122,13 @@ async function loadWindowUrl(args: LoadWindowUrlArgs): Promise<void> {
 }
 
 async function loadLoadingView(): Promise<void> {
-  bbAppLoaded = false;
+  ccAppLoaded = false;
   await loadWindowUrl({
     url: createLocalViewUrl({
       viewModel: {
         kind: "loading",
-        message: "Starting local services and opening the bb workspace.",
-        title: "Opening bb",
+        message: "Starting local services and opening the cc workspace.",
+        title: "Opening cc",
       },
     }),
   });
@@ -2145,7 +2145,7 @@ async function loadStartupError(args: LoadStartupErrorArgs): Promise<void> {
 }
 
 async function loadActionView(args: LoadStartupErrorArgs): Promise<void> {
-  bbAppLoaded = false;
+  ccAppLoaded = false;
   const url = createLocalViewUrl({
     viewModel: {
       actions: args.actions,
@@ -2163,8 +2163,8 @@ async function loadActionView(args: LoadStartupErrorArgs): Promise<void> {
   await loading;
 }
 
-async function loadBbApp(serverUrl: string): Promise<void> {
-  bbAppLoaded = true;
+async function loadCcApp(serverUrl: string): Promise<void> {
+  ccAppLoaded = true;
   await loadWindowUrl({ url: serverUrl });
   if (shouldOpenDevTools()) {
     desktopWindowFactory?.openDevTools();
@@ -2172,7 +2172,7 @@ async function loadBbApp(serverUrl: string): Promise<void> {
 }
 
 function shouldOpenDevTools(): boolean {
-  return process.env.BB_DESKTOP_OPEN_DEVTOOLS === "1";
+  return process.env.CC_DESKTOP_OPEN_DEVTOOLS === "1";
 }
 
 async function createApplicationWindow(
@@ -2187,7 +2187,7 @@ async function createApplicationWindow(
     stateKey: args.stateKey,
   });
   registerApplicationWindow(browserWindow);
-  if (bbAppLoaded && shouldOpenDevTools()) {
+  if (ccAppLoaded && shouldOpenDevTools()) {
     browserWindow.webContents.openDevTools({ mode: "detach" });
   }
   return browserWindow;
@@ -2202,7 +2202,7 @@ async function stopOwnedRuntime(): Promise<void> {
 
   setCurrentRuntime(null);
   try {
-    await runtime.bbProcess?.stop({
+    await runtime.ccProcess?.stop({
       killSignal: "SIGKILL",
       killTimeoutMs: OWNED_RUNTIME_KILL_TIMEOUT_MS,
       signal: "SIGTERM",
@@ -2243,8 +2243,8 @@ async function finishQuit(): Promise<void> {
 }
 
 function registerDesktopUpdateIpc(): void {
-  ipcMain.on(BB_DESKTOP_ZOOM_COMMAND_CHANNEL, (event, payload: unknown) => {
-    const parsed = bbDesktopZoomCommandSchema.safeParse(payload);
+  ipcMain.on(CC_DESKTOP_ZOOM_COMMAND_CHANNEL, (event, payload: unknown) => {
+    const parsed = ccDesktopZoomCommandSchema.safeParse(payload);
     if (parsed.success) {
       zoomWebContents(
         resolveApplicationWindow(event.sender)?.webContents,
@@ -2252,26 +2252,26 @@ function registerDesktopUpdateIpc(): void {
       );
     }
   });
-  ipcMain.handle(BB_DESKTOP_GET_INFO_CHANNEL, () => {
+  ipcMain.handle(CC_DESKTOP_GET_INFO_CHANNEL, () => {
     return getCurrentDesktopInfo();
   });
-  ipcMain.handle(BB_DESKTOP_GET_WINDOW_STATE_CHANNEL, (event) => {
+  ipcMain.handle(CC_DESKTOP_GET_WINDOW_STATE_CHANNEL, (event) => {
     return getSenderDesktopWindowState(event);
   });
-  ipcMain.handle(BB_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL, async () => {
+  ipcMain.handle(CC_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL, async () => {
     await openServerDaemonLogs();
   });
-  ipcMain.handle(BB_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL, async () => {
+  ipcMain.handle(CC_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL, async () => {
     await openDataDirectory();
   });
-  ipcMain.handle(BB_DESKTOP_CHECK_FOR_UPDATES_CHANNEL, async () => {
+  ipcMain.handle(CC_DESKTOP_CHECK_FOR_UPDATES_CHANNEL, async () => {
     await Promise.all([
       desktopUpdateService?.checkForUpdates() ?? Promise.resolve(null),
       desktopAutoUpdateService?.checkForUpdates() ?? Promise.resolve(null),
     ]);
     return getCurrentDesktopInfo();
   });
-  ipcMain.handle(BB_DESKTOP_INSTALL_UPDATE_CHANNEL, async () => {
+  ipcMain.handle(CC_DESKTOP_INSTALL_UPDATE_CHANNEL, async () => {
     if (desktopAutoUpdateService === null) {
       return;
     }
@@ -2295,7 +2295,7 @@ function registerDesktopUpdateIpc(): void {
     desktopAutoUpdateService.installUpdate();
   });
   ipcMain.on(
-    BB_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
+    CC_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
     (event, enabled: unknown, directionalCommands: unknown) => {
       if (
         !applicationWindowWebContentsIds.has(event.sender.id) ||
@@ -2322,8 +2322,8 @@ function registerDesktopUpdateIpc(): void {
       }
     },
   );
-  ipcMain.on(BB_DESKTOP_SET_THEME_CHANNEL, (_event, payload: unknown) => {
-    const parsed = bbDesktopThemeSchema.safeParse(payload);
+  ipcMain.on(CC_DESKTOP_SET_THEME_CHANNEL, (_event, payload: unknown) => {
+    const parsed = ccDesktopThemeSchema.safeParse(payload);
     if (!parsed.success) {
       return;
     }
@@ -2346,7 +2346,7 @@ function registerDesktopUpdateIpc(): void {
     void runStartupAction(action.data, resolveApplicationWindow(event.sender));
   });
 
-  ipcMain.on(BB_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL, (event, payload) => {
+  ipcMain.on(CC_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL, (event, payload) => {
     const pending = pendingCloseWindowRequests.get(event.sender.id);
     if (pending !== undefined) {
       clearTimeout(pending);
@@ -2357,7 +2357,7 @@ function registerDesktopUpdateIpc(): void {
     }
   });
   ipcMain.on(
-    BB_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
+    CC_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
     (_event, payload: unknown) => {
       if (typeof payload !== "string") {
         return;
@@ -2418,7 +2418,7 @@ function registerDesktopBrowserWindowLifecycle({
 async function spawnOwnedRuntime(
   args: StartOwnedRuntimeArgs,
 ): Promise<OwnedRuntime> {
-  const bbProcess = startBbAppProcess({
+  const ccProcess = startCcAppProcess({
     bridgePath: args.bridgePath,
     cwd: homedir(),
     env: {
@@ -2426,7 +2426,7 @@ async function spawnOwnedRuntime(
       [APP_SURFACE_ENV_NAME]: APP_SURFACE_DESKTOP,
     },
     logLineLimit: PROCESS_LOG_LINE_LIMIT,
-    runtime: resolveBbAppProcessRuntime({
+    runtime: resolveCcAppProcessRuntime({
       env: process.env,
       isPackaged: app.isPackaged,
       platform: process.platform,
@@ -2434,20 +2434,20 @@ async function spawnOwnedRuntime(
     }),
   });
   const runtime: DesktopRuntime = {
-    bbProcess,
+    ccProcess,
     ownership: "spawned",
     serverUrl: args.serverUrl,
     userDataPath: args.userDataPath,
   };
   await writeOwnedRuntimePidFile({
     bridgePath: args.bridgePath,
-    pid: bbProcess.pid,
+    pid: ccProcess.pid,
     serverUrl: args.serverUrl,
     userDataPath: args.userDataPath,
   });
   setCurrentRuntime(runtime);
 
-  void bbProcess.exit.then((exit) => {
+  void ccProcess.exit.then((exit) => {
     void clearOwnedRuntimePidFile({ userDataPath: args.userDataPath });
     if (quitting || currentRuntime !== runtime) {
       return;
@@ -2455,26 +2455,26 @@ async function spawnOwnedRuntime(
     setCurrentRuntime(null);
     if (localServerMove !== null) {
       desktopLogger.warn(
-        `[desktop] the Electron-owned bb-app process that runs this computer as a machine stopped with ${formatExitResult(exit)}`,
+        `[desktop] the Electron-owned cc-app process that runs this computer as a machine stopped with ${formatExitResult(exit)}`,
       );
       return;
     }
     void loadStartupError({
-      details: `The Electron-owned bb-app process stopped with ${formatExitResult(
+      details: `The Electron-owned cc-app process stopped with ${formatExitResult(
         exit,
       )}.`,
-      logs: bbProcess.logs.text(),
+      logs: ccProcess.logs.text(),
       actions: [],
-      title: "bb stopped",
+      title: "cc stopped",
     });
   });
-  return { bbProcess, runtime };
+  return { ccProcess, runtime };
 }
 
 async function startOwnedRuntime(
   args: StartOwnedRuntimeArgs,
 ): Promise<DesktopRuntime | null> {
-  const { bbProcess, runtime } = await spawnOwnedRuntime(args);
+  const { ccProcess, runtime } = await spawnOwnedRuntime(args);
 
   const raceResult = await Promise.race<StartupRaceResult>([
     waitForCompatibleServer({
@@ -2485,7 +2485,7 @@ async function startOwnedRuntime(
       kind: "server-probe",
       result,
     })),
-    bbProcess.exit.then((exit) => ({
+    ccProcess.exit.then((exit) => ({
       exit,
       kind: "process-exited",
     })),
@@ -2493,12 +2493,12 @@ async function startOwnedRuntime(
 
   if (raceResult.kind === "process-exited") {
     await loadStartupError({
-      details: `bb-app exited before the server was ready with ${formatExitResult(
+      details: `cc-app exited before the server was ready with ${formatExitResult(
         raceResult.exit,
       )}.`,
-      logs: bbProcess.logs.text(),
+      logs: ccProcess.logs.text(),
       actions: [],
-      title: "Could not start bb",
+      title: "Could not start cc",
     });
     setCurrentRuntime(null);
     return null;
@@ -2511,11 +2511,11 @@ async function startOwnedRuntime(
   await loadStartupError({
     details:
       raceResult.result.kind === "incompatible"
-        ? `Port ${args.serverUrl} is responding, but it does not look like bb: ${raceResult.result.reason}.`
-        : `Timed out waiting for bb at ${args.serverUrl}: ${raceResult.result.reason}.`,
-    logs: bbProcess.logs.text(),
+        ? `Port ${args.serverUrl} is responding, but it does not look like cc: ${raceResult.result.reason}.`
+        : `Timed out waiting for cc at ${args.serverUrl}: ${raceResult.result.reason}.`,
+    logs: ccProcess.logs.text(),
     actions: [],
-    title: "Could not start bb",
+    title: "Could not start cc",
   });
   await stopOwnedRuntime();
   return null;
@@ -2531,16 +2531,16 @@ function shouldAskBeforeAttaching(): boolean {
   if (!app.isPackaged || existingServerDialogPreloadPath === null) {
     return false;
   }
-  if (process.env.BB_DESKTOP_ATTACH_WITHOUT_PROMPT === "1") {
+  if (process.env.CC_DESKTOP_ATTACH_WITHOUT_PROMPT === "1") {
     return false;
   }
-  return (process.env.BB_DESKTOP_APP_URL ?? "").trim().length === 0;
+  return (process.env.CC_DESKTOP_APP_URL ?? "").trim().length === 0;
 }
 
 async function waitForServerToStop(serverUrl: string): Promise<boolean> {
   const deadline = Date.now() + FOREIGN_RUNTIME_STOP_TIMEOUT_MS;
   while (Date.now() <= deadline) {
-    const probe = await probeBbServer({
+    const probe = await probeCcServer({
       serverUrl,
       timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
     });
@@ -2594,40 +2594,40 @@ async function decideOnExistingServer(
   if (stopResult.kind === "unverified") {
     await loadStartupError({
       details:
-        `The bb at ${probe.serverUrl} records process ${String(stopResult.pid)}, but that ` +
-        "process no longer matches the record. bb did not stop it. Stop it yourself, then open bb again.",
+        `The cc at ${probe.serverUrl} records process ${String(stopResult.pid)}, but that ` +
+        "process no longer matches the record. cc did not stop it. Stop it yourself, then open cc again.",
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running cc",
     });
     return "quit";
   }
   if (stopResult.kind === "still-running") {
     await loadStartupError({
-      details: `bb could not stop process ${String(stopResult.pid)}, even after SIGKILL.`,
+      details: `cc could not stop process ${String(stopResult.pid)}, even after SIGKILL.`,
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running cc",
     });
     return "quit";
   }
   if (stopResult.kind === "replaced") {
     await loadStartupError({
       details:
-        `Another bb started at ${probe.serverUrl} while the question was open, so bb stopped nothing. ` +
-        "Open bb again to see the copy that runs now.",
+        `Another cc started at ${probe.serverUrl} while the question was open, so cc stopped nothing. ` +
+        "Open cc again to see the copy that runs now.",
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running cc",
     });
     return "quit";
   }
   if (!(await waitForServerToStop(probe.serverUrl))) {
     await loadStartupError({
-      details: `The bb at ${probe.serverUrl} stopped, but the address is still in use.`,
+      details: `The cc at ${probe.serverUrl} stopped, but the address is still in use.`,
       logs: "",
       actions: [],
-      title: "Could not stop the running bb",
+      title: "Could not stop the running cc",
     });
     return "quit";
   }
@@ -2635,7 +2635,7 @@ async function decideOnExistingServer(
 }
 
 async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
-  const existingProbe = await probeBbServer({
+  const existingProbe = await probeCcServer({
     serverUrl: args.serverUrl,
     timeoutMs: ATTACH_PROBE_TIMEOUT_MS,
   });
@@ -2654,7 +2654,7 @@ async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
         userDataPath: args.userDataPath,
       });
       if (freshRuntime !== null) {
-        await loadBbApp(freshRuntime.serverUrl);
+        await loadCcApp(freshRuntime.serverUrl);
         startSystemConfigSync(freshRuntime.serverUrl);
         refreshApplicationMenu();
       }
@@ -2662,12 +2662,12 @@ async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
     }
 
     setCurrentRuntime({
-      bbProcess: null,
+      ccProcess: null,
       ownership: "attached",
       serverUrl: existingProbe.serverUrl,
       userDataPath: null,
     });
-    await loadBbApp(
+    await loadCcApp(
       resolveDesktopWindowUrl({
         env: process.env,
         serverUrl: existingProbe.serverUrl,
@@ -2680,7 +2680,7 @@ async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
 
   if (existingProbe.kind === "incompatible") {
     await loadStartupError({
-      details: `Port ${args.serverUrl} is already in use, but it is not a compatible bb server: ${existingProbe.reason}.`,
+      details: `Port ${args.serverUrl} is already in use, but it is not a compatible cc server: ${existingProbe.reason}.`,
       logs: "",
       actions: [],
       title: "Port conflict",
@@ -2694,7 +2694,7 @@ async function initializeRuntime(args: InitializeRuntimeArgs): Promise<void> {
     userDataPath: args.userDataPath,
   });
   if (runtime !== null) {
-    await loadBbApp(runtime.serverUrl);
+    await loadCcApp(runtime.serverUrl);
     startSystemConfigSync(runtime.serverUrl);
     refreshApplicationMenu();
   }
@@ -2710,7 +2710,7 @@ async function runDesktopApp(): Promise<void> {
 
   const applicationName = app.isPackaged
     ? DESKTOP_RELEASE_INFO.applicationName
-    : "bb-dev";
+    : "cc-dev";
   app.setName(applicationName);
   installAboutPanel(applicationName);
 
@@ -2811,8 +2811,8 @@ async function runDesktopApp(): Promise<void> {
   const serverUrl = resolveDesktopServerUrl({ env: process.env });
   builtinServerUrl = serverUrl;
   desktopBridgePath = bridgePath;
-  const desktopVersion = getDesktopVersion(process.env.BB_DESKTOP_VERSION);
-  const desktopPlatform = resolveBbDesktopPlatform(process.platform);
+  const desktopVersion = getDesktopVersion(process.env.CC_DESKTOP_VERSION);
+  const desktopPlatform = resolveCcDesktopPlatform(process.platform);
   const desktopUpdateFeedUrl = resolveDesktopUpdateFeedUrl({
     env: process.env,
     platform: desktopPlatform,
@@ -2820,7 +2820,7 @@ async function runDesktopApp(): Promise<void> {
   const userDataPath = app.getPath("userData");
   desktopUserDataPath = userDataPath;
 
-  assertPathExists({ label: "bb-app bridge", path: bridgePath });
+  assertPathExists({ label: "cc-app bridge", path: bridgePath });
   assertPathExists({
     label: "existing server dialog preload script",
     path: resolvedExistingServerDialogPreloadPath,
@@ -2939,7 +2939,7 @@ async function runDesktopApp(): Promise<void> {
     currentVersion: desktopVersion,
     enabled:
       desktopUpdateSupport.versionCheck &&
-      (app.isPackaged || process.env.BB_DESKTOP_VERSION_CHECK === "1"),
+      (app.isPackaged || process.env.CC_DESKTOP_VERSION_CHECK === "1"),
     feedUrl: desktopUpdateFeedUrl,
     logger: desktopLogger,
     platform: desktopPlatform,
@@ -2953,7 +2953,7 @@ async function runDesktopApp(): Promise<void> {
         isPackaged: app.isPackaged,
       }),
     forceDevUpdateConfig:
-      !app.isPackaged && process.env.BB_DESKTOP_AUTO_UPDATE === "1",
+      !app.isPackaged && process.env.CC_DESKTOP_AUTO_UPDATE === "1",
     logger: desktopLogger,
     platform: desktopPlatform,
     updater: createElectronAutoUpdaterAdapter(autoUpdater),
@@ -2968,14 +2968,14 @@ async function runDesktopApp(): Promise<void> {
   desktopFindViewManager = createDesktopFindViewManager({
     preloadPath: findBarPreloadPath,
   });
-  ipcMain.on(BB_DESKTOP_OPEN_WINDOW_FIND_CHANNEL, (event, payload: unknown) => {
+  ipcMain.on(CC_DESKTOP_OPEN_WINDOW_FIND_CHANNEL, (event, payload: unknown) => {
     if (
       !applicationWindowWebContentsIds.has(event.sender.id) ||
       event.senderFrame !== event.sender.mainFrame
     ) {
       return;
     }
-    const parsed = bbDesktopWindowFindRequestSchema.safeParse(payload);
+    const parsed = ccDesktopWindowFindRequestSchema.safeParse(payload);
     const browserWindow = resolveApplicationWindow(event.sender);
     if (!parsed.success || browserWindow === null) {
       return;
@@ -2993,7 +2993,7 @@ async function runDesktopApp(): Promise<void> {
       }
       sendToApplicationRenderer(
         browserWindow,
-        BB_DESKTOP_APP_COMMAND_CHANNEL,
+        CC_DESKTOP_APP_COMMAND_CHANNEL,
         command,
       );
     },
@@ -3038,17 +3038,17 @@ async function runDesktopApp(): Promise<void> {
     browserImport: browserImportService,
   });
   ipcMain.handle(
-    BB_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
+    CC_DESKTOP_BROWSER_LIST_IMPORT_SOURCES_CHANNEL,
     async (event) => {
       if (!applicationWindowWebContentsIds.has(event.sender.id)) return null;
       return { sources: await browserImportService.listSources() };
     },
   );
   ipcMain.handle(
-    BB_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
+    CC_DESKTOP_BROWSER_IMPORT_COOKIES_CHANNEL,
     async (event, payload: unknown) => {
       const parsed =
-        bbDesktopBrowserImportCookiesRequestSchema.safeParse(payload);
+        ccDesktopBrowserImportCookiesRequestSchema.safeParse(payload);
       if (
         !parsed.success ||
         !applicationWindowWebContentsIds.has(event.sender.id)
@@ -3066,7 +3066,7 @@ async function runDesktopApp(): Promise<void> {
     },
   );
   ipcMain.on(
-    BB_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
+    CC_DESKTOP_BROWSER_OPEN_FULL_DISK_ACCESS_SETTINGS_CHANNEL,
     (event) => {
       if (
         !applicationWindowWebContentsIds.has(event.sender.id) ||
@@ -3078,15 +3078,15 @@ async function runDesktopApp(): Promise<void> {
       );
     },
   );
-  ipcMain.handle(BB_DESKTOP_BROWSER_TARGET_CHANNEL, (event) => {
+  ipcMain.handle(CC_DESKTOP_BROWSER_TARGET_CHANNEL, (event) => {
     return applicationWindowWebContentsIds.has(event.sender.id)
       ? (desktopBrowserBroker?.getTarget(event.sender.id) ?? null)
       : null;
   });
   ipcMain.handle(
-    BB_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
+    CC_DESKTOP_BROWSER_GET_CONTROL_CHANNEL,
     (event, payload: unknown) => {
-      const parsed = bbDesktopBrowserTabRefSchema.safeParse(payload);
+      const parsed = ccDesktopBrowserTabRefSchema.safeParse(payload);
       return parsed.success &&
         applicationWindowWebContentsIds.has(event.sender.id)
         ? (desktopBrowserBroker?.getControl(
@@ -3097,9 +3097,9 @@ async function runDesktopApp(): Promise<void> {
     },
   );
   ipcMain.on(
-    BB_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
+    CC_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
     (event, payload: unknown) => {
-      const parsed = bbDesktopBrowserTabRefSchema.safeParse(payload);
+      const parsed = ccDesktopBrowserTabRefSchema.safeParse(payload);
       if (
         parsed.success &&
         applicationWindowWebContentsIds.has(event.sender.id)
@@ -3195,6 +3195,6 @@ void runDesktopApp().catch((error) => {
     details: message,
     logs: "",
     actions: [],
-    title: "Could not open bb",
+    title: "Could not open cc",
   });
 });

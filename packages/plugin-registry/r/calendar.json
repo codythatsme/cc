@@ -3,14 +3,14 @@
   "name": "calendar",
   "type": "registry:ui",
   "title": "calendar",
-  "description": "BB ui \"calendar\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"calendar\" — vendored from the CC app's own source (version-matched to this CC release).",
   "dependencies": [
     "react-day-picker"
   ],
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon",
-    "@bb/utils"
+    "@cc/button",
+    "@cc/icon",
+    "@cc/utils"
   ],
   "files": [
     {

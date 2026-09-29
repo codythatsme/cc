@@ -3,9 +3,9 @@
   "name": "skeleton",
   "type": "registry:ui",
   "title": "skeleton",
-  "description": "BB ui \"skeleton\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"skeleton\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@cc/utils"
   ],
   "files": [
     {

@@ -1,9 +1,9 @@
 import semver from "semver";
 import {
-  bbDesktopVersionFeedSchema,
-  type BbDesktopInfo,
-  type BbDesktopVersionFeed,
-} from "@bb/desktop-contract";
+  ccDesktopVersionFeedSchema,
+  type CcDesktopInfo,
+  type CcDesktopVersionFeed,
+} from "@cc/desktop-contract";
 import {
   createDesktopUpdateScheduler,
   type DesktopUpdateService,
@@ -16,16 +16,16 @@ interface DesktopUpdateLogger {
 }
 
 interface ParseDesktopVersionFeedArgs {
-  channel: BbDesktopVersionFeed["channel"];
+  channel: CcDesktopVersionFeed["channel"];
   checkedAt: string;
   currentVersion: string;
   payloadText: string;
-  platform: BbDesktopInfo["platform"];
+  platform: CcDesktopInfo["platform"];
 }
 
 interface ValidDesktopVersionFeedParseResult {
-  feed: BbDesktopVersionFeed;
-  info: BbDesktopInfo;
+  feed: CcDesktopVersionFeed;
+  info: CcDesktopInfo;
   kind: "valid";
 }
 
@@ -39,14 +39,14 @@ type DesktopVersionFeedParseResult =
   | ValidDesktopVersionFeedParseResult;
 
 interface CreateDesktopUpdateServiceArgs {
-  channel: BbDesktopVersionFeed["channel"];
+  channel: CcDesktopVersionFeed["channel"];
   currentVersion: string;
   enabled: boolean;
   feedUrl: string;
   fetchImpl?: typeof fetch;
   logger: DesktopUpdateLogger;
   now?: () => number;
-  platform: BbDesktopInfo["platform"];
+  platform: CcDesktopInfo["platform"];
 }
 
 interface FetchDesktopVersionFeedArgs {
@@ -61,8 +61,8 @@ interface ApplyFailureArgs {
 
 function createBaseInfo(
   currentVersion: string,
-  platform: BbDesktopInfo["platform"],
-): BbDesktopInfo {
+  platform: CcDesktopInfo["platform"],
+): CcDesktopInfo {
   return {
     lastCheckedAt: null,
     latestVersion: null,
@@ -93,7 +93,7 @@ export function parseDesktopVersionFeed(
     };
   }
 
-  const parsedFeed = bbDesktopVersionFeedSchema.safeParse(payload);
+  const parsedFeed = ccDesktopVersionFeedSchema.safeParse(payload);
   if (!parsedFeed.success) {
     return {
       kind: "malformed",

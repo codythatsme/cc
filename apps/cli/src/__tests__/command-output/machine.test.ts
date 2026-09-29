@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Host } from "@bb/domain";
+import type { Host } from "@cc/domain";
 import {
   collectLogPayloads,
   runCommand,
@@ -63,7 +63,7 @@ const creating: Host = {
   },
 };
 
-describe("bb machine command output", () => {
+describe("cc machine command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -196,7 +196,7 @@ describe("bb machine command output", () => {
       runCommand(["machine", "create", "--provider", "ssh"], register),
     ).rejects.toThrow("process.exit:130");
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: Stopped following; creation continues. Use bb machine remove <host-id> to cancel.",
+      "Error: Stopped following; creation continues. Use cc machine remove <host-id> to cancel.",
     ]);
   });
 
@@ -236,7 +236,7 @@ describe("bb machine command output", () => {
     },
   );
 
-  it("bb machine list marks the server machine in the table", async () => {
+  it("cc machine list marks the server machine in the table", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_120_000);
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => hosts),
@@ -254,7 +254,7 @@ describe("bb machine command output", () => {
     ]);
   });
 
-  it("hides disposable sandboxes from bb machine list until --all", async () => {
+  it("hides disposable sandboxes from cc machine list until --all", async () => {
     const sandbox: Host = {
       ...hosts[0]!,
       id: "host-sandbox",
@@ -287,7 +287,7 @@ describe("bb machine command output", () => {
     ).toEqual([...hosts, sandbox]);
   });
 
-  it("bb machine retry-update resolves the machine and requests a retry", async () => {
+  it("cc machine retry-update resolves the machine and requests a retry", async () => {
     const retryUpdate = vi.fn(async () => ({ ok: true as const }));
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => hosts),
@@ -307,7 +307,7 @@ describe("bb machine command output", () => {
     ["resume", "v1.hosts.:id.resume.$post", "resumed"],
     ["retry-cleanup", "v1.hosts.:id.retry-cleanup.$post", "cleanup retried"],
   ] as const)(
-    "bb machine %s resolves the machine and invokes the lifecycle action",
+    "cc machine %s resolves the machine and invokes the lifecycle action",
     async (command, route, message) => {
       const lifecycleAction = vi.fn(async () =>
         command === "retry-cleanup"
@@ -367,7 +367,7 @@ describe("bb machine command output", () => {
     ]);
   });
 
-  it("bb machine remove resolves and removes a provider machine", async () => {
+  it("cc machine remove resolves and removes a provider machine", async () => {
     const remove = vi.fn(async () => undefined);
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => hosts),

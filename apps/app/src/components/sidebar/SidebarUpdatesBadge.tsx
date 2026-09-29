@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import type { ProviderCliKey } from "@bb/host-daemon-contract";
-import { Icon } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { ProviderCliKey } from "@cc/host-daemon-contract";
+import { Icon } from "@cc/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@cc/shared-ui/tooltip";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { useProviderCliInstallRunner } from "@/components/provider-cli/provider-cli-install";
 import { providerCliJobKey } from "@/components/provider-cli/provider-cli-install-store";
 import { SidebarMenuItem } from "@/components/ui/sidebar.js";
@@ -41,7 +41,7 @@ export function SidebarUpdatesBadge({ onNavigate }: SidebarUpdatesBadgeProps) {
   const stuckDaemonCount = inventory.machines.filter(
     (machine) => machine.canRetryDaemonUpdate,
   ).length;
-  const bbUpdateCount =
+  const ccUpdateCount =
     (inventory.appUpdateAvailable ? 1 : 0) +
     (inventory.desktopUpdateReady ? 1 : 0) +
     stuckDaemonCount;
@@ -69,34 +69,34 @@ export function SidebarUpdatesBadge({ onNavigate }: SidebarUpdatesBadgeProps) {
     ),
   );
 
-  if (bbUpdateCount === 0 && staleProviders.length === 0) {
+  if (ccUpdateCount === 0 && staleProviders.length === 0) {
     return null;
   }
 
   const updatesRoutePath = getSettingsRoutePath("updates");
-  const bbLabel =
-    bbUpdateCount === 1 ? "bb update available" : "bb updates available";
+  const ccLabel =
+    ccUpdateCount === 1 ? "cc update available" : "cc updates available";
   const providerLabel = `${joinNames(
     staleProviders.map((stale) => stale.displayName),
   )} ${staleProviders.length === 1 ? "update" : "updates"} available`;
 
   return (
     <SidebarMenuItem className="flex min-w-0 max-w-[50%] items-center gap-1">
-      {bbUpdateCount > 0 ? (
+      {ccUpdateCount > 0 ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
               to={updatesRoutePath}
               onClick={onNavigate}
-              aria-label={bbLabel}
-              data-testid="sidebar-updates-badge-bb"
+              aria-label={ccLabel}
+              data-testid="sidebar-updates-badge-cc"
               className={CHIP_CLASS}
             >
               <Icon name="Download" className="size-3 text-muted-foreground" />
-              bb
+              cc
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="top">{bbLabel}</TooltipContent>
+          <TooltipContent side="top">{ccLabel}</TooltipContent>
         </Tooltip>
       ) : null}
       {staleProviders.length > 0 ? (

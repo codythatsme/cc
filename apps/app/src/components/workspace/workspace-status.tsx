@@ -1,7 +1,7 @@
-import { assertNever } from "@bb/core-ui";
-import type { WorkspaceStatus } from "@bb/domain";
-import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
-import { BbHttpError } from "@bb/sdk/browser";
+import { assertNever } from "@cc/core-ui";
+import type { WorkspaceStatus } from "@cc/domain";
+import type { WorkspaceResolutionFailure } from "@cc/host-daemon-contract";
+import { CcHttpError } from "@cc/sdk/browser";
 import { describeLifecycleError } from "@/lib/lifecycle-errors";
 
 export interface ThreadGitStatusDisplay {
@@ -104,7 +104,7 @@ export function getGitStatusDisplay(
     }
 
     const isPathNotFound =
-      options?.error instanceof BbHttpError &&
+      options?.error instanceof CcHttpError &&
       options.error.code === "path_not_found";
     if (options?.workspaceDeleted || isPathNotFound) {
       return plainDisplay("Unknown", "Workspace not found.");

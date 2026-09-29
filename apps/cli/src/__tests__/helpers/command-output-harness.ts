@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import { Command } from "commander";
-import { createApiClient, type ApiClient } from "@bb/server-contract";
+import { createApiClient, type ApiClient } from "@cc/server-contract";
 
 const readlineState = vi.hoisted(() => ({
   question: vi.fn(),
@@ -14,10 +14,10 @@ const serverClientState = vi.hoisted(() => ({
 vi.mock("../../client.js", async () => {
   const { cliFetch } =
     await vi.importActual<typeof import("../../client.js")>("../../client.js");
-  const { createBbSdk } =
-    await vi.importActual<typeof import("@bb/sdk/core")>("@bb/sdk/core");
+  const { createCcSdk } =
+    await vi.importActual<typeof import("@cc/sdk/core")>("@cc/sdk/core");
   const { createHttpTransport } =
-    await vi.importActual<typeof import("@bb/sdk/node")>("@bb/sdk/node");
+    await vi.importActual<typeof import("@cc/sdk/node")>("@cc/sdk/node");
   const toResponse = (resolved: MockTransportResolved): Response =>
     resolved instanceof Response
       ? resolved
@@ -25,9 +25,9 @@ vi.mock("../../client.js", async () => {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
-  const createCliBbSdk = vi.fn((baseUrl: string) => {
+  const createCliCcSdk = vi.fn((baseUrl: string) => {
     const realTransport = createHttpTransport({ baseUrl, runtime: "node" });
-    return createBbSdk({
+    return createCcSdk({
       transport: {
         ...realTransport,
         api: serverClientState.createClient(baseUrl)?.api ?? {},
@@ -38,7 +38,7 @@ vi.mock("../../client.js", async () => {
       },
     });
   });
-  return { cliFetch, createCliBbSdk };
+  return { cliFetch, createCliCcSdk };
 });
 
 vi.mock("node:readline/promises", () => ({
@@ -104,8 +104,8 @@ export function setupCommandOutputTestEnvironment(): void {
     readlineState.question.mockReset();
     readlineState.close.mockReset();
 
-    vi.stubEnv("BB_PROJECT_ID", undefined);
-    vi.stubEnv("BB_THREAD_ID", undefined);
+    vi.stubEnv("CC_PROJECT_ID", undefined);
+    vi.stubEnv("CC_THREAD_ID", undefined);
   });
 
   afterEach(() => {
@@ -158,7 +158,7 @@ export async function runCommand(
 ): Promise<void> {
   const program = new Command();
   register(program);
-  await program.parseAsync(["node", "bb", ...args]);
+  await program.parseAsync(["node", "cc", ...args]);
 }
 
 export async function getHelpOutput(
@@ -175,7 +175,7 @@ export async function getHelpOutput(
   register(program);
 
   await expect(
-    program.parseAsync(["node", "bb", ...args, "--help"]),
+    program.parseAsync(["node", "cc", ...args, "--help"]),
   ).rejects.toMatchObject({
     code: "commander.helpDisplayed",
   });

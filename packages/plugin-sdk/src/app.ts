@@ -20,11 +20,11 @@ export type {
 } from "./rpc-contract.js";
 
 /**
- * `@get-bb/plugin-sdk/app` — typed facade over the BB app's plugin runtime.
+ * `@codythatsme/plugin-sdk/app` — typed facade over the CC app's plugin runtime.
  *
- * This module's runtime is never bundled into plugins: `bb plugin build`
+ * This module's runtime is never bundled into plugins: `cc plugin build`
  * swaps the specifier for a shim reading
- * `globalThis.__bbPluginRuntime.pluginSdkApp` (which the BB app fills with
+ * `globalThis.__ccPluginRuntime.pluginSdkApp` (which the CC app fills with
  * its real implementation before importing any plugin bundle). Code importing
  * this package directly (plugin unit tests, tooling) gets stable forwarders
  * instead: each export looks the runtime up when it is called or rendered,
@@ -35,7 +35,7 @@ export type {
  * Shared hooks and host components, including experimental_Icon. The generic
  * host-provided UI kit was removed 2026-07-03,
  * plugin design §5.5: other components are vendored shadcn-style source from the
- * BB registry (`npx shadcn add @bb/<name>`); `toast` comes from
+ * CC registry (`npx shadcn add @cc/<name>`); `toast` comes from
  * `import { toast } from "sonner"` (runtime-shimmed to the host toaster).
  */
 
@@ -44,7 +44,7 @@ interface PluginRuntimeReact {
 }
 
 interface PluginRuntimeHost {
-  __bbPluginRuntime?: { pluginSdkApp?: unknown; react?: PluginRuntimeReact };
+  __ccPluginRuntime?: { pluginSdkApp?: unknown; react?: PluginRuntimeReact };
 }
 
 type RuntimeFunctionName = {
@@ -55,8 +55,8 @@ type RuntimeFunctionName = {
     : never;
 }[keyof PluginSdkApp];
 
-function runtimeHost(): PluginRuntimeHost["__bbPluginRuntime"] {
-  return (globalThis as PluginRuntimeHost).__bbPluginRuntime;
+function runtimeHost(): PluginRuntimeHost["__ccPluginRuntime"] {
+  return (globalThis as PluginRuntimeHost).__ccPluginRuntime;
 }
 
 // The global is the genuinely unknowable boundary here: the host app
@@ -71,7 +71,7 @@ function runtimeMember<Name extends keyof PluginSdkApp>(
   const member = installedApp()?.[name];
   if (member === undefined) {
     throw new Error(
-      `@get-bb/plugin-sdk/app: ${name} needs the bb app's plugin runtime. In tests, call installTestPluginRuntime() from @get-bb/plugin-sdk/testing/app first.`,
+      `@codythatsme/plugin-sdk/app: ${name} needs the cc app's plugin runtime. In tests, call installTestPluginRuntime() from @codythatsme/plugin-sdk/testing/app first.`,
     );
   }
   return member;
@@ -92,7 +92,7 @@ function runtimeComponent<Name extends keyof PluginSdkApp>(
     const react = runtimeHost()?.react;
     if (react === undefined) {
       throw new Error(
-        `@get-bb/plugin-sdk/app: ${name} needs React on the bb plugin runtime. In tests, call installTestPluginRuntime() from @get-bb/plugin-sdk/testing/app first.`,
+        `@codythatsme/plugin-sdk/app: ${name} needs React on the cc plugin runtime. In tests, call installTestPluginRuntime() from @codythatsme/plugin-sdk/testing/app first.`,
       );
     }
     return react.createElement(runtimeMember(name), props);
@@ -113,7 +113,7 @@ export const definePluginApp: PluginSdkApp["definePluginApp"] = (setup) => {
   if (typeof setup !== "function") {
     throw new Error("definePluginApp expects a setup function");
   }
-  return Object.freeze({ __bbPluginApp: true as const, setup });
+  return Object.freeze({ __ccPluginApp: true as const, setup });
 };
 export const ThreadChat = runtimeComponent("ThreadChat");
 export const Markdown = runtimeComponent("Markdown");
@@ -148,14 +148,14 @@ export const useRealtimeConnectionState = runtimeFunction(
   "useRealtimeConnectionState",
 );
 export const useSettings = runtimeFunction("useSettings");
-export const useBbContext = runtimeFunction("useBbContext");
+export const useCcContext = runtimeFunction("useCcContext");
 export const experimental_usePluginId = runtimeFunction(
   "experimental_usePluginId",
 );
 export const experimental_useQuestionFormHost = runtimeFunction(
   "experimental_useQuestionFormHost",
 );
-export const useBbNavigate = runtimeFunction("useBbNavigate");
+export const useCcNavigate = runtimeFunction("useCcNavigate");
 export const experimental_useAppPanel = runtimeFunction(
   "experimental_useAppPanel",
 );
@@ -205,7 +205,7 @@ export const ThreadTitle = runtimeComponent("ThreadTitle");
 export const useEnvironmentProviders = runtimeFunction(
   "useEnvironmentProviders",
 );
-// bb's public API client bound to the calling plugin.
+// cc's public API client bound to the calling plugin.
 export const useSdk = runtimeFunction("useSdk");
 // The provider directory (experimental — see docs/api_to_audit.md).
 export const experimental_useProviders = runtimeFunction(

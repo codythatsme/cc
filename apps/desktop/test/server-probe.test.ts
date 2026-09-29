@@ -5,7 +5,7 @@ import {
 } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  probeBbServer,
+  probeCcServer,
   type ServerProbeFetch,
   waitForCompatibleServer,
 } from "../src/server-probe.js";
@@ -68,27 +68,27 @@ afterEach(async () => {
   }
 });
 
-describe("probeBbServer", () => {
+describe("probeCcServer", () => {
   it("reports the data directory the probed server declares", async () => {
     const fetchImpl = vi
       .fn<ServerProbeFetch>()
       .mockResolvedValueOnce(Response.json({ ok: true }))
       .mockResolvedValueOnce(
         Response.json({
-          dataDir: "/Users/example/.bb",
+          dataDir: "/Users/example/.cc",
           hostDaemonPort: 4_242,
           voiceTranscriptionEnabled: false,
         }),
       );
 
     await expect(
-      probeBbServer({
+      probeCcServer({
         fetchImpl,
         serverUrl: "https://studio.example",
         timeoutMs: 1_000,
       }),
     ).resolves.toEqual({
-      dataDir: "/Users/example/.bb",
+      dataDir: "/Users/example/.cc",
       kind: "compatible",
       serverUrl: "https://studio.example",
     });
@@ -105,7 +105,7 @@ describe("probeBbServer", () => {
       },
     });
 
-    const result = await probeBbServer({
+    const result = await probeCcServer({
       serverUrl: testServer.url,
       timeoutMs: 500,
     });
@@ -143,7 +143,7 @@ describe("probeBbServer", () => {
     });
 
     await expect(
-      probeBbServer({ serverUrl: testServer.url, timeoutMs: 500 }),
+      probeCcServer({ serverUrl: testServer.url, timeoutMs: 500 }),
     ).resolves.toEqual({
       dataDir: null,
       kind: "compatible",
@@ -162,7 +162,7 @@ describe("probeBbServer", () => {
     await testServer.close();
     testServers.pop();
 
-    const result = await probeBbServer({
+    const result = await probeCcServer({
       serverUrl: unavailableUrl,
       timeoutMs: 500,
     });

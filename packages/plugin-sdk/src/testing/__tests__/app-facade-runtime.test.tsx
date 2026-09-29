@@ -6,25 +6,25 @@ import {
   experimental_Icon,
   experimental_usePluginId,
   experimental_useQuestionFormHost,
-  useBbContext,
+  useCcContext,
 } from "../../app.js";
 import { installTestPluginRuntime, loadPluginApp, renderSlot } from "../app.js";
 
 interface RuntimeHost {
-  __bbPluginRuntime?: unknown;
+  __ccPluginRuntime?: unknown;
 }
 
 const host = globalThis as RuntimeHost;
-const runtimeAtImport = host.__bbPluginRuntime;
+const runtimeAtImport = host.__ccPluginRuntime;
 const Icon = experimental_Icon;
 
 afterEach(() => {
   cleanup();
-  host.__bbPluginRuntime = runtimeAtImport;
+  host.__ccPluginRuntime = runtimeAtImport;
 });
 
 function ContextProbe() {
-  const context = useBbContext();
+  const context = useCcContext();
   return (
     <p>
       <Icon name="Folder" aria-label="folder" />
@@ -33,7 +33,7 @@ function ContextProbe() {
   );
 }
 
-describe("@get-bb/plugin-sdk/app without a runtime at import time", () => {
+describe("@codythatsme/plugin-sdk/app without a runtime at import time", () => {
   it("loaded before any runtime was installed", () => {
     expect(runtimeAtImport).toBeUndefined();
   });
@@ -47,7 +47,7 @@ describe("@get-bb/plugin-sdk/app without a runtime at import time", () => {
       });
     });
 
-    expect(definition.__bbPluginApp).toBe(true);
+    expect(definition.__ccPluginApp).toBe(true);
     const app = await loadPluginApp(definition);
     expect(app.homepageSections.map((section) => section.id)).toEqual([
       "probe",
@@ -68,9 +68,9 @@ describe("@get-bb/plugin-sdk/app without a runtime at import time", () => {
   });
 
   it("names the missing runtime when a hook runs without one", () => {
-    host.__bbPluginRuntime = undefined;
+    host.__ccPluginRuntime = undefined;
     expect(() => render(<ContextProbe />)).toThrow(
-      /useBbContext needs the bb app's plugin runtime/,
+      /useCcContext needs the cc app's plugin runtime/,
     );
   });
 

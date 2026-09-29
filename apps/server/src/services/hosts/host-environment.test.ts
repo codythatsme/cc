@@ -1,4 +1,4 @@
-import { defaultAppSettings } from "@bb/domain";
+import { defaultAppSettings } from "@cc/domain";
 import {
   createConnection,
   migrate,
@@ -6,7 +6,7 @@ import {
   noopNotifier,
   getHost,
   setAppSettings,
-} from "@bb/db";
+} from "@cc/db";
 import { mkdtemp, writeFile, mkdir, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +16,7 @@ import { replaceMachineEnvironment } from "../machines/environment-settings.js";
 
 it("gives every host user environment while forwarding automatic gh credentials only to non-primary hosts", async () => {
   const db = createConnection(":memory:");
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-backfilled-env-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-backfilled-env-"));
   try {
     migrate(db);
     upsertHost(db, noopNotifier, { id: "legacy-remote", name: "Remote" });

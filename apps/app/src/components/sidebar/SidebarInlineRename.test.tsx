@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError } from "@bb/sdk/browser";
+import { CcHttpError } from "@cc/sdk/browser";
 import { useSidebarRename } from "./SidebarInlineRename";
 
 afterEach(cleanup);
@@ -166,7 +166,7 @@ describe("sidebar inline rename", () => {
     const onSave = vi
       .fn()
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new CcHttpError({
           body: null,
           code: "section_name_conflict",
           message: "Conflict",
@@ -174,7 +174,7 @@ describe("sidebar inline rename", () => {
         }),
       )
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new CcHttpError({
           body: null,
           code: null,
           message: "Missing",

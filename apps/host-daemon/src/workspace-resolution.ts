@@ -3,9 +3,9 @@ import type {
   WorkspaceContext,
   WorkspaceResolutionFailure,
   WorkspaceResolutionFailureCode,
-} from "@bb/host-daemon-contract";
-import { workspaceResolutionFailureCodeSchema } from "@bb/host-daemon-contract";
-import { WorkspaceError } from "@bb/host-workspace";
+} from "@cc/host-daemon-contract";
+import { workspaceResolutionFailureCodeSchema } from "@cc/host-daemon-contract";
+import { WorkspaceError } from "@cc/host-workspace";
 import type { RuntimeEntry, RuntimeManager } from "./runtime-manager.js";
 import {
   CommandDispatchError,

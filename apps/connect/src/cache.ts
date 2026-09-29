@@ -1,7 +1,7 @@
 import { rebuiltResponse } from "./response-encoding.js";
 
-const CACHE_HOST = "https://bb-connect-asset-cache.internal";
-const SHELL_CACHE_HOST = "https://bb-connect-shell-cache.internal";
+const CACHE_HOST = "https://cc-connect-asset-cache.internal";
+const SHELL_CACHE_HOST = "https://cc-connect-shell-cache.internal";
 const MIN_CACHEABLE_MAX_AGE = 300;
 const SHELL_CACHE_CONTROL = "no-cache";
 const SHELL_STORE_CACHE_CONTROL = "max-age=300";
@@ -69,7 +69,7 @@ function storeShellAndServe(
     ),
   );
   const r = new Response(resp.body, resp);
-  r.headers.set("x-bb-cache", "miss");
+  r.headers.set("x-cc-cache", "miss");
   return { cacheable: true, response: r };
 }
 
@@ -90,7 +90,7 @@ async function serveRevalidatedShell(
   if (resp.status === 304) {
     if (visitorEtag !== null) {
       const r = rebuiltResponse(null, resp);
-      r.headers.set("x-bb-cache", "revalidated");
+      r.headers.set("x-cc-cache", "revalidated");
       return { cacheable: true, response: r };
     }
     const r = rebuiltResponse(shellHit.body, shellHit);
@@ -98,7 +98,7 @@ async function serveRevalidatedShell(
       "cache-control",
       resp.headers.get("cache-control") ?? SHELL_CACHE_CONTROL,
     );
-    r.headers.set("x-bb-cache", "revalidated");
+    r.headers.set("x-cc-cache", "revalidated");
     return { cacheable: true, response: r };
   }
   if (isRevalidatableShell(resp)) {
@@ -127,7 +127,7 @@ export async function serveWithCache(
   const hit = await cache.match(key);
   if (hit) {
     const r = rebuiltResponse(hit.body, hit);
-    r.headers.set("x-bb-cache", "hit");
+    r.headers.set("x-cc-cache", "hit");
     return { cacheable: true, response: r };
   }
 
@@ -150,7 +150,7 @@ export async function serveWithCache(
   if (isCacheable(resp)) {
     ctx.waitUntil(cache.put(key, resp.clone()));
     const r = new Response(resp.body, resp);
-    r.headers.set("x-bb-cache", "miss");
+    r.headers.set("x-cc-cache", "miss");
     return { cacheable: true, response: r };
   }
   return { cacheable: false, response: resp };

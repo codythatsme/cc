@@ -9,13 +9,13 @@ import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import * as fixtures from "../helpers/command-output-fixtures.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread log command output", () => {
+describe("cc thread log command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("bb thread log --json prints raw events", async () => {
+  it("cc thread log --json prints raw events", async () => {
     const thread = {
       id: "thread-json-log",
       projectId: "proj-1",
@@ -49,7 +49,7 @@ describe("bb thread log command output", () => {
     ).toEqual(events);
   });
 
-  it("bb thread log renders merged timeline rows for human output", async () => {
+  it("cc thread log renders merged timeline rows for human output", async () => {
     const getEvents = vi.fn(async () => []);
     const getTimeline = vi.fn(async () =>
       fixtures.makeTimelineResponse([
@@ -118,7 +118,7 @@ describe("bb thread log command output", () => {
     expect(getEvents).not.toHaveBeenCalled();
   });
 
-  it("bb thread log renders pending steers for human output", async () => {
+  it("cc thread log renders pending steers for human output", async () => {
     const getEvents = vi.fn(async () => []);
     const getTimeline = vi.fn(async () =>
       fixtures.makeTimelineResponse([fixtures.makePendingSteerTimelineRow()]),
@@ -143,7 +143,7 @@ describe("bb thread log command output", () => {
     expect(getEvents).not.toHaveBeenCalled();
   });
 
-  it("bb thread log renders pending steers with default formatting", async () => {
+  it("cc thread log renders pending steers with default formatting", async () => {
     const getEvents = vi.fn(async () => []);
     const getTimeline = vi.fn(async () =>
       fixtures.makeTimelineResponse([fixtures.makePendingSteerTimelineRow()]),
@@ -165,7 +165,7 @@ describe("bb thread log command output", () => {
     expect(getEvents).not.toHaveBeenCalled();
   });
 
-  it("bb thread log renders approval state on command and file-change rows", async () => {
+  it("cc thread log renders approval state on command and file-change rows", async () => {
     const getEvents = vi.fn(async () => []);
     const getTimeline = vi.fn(async () =>
       fixtures.makeTimelineResponse([
@@ -229,7 +229,7 @@ describe("bb thread log command output", () => {
     expect(getEvents).not.toHaveBeenCalled();
   });
 
-  it("bb thread log --json caps at --limit and warns on stderr when more events exist", async () => {
+  it("cc thread log --json caps at --limit and warns on stderr when more events exist", async () => {
     const events = Array.from({ length: 4 }, (_, index) => ({
       id: `evt-${index + 1}`,
       scope: { kind: "thread" },
@@ -262,7 +262,7 @@ describe("bb thread log command output", () => {
     expect(stderr).toContain("--all");
   });
 
-  it("bb thread log --json detects more events across the server page boundary", async () => {
+  it("cc thread log --json detects more events across the server page boundary", async () => {
     const events = Array.from({ length: 101 }, (_, index) => ({
       id: `evt-${index + 1}`,
       scope: { kind: "thread" },
@@ -297,7 +297,7 @@ describe("bb thread log command output", () => {
     );
   });
 
-  it("bb thread log --json retries smaller raw-event pages after the byte limit", async () => {
+  it("cc thread log --json retries smaller raw-event pages after the byte limit", async () => {
     const events = Array.from({ length: 5 }, (_, index) => ({
       id: `evt-${index + 1}`,
       scope: { kind: "thread" },
@@ -342,7 +342,7 @@ describe("bb thread log command output", () => {
     ]);
   });
 
-  it("bb thread log --json stays quiet when the page is not full", async () => {
+  it("cc thread log --json stays quiet when the page is not full", async () => {
     const events = [
       {
         id: "evt-1",
@@ -366,7 +366,7 @@ describe("bb thread log command output", () => {
     expect(collectLogLines(vi.mocked(console.error))).toEqual([]);
   });
 
-  it("bb thread log --json --all pages through every event with --after-seq", async () => {
+  it("cc thread log --json --all pages through every event with --after-seq", async () => {
     const makeEvent = (seq: number) => ({
       id: `evt-${seq}`,
       scope: { kind: "thread" },
@@ -421,7 +421,7 @@ describe("bb thread log command output", () => {
     expect(collectLogLines(vi.mocked(console.error))).toEqual([]);
   });
 
-  it("bb thread log --json --all keeps paging after reducing a byte-heavy page", async () => {
+  it("cc thread log --json --all keeps paging after reducing a byte-heavy page", async () => {
     const events = Array.from({ length: 5 }, (_, index) => ({
       id: `evt-${index + 1}`,
       scope: { kind: "thread" },
@@ -487,7 +487,7 @@ describe("bb thread log command output", () => {
     ]);
   });
 
-  it("bb thread log --json --all restores large pages after a dense prefix", async () => {
+  it("cc thread log --json --all restores large pages after a dense prefix", async () => {
     const events = Array.from({ length: 1202 }, (_, index) => ({
       id: `evt-${index + 1}`,
       scope: { kind: "thread" },
@@ -543,7 +543,7 @@ describe("bb thread log command output", () => {
     expect(getEvents.mock.calls.length).toBeLessThan(30);
   });
 
-  it("bb thread log prints an older-history notice when the timeline page is cut", async () => {
+  it("cc thread log prints an older-history notice when the timeline page is cut", async () => {
     const getTimeline = vi.fn(async () => ({
       ...fixtures.makeTimelineResponse([
         fixtures.makePendingSteerTimelineRow(),
@@ -569,7 +569,7 @@ describe("bb thread log command output", () => {
     expect(output).toContain("--all");
   });
 
-  it("bb thread log --limit sets the timeline segment limit for human output", async () => {
+  it("cc thread log --limit sets the timeline segment limit for human output", async () => {
     const getTimeline = vi.fn(async () =>
       fixtures.makeTimelineResponse([fixtures.makePendingSteerTimelineRow()]),
     );
@@ -591,7 +591,7 @@ describe("bb thread log command output", () => {
     expect(output).not.toContain("older history omitted");
   });
 
-  it("bb thread log --all walks older timeline pages and prints them oldest first", async () => {
+  it("cc thread log --all walks older timeline pages and prints them oldest first", async () => {
     const makeUserRow = (id: string, seq: number, text: string) => ({
       ...fixtures.makePendingSteerTimelineRow(),
       ...fixtures.makeTimelineBase({ id, sourceSeqStart: seq }),
@@ -670,7 +670,7 @@ describe("bb thread log command output", () => {
     expect(output).not.toContain("older history omitted");
   });
 
-  it("bb thread log rejects --all combined with --limit", async () => {
+  it("cc thread log rejects --all combined with --limit", async () => {
     stubServerApi({
       "v1.threads.:id.timeline.$get": vi.fn(async () =>
         fixtures.makeTimelineResponse([]),
@@ -688,8 +688,8 @@ describe("bb thread log command output", () => {
     );
   });
 
-  it("bb thread log --self resolves from BB_THREAD_ID", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-log-self");
+  it("cc thread log --self resolves from CC_THREAD_ID", async () => {
+    vi.stubEnv("CC_THREAD_ID", "thread-log-self");
     const getEvents = vi.fn(async () => []);
     const getTimeline = vi.fn(async () => fixtures.makeTimelineResponse([]));
     stubServerApi({

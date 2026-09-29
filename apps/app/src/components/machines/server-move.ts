@@ -1,12 +1,12 @@
-import { toRecord } from "@bb/core-ui";
-import type { Host, LastServerMove, ServerMoveStepId } from "@bb/domain";
+import { toRecord } from "@cc/core-ui";
+import type { Host, LastServerMove, ServerMoveStepId } from "@cc/domain";
 import {
   SERVER_MOVED_ERROR_CODE,
   serverMovedErrorDetailsSchema,
   type ServerMoveHealth,
   type ServerMoveHealthState,
-} from "@bb/host-daemon-contract";
-import { BbHttpError } from "@bb/sdk/browser";
+} from "@cc/host-daemon-contract";
+import { CcHttpError } from "@cc/sdk/browser";
 import {
   serverMoveCheckItemSchema,
   type ServerMoveCheckItem,
@@ -14,10 +14,10 @@ import {
   type ServerMoveCheckSeverity,
   type ServerMoveStatus,
   type ServerMoveStatusResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 
 export const SERVER_MOVE_POLL_INTERVAL_MS = 1_000;
-export const SERVER_MOVE_ARRIVAL_PARAM = "bbServerMove";
+export const SERVER_MOVE_ARRIVAL_PARAM = "ccServerMove";
 
 const SERVER_MOVE_BLOCKED_ERROR_CODE = "server_move_blocked";
 
@@ -68,7 +68,7 @@ export function serverMoveStepLabel(
     case "stop-work":
       return "Stopping running work";
     case "update-target":
-      return `Updating bb on ${targetHostName}`;
+      return `Updating cc on ${targetHostName}`;
     case "export":
       return "Exporting server data";
     case "transfer":
@@ -134,7 +134,7 @@ export function serverMoveBlockedItems(
   error: unknown,
 ): ServerMoveCheckItem[] | null {
   if (
-    !(error instanceof BbHttpError) ||
+    !(error instanceof CcHttpError) ||
     error.code !== SERVER_MOVE_BLOCKED_ERROR_CODE
   ) {
     return null;
@@ -146,7 +146,7 @@ export function serverMoveBlockedItems(
 
 export function movedServerUrlFromError(error: unknown): string | null {
   if (
-    !(error instanceof BbHttpError) ||
+    !(error instanceof CcHttpError) ||
     error.status !== 410 ||
     error.code !== SERVER_MOVED_ERROR_CODE
   ) {

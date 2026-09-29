@@ -1,6 +1,6 @@
-import { getEnvironment } from "@bb/db";
-import { getThread } from "@bb/db";
-import { threadSchema, type GitSourceInspection } from "@bb/domain";
+import { getEnvironment } from "@cc/db";
+import { getThread } from "@cc/db";
+import { threadSchema, type GitSourceInspection } from "@cc/domain";
 import { describe, expect, it, vi } from "vitest";
 import { getThreadProvisionContext } from "../../src/services/threads/thread-startup-store.js";
 import type { ThreadProvisionEnvironmentIntent } from "../../src/services/threads/thread-startup-store.js";

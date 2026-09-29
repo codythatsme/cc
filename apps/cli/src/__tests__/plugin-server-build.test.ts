@@ -2,23 +2,23 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@cc/domain";
 import {
   buildPluginServer,
   resolvePluginBuildToolchain,
-} from "@bb/plugin-build";
+} from "@cc/plugin-build";
 function testToolchain() {
-  return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
+  return resolvePluginBuildToolchain(join(tmpdir(), "cc-toolchain-unused"));
 }
 
-const TEST_BB_VERSION = "0.9.0-test";
+const TEST_CC_VERSION = "0.9.0-test";
 
 const FIXTURE_PACKAGE_JSON = JSON.stringify(
   {
-    name: "bb-plugin-server-fixture",
+    name: "cc-plugin-server-fixture",
     version: "0.1.0",
     type: "module",
-    bb: {
+    cc: {
       name: "Server fixture",
       description: "Plugin server build fixture.",
       branding: { icon: "Zap" },
@@ -31,11 +31,11 @@ const FIXTURE_PACKAGE_JSON = JSON.stringify(
 
 const FIXTURE_LIB_TS = `export const greeting = "PREBUILT_LIB_MARKER";\n`;
 const FIXTURE_SERVER_TS = `
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { greeting } from "./lib.ts";
 
-export default function plugin(bb: BbPluginApi): void {
-  bb.log.info(greeting);
+export default function plugin(cc: CcPluginApi): void {
+  cc.log.info(greeting);
 }
 `;
 
@@ -43,7 +43,7 @@ describe("buildPluginServer", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "bb-plugin-server-build-"));
+    root = await mkdtemp(join(tmpdir(), "cc-plugin-server-build-"));
   });
 
   afterEach(async () => {
@@ -60,7 +60,7 @@ describe("buildPluginServer", () => {
     await writeFixture();
     const result = await buildPluginServer(
       root,
-      TEST_BB_VERSION,
+      TEST_CC_VERSION,
       await testToolchain(),
     );
 
@@ -68,7 +68,7 @@ describe("buildPluginServer", () => {
     const js = await readFile(result.jsPath, "utf8");
     expect(js).toMatch(/export\s*\{|export default/);
     expect(js).toContain("PREBUILT_LIB_MARKER");
-    expect(js).not.toContain("@get-bb/plugin-sdk");
+    expect(js).not.toContain("@codythatsme/plugin-sdk");
     expect(js).toContain("createRequire");
 
     const map = await readFile(result.mapPath, "utf8");
@@ -82,41 +82,41 @@ describe("buildPluginServer", () => {
       pluginId: "server-fixture",
       pluginVersion: "0.1.0",
       builtWith: {
-        bbVersion: TEST_BB_VERSION,
+        ccVersion: TEST_CC_VERSION,
         pluginSdkVersion: PLUGIN_SDK_VERSION,
       },
     });
   });
 
-  it("keeps a runtime @get-bb/plugin-sdk import external (bare specifier survives)", async () => {
+  it("keeps a runtime @codythatsme/plugin-sdk import external (bare specifier survives)", async () => {
     await writeFixture();
     await writeFile(
       join(root, "server.ts"),
       `
       import { greeting } from "./lib.ts";
-      import * as sdk from "@get-bb/plugin-sdk";
+      import * as sdk from "@codythatsme/plugin-sdk";
 
-      export default function plugin(bb: { log: { info(msg: string): void } }): void {
-        bb.log.info(greeting + Object.keys(sdk).length);
+      export default function plugin(cc: { log: { info(msg: string): void } }): void {
+        cc.log.info(greeting + Object.keys(sdk).length);
       }
       `,
     );
     const result = await buildPluginServer(
       root,
-      TEST_BB_VERSION,
+      TEST_CC_VERSION,
       await testToolchain(),
     );
     const js = await readFile(result.jsPath, "utf8");
-    expect(js).toMatch(/from\s*"@get-bb\/plugin-sdk"/);
+    expect(js).toMatch(/from\s*"@codythatsme\/plugin-sdk"/);
   });
 
-  it("errors clearly when package.json has no bb.server entry", async () => {
+  it("errors clearly when package.json has no cc.server entry", async () => {
     await writeFile(
       join(root, "package.json"),
-      JSON.stringify({ name: "bb-plugin-headless", version: "0.1.0" }),
+      JSON.stringify({ name: "cc-plugin-headless", version: "0.1.0" }),
     );
     await expect(
-      buildPluginServer(root, TEST_BB_VERSION, await testToolchain()),
+      buildPluginServer(root, TEST_CC_VERSION, await testToolchain()),
     ).rejects.toThrowError(/no server entry/);
   });
 
@@ -125,21 +125,21 @@ describe("buildPluginServer", () => {
     await writeFile(
       join(root, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-legacy",
+        name: "cc-plugin-legacy",
         version: "0.1.0",
-        bb: { server: "./server.ts" },
+        cc: { server: "./server.ts" },
       }),
     );
     await expect(
-      buildPluginServer(root, TEST_BB_VERSION, await testToolchain()),
-    ).rejects.toThrowError(/bb\.name/);
+      buildPluginServer(root, TEST_CC_VERSION, await testToolchain()),
+    ).rejects.toThrowError(/cc\.name/);
   });
 
   it("preserves the previous dist/server.js when a rebuild fails", async () => {
     await writeFixture();
     const first = await buildPluginServer(
       root,
-      TEST_BB_VERSION,
+      TEST_CC_VERSION,
       await testToolchain(),
     );
     const before = await readFile(first.jsPath, "utf8");
@@ -147,7 +147,7 @@ describe("buildPluginServer", () => {
 
     await writeFile(join(root, "server.ts"), "export default function ( {\n");
     await expect(
-      buildPluginServer(root, TEST_BB_VERSION, await testToolchain()),
+      buildPluginServer(root, TEST_CC_VERSION, await testToolchain()),
     ).rejects.toThrowError();
 
     expect(await readFile(first.jsPath, "utf8")).toBe(before);

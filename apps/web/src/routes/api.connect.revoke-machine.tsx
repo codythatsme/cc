@@ -10,7 +10,7 @@ export const Route = createFileRoute("/api/connect/revoke-machine")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const credential = request.headers.get("x-bb-connect-machine") ?? "";
+        const credential = request.headers.get("x-cc-connect-machine") ?? "";
         const body = (await request.json().catch(() => ({}))) as {
           machineId?: string;
         };

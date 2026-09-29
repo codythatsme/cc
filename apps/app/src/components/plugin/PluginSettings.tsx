@@ -2,26 +2,26 @@ import { usePluginEnabledMutation } from "@/components/plugin/usePluginEnabledMu
 import { useEffect, useId, useState, type FocusEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PluginSettingsSections } from "@/components/plugin/PluginSettingsSections";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { Textarea } from "@bb/shared-ui/textarea";
+} from "@cc/shared-ui/dropdown-menu";
+import { Icon } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
+import { Textarea } from "@cc/shared-ui/textarea";
 import { Link } from "react-router-dom";
 import { SettingsWithControl } from "@/components/ui/settings-section.js";
 import { getPluginDetailRoutePath } from "@/lib/route-paths";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { Switch } from "@bb/shared-ui/switch";
+import { Skeleton } from "@cc/shared-ui/skeleton";
+import { Switch } from "@cc/shared-ui/switch";
 import {
   ResourceDetailConfigurationSection,
   ResourceDetailPanel,
   ResourceDetailStack,
-} from "@bb/shared-ui/resource-list";
+} from "@cc/shared-ui/resource-list";
 import { PluginIcon } from "@/components/plugin/PluginIcon";
 import { applyPluginSettingsView } from "@/hooks/cache-owners/plugin-cache-owner";
 import {

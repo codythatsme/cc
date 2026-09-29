@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { resolveDataDirSkillsRootPath } from "@bb/config/skill-storage-paths";
+import { resolveDataDirSkillsRootPath } from "@cc/config/skill-storage-paths";
 import type {
   HostDaemonOnlineRpcResult,
   SkillRootKind,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import {
   CommandDispatchError,
   type CommandOf,
@@ -25,30 +25,30 @@ import { writeHostFile } from "./file-write.js";
 
 type SkillRootResolution = DeclaredScanRootResolution;
 
-function createBbSkillScanRoot(
+function createCcSkillScanRoot(
   rootPath: string,
-  rootKind: Extract<SkillRootKind, `bb-${string}`>,
+  rootKind: Extract<SkillRootKind, `cc-${string}`>,
 ): SkillScanRoot {
   return {
     rootPath,
     shape: "skill",
     namePrefix: "",
     source: "skill",
-    origin: rootKind === "bb-project" ? "project" : "user",
+    origin: rootKind === "cc-project" ? "project" : "user",
     identitySeed: rootKind,
     rootKind,
   };
 }
 
-function resolveBbSkillScanRoots(
+function resolveCcSkillScanRoots(
   resolution: SkillRootResolution,
 ): SkillScanRoot[] {
   const roots: SkillScanRoot[] = [];
   if (resolution.cwd !== null) {
     roots.push(
-      createBbSkillScanRoot(
-        path.join(resolution.cwd, ".bb", "skills"),
-        "bb-project",
+      createCcSkillScanRoot(
+        path.join(resolution.cwd, ".cc", "skills"),
+        "cc-project",
       ),
     );
   }
@@ -72,7 +72,7 @@ function classifySkillRoot(
   if (root.skillIdentitySeed === undefined) {
     return null;
   }
-  const shared = resolution.providerId === "bb-shared";
+  const shared = resolution.providerId === "cc-shared";
   return {
     identitySeed: root.skillIdentitySeed,
     rootKind: shared
@@ -88,7 +88,7 @@ function classifySkillRoot(
 export async function resolveSkillScanRoots(
   resolution: SkillRootResolution,
 ): Promise<SkillScanRoot[]> {
-  const skillRoots = resolveBbSkillScanRoots(resolution);
+  const skillRoots = resolveCcSkillScanRoots(resolution);
   const providerRoots = await resolveDeclaredScanRoots(resolution);
   for (const root of providerRoots) {
     const classification = classifySkillRoot(root, resolution);
@@ -136,21 +136,21 @@ function resolveDeletableSkillRoot(
   },
   dataDir: string,
 ): string {
-  if (args.scope === "bb-user") {
+  if (args.scope === "cc-user") {
     return resolveDataDirSkillsRootPath(dataDir);
   }
-  if (args.scope === "bb-project") {
+  if (args.scope === "cc-project") {
     const cwd = args.cwd;
     if (cwd === null) {
       throw new CommandDispatchError(
         "invalid_path",
-        "cwd is required for a bb-project skill",
+        "cwd is required for a cc-project skill",
       );
     }
     if (!path.isAbsolute(cwd)) {
       throw new CommandDispatchError("invalid_path", "cwd must be absolute");
     }
-    return path.join(cwd, ".bb", "skills");
+    return path.join(cwd, ".cc", "skills");
   }
   if (args.rootPath === null || !path.isAbsolute(args.rootPath)) {
     throw new CommandDispatchError(
@@ -250,7 +250,7 @@ export async function writeHostSkill(
   if (realTarget !== path.join(realRoot, command.name)) {
     throw new CommandDispatchError(
       "skill_outside_root",
-      "Refusing to edit a skill that resolves outside its bb root",
+      "Refusing to edit a skill that resolves outside its cc root",
     );
   }
   const skillFilePath = path.join(realTarget, SKILL_FILE_NAME);

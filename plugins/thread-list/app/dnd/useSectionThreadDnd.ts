@@ -23,7 +23,7 @@ import type { SidebarThread } from "../model/sidebar-thread.js";
 import {
   experimental_useSidebarThreadActions,
   useSdk,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import type { NeighborReorderRequest } from "../model/neighbor-reorder.js";
 import {
   getSidebarDndItemId,

@@ -1,5 +1,5 @@
-import type { PluginComposerScope } from "@get-bb/plugin-sdk";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PluginComposerScope } from "@codythatsme/plugin-sdk";
+import type { PromptDraftState } from "@cc/client-core";
 import { composerScopeIdentity } from "@/components/plugin/plugin-composer-host";
 import { createKeyedListeners } from "./keyed-listeners";
 

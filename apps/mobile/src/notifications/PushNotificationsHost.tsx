@@ -1,5 +1,5 @@
 import * as Notifications from "expo-notifications";
-import { getThreadRoutePath } from "@bb/client-core";
+import { getThreadRoutePath } from "@cc/client-core";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
@@ -182,7 +182,7 @@ function FirstRunPrompt({
     <ActionSheet
       controller={sheet}
       title="Get notified when a thread needs you?"
-      message="bb can send a push notification when a thread finishes, hits an error, or is waiting for your input. You can change this per server in Settings."
+      message="cc can send a push notification when a thread finishes, hits an error, or is waiting for your input. You can change this per server in Settings."
       actions={[
         {
           key: "enable",

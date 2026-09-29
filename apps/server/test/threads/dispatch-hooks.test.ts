@@ -6,14 +6,14 @@ import {
   listQueuedThreadMessagesForApi,
   listRunningThreads,
   setQueuedThreadMessageGroupBoundary,
-} from "@bb/db";
-import type { ThreadQueuedMessage } from "@bb/domain";
-import { createDeferredPromise } from "@bb/test-helpers";
-import type { StartedOnBehalfOf } from "@bb/domain";
+} from "@cc/db";
+import type { ThreadQueuedMessage } from "@cc/domain";
+import { createDeferredPromise } from "@cc/test-helpers";
+import type { StartedOnBehalfOf } from "@cc/domain";
 import type {
   MessageDispatchHookContext,
   PluginHookName,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import { ApiError } from "../../src/errors.js";
 import {

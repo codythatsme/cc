@@ -7,32 +7,32 @@ import {
   type AgentRuntimeSkillRoot,
   type AgentRuntimeProcessExitInfo,
   type ReapedIdleProviderSession,
-} from "@bb/agent-runtime";
-import type { Logger } from "@bb/logger";
-import { sliceUtf16Tail } from "@bb/text-utils";
+} from "@cc/agent-runtime";
+import type { Logger } from "@cc/logger";
+import { sliceUtf16Tail } from "@cc/text-utils";
 import type {
   PendingInteractionCreate,
   PendingInteractionResolution,
   ThreadEvent,
-} from "@bb/domain";
-import { threadScope, turnScope } from "@bb/domain";
+} from "@cc/domain";
+import { threadScope, turnScope } from "@cc/domain";
 import type {
   HostDaemonActiveThread,
   HostDaemonContributedEnvEntry,
   HostDaemonLoadedEnvironment,
   HostDaemonInjectedSkillSource,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type {
   DataDirSkillsWatchError,
   HostWatcher,
   InjectedSkillsObservedChange,
-} from "@bb/host-watcher";
+} from "@cc/host-watcher";
 import {
   provisionWorkspace,
   WorkspaceError,
   type HostWorkspace,
   type ProvisionWorkspaceArgs,
-} from "@bb/host-workspace";
+} from "@cc/host-workspace";
 import {
   cleanupInjectedSkillStagingDirs,
   EMPTY_SKILL_CATALOG_HASH,
@@ -250,9 +250,9 @@ function providerProcessEnvFromShellEnv(
   if (shellEnv.PATH) {
     env.PATH = shellEnv.PATH;
   }
-  const recordDir = process.env.BB_PROVIDER_BRIDGE_RECORD_DIR;
+  const recordDir = process.env.CC_PROVIDER_BRIDGE_RECORD_DIR;
   if (recordDir) {
-    env.BB_PROVIDER_BRIDGE_RECORD_DIR = recordDir;
+    env.CC_PROVIDER_BRIDGE_RECORD_DIR = recordDir;
   }
   return Object.keys(env).length > 0 ? env : null;
 }

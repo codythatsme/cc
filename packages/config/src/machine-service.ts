@@ -1,16 +1,16 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-export const MACHINE_INSTALLER_ENV_NAME = "BB_MACHINE_INSTALLER";
+export const MACHINE_INSTALLER_ENV_NAME = "CC_MACHINE_INSTALLER";
 
-const LAUNCHD_SERVICE_PREFIX = "app.getbb.host-daemon.";
+const LAUNCHD_SERVICE_PREFIX = "io.github.codythatsme.cc.host-daemon.";
 const LAUNCHD_SERVICE_SUFFIX = ".plist";
-const SYSTEMD_SERVICE_PREFIX = "bb-host-daemon-";
+const SYSTEMD_SERVICE_PREFIX = "cc-host-daemon-";
 const SYSTEMD_SERVICE_SUFFIX = ".service";
 const LAUNCHD_DATA_DIR_PATTERN =
-  /<key>BB_DATA_DIR<\/key>\s*<string>([^<]*)<\/string>/u;
+  /<key>CC_DATA_DIR<\/key>\s*<string>([^<]*)<\/string>/u;
 const SYSTEMD_DATA_DIR_PATTERN =
-  /^Environment="BB_DATA_DIR=((?:[^"\\]|\\.)*)"\s*$/mu;
+  /^Environment="CC_DATA_DIR=((?:[^"\\]|\\.)*)"\s*$/mu;
 const XML_ENTITIES: Readonly<Record<string, string>> = {
   "&amp;": "&",
   "&apos;": "'",

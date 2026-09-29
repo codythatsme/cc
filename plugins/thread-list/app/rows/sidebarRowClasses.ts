@@ -70,10 +70,10 @@ export function getSidebarThreadGroupLineLeft(depth: number): number {
 
 export const SIDEBAR_ROW_INTERACTIVE_STATE_CLASS = `cursor-pointer ${SIDEBAR_ROW_TEXT_CLASS} hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`;
 
-export const SIDEBAR_ROW_SELECTED_STATE_CLASS = `${CONTEXT_SELECTION_SURFACE_CLASS} bb-sidebar-selected-row ${SIDEBAR_ROW_TEXT_CLASS}`;
+export const SIDEBAR_ROW_SELECTED_STATE_CLASS = `${CONTEXT_SELECTION_SURFACE_CLASS} cc-sidebar-selected-row ${SIDEBAR_ROW_TEXT_CLASS}`;
 
 export const SIDEBAR_ROW_OPEN_IN_SPLIT_STATE_CLASS =
-  "bb-sidebar-open-in-split-row";
+  "cc-sidebar-open-in-split-row";
 
 export const SIDEBAR_FOOTER_ACTION_CLASS = cn(
   COARSE_POINTER_ROW_HEIGHT_CLASS,

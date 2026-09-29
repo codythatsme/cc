@@ -11,20 +11,20 @@ import {
 import {
   makeHost as makeHostFixture,
   makeThreadListEntry,
-} from "@bb/test-helpers/domain-fixtures";
-import type { SystemConfigResponse } from "@bb/server-contract";
+} from "@cc/test-helpers/domain-fixtures";
+import type { SystemConfigResponse } from "@cc/server-contract";
 import type {
   ProviderCliKey,
   ProviderCliStatus,
   ProviderCliStatusResponse,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { defaultExperiments, type Host, type LastServerMove } from "@bb/domain";
+import { defaultExperiments, type Host, type LastServerMove } from "@cc/domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
-import { makeProviderInfo } from "@bb/test-helpers/domain-fixtures";
+import { makeProviderInfo } from "@cc/test-helpers/domain-fixtures";
 import { MachineSettingsView } from "./MachineSettingsView";
 
 vi.mock("@/lib/sdk", () => ({
@@ -551,7 +551,7 @@ describe("MachineSettingsView", () => {
       mode: "connect",
       serverUrl: null,
       requiresServerUrl: false,
-      targetDataDir: "/home/sawyer/.bb-machines/workstation",
+      targetDataDir: "/home/sawyer/.cc-machines/workstation",
       existingTargetServerData: null,
       items: [],
       canMove: true,

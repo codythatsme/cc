@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { AiServiceSelection, AiTask, AiTextTask } from "@bb/domain";
+import type { AiServiceSelection, AiTask, AiTextTask } from "@cc/domain";
 import type {
   SetAiServiceSelectionRequest,
   SystemAiService,
   SystemAiServicesResponse,
   TestAiServiceResponse,
-} from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
+} from "@cc/server-contract";
+import { Button } from "@cc/shared-ui/button";
 import { SettingsSection } from "@/components/ui/settings-section";
 import { appToast } from "@/components/ui/app-toast";
 import { useSystemAiServices } from "@/hooks/queries/system-queries";
@@ -43,7 +43,7 @@ const AI_TASK_ROWS: readonly AiTaskRow[] = [
     task: "commit-message",
     label: "Commit messages",
     hint: "Written when you use the Commit action.",
-    offDescription: "Commits say “bb: automated commit”.",
+    offDescription: "Commits say “cc: automated commit”.",
     testTask: "commit-message",
   },
   {
@@ -99,7 +99,7 @@ export function aiTaskOptions(
       title: "Automatic",
       description:
         automatic === null
-          ? "Nothing bb ships is ready right now."
+          ? "Nothing cc ships is ready right now."
           : `Currently using ${automatic.displayName}.`,
     },
     ...view.services
@@ -138,7 +138,7 @@ function rowDescription(
     const automatic = automaticServiceFor(view, row.task);
     current =
       automatic === null
-        ? " Nothing is ready, so bb falls back."
+        ? " Nothing is ready, so cc falls back."
         : ` Using ${automatic.displayName}.`;
   } else if (selection.mode === "service") {
     const service = view.services.find(
@@ -203,7 +203,7 @@ export function AiServicesSettingsSection() {
   return (
     <SettingsSection
       title="AI services"
-      description="Choose which plugin writes thread titles, commit messages, and voice transcripts. Automatic uses the services bb ships, in order; a service you pick is never swapped for another."
+      description="Choose which plugin writes thread titles, commit messages, and voice transcripts. Automatic uses the services cc ships, in order; a service you pick is never swapped for another."
     >
       <div className="space-y-5">
         {AI_TASK_ROWS.map((row) => {

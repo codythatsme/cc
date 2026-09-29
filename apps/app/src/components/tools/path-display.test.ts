@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
+import { formatHomePathForDisplay } from "@cc/shared-ui/lib/utils";
 
 describe("formatHomePathForDisplay", () => {
   it.each([
     ["/Users/you", "~"],
-    ["/Users/you/.bb/plugins/github", "~/.bb/plugins/github"],
-    ["/home/u/.bb/skills/review", "~/.bb/skills/review"],
-    ["/root/.bb/automations/run.sh", "~/.bb/automations/run.sh"],
-    ["C:\\Users\\you\\.bb\\plugins", "~\\.bb\\plugins"],
+    ["/Users/you/.cc/plugins/github", "~/.cc/plugins/github"],
+    ["/home/u/.cc/skills/review", "~/.cc/skills/review"],
+    ["/root/.cc/automations/run.sh", "~/.cc/automations/run.sh"],
+    ["C:\\Users\\you\\.cc\\plugins", "~\\.cc\\plugins"],
   ])("compacts a conventional home path %s", (path, expected) => {
     expect(formatHomePathForDisplay(path)).toBe(expected);
   });

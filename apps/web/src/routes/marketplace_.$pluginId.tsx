@@ -17,9 +17,9 @@ export const Route = createFileRoute("/marketplace_/$pluginId")({
   head: ({ loaderData, params }) => {
     const entry = loaderData;
     const title = entry
-      ? `${entry.displayName} — bb Plugin Marketplace`
-      : "Plugin Marketplace — bb";
-    const description = entry?.description ?? "Find community plugins for bb.";
+      ? `${entry.displayName} — cc Plugin Marketplace`
+      : "Plugin Marketplace — cc";
+    const description = entry?.description ?? "Find community plugins for cc.";
     const path = `/marketplace/${encodeURIComponent(params.pluginId)}`;
     return {
       meta: [
@@ -40,7 +40,7 @@ export const Route = createFileRoute("/marketplace_/$pluginId")({
             : undefined,
         ),
       ],
-      links: [{ rel: "canonical", href: `https://getbb.app${path}` }],
+      links: [{ rel: "canonical", href: `https://cc.example.invalid${path}` }],
     };
   },
   component: MarketplaceDetailRoute,

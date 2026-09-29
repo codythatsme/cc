@@ -1,4 +1,4 @@
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@cc/server-contract";
 
 export interface ExplorationStep {
   callId: string;

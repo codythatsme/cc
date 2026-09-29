@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { defaultResolvedCodeTheme } from "@bb/domain";
+import { defaultResolvedCodeTheme } from "@cc/domain";
 import { resolveTheme } from "@pierre/diffs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyResolvedCodeTheme } from "./code-theme";
@@ -28,7 +28,7 @@ afterEach(() => {
 
 describe("acquirePierreWorkerPool", () => {
   it("registers the selected plugin theme before constructing the pool", async () => {
-    const sourceName = "bb:plugin:worker-pool-test:dark";
+    const sourceName = "cc:plugin:worker-pool-test:dark";
     applyResolvedCodeTheme({
       dark: sourceName,
       light: defaultResolvedCodeTheme.light,
@@ -44,7 +44,7 @@ describe("acquirePierreWorkerPool", () => {
       },
     });
     const theme = {
-      dark: document.documentElement.dataset.bbCodeThemeDark!,
+      dark: document.documentElement.dataset.ccCodeThemeDark!,
       light: defaultResolvedCodeTheme.light,
     };
     let resolution: Promise<unknown> | undefined;

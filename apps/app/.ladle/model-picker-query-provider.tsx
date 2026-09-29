@@ -6,8 +6,8 @@ import type {
   ProviderComposerAction,
   ProviderInfo,
   ReasoningLevel,
-} from "@bb/domain";
-import type { SystemExecutionOptionsResponse } from "@bb/server-contract";
+} from "@cc/domain";
+import type { SystemExecutionOptionsResponse } from "@cc/server-contract";
 import {
   hostsQueryKey,
   systemConfigQueryKey,

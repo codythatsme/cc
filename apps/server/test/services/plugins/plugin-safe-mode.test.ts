@@ -3,14 +3,13 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createConnection, migrate, type DbConnection } from "@bb/db";
-import type { Logger } from "@bb/logger";
+import { createConnection, migrate, type DbConnection } from "@cc/db";
+import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
   type PluginService,
 } from "../../../src/services/plugins/plugin-service.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 import { testLogger } from "../../helpers/test-app.js";
 
 const logger = testLogger as unknown as Logger;
@@ -20,19 +19,19 @@ const fixtureRoot = resolve(
   "..",
   "fixtures",
   "plugins",
-  "bb-plugin-builtin-fixture",
+  "cc-plugin-builtin-fixture",
 );
 const globals = globalThis as Record<string, unknown>;
 
 async function writePathPlugin(dir: string, name: string): Promise<string> {
-  const rootDir = join(dir, `bb-plugin-${name}`);
+  const rootDir = join(dir, `cc-plugin-${name}`);
   await mkdir(rootDir, { recursive: true });
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${name}`,
+      name: `cc-plugin-${name}`,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "Safe mode fixture",
         description: "Safe mode fixture.",
         branding: { icon: "Zap" },
@@ -42,11 +41,11 @@ async function writePathPlugin(dir: string, name: string): Promise<string> {
   );
   await writeFile(
     join(rootDir, "server.ts"),
-    `export default function plugin(bb: any) {
+    `export default function plugin(cc: any) {
       const g = globalThis as any;
       if (g.__safeModeFailing === ${JSON.stringify(name)}) throw new Error("boom");
       g.__safeModeLoads = { ...g.__safeModeLoads, ${JSON.stringify(name)}: (g.__safeModeLoads?.[${JSON.stringify(name)}] ?? 0) + 1 };
-      bb.onDispose(() => {
+      cc.onDispose(() => {
         g.__safeModeDisposed = [...(g.__safeModeDisposed ?? []), ${JSON.stringify(name)}];
       });
     }`,
@@ -62,7 +61,6 @@ describe("plugin safe mode", () => {
   function createService(autoInstall = true): PluginService {
     return createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -92,7 +90,7 @@ describe("plugin safe mode", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-safe-mode-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-safe-mode-"));
     service = createService();
     await service.start();
   });
@@ -182,13 +180,13 @@ describe("plugin safe mode", () => {
     await expect(
       service.installPath(await writePathPlugin(workDir, "beta")),
     ).rejects.toThrow(
-      'plugin safe mode is on; turn it off with `bb plugin safe-mode off` before you install "beta"',
+      'plugin safe mode is on; turn it off with `cc plugin safe-mode off` before you install "beta"',
     );
     expect(entry("beta")).toBeUndefined();
     await expect(service.applyUpdate("alpha")).resolves.toEqual({
       ok: false,
       error:
-        'plugin safe mode is on; turn it off with `bb plugin safe-mode off` before you update "alpha"',
+        'plugin safe mode is on; turn it off with `cc plugin safe-mode off` before you update "alpha"',
     });
 
     await service.setSafeMode(false);

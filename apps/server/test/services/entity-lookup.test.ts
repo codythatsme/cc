@@ -14,9 +14,9 @@ import {
   updateHost,
   upsertHost,
   type DbConnection,
-} from "@bb/db";
-import type { Host, Project } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+} from "@cc/db";
+import type { Host, Project } from "@cc/domain";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import { ApiError } from "../../src/errors.js";
 import { NotificationHub } from "../../src/ws/hub.js";
 import { createMockHubSocket } from "../helpers/mock-hub-socket.js";

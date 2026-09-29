@@ -6,10 +6,10 @@ import {
   type ReactNode,
   useContext,
 } from "react";
-import type { BbNavigate } from "@get-bb/plugin-sdk";
+import type { CcNavigate } from "@codythatsme/plugin-sdk";
 
 export type PluginThreadPanelOpenHandler = (
-  options: Parameters<BbNavigate["openThreadPanel"]>[0] & {
+  options: Parameters<CcNavigate["openThreadPanel"]>[0] & {
     pluginId: string;
   },
 ) => boolean;

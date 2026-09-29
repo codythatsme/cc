@@ -1,4 +1,4 @@
-import type { Logger } from "@bb/logger";
+import type { Logger } from "@cc/logger";
 
 export type HostDaemonLogger = Pick<
   Logger,

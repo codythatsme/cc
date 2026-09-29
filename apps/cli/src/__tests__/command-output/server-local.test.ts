@@ -33,7 +33,7 @@ import {
   writeServerConnectHoldFile,
   writeServerImportFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -42,7 +42,7 @@ import {
 } from "../helpers/command-output-harness.js";
 import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import { registerServerCommands } from "../../commands/server.js";
-import { isNewerBbVersion } from "../../commands/server-local.js";
+import { isNewerCcVersion } from "../../commands/server-local.js";
 
 const tempDirs: string[] = [];
 
@@ -64,15 +64,15 @@ async function writeDataFile(
 }
 
 async function buildArchive(
-  bbVersion = "0.50.0",
+  ccVersion = "0.50.0",
   serverMoveExperiment = true,
 ): Promise<string> {
-  const sourceDataDir = await makeTempDir("bb-cli-server-source-");
+  const sourceDataDir = await makeTempDir("cc-cli-server-source-");
   const files = [
-    { archivePath: "bb.db", body: "sqlite database" },
+    { archivePath: "cc.db", body: "sqlite database" },
     {
       archivePath: "config.json",
-      body: JSON.stringify({ config: { BB_LOG_LEVEL: "debug" } }),
+      body: JSON.stringify({ config: { CC_LOG_LEVEL: "debug" } }),
     },
     { archivePath: "auth-secret", body: "secret" },
     { archivePath: "attachments/thr_1/image.png", body: "png" },
@@ -89,7 +89,7 @@ async function buildArchive(
     })),
   );
   const outPath = join(
-    await makeTempDir("bb-cli-server-archive-"),
+    await makeTempDir("cc-cli-server-archive-"),
     "export.tar.gz",
   );
   await writeServerArchive({
@@ -97,10 +97,10 @@ async function buildArchive(
     files: sourceFiles,
     manifest: {
       createdAt: 1_700_000_000_000,
-      bbVersion,
+      ccVersion,
       protocolVersion: 209,
       migrationCount: 150,
-      sourceDataDir: "/home/old/.bb",
+      sourceDataDir: "/home/old/.cc",
       sourceServerHostId: "host-old-server",
       serverMoveExperiment,
     },
@@ -143,13 +143,13 @@ async function writeCraftedArchive(
 ): Promise<string> {
   const manifest = Buffer.from(
     JSON.stringify({
-      format: "bb-server-archive",
+      format: "cc-server-archive",
       version: 2,
       createdAt: 1_700_000_000_000,
-      bbVersion: "0.50.0",
+      ccVersion: "0.50.0",
       protocolVersion: 209,
       migrationCount: 150,
-      sourceDataDir: "/home/old/.bb",
+      sourceDataDir: "/home/old/.cc",
       sourceServerHostId: "host-old-server",
       serverMoveExperiment: true,
       entries: files.map((file) => ({
@@ -169,7 +169,7 @@ async function writeCraftedArchive(
     ]),
   );
   const outPath = join(
-    await makeTempDir("bb-cli-server-archive-"),
+    await makeTempDir("cc-cli-server-archive-"),
     "crafted.tar.gz",
   );
   await writeFile(outPath, archive);
@@ -184,10 +184,10 @@ function movedLock(overrides: Partial<ServerMovedFile> = {}): ServerMovedFile {
     fromHostId: "host-laptop",
     toHostId: "host-desktop",
     toHostName: "desktop",
-    serverUrl: "https://me.getbb.app",
+    serverUrl: "https://me.cc.example.invalid",
     mode: "connect",
     connectHandle: "me",
-    oldCopyEntries: ["bb.db", "attachments", "plugins/tasks/data.db"],
+    oldCopyEntries: ["cc.db", "attachments", "plugins/tasks/data.db"],
     ...overrides,
   };
 }
@@ -210,7 +210,7 @@ afterAll(async () => {
   );
 });
 
-describe("bb server import", () => {
+describe("cc server import", () => {
   setupCommandOutputTestEnvironment();
 
   const createdDirs: string[] = [];
@@ -224,18 +224,18 @@ describe("bb server import", () => {
   });
 
   async function makeDataDirParent(): Promise<string> {
-    const dir = await mkdtemp(join(tmpdir(), "bb-cli-server-import-"));
+    const dir = await mkdtemp(join(tmpdir(), "cc-cli-server-import-"));
     createdDirs.push(dir);
     return dir;
   }
 
   beforeEach(() => {
-    vi.stubEnv("BB_APP_VERSION", "0.50.0");
+    vi.stubEnv("CC_APP_VERSION", "0.50.0");
   });
 
   it("installs a plain export and marks it for a manual import boot", async () => {
     const parent = await makeDataDirParent();
-    const dataDir = join(parent, "bb-data");
+    const dataDir = join(parent, "cc-data");
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_500_000);
 
     await runCommand(
@@ -243,7 +243,7 @@ describe("bb server import", () => {
       register,
     );
 
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe(
       "sqlite database",
     );
     expect(
@@ -261,12 +261,12 @@ describe("bb server import", () => {
       kind: "manual",
       moveId: null,
       activationToken: null,
-      sourceDataDir: "/home/old/.bb",
+      sourceDataDir: "/home/old/.cc",
       sourceServerHostId: "host-old-server",
       targetHostId: null,
       serverUrl: null,
       importedEntries: expect.arrayContaining([
-        "bb.db",
+        "cc.db",
         "config.json",
         "auth-secret",
         "attachments/thr_1/image.png",
@@ -280,20 +280,20 @@ describe("bb server import", () => {
       reason: "manual-import",
       createdAt: 1_700_000_500_000,
     });
-    expect(await readdir(parent)).toEqual(["bb-data"]);
+    expect(await readdir(parent)).toEqual(["cc-data"]);
     const output = collectLogPayloads(vi.mocked(console.log));
     expect(output[0]).toBe(
-      `Imported the bb server into ${dataDir} (5 files from /home/old/.bb, exported by bb 0.50.0).`,
+      `Imported the cc server into ${dataDir} (5 files from /home/old/.cc, exported by cc 0.50.0).`,
     );
     expect(output.slice(2)).toEqual([
-      "Stop the original bb server before you start this one. Two servers holding the same bb connect credential take each other's tunnel.",
-      `bb connect stays off in this copy until you run bb server allow-connect --data-dir ${dataDir}.`,
-      `Then start it with npx bb-app --data-dir ${dataDir}.`,
+      "Stop the original cc server before you start this one. Two servers holding the same cc connect credential take each other's tunnel.",
+      `cc connect stays off in this copy until you run cc server allow-connect --data-dir ${dataDir}.`,
+      `Then start it with pnpm start --data-dir ${dataDir}.`,
     ]);
   });
 
   it("prints the import result as JSON", async () => {
-    const dataDir = join(await makeDataDirParent(), "bb-data");
+    const dataDir = join(await makeDataDirParent(), "cc-data");
 
     await runCommand(
       [
@@ -313,14 +313,14 @@ describe("bb server import", () => {
       JSON.parse(collectLogPayloads(vi.mocked(console.log))[0]!),
     ).toMatchObject({
       dataDir,
-      bbVersion: "0.50.0",
+      ccVersion: "0.50.0",
       sourceServerHostId: "host-old-server",
     });
   });
 
   it("refuses a data directory that already has a server database", async () => {
-    const dataDir = join(await makeDataDirParent(), "bb-data");
-    await writeDataFile(dataDir, "bb.db", "existing server");
+    const dataDir = join(await makeDataDirParent(), "cc-data");
+    await writeDataFile(dataDir, "cc.db", "existing server");
 
     await expect(
       runCommand(
@@ -330,21 +330,21 @@ describe("bb server import", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))[0]).toBe(
-      `Error: ${dataDir} already has a bb server database (bb.db). Import into a data directory without a server, such as --data-dir ~/.bb-imported.`,
+      `Error: ${dataDir} already has a cc server database (cc.db). Import into a data directory without a server, such as --data-dir ~/.cc-imported.`,
     );
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe(
       "existing server",
     );
     expect(await readServerImportFile(dataDir)).toBeNull();
   });
 
-  it("refuses while bb is running from the data directory", async () => {
-    const dataDir = join(await makeDataDirParent(), "bb-data");
+  it("refuses while cc is running from the data directory", async () => {
+    const dataDir = join(await makeDataDirParent(), "cc-data");
     await writeDataFile(
       dataDir,
-      "bb-app-runtime.json",
+      "cc-app-runtime.json",
       JSON.stringify({
-        entryPath: "/usr/lib/bb-app/dist/launcher.js",
+        entryPath: "/usr/lib/cc-app/dist/launcher.js",
         pid: process.pid,
         surface: "cli",
         serverUrl: "http://127.0.0.1:38886",
@@ -361,18 +361,18 @@ describe("bb server import", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))[0]).toBe(
-      `Error: bb is running from ${dataDir} (pid ${String(process.pid)}). Stop it with bb-app stop or quit the desktop app, then try again.`,
+      `Error: cc is running from ${dataDir} (pid ${String(process.pid)}). Stop it with cc-app stop or quit the desktop app, then try again.`,
     );
-    await expect(stat(join(dataDir, "bb.db"))).rejects.toThrow();
+    await expect(stat(join(dataDir, "cc.db"))).rejects.toThrow();
   });
 
   it("imports past a stale runtime record whose process has exited", async () => {
-    const dataDir = join(await makeDataDirParent(), "bb-data");
+    const dataDir = join(await makeDataDirParent(), "cc-data");
     await writeDataFile(
       dataDir,
-      "bb-app-runtime.json",
+      "cc-app-runtime.json",
       JSON.stringify({
-        entryPath: "/usr/lib/bb-app/dist/launcher.js",
+        entryPath: "/usr/lib/cc-app/dist/launcher.js",
         pid: 2_147_483_646,
         surface: "cli",
         serverUrl: "http://127.0.0.1:38886",
@@ -391,7 +391,7 @@ describe("bb server import", () => {
 
   it("changes nothing when the confirmation is declined", async () => {
     const parent = await makeDataDirParent();
-    const dataDir = join(parent, "bb-data");
+    const dataDir = join(parent, "cc-data");
     readlineMocks.question.mockResolvedValue("n");
 
     await runCommand(
@@ -400,19 +400,19 @@ describe("bb server import", () => {
     );
 
     expect(readlineMocks.question).toHaveBeenCalledWith(
-      `Import the bb server from ${plainArchive} into ${dataDir}? [y/N] `,
+      `Import the cc server from ${plainArchive} into ${dataDir}? [y/N] `,
     );
     expect(await readdir(parent)).toEqual([]);
   });
 
-  it("asks for a new export when the file was encrypted by an older bb", async () => {
+  it("asks for a new export when the file was encrypted by an older cc", async () => {
     const parent = await makeDataDirParent();
     const oldExport = await writeDataFile(
       parent,
       "old-export.bbsa",
-      `BBSA${randomBytes(64).toString("hex")}`,
+      `CCSA${randomBytes(64).toString("hex")}`,
     );
-    const dataDir = join(parent, "bb-data");
+    const dataDir = join(parent, "cc-data");
 
     await expect(
       runCommand(
@@ -422,7 +422,7 @@ describe("bb server import", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: This export was encrypted by an older bb; re-export it with bb server export",
+      "Error: This export was encrypted by an older cc; re-export it with cc server export",
     ]);
     expect(await readdir(parent)).toEqual(["old-export.bbsa"]);
   });
@@ -430,7 +430,7 @@ describe("bb server import", () => {
   it("rejects a file that is not a server archive", async () => {
     const parent = await makeDataDirParent();
     const notAnArchive = await writeDataFile(parent, "notes.txt", "hello");
-    const dataDir = join(parent, "bb-data");
+    const dataDir = join(parent, "cc-data");
 
     await expect(
       runCommand(
@@ -440,14 +440,14 @@ describe("bb server import", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: File is not a bb server archive",
+      "Error: File is not a cc server archive",
     ]);
   });
 
-  it("refuses an export made by a newer bb and leaves nothing behind", async () => {
+  it("refuses an export made by a newer cc and leaves nothing behind", async () => {
     const newerArchive = await buildArchive("0.51.0");
     const parent = await makeDataDirParent();
-    const dataDir = join(parent, "bb-data");
+    const dataDir = join(parent, "cc-data");
 
     await expect(
       runCommand(
@@ -457,7 +457,7 @@ describe("bb server import", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: This export came from bb 0.51.0; install that version or newer before importing.",
+      "Error: This export came from cc 0.51.0; install that version or newer before importing.",
     ]);
     expect(await readdir(parent)).toEqual([]);
   });
@@ -465,7 +465,7 @@ describe("bb server import", () => {
   it("refuses an export from a server with the serverMove experiment off before installing anything", async () => {
     const offArchive = await buildArchive("0.50.0", false);
     const parent = await makeDataDirParent();
-    const dataDir = join(parent, "bb-data");
+    const dataDir = join(parent, "cc-data");
 
     await expect(
       runCommand(
@@ -475,27 +475,27 @@ describe("bb server import", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      'Error: This export came from a server with the "Server move" experiment off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, on that server, then export again.',
+      'Error: This export came from a server with the "Server move" experiment off. Turn on the "Server move" experiment in Settings → Experiments, or run cc settings experiment serverMove true, on that server, then export again.',
     ]);
     expect(await readdir(parent)).toEqual([]);
   });
 
   it("rolls back an interrupted import before importing again", async () => {
-    const dataDir = join(await makeDataDirParent(), "bb-data");
+    const dataDir = join(await makeDataDirParent(), "cc-data");
     await writeDataFile(dataDir, "host-id", "host-desktop");
     await writeDataFile(
       dataDir,
       "config.json",
       JSON.stringify({
-        config: { BB_APP_URL: "https://desktop.ts.net", BB_LOG_LEVEL: "trace" },
+        config: { CC_APP_URL: "https://desktop.ts.net", CC_LOG_LEVEL: "trace" },
       }),
     );
     await writeDataFile(
       dataDir,
       "server-import-backup/config.json",
-      JSON.stringify({ config: { BB_APP_URL: "https://desktop.ts.net" } }),
+      JSON.stringify({ config: { CC_APP_URL: "https://desktop.ts.net" } }),
     );
-    await writeDataFile(dataDir, "bb.db", "interrupted import database");
+    await writeDataFile(dataDir, "cc.db", "interrupted import database");
     await writeDataFile(
       dataDir,
       "skills/interrupted/SKILL.md",
@@ -506,7 +506,7 @@ describe("bb server import", () => {
       "server-import-journal.json",
       JSON.stringify({
         version: 1,
-        entries: ["skills/interrupted/SKILL.md", "config.json", "bb.db"],
+        entries: ["skills/interrupted/SKILL.md", "config.json", "cc.db"],
         preexistingEntries: ["config.json"],
       }),
     );
@@ -516,14 +516,14 @@ describe("bb server import", () => {
       register,
     );
 
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe(
       "sqlite database",
     );
     expect((await readdir(dataDir)).sort()).toEqual([
       ".config.json.lock",
       "attachments",
       "auth-secret",
-      "bb.db",
+      "cc.db",
       "config.json",
       "host-id",
       "plugins",
@@ -533,11 +533,11 @@ describe("bb server import", () => {
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_APP_URL: "https://desktop.ts.net", BB_LOG_LEVEL: "debug" },
+      config: { CC_APP_URL: "https://desktop.ts.net", CC_LOG_LEVEL: "debug" },
     });
     expect(await readServerImportFile(dataDir)).toMatchObject({
       kind: "manual",
-      importedEntries: expect.arrayContaining(["bb.db", "config.json"]),
+      importedEntries: expect.arrayContaining(["cc.db", "config.json"]),
     });
     expect(collectLogPayloads(vi.mocked(console.log))[0]).toBe(
       `Rolled back an interrupted import in ${dataDir}.`,
@@ -545,9 +545,9 @@ describe("bb server import", () => {
   });
 
   it("refuses to import over a finished import whose journal was left behind", async () => {
-    const dataDir = join(await makeDataDirParent(), "bb-data");
-    const importedEntries = ["attachments/thr_1/image.png", "bb.db"];
-    await writeDataFile(dataDir, "bb.db", "imported database");
+    const dataDir = join(await makeDataDirParent(), "cc-data");
+    const importedEntries = ["attachments/thr_1/image.png", "cc.db"];
+    await writeDataFile(dataDir, "cc.db", "imported database");
     await writeDataFile(dataDir, "attachments/thr_1/image.png", "imported png");
     await writeDataFile(
       dataDir,
@@ -563,7 +563,7 @@ describe("bb server import", () => {
       kind: "manual",
       moveId: null,
       activationToken: null,
-      sourceDataDir: "/home/old/.bb",
+      sourceDataDir: "/home/old/.cc",
       sourceServerHostId: "host-old-server",
       targetHostId: null,
       serverUrl: null,
@@ -585,9 +585,9 @@ describe("bb server import", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))[0]).toBe(
-      `Error: ${dataDir} already has a bb server database (bb.db). Import into a data directory without a server, such as --data-dir ~/.bb-imported.`,
+      `Error: ${dataDir} already has a cc server database (cc.db). Import into a data directory without a server, such as --data-dir ~/.cc-imported.`,
     );
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe(
       "imported database",
     );
     expect(
@@ -604,11 +604,11 @@ describe("bb server import", () => {
   });
 
   it("removes the pre-import config backups once the import is marked", async () => {
-    const dataDir = join(await makeDataDirParent(), "bb-data");
+    const dataDir = join(await makeDataDirParent(), "cc-data");
     await writeDataFile(
       dataDir,
       "config.json",
-      JSON.stringify({ config: { BB_APP_URL: "https://desktop.ts.net" } }),
+      JSON.stringify({ config: { CC_APP_URL: "https://desktop.ts.net" } }),
     );
 
     await runCommand(
@@ -621,17 +621,17 @@ describe("bb server import", () => {
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_APP_URL: "https://desktop.ts.net", BB_LOG_LEVEL: "debug" },
+      config: { CC_APP_URL: "https://desktop.ts.net", CC_LOG_LEVEL: "debug" },
     });
   });
 
   it("refuses an archive that carries host-owned files", async () => {
     const hostileArchive = await writeCraftedArchive([
-      { path: "bb.db", body: "sqlite database" },
+      { path: "cc.db", body: "sqlite database" },
       { path: "host-id", body: "host-attacker" },
     ]);
     const parent = await makeDataDirParent();
-    const dataDir = join(parent, "bb-data");
+    const dataDir = join(parent, "cc-data");
 
     await expect(
       runCommand(
@@ -647,7 +647,7 @@ describe("bb server import", () => {
   });
 });
 
-describe("isNewerBbVersion", () => {
+describe("isNewerCcVersion", () => {
   it.each([
     ["0.51.0", "0.50.0", true],
     ["0.50.0", "0.50.0", false],
@@ -660,11 +660,11 @@ describe("isNewerBbVersion", () => {
     ["0.50.0-beta", "0.50.0-beta.1", false],
     ["not-a-version", "0.50.0", false],
   ] as const)("%s newer than %s is %s", (candidate, current, expected) => {
-    expect(isNewerBbVersion(candidate, current)).toBe(expected);
+    expect(isNewerCcVersion(candidate, current)).toBe(expected);
   });
 });
 
-describe("bb server unlock", () => {
+describe("cc server unlock", () => {
   setupCommandOutputTestEnvironment();
 
   beforeEach(() => {
@@ -681,12 +681,12 @@ describe("bb server unlock", () => {
   }
 
   it("refuses while the new server still answers its health check", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     const configPath = await writeDataFile(
       dataDir,
       "config.json",
-      JSON.stringify({ serverUrl: "https://me.getbb.app" }),
+      JSON.stringify({ serverUrl: "https://me.cc.example.invalid" }),
     );
     vi.mocked(globalThis.fetch).mockResolvedValue(
       healthResponse(200, { ok: true, launchId: "launch-1" }),
@@ -700,20 +700,20 @@ describe("bb server unlock", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-      "https://me.getbb.app/health",
+      "https://me.cc.example.invalid/health",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The server at https://me.getbb.app is running. Unlocking now would run two servers with the same data and bb connect credential. Stop it first, or pass --force.",
+      "Error: The server at https://me.cc.example.invalid is running. Unlocking now would run two servers with the same data and cc connect credential. Stop it first, or pass --force.",
     ]);
     expect(await readServerMovedFile(dataDir)).not.toBeNull();
     expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.cc.example.invalid",
     });
   });
 
   it("--force unlocks without probing the new server", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     vi.mocked(globalThis.fetch).mockResolvedValue(
       healthResponse(200, { ok: true }),
@@ -735,9 +735,9 @@ describe("bb server unlock", () => {
         Promise.resolve(
           healthResponse(410, {
             code: "server_moved",
-            message: "This bb server moved",
+            message: "This cc server moved",
             details: {
-              serverUrl: "https://me.getbb.app",
+              serverUrl: "https://me.cc.example.invalid",
               toHostName: "desktop",
               movedAt: 1,
             },
@@ -769,7 +769,7 @@ describe("bb server unlock", () => {
         ),
     ],
   ])("unlocks when %s", async (_label, respond) => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     vi.mocked(globalThis.fetch).mockImplementation(respond);
 
@@ -783,16 +783,16 @@ describe("bb server unlock", () => {
   });
 
   const connectGrantConfig = {
-    config: { BB_LOG_LEVEL: "debug" },
-    serverUrl: "https://me.getbb.app",
-    serverHeaders: { "x-bb-connect-machine": "grant-secret" },
+    config: { CC_LOG_LEVEL: "debug" },
+    serverUrl: "https://me.cc.example.invalid",
+    serverHeaders: { "x-cc-connect-machine": "grant-secret" },
   };
 
   async function writeConnectLockWithGrant(): Promise<{
     dataDir: string;
     configPath: string;
   }> {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock({ mode: "connect" }));
     const configPath = await writeDataFile(
       dataDir,
@@ -817,14 +817,14 @@ describe("bb server unlock", () => {
 
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledOnce();
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-      "https://me.getbb.app/api/v1/system/version",
+      "https://me.cc.example.invalid/api/v1/system/version",
       expect.objectContaining({
-        headers: { "x-bb-connect-machine": "grant-secret" },
+        headers: { "x-cc-connect-machine": "grant-secret" },
         signal: expect.any(AbortSignal),
       }),
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The server at https://me.getbb.app is running. Unlocking now would run two servers with the same data and bb connect credential. Stop it first, or pass --force.",
+      "Error: The server at https://me.cc.example.invalid is running. Unlocking now would run two servers with the same data and cc connect credential. Stop it first, or pass --force.",
     ]);
     expect(await readServerMovedFile(dataDir)).not.toBeNull();
     expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual(
@@ -837,9 +837,9 @@ describe("bb server unlock", () => {
       "the gate reports the tunnel offline",
       () =>
         Promise.resolve(
-          new Response("bb connect: tunnel offline\n", {
+          new Response("cc connect: tunnel offline\n", {
             status: 503,
-            headers: { "x-bb-tunnel-offline": "1" },
+            headers: { "x-cc-tunnel-offline": "1" },
           }),
         ),
     ],
@@ -869,12 +869,12 @@ describe("bb server unlock", () => {
       );
 
       expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledWith(
-        "https://me.getbb.app/api/v1/system/version",
+        "https://me.cc.example.invalid/api/v1/system/version",
         expect.anything(),
       );
       expect(await readServerMovedFile(dataDir)).toBeNull();
       expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { CC_LOG_LEVEL: "debug" },
       });
       expect(
         collectLogPayloads(vi.mocked(console.error)).filter((line) =>
@@ -889,7 +889,7 @@ describe("bb server unlock", () => {
     async (status) => {
       const { dataDir } = await writeConnectLockWithGrant();
       vi.mocked(globalThis.fetch).mockResolvedValue(
-        new Response("bb connect: machine not authorized\n", { status }),
+        new Response("cc connect: machine not authorized\n", { status }),
       );
 
       await runCommand(
@@ -899,13 +899,13 @@ describe("bb server unlock", () => {
 
       expect(await readServerMovedFile(dataDir)).toBeNull();
       expect(collectLogPayloads(vi.mocked(console.error))[0]).toBe(
-        `Couldn't confirm whether the server at https://me.getbb.app is running (HTTP ${String(status)}). Make sure it is stopped before this old copy starts.`,
+        `Couldn't confirm whether the server at https://me.cc.example.invalid is running (HTTP ${String(status)}). Make sure it is stopped before this old copy starts.`,
       );
     },
   );
 
   it("probes /health without headers for a direct-mode copy even when config.json has headers", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(
       dataDir,
       movedLock({
@@ -937,30 +937,30 @@ describe("bb server unlock", () => {
   });
 
   it("warns, confirms, and removes the lock", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
-    await writeDataFile(dataDir, "bb.db", "old server");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
+    await writeDataFile(dataDir, "cc.db", "old server");
     await writeServerMovedFile(dataDir, movedLock());
     readlineMocks.question.mockResolvedValue("yes");
 
     await runCommand(["server", "unlock", "--data-dir", dataDir], register);
 
     expect(await readServerMovedFile(dataDir)).toBeNull();
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe("old server");
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe("old server");
     const warnings = collectLogPayloads(vi.mocked(console.error));
     expect(warnings[0]).toMatch(
-      /^This bb server moved to desktop \(https:\/\/me\.getbb\.app\) on /u,
+      /^This cc server moved to desktop \(https:\/\/me\.cc\.example\.invalid\) on /u,
     );
     expect(warnings.slice(1)).toEqual([
       "Unlocking starts this old copy again. Everything since the move is lost here: threads, settings, and plugin data changed on desktop stay there.",
-      "Stop the bb server on desktop first. Two servers holding the same bb connect credential take each other's tunnel.",
+      "Stop the cc server on desktop first. Two servers holding the same cc connect credential take each other's tunnel.",
     ]);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `Unlocked ${dataDir}. bb on this computer starts the old server again within a few seconds; if bb isn't running, start it with npx bb-app --data-dir ${dataDir}.`,
+      `Unlocked ${dataDir}. cc on this computer starts the old server again within a few seconds; if cc isn't running, start it with pnpm start --data-dir ${dataDir}.`,
     ]);
   });
 
   it("keeps the lock when the confirmation is declined", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     readlineMocks.question.mockResolvedValue("n");
 
@@ -970,7 +970,7 @@ describe("bb server unlock", () => {
   });
 
   it("refuses without --yes outside an interactive terminal", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     Object.defineProperty(process.stdout, "isTTY", {
       value: false,
@@ -985,7 +985,7 @@ describe("bb server unlock", () => {
   });
 
   it("refuses to unlock an old copy that was already deleted", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock({ oldCopyEntries: [] }));
 
     await expect(
@@ -996,13 +996,13 @@ describe("bb server unlock", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      `Error: The old server copy in ${dataDir} was deleted, so there is nothing to unlock. Unlocking would start an empty bb server.`,
+      `Error: The old server copy in ${dataDir} was deleted, so there is nothing to unlock. Unlocking would start an empty cc server.`,
     ]);
     expect(await readServerMovedFile(dataDir)).not.toBeNull();
   });
 
   it("reports an unlocked data directory without failing", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
 
     await runCommand(
       ["server", "unlock", "--data-dir", dataDir, "--json"],
@@ -1017,17 +1017,17 @@ describe("bb server unlock", () => {
   });
 
   it("drops the new server's address and credentials from config.json and keeps everything else", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     const configPath = await writeDataFile(
       dataDir,
       "config.json",
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "debug", BB_APP_URL: "https://laptop.ts.net" },
+        config: { CC_LOG_LEVEL: "debug", CC_APP_URL: "https://laptop.ts.net" },
         customModels: [{ providerId: "codex", model: "gpt-5.4" }],
         customAcpAgents: [{ id: "not a valid agent" }],
-        serverUrl: "https://me.getbb.app",
-        serverHeaders: { "x-bb-connect-machine": "credential" },
+        serverUrl: "https://me.cc.example.invalid",
+        serverHeaders: { "x-cc-connect-machine": "credential" },
         machineCredential: "machine-secret",
         connectMachineId: "machine-1",
       }),
@@ -1041,7 +1041,7 @@ describe("bb server unlock", () => {
 
     expect(await readServerMovedFile(dataDir)).toBeNull();
     expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
-      config: { BB_LOG_LEVEL: "debug", BB_APP_URL: "https://laptop.ts.net" },
+      config: { CC_LOG_LEVEL: "debug", CC_APP_URL: "https://laptop.ts.net" },
       customModels: [{ providerId: "codex", model: "gpt-5.4" }],
       customAcpAgents: [{ id: "not a valid agent" }],
     });
@@ -1059,11 +1059,11 @@ describe("bb server unlock", () => {
     });
   });
 
-  it("keeps the lock and config untouched when config.json is not a valid bb-app config", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+  it("keeps the lock and config untouched when config.json is not a valid cc-app config", async () => {
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
     const invalid = JSON.stringify({
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.cc.example.invalid",
       unexpected: true,
     });
     const configPath = await writeDataFile(dataDir, "config.json", invalid);
@@ -1077,7 +1077,7 @@ describe("bb server unlock", () => {
 
     expect(collectLogPayloads(vi.mocked(console.error)).at(-1)).toMatch(
       new RegExp(
-        `^Error: ${configPath.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")} is not a valid bb-app config\\. Fix it, then unlock again\\.`,
+        `^Error: ${configPath.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")} is not a valid cc-app config\\. Fix it, then unlock again\\.`,
         "u",
       ),
     );
@@ -1086,7 +1086,7 @@ describe("bb server unlock", () => {
   });
 
   it("unlocks without creating config.json when there is none", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
 
     await runCommand(
@@ -1096,14 +1096,14 @@ describe("bb server unlock", () => {
 
     expect(await readdir(dataDir)).toEqual([]);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `Unlocked ${dataDir}. bb on this computer starts the old server again within a few seconds; if bb isn't running, start it with npx bb-app --data-dir ${dataDir}.`,
+      `Unlocked ${dataDir}. cc on this computer starts the old server again within a few seconds; if cc isn't running, start it with pnpm start --data-dir ${dataDir}.`,
     ]);
   });
 
-  it("uses BB_DATA_DIR when --data-dir is omitted", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-lock-");
+  it("uses CC_DATA_DIR when --data-dir is omitted", async () => {
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
     await writeServerMovedFile(dataDir, movedLock());
-    vi.stubEnv("BB_DATA_DIR", dataDir);
+    vi.stubEnv("CC_DATA_DIR", dataDir);
 
     await runCommand(["server", "unlock", "--yes"], register);
 
@@ -1111,7 +1111,7 @@ describe("bb server unlock", () => {
   });
 });
 
-describe("bb server allow-connect", () => {
+describe("cc server allow-connect", () => {
   setupCommandOutputTestEnvironment();
 
   function hold() {
@@ -1122,9 +1122,9 @@ describe("bb server allow-connect", () => {
     };
   }
 
-  it("warns, confirms, and removes the bb connect hold", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-hold-");
-    await writeDataFile(dataDir, "bb.db", "imported server");
+  it("warns, confirms, and removes the cc connect hold", async () => {
+    const dataDir = await makeTempDir("cc-cli-server-hold-");
+    await writeDataFile(dataDir, "cc.db", "imported server");
     await writeServerConnectHoldFile(dataDir, hold());
     readlineMocks.question.mockResolvedValue("yes");
 
@@ -1134,19 +1134,19 @@ describe("bb server allow-connect", () => {
     );
 
     expect(await readServerConnectHoldFile(dataDir)).toBeNull();
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe(
       "imported server",
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Stop the original bb server first. Two servers holding the same bb connect credential take each other's tunnel.",
+      "Stop the original cc server first. Two servers holding the same cc connect credential take each other's tunnel.",
     ]);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `Removed the bb connect hold from ${dataDir}. bb connect starts the next time this server starts; restart bb if it's already running.`,
+      `Removed the cc connect hold from ${dataDir}. cc connect starts the next time this server starts; restart cc if it's already running.`,
     ]);
   });
 
   it("keeps the hold when the confirmation is declined", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-hold-");
+    const dataDir = await makeTempDir("cc-cli-server-hold-");
     await writeServerConnectHoldFile(dataDir, hold());
     readlineMocks.question.mockResolvedValue("n");
 
@@ -1159,7 +1159,7 @@ describe("bb server allow-connect", () => {
   });
 
   it("removes the hold with --yes and reports it as JSON", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-hold-");
+    const dataDir = await makeTempDir("cc-cli-server-hold-");
     await writeServerConnectHoldFile(dataDir, hold());
 
     await runCommand(
@@ -1175,7 +1175,7 @@ describe("bb server allow-connect", () => {
   });
 
   it("reports a data directory without a hold", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-hold-");
+    const dataDir = await makeTempDir("cc-cli-server-hold-");
 
     await runCommand(
       ["server", "allow-connect", "--data-dir", dataDir],
@@ -1187,21 +1187,21 @@ describe("bb server allow-connect", () => {
     );
 
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `${dataDir} has no bb connect hold.`,
+      `${dataDir} has no cc connect hold.`,
       JSON.stringify({ dataDir, connectHoldRemoved: false }, null, 2),
     ]);
   });
 });
 
-describe("bb server delete-old-copy", () => {
+describe("cc server delete-old-copy", () => {
   setupCommandOutputTestEnvironment();
 
   it("deletes the listed server entries and sidecars but keeps the lock and host-owned files", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-old-copy-");
+    const dataDir = await makeTempDir("cc-cli-server-old-copy-");
     for (const path of [
-      "bb.db",
-      "bb.db-wal",
-      "bb.db-shm",
+      "cc.db",
+      "cc.db-wal",
+      "cc.db-shm",
       "attachments/thr_1/image.png",
       "plugins/tasks/data.db",
       "plugins/tasks/data.db-wal",
@@ -1218,7 +1218,7 @@ describe("bb server delete-old-copy", () => {
       dataDir,
       movedLock({
         oldCopyEntries: [
-          "bb.db",
+          "cc.db",
           "attachments",
           "plugins/tasks/data.db",
           "config.json",
@@ -1234,7 +1234,7 @@ describe("bb server delete-old-copy", () => {
     );
 
     expect(readlineMocks.question).toHaveBeenCalledWith(
-      `Delete the old bb server copy in ${dataDir} (5 entries)? The server now runs on desktop; this cannot be undone. [y/N] `,
+      `Delete the old cc server copy in ${dataDir} (5 entries)? The server now runs on desktop; this cannot be undone. [y/N] `,
     );
     expect((await readdir(dataDir)).sort()).toEqual([
       "auth.json",
@@ -1252,20 +1252,20 @@ describe("bb server delete-old-copy", () => {
       movedLock({ oldCopyEntries: [] }),
     );
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `Deleted the old bb server copy from ${dataDir} (3 entries). This computer keeps running as a regular machine.`,
+      `Deleted the old cc server copy from ${dataDir} (3 entries). This computer keeps running as a regular machine.`,
     ]);
   });
 
   it("reports that there is no old copy when the data directory is not locked", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-old-copy-");
-    await writeDataFile(dataDir, "bb.db", "this machine's server");
+    const dataDir = await makeTempDir("cc-cli-server-old-copy-");
+    await writeDataFile(dataDir, "cc.db", "this machine's server");
 
     await runCommand(
       ["server", "delete-old-copy", "--data-dir", dataDir, "--yes"],
       register,
     );
 
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe(
       "this machine's server",
     );
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
@@ -1274,7 +1274,7 @@ describe("bb server delete-old-copy", () => {
   });
 
   it("is a no-op after the old copy was deleted", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-old-copy-");
+    const dataDir = await makeTempDir("cc-cli-server-old-copy-");
     await writeServerMovedFile(dataDir, movedLock({ oldCopyEntries: [] }));
 
     await runCommand(
@@ -1292,8 +1292,8 @@ describe("bb server delete-old-copy", () => {
   });
 
   it("keeps everything when the confirmation is declined", async () => {
-    const dataDir = await makeTempDir("bb-cli-server-old-copy-");
-    await writeDataFile(dataDir, "bb.db", "old server");
+    const dataDir = await makeTempDir("cc-cli-server-old-copy-");
+    await writeDataFile(dataDir, "cc.db", "old server");
     await writeServerMovedFile(dataDir, movedLock());
     readlineMocks.question.mockResolvedValue("n");
 
@@ -1302,7 +1302,7 @@ describe("bb server delete-old-copy", () => {
       register,
     );
 
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe("old server");
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe("old server");
     expect((await readServerMovedFile(dataDir))?.oldCopyEntries).toEqual(
       movedLock().oldCopyEntries,
     );

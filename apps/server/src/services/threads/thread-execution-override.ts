@@ -3,14 +3,14 @@ import {
   getThreadExecutionOverride,
   setThreadExecutionOverride,
   type ThreadExecutionOverride,
-} from "@bb/db";
+} from "@cc/db";
 import {
   reconcileReasoningLevel,
   type AvailableModel,
   type CallerExecutionInputSource,
   type ReasoningLevel,
   type Thread,
-} from "@bb/domain";
+} from "@cc/domain";
 import { ApiError } from "../../errors.js";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";

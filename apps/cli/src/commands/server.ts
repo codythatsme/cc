@@ -4,17 +4,17 @@ import { rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Command } from "commander";
-import { formatServerDataSize } from "@bb/domain";
+import { formatServerDataSize } from "@cc/domain";
 import {
   deleteOldServerCopy,
   readServerMovedFile,
   removeServerConnectHoldFile,
   SERVER_CONNECT_HOLD_FILE_NAME,
-} from "@bb/server-archive";
-import type { ServerMoveStatus } from "@bb/server-contract";
+} from "@cc/server-archive";
+import type { ServerMoveStatus } from "@cc/server-contract";
 import { action, CliExitError } from "../action.js";
-import { createCliBbSdk } from "../client.js";
-import { resolveBbCliVersion } from "../version.js";
+import { createCliCcSdk } from "../client.js";
+import { resolveCcCliVersion } from "../version.js";
 import { confirmDestructiveAction, outputJson } from "./helpers.js";
 import { resolveMachineHostId } from "./machine.js";
 import {
@@ -77,22 +77,22 @@ interface UnlockCommandOptions extends LocalServerCommandOptions {
 }
 
 const SERVER_EXPORT_UNENCRYPTED_WARNING =
-  "This export is not encrypted and holds the server's credentials and plugin secrets. Keep it private; bb wrote it with mode 0600.";
+  "This export is not encrypted and holds the server's credentials and plugin secrets. Keep it private; cc wrote it with mode 0600.";
 
 function startServerHint(dataDir: string): string {
   return isDefaultDataDir(dataDir)
-    ? "npx bb-app or the desktop app"
-    : `npx bb-app --data-dir ${dataDir}`;
+    ? "pnpm start or the desktop app"
+    : `pnpm start --data-dir ${dataDir}`;
 }
 
 function allowConnectCommand(dataDir: string): string {
   return isDefaultDataDir(dataDir)
-    ? "bb server allow-connect"
-    : `bb server allow-connect --data-dir ${dataDir}`;
+    ? "cc server allow-connect"
+    : `cc server allow-connect --data-dir ${dataDir}`;
 }
 
 const STOPPED_FOLLOWING_MESSAGE =
-  "Stopped following; the move continues. Run bb server move status to check on it or bb server move cancel to cancel it.";
+  "Stopped following; the move continues. Run cc server move status to check on it or cc server move cancel to cancel it.";
 
 function parseAddress(address: string | undefined): string | null {
   if (address === undefined) return null;
@@ -180,11 +180,11 @@ async function runServerMove(
 ): Promise<void> {
   if (opts.to === undefined || opts.to.trim().length === 0) {
     throw new Error(
-      "Pass --to <machine> with the ID or name of the machine that should run the server. Run bb server move status to check on a move in progress.",
+      "Pass --to <machine> with the ID or name of the machine that should run the server. Run cc server move status to check on a move in progress.",
     );
   }
   const serverUrl = parseAddress(opts.address);
-  const sdk = createCliBbSdk(getUrl());
+  const sdk = createCliCcSdk(getUrl());
   const targetHostId = await resolveMachineHostId({
     serverUrl: getUrl(),
     target: opts.to,
@@ -220,7 +220,7 @@ async function runServerMove(
   if (
     !opts.yes &&
     !(await confirmDestructiveAction(
-      `Stop all running work and move the bb server to ${check.targetHostName}?`,
+      `Stop all running work and move the cc server to ${check.targetHostName}?`,
     ))
   ) {
     return;
@@ -270,11 +270,11 @@ export function registerServerCommands(
 ): void {
   const server = program
     .command("server")
-    .description("Move, export, and import the bb server");
+    .description("Move, export, and import the cc server");
 
   const move = server
     .command("move")
-    .description("Move the bb server to another machine (experimental)")
+    .description("Move the cc server to another machine (experimental)")
     .option("--to <machine>", "Machine ID or name that should run the server")
     .option(
       "--address <url>",
@@ -283,7 +283,7 @@ export function registerServerCommands(
     .option("--check", "Print the checklist without moving")
     .option(
       "--archive-existing-data",
-      "Move existing bb server data on the target aside before the move",
+      "Move existing cc server data on the target aside before the move",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -300,7 +300,7 @@ export function registerServerCommands(
     .action(
       action(async (opts: JsonCommandOptions) => {
         const response =
-          await createCliBbSdk(getUrl()).experimental_server.moveStatus();
+          await createCliCcSdk(getUrl()).experimental_server.moveStatus();
         if (!outputJson(opts, response)) {
           printServerMoveStatusResponse(response);
         }
@@ -325,7 +325,7 @@ export function registerServerCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: ServerMoveCancelCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const { move: current } = await sdk.experimental_server.moveStatus();
         if (current?.state === "recovery_required") {
           for (const line of serverMoveAbandonWarning(current)) {
@@ -356,7 +356,7 @@ export function registerServerCommands(
 
   server
     .command("export")
-    .description("Export the bb server's data to an archive")
+    .description("Export the cc server's data to an archive")
     .requiredOption("--out <file>", "Write the archive to this file")
     .option("--json", "Print machine-readable JSON output")
     .action(
@@ -365,7 +365,7 @@ export function registerServerCommands(
         await assertWritableOutPath(outPath);
         const exported = await withSigint(async (signal) => {
           const response = await callServerMoveRoute(() =>
-            createCliBbSdk(getUrl()).experimental_server.export({ signal }),
+            createCliCcSdk(getUrl()).experimental_server.export({ signal }),
           );
           const sizeBytes = await writeExportFile({
             body: response.body,
@@ -382,7 +382,7 @@ export function registerServerCommands(
         };
         if (outputJson(opts, result)) return;
         console.log(
-          `Exported the bb server to ${outPath} (${formatServerDataSize(exported.sizeBytes)})`,
+          `Exported the cc server to ${outPath} (${formatServerDataSize(exported.sizeBytes)})`,
         );
         console.error(SERVER_EXPORT_UNENCRYPTED_WARNING);
       }),
@@ -395,7 +395,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory to import into (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory to import into (default: CC_DATA_DIR or ~/.cc)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -410,7 +410,7 @@ export function registerServerCommands(
               ? Promise.resolve(true)
               : confirmDestructiveAction(message),
           now: () => Date.now(),
-          cliVersion: resolveBbCliVersion(),
+          cliVersion: resolveCcCliVersion(),
         });
         if (result === null) return;
         if (outputJson(opts, result)) return;
@@ -418,14 +418,14 @@ export function registerServerCommands(
           console.log(`Rolled back an interrupted import in ${dataDir}.`);
         }
         console.log(
-          `Imported the bb server into ${dataDir} (${String(result.importedEntries.length)} files from ${result.sourceDataDir}, exported by bb ${result.bbVersion}).`,
+          `Imported the cc server into ${dataDir} (${String(result.importedEntries.length)} files from ${result.sourceDataDir}, exported by cc ${result.ccVersion}).`,
         );
         console.log("");
         console.log(
-          "Stop the original bb server before you start this one. Two servers holding the same bb connect credential take each other's tunnel.",
+          "Stop the original cc server before you start this one. Two servers holding the same cc connect credential take each other's tunnel.",
         );
         console.log(
-          `bb connect stays off in this copy until you run ${allowConnectCommand(dataDir)}.`,
+          `cc connect stays off in this copy until you run ${allowConnectCommand(dataDir)}.`,
         );
         console.log(`Then start it with ${startServerHint(dataDir)}.`);
       }),
@@ -438,7 +438,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory of the old server copy (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory of the old server copy (default: CC_DATA_DIR or ~/.cc)",
     )
     .option(
       "--force",
@@ -459,7 +459,7 @@ export function registerServerCommands(
         }
         if (lock.oldCopyEntries.length === 0) {
           throw new Error(
-            `The old server copy in ${dataDir} was deleted, so there is nothing to unlock. Unlocking would start an empty bb server.`,
+            `The old server copy in ${dataDir} was deleted, so there is nothing to unlock. Unlocking would start an empty cc server.`,
           );
         }
         const serviceFile = await findLocalMachineServiceFile(dataDir);
@@ -472,7 +472,7 @@ export function registerServerCommands(
           const probe = await probeMovedServer({ dataDir, lock });
           if (probe.kind === "running") {
             throw new Error(
-              `The server at ${lock.serverUrl} is running. Unlocking now would run two servers with the same data and bb connect credential. Stop it first, or pass --force.`,
+              `The server at ${lock.serverUrl} is running. Unlocking now would run two servers with the same data and cc connect credential. Stop it first, or pass --force.`,
             );
           }
           if (probe.kind === "unconfirmed") {
@@ -482,18 +482,18 @@ export function registerServerCommands(
           }
         }
         console.error(
-          `This bb server moved to ${lock.toHostName} (${lock.serverUrl}) on ${new Date(lock.movedAt).toLocaleString()}.`,
+          `This cc server moved to ${lock.toHostName} (${lock.serverUrl}) on ${new Date(lock.movedAt).toLocaleString()}.`,
         );
         console.error(
           `Unlocking starts this old copy again. Everything since the move is lost here: threads, settings, and plugin data changed on ${lock.toHostName} stay there.`,
         );
         console.error(
-          `Stop the bb server on ${lock.toHostName} first. Two servers holding the same bb connect credential take each other's tunnel.`,
+          `Stop the cc server on ${lock.toHostName} first. Two servers holding the same cc connect credential take each other's tunnel.`,
         );
         if (
           !opts.yes &&
           !(await confirmDestructiveAction(
-            `Unlock the old bb server copy in ${dataDir}?`,
+            `Unlock the old cc server copy in ${dataDir}?`,
           ))
         ) {
           return;
@@ -507,7 +507,7 @@ export function registerServerCommands(
           );
         }
         console.log(
-          `Unlocked ${dataDir}. bb on this computer starts the old server again within a few seconds; if bb isn't running, start it with ${startServerHint(dataDir)}.`,
+          `Unlocked ${dataDir}. cc on this computer starts the old server again within a few seconds; if cc isn't running, start it with ${startServerHint(dataDir)}.`,
         );
       }),
     );
@@ -519,7 +519,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory the server moved away from (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory the server moved away from (default: CC_DATA_DIR or ~/.cc)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -537,7 +537,7 @@ export function registerServerCommands(
         if (result === null) return;
         if (outputJson(opts, result)) return;
         console.log(
-          `This computer now stays connected to ${result.toHostName} as a machine, even when bb is closed. The service updates bb whenever the server does.`,
+          `This computer now stays connected to ${result.toHostName} as a machine, even when cc is closed. The service updates cc whenever the server does.`,
         );
       }),
     );
@@ -545,11 +545,11 @@ export function registerServerCommands(
   server
     .command("allow-connect")
     .description(
-      "Let bb connect start from an imported server copy (does not call a server)",
+      "Let cc connect start from an imported server copy (does not call a server)",
     )
     .option(
       "--data-dir <dir>",
-      "Data directory of the imported server (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory of the imported server (default: CC_DATA_DIR or ~/.cc)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -558,17 +558,17 @@ export function registerServerCommands(
         const dataDir = resolveLocalDataDir(opts.dataDir);
         if (!existsSync(join(dataDir, SERVER_CONNECT_HOLD_FILE_NAME))) {
           if (!outputJson(opts, { dataDir, connectHoldRemoved: false })) {
-            console.log(`${dataDir} has no bb connect hold.`);
+            console.log(`${dataDir} has no cc connect hold.`);
           }
           return;
         }
         console.error(
-          "Stop the original bb server first. Two servers holding the same bb connect credential take each other's tunnel.",
+          "Stop the original cc server first. Two servers holding the same cc connect credential take each other's tunnel.",
         );
         if (
           !opts.yes &&
           !(await confirmDestructiveAction(
-            `Let bb connect start from the imported bb server in ${dataDir}?`,
+            `Let cc connect start from the imported cc server in ${dataDir}?`,
           ))
         ) {
           return;
@@ -576,7 +576,7 @@ export function registerServerCommands(
         const connectHoldRemoved = await removeServerConnectHoldFile(dataDir);
         if (outputJson(opts, { dataDir, connectHoldRemoved })) return;
         console.log(
-          `Removed the bb connect hold from ${dataDir}. bb connect starts the next time this server starts; restart bb if it's already running.`,
+          `Removed the cc connect hold from ${dataDir}. cc connect starts the next time this server starts; restart cc if it's already running.`,
         );
       }),
     );
@@ -588,7 +588,7 @@ export function registerServerCommands(
     )
     .option(
       "--data-dir <dir>",
-      "Data directory of the old server copy (default: BB_DATA_DIR or ~/.bb)",
+      "Data directory of the old server copy (default: CC_DATA_DIR or ~/.cc)",
     )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
@@ -610,7 +610,7 @@ export function registerServerCommands(
         if (
           !opts.yes &&
           !(await confirmDestructiveAction(
-            `Delete the old bb server copy in ${dataDir} (${String(lock.oldCopyEntries.length)} entries)? The server now runs on ${lock.toHostName}; this cannot be undone.`,
+            `Delete the old cc server copy in ${dataDir} (${String(lock.oldCopyEntries.length)} entries)? The server now runs on ${lock.toHostName}; this cannot be undone.`,
           ))
         ) {
           return;
@@ -618,7 +618,7 @@ export function registerServerCommands(
         const result = await deleteOldServerCopy(dataDir, lock);
         if (outputJson(opts, result)) return;
         console.log(
-          `Deleted the old bb server copy from ${dataDir} (${String(result.deletedEntries.length)} entries). This computer keeps running as a regular machine.`,
+          `Deleted the old cc server copy from ${dataDir} (${String(result.deletedEntries.length)} entries). This computer keeps running as a regular machine.`,
         );
       }),
     );

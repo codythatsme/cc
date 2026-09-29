@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createThread } from "@bb/db";
-import { encodeClientTurnRequestIdNumber, type JsonObject } from "@bb/domain";
+import { createThread } from "@cc/db";
+import { encodeClientTurnRequestIdNumber, type JsonObject } from "@cc/domain";
 import {
   buildExecutionOptions,
   buildThreadStartCommand,
@@ -50,15 +50,15 @@ async function installIssueLauncher(
   pluginsDir: string,
 ): Promise<() => Promise<ConfigureObservation[]>> {
   const observationsPath = join(pluginsDir, "configure-observations.jsonl");
-  const rootDir = join(pluginsDir, "bb-plugin-issue-launcher");
+  const rootDir = join(pluginsDir, "cc-plugin-issue-launcher");
   await mkdir(rootDir, { recursive: true });
   await writeFile(observationsPath, "");
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: "bb-plugin-issue-launcher",
+      name: "cc-plugin-issue-launcher",
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "Issue launcher fixture",
         description: "Configures agents from launch metadata.",
         branding: { icon: "Zap" },
@@ -70,14 +70,14 @@ async function installIssueLauncher(
     join(rootDir, "server.ts"),
     `
       import { appendFileSync } from "node:fs";
-      export default function plugin(bb: any) {
-        bb.agents.registerTool({
+      export default function plugin(cc: any) {
+        cc.agents.registerTool({
           name: "issue_lookup",
           description: "Look up the launch issue.",
           parameters: { type: "object" },
           execute: () => "unused",
         });
-        bb.agents.configure((context: any) => {
+        cc.agents.configure((context: any) => {
           const metadata = context.pluginMetadata;
           appendFileSync(
             ${JSON.stringify(observationsPath)},
@@ -123,7 +123,7 @@ async function withIssueLauncher(
   const server = await startTestServer();
   installDefaultEnvironmentProviders();
   const pluginsDir = await mkdtemp(
-    join(tmpdir(), "bb-thread-plugin-metadata-"),
+    join(tmpdir(), "cc-thread-plugin-metadata-"),
   );
   try {
     const readObservations = await installIssueLauncher(server, pluginsDir);
@@ -149,7 +149,7 @@ describe("thread plugin metadata in agent configuration", () => {
         projectId: project.id,
         path: join(server.config.dataDir, "plugin-metadata-workspace"),
       });
-      const seed = launchSeed("BB-42");
+      const seed = launchSeed("CC-42");
       const thread = createThread(server.db, server.hub, {
         projectId: project.id,
         environmentId: environment.id,
@@ -182,7 +182,7 @@ describe("thread plugin metadata in agent configuration", () => {
       expect(startCommand.dynamicTools.map((tool) => tool.name)).toContain(
         "issue_lookup",
       );
-      expectPrivateCommand(startCommand, "BB-42");
+      expectPrivateCommand(startCommand, "CC-42");
 
       seedThreadRuntimeState(server.deps, {
         environmentId: environment.id,
@@ -200,7 +200,7 @@ describe("thread plugin metadata in agent configuration", () => {
       expect(
         submitCommand.resumeContext.dynamicTools.map((tool) => tool.name),
       ).toContain("issue_lookup");
-      expectPrivateCommand(submitCommand, "BB-42");
+      expectPrivateCommand(submitCommand, "CC-42");
     });
   });
 
@@ -223,7 +223,7 @@ describe("thread plugin metadata in agent configuration", () => {
       const api = server.pluginService.getApi("issue-launcher");
       if (!api) throw new Error("issue-launcher is not running");
 
-      const spawnSeed = launchSeed("BB-42");
+      const spawnSeed = launchSeed("CC-42");
       const spawned = await api.sdk.threads.spawn({
         environment: {
           type: "host",
@@ -255,7 +255,7 @@ describe("thread plugin metadata in agent configuration", () => {
         turnId: "turn-plugin-metadata-fork-source",
         providerThreadId: "provider-plugin-metadata-fork-source",
       });
-      const forkSeed = launchSeed("BB-43");
+      const forkSeed = launchSeed("CC-43");
       const fork = await api.sdk.threads.fork({
         input: textInput("Continue the issue"),
         pluginMetadata: forkSeed,
@@ -281,8 +281,8 @@ describe("thread plugin metadata in agent configuration", () => {
         frozen: true,
       });
       for (const [queued, issueKey] of [
-        [spawnStart, "BB-42"],
-        [forkStart, "BB-43"],
+        [spawnStart, "CC-42"],
+        [forkStart, "CC-43"],
       ] as const) {
         if (queued.command.type !== "thread.start") {
           throw new Error("Expected a thread.start command");
@@ -320,7 +320,7 @@ describe("thread plugin metadata in agent configuration", () => {
           },
           input: textInput("Orphaned launch"),
           origin: "sdk",
-          pluginMetadata: launchSeed("BB-44"),
+          pluginMetadata: launchSeed("CC-44"),
           projectId: project.id,
           providerId: "codex",
           startedOnBehalfOf: null,

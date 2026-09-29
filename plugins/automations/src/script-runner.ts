@@ -17,10 +17,10 @@ const execFileAsync = promisify(execFile);
 const SCRIPT_OUTPUT_MAX_BYTES = 1024 * 1024;
 const SCRIPT_FAILURE_DETAIL_MAX_CHARS = 200;
 
-let resolvedBbPath: string | null = null;
+let resolvedCcPath: string | null = null;
 
-const BB_NOT_INJECTED_WARNING =
-  "[bb] warning: could not locate the bb CLI, so `bb` is not on PATH for this script.";
+const CC_NOT_INJECTED_WARNING =
+  "[cc] warning: could not locate the cc CLI, so `cc` is not on PATH for this script.";
 
 async function commandWorks(command: string, args: string[]): Promise<boolean> {
   try {
@@ -31,28 +31,28 @@ async function commandWorks(command: string, args: string[]): Promise<boolean> {
   }
 }
 
-export function bbBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
+export function ccBinaryCandidates(env: NodeJS.ProcessEnv): string[] {
   const candidates: string[] = [];
   const pushIfAbsolute = (candidate: string): void => {
     if (isAbsolute(candidate)) {
       candidates.push(candidate);
     }
   };
-  const fromCli = env.BB_CLI?.trim();
+  const fromCli = env.CC_CLI?.trim();
   if (fromCli !== undefined && fromCli.length > 0) {
     pushIfAbsolute(fromCli);
   }
-  const fromCliDir = env.BB_CLI_DIR?.trim();
+  const fromCliDir = env.CC_CLI_DIR?.trim();
   if (fromCliDir !== undefined && fromCliDir.length > 0) {
-    pushIfAbsolute(join(fromCliDir, "bb"));
+    pushIfAbsolute(join(fromCliDir, "cc"));
   }
   for (const entry of (env.PATH ?? "").split(delimiter)) {
     const trimmed = entry.trim();
     if (trimmed.length > 0) {
-      pushIfAbsolute(join(trimmed, "bb"));
+      pushIfAbsolute(join(trimmed, "cc"));
     }
   }
-  candidates.push("/opt/homebrew/bin/bb", "/usr/local/bin/bb");
+  candidates.push("/opt/homebrew/bin/cc", "/usr/local/bin/cc");
   return candidates;
 }
 
@@ -75,14 +75,14 @@ async function isDirectory(candidate: string): Promise<boolean> {
   }
 }
 
-async function resolveBbBinary(
+async function resolveCcBinary(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string | null> {
-  if (resolvedBbPath !== null) return resolvedBbPath;
-  for (const candidate of bbBinaryCandidates(env)) {
+  if (resolvedCcPath !== null) return resolvedCcPath;
+  for (const candidate of ccBinaryCandidates(env)) {
     if (!(await isExecutableFile(candidate))) continue;
     if (await commandWorks(candidate, ["--version"])) {
-      resolvedBbPath = candidate;
+      resolvedCcPath = candidate;
       return candidate;
     }
   }
@@ -90,15 +90,15 @@ async function resolveBbBinary(
 }
 
 export function scriptPathEnv(
-  bbPath: string | null,
+  ccPath: string | null,
   inheritedPath: string | undefined,
 ): string {
   const basePath = inheritedPath ?? "";
-  if (bbPath === null || !isAbsolute(bbPath)) {
+  if (ccPath === null || !isAbsolute(ccPath)) {
     return basePath;
   }
-  const bbDir = dirname(bbPath);
-  return basePath.length > 0 ? `${bbDir}${delimiter}${basePath}` : bbDir;
+  const ccDir = dirname(ccPath);
+  return basePath.length > 0 ? `${ccDir}${delimiter}${basePath}` : ccDir;
 }
 
 export function isWakeAgentSuppressed(output: string): boolean {
@@ -316,19 +316,19 @@ export async function executeStoredScript(args: {
   });
   const interpreter =
     args.interpreter ?? resolveDefaultInterpreter(args.scriptFile);
-  const bbPath = await resolveBbBinary();
-  const warning = bbPath === null ? `${BB_NOT_INJECTED_WARNING}\n` : "";
+  const ccPath = await resolveCcBinary();
+  const warning = ccPath === null ? `${CC_NOT_INJECTED_WARNING}\n` : "";
   const scriptEnv: NodeJS.ProcessEnv = {
     ...process.env,
     ...(args.env ?? {}),
-    PATH: scriptPathEnv(bbPath, process.env.PATH),
-    BB_SERVER_URL: args.serverUrl,
-    BB_PROJECT_ID: args.projectId,
-    BB_AUTOMATION_ID: args.automationId,
-    BB_AUTOMATION_RUN_ID: args.runId,
+    PATH: scriptPathEnv(ccPath, process.env.PATH),
+    CC_SERVER_URL: args.serverUrl,
+    CC_PROJECT_ID: args.projectId,
+    CC_AUTOMATION_ID: args.automationId,
+    CC_AUTOMATION_RUN_ID: args.runId,
   };
-  if (bbPath !== null) {
-    scriptEnv.BB_CLI = bbPath;
+  if (ccPath !== null) {
+    scriptEnv.CC_CLI = ccPath;
   }
   await mkdir(scriptsRoot(args.pluginDataDir), { recursive: true });
   if (!(await isDirectory(args.workingDir))) {

@@ -1,5 +1,5 @@
 import http from "node:http";
-import { createNodeBbSdk } from "@bb/sdk/node";
+import { createNodeCcSdk } from "@cc/sdk/node";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   startTestServer,
@@ -52,7 +52,7 @@ function rawStatus(
 }
 
 describe("/api/v1 browser origin guard", () => {
-  it("passes callers that send no Origin: curl, the bb CLI, and the SDK", async () => {
+  it("passes callers that send no Origin: curl, the cc CLI, and the SDK", async () => {
     server = await startTestServer();
 
     expect(await statusFor(server.baseUrl)).toBe(200);
@@ -72,7 +72,7 @@ describe("/api/v1 browser origin guard", () => {
       }),
     ).not.toBe(415);
 
-    const sdk = createNodeBbSdk({ baseUrl: server.baseUrl });
+    const sdk = createNodeCcSdk({ baseUrl: server.baseUrl });
     await expect(sdk.threads.list()).resolves.toBeDefined();
   });
 
@@ -131,12 +131,12 @@ describe("/api/v1 browser origin guard", () => {
 
     expect(
       await statusFor(server.baseUrl, {
-        headers: { origin: "https://bee.getbb.app" },
+        headers: { origin: "https://bee.cc.example.invalid" },
       }),
     ).toBe(403);
   });
 
-  it("accepts bb served over a LAN address or Tailscale Serve", async () => {
+  it("accepts cc served over a LAN address or Tailscale Serve", async () => {
     server = await startTestServer();
     const port = new URL(server.baseUrl).port;
 

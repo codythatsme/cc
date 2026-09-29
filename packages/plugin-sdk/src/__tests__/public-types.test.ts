@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type {
-  BbPluginApi,
+  CcPluginApi,
   JsonValue,
   PluginAgentConfigurationContext,
   PluginEnvironmentProviderDeclaration,
@@ -10,7 +10,7 @@ import type {
 } from "../index.js";
 import type { PluginProviderIconRegistration } from "../app-contract.js";
 
-type ExpectedBbPluginApiKey =
+type ExpectedCcPluginApiKey =
   | "agents"
   | "background"
   | "cli"
@@ -37,7 +37,7 @@ type ExpectedBbPluginApiKey =
   | "ui";
 
 const EXPECTED_BACKEND_ROOT_TYPE_EXPORTS = [
-  "BbPluginApi",
+  "CcPluginApi",
   "MessageDispatchHookContext",
   "MessageDispatchHookDecision",
   "PluginAgents",
@@ -56,7 +56,7 @@ const EXPECTED_BACKEND_ROOT_TYPE_EXPORTS = [
   "PluginAgentToolResult",
   "PluginAgentToolSelection",
   "PluginBackground",
-  "PluginBbSdk",
+  "PluginCcSdk",
   "PluginCli",
   "PluginCliCommandInfo",
   "PluginCliContext",
@@ -231,8 +231,8 @@ function rootExportNames(
 }
 
 describe("backend plugin SDK public surface", () => {
-  it("snapshots every BbPluginApi root member", () => {
-    expectTypeOf<keyof BbPluginApi>().toEqualTypeOf<ExpectedBbPluginApiKey>();
+  it("snapshots every CcPluginApi root member", () => {
+    expectTypeOf<keyof CcPluginApi>().toEqualTypeOf<ExpectedCcPluginApiKey>();
   });
 
   it("types configure plugin metadata as deep-readonly JSON", () => {
@@ -261,7 +261,7 @@ describe("backend plugin SDK public surface", () => {
     const [backendContract, declarations] = await Promise.all([
       readFile(new URL("../backend-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/cc-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);
@@ -292,7 +292,7 @@ describe("backend plugin SDK public surface", () => {
     const [rpcContract, declarations] = await Promise.all([
       readFile(new URL("../rpc-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/cc-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);
@@ -321,7 +321,7 @@ describe("backend plugin SDK public surface", () => {
     const [cliSpec, declarations] = await Promise.all([
       readFile(new URL("../cli-spec.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/cc-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);
@@ -354,7 +354,7 @@ describe("backend plugin SDK public surface", () => {
     const [hostContract, declarations] = await Promise.all([
       readFile(new URL("../host-contract.ts", import.meta.url), "utf8"),
       readFile(
-        new URL("../../bundled-types/bb-plugin-sdk.d.ts", import.meta.url),
+        new URL("../../bundled-types/cc-plugin-sdk.d.ts", import.meta.url),
         "utf8",
       ),
     ]);

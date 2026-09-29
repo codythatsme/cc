@@ -27,19 +27,19 @@ model or default binding policy.
 
 ## Discoverable RPC
 
-`bb.rpc.register` accepts optional `experimental_discoverable` and `experimental_description` options. Method definitions accept `experimental_description`. Discoverable registration exports wire schemas through Standard JSON Schema; validation-only schemas remain usable without publication. Descriptions are published separately and absent descriptions become null. Discovery advertises methods without changing RPC authorization or dispatch.
+`cc.rpc.register` accepts optional `experimental_discoverable` and `experimental_description` options. Method definitions accept `experimental_description`. Discoverable registration exports wire schemas through Standard JSON Schema; validation-only schemas remain usable without publication. Descriptions are published separately and absent descriptions become null. Discovery advertises methods without changing RPC authorization or dispatch.
 
-`bb.sdk.plugins.experimental_discoverRpc({ pluginId?, method? })` lists published methods from loaded plugins. Methods disappear on unload; callers handle the race between discovery and invocation. The SDK RPC caller accepts an optional abort signal. The fake host exposes `experimental_publishedRpcMethods` on its registration inspection surface.
+`cc.sdk.plugins.experimental_discoverRpc({ pluginId?, method? })` lists published methods from loaded plugins. Methods disappear on unload; callers handle the race between discovery and invocation. The SDK RPC caller accepts an optional abort signal. The fake host exposes `experimental_publishedRpcMethods` on its registration inspection surface.
 
-Before stabilization, audit schema export fidelity (especially refinements and transforms), descriptor size and reference limits, lifecycle races, and cross-plugin copied-schema compatibility. Verify `bb plugin rpc list|inspect` is sufficient to implement a consumer without a shared contract package. Method names carry optional versions; there is no negotiation.
+Before stabilization, audit schema export fidelity (especially refinements and transforms), descriptor size and reference limits, lifecycle races, and cross-plugin copied-schema compatibility. Verify `cc plugin rpc list|inspect` is sufficient to implement a consumer without a shared contract package. Method names carry optional versions; there is no negotiation.
 
 ## Plugin safe mode
 
-`bb.sdk.plugins.experimental_getSafeMode()` returns `{ enabled }`, and `bb.sdk.plugins.experimental_setSafeMode({ enabled })` turns safe mode on or off and returns `{ enabled, problems }`, where `problems` names each plugin that did not start when safe mode ended. The server persists the flag. Plugins included with bb keep running: rows with `builtin` provenance, plus rows from an auto-installed bundled source that kept catalog provenance. Every other installed plugin, including official store plugins, stays unloaded with status `disabled` and detail `safe mode is on`. Each plugin's own `enabled` flag is untouched, so turning safe mode off reloads exactly the plugins that were enabled. While safe mode is on, enabling a stopped plugin keeps it unloaded, reloading it reports a failure, and installing or updating it is refused so install handlers and update validation never run against an unloaded plugin. The same toggle backs `bb plugin safe-mode [on|off]` and the command palette.
+`cc.sdk.plugins.experimental_getSafeMode()` returns `{ enabled }`, and `cc.sdk.plugins.experimental_setSafeMode({ enabled })` turns safe mode on or off and returns `{ enabled, problems }`, where `problems` names each plugin that did not start when safe mode ended. The server persists the flag. Plugins included with cc keep running: rows with `builtin` provenance, plus rows from an auto-installed bundled source that kept catalog provenance. Every other installed plugin, including official store plugins, stays unloaded with status `disabled` and detail `safe mode is on`. Each plugin's own `enabled` flag is untouched, so turning safe mode off reloads exactly the plugins that were enabled. While safe mode is on, enabling a stopped plugin keeps it unloaded, reloading it reports a failure, and installing or updating it is refused so install handlers and update validation never run against an unloaded plugin. The same toggle backs `cc plugin safe-mode [on|off]` and the command palette.
 
 Before stabilization, audit whether official store plugins should count as included, whether a plugin calling `experimental_setSafeMode` should be allowed to stop itself and others, whether the toggle should run asynchronously for installs with many slow plugins, and whether startup needs an out-of-band override (env var or flag) for a plugin that breaks the server before the toggle is reachable.
 
-## `bb.http.experimental_websocket`
+## `cc.http.experimental_websocket`
 
 **What it does.** Registers an exact-path WebSocket upgrade in the plugin's
 existing `/api/v1/plugins/<id>/http/` namespace. It shares HTTP route auth
@@ -64,7 +64,7 @@ generation with code 1012. The supporting public types are
 5. Confirm the callback error policy should keep the socket open after an
    isolated message-handler failure.
 
-## `bb.providers.experimental_contributeEnvHealth`
+## `cc.providers.experimental_contributeEnvHealth`
 
 **What it does.** Registers one host-scoped readiness resolver beside a
 provider environment contribution. When the provider bridge reports
@@ -86,14 +86,14 @@ environment variables to that provider. The resolver receives an
 4. Confirm a five-second timeout is appropriate for host-scoped credential
    availability checks.
 
-## `bb.providers.experimental_contributeEnv`
+## `cc.providers.experimental_contributeEnv`
 
 **What it does.** Registers one resolver per provider per plugin. The server
 calls it for each matching session and turn with the thread, project, and host
 ids, validates at most 32 environment entries, resolves registration conflicts
 in plugin load order, and sends the winning values to the host. A value may be
 a literal string or a server-relative path that the host expands against its
-authenticated `BB_SERVER_URL`. Contributions override the shell environment and
+authenticated `CC_SERVER_URL`. Contributions override the shell environment and
 their values are reported as-is in provider environment events. The resolver
 receives `ExperimentalPluginProviderEnvContext` and returns
 `ExperimentalPluginProviderEnvEntry` values.
@@ -121,52 +121,52 @@ an audit say so with the date and the open question. The first audit
 provider declaration's target-state fields and `maintenance`, tool
 `presentation`, `UrlLink` / `openUrl`, `fixedTabs`, and the shared `Original`
 delegation prop, and deleted the alias and status-label members; the next
-bb-app release's CHANGELOG entry records the renames for plugin authors.
+cc-app release's CHANGELOG entry records the renames for plugin authors.
 For a bridge built against 0.4.15 the renames are mechanical: on
-`@get-bb/plugin-sdk/provider-bridge` the sixteen `experimental_provider*Schema`
+`@codythatsme/plugin-sdk/provider-bridge` the sixteen `experimental_provider*Schema`
 values and their sixteen `ExperimentalProvider*` types dropped the prefix
 (`experimental_providerHealthSchema` → `providerHealthSchema`,
 `ExperimentalProviderHealth` → `ProviderHealth`, …), as did the
 `BRIDGE_REQUEST_METHODS.experimentalProvider*` keys (the method strings on
-the wire are unchanged); on `@get-bb/plugin-sdk` the tool type
+the wire are unchanged); on `@codythatsme/plugin-sdk` the tool type
 `PluginAgentToolExperimentalStatusLabels` became `PluginAgentToolLabels`,
 then `PluginRowLabels` in SDK 0.4.102, the type of `presentation.label`.
 
-## One-release compatibility windows (removal target: bb 0.42)
+## One-release compatibility windows (removal target: cc 0.42)
 
 - The app runtime keeps deprecated aliases for plugin bundles compiled
   against an SDK before 0.4.16: `experimental_UrlLink` (a wrapper component
   that warns on its first render, then renders `UrlLink`),
-  `BbNavigate.experimental_openUrl` (warns on its first call, then calls
+  `CcNavigate.experimental_openUrl` (warns on its first call, then calls
   `openUrl`), and the delegation prop `experimental_Original` passed beside
   `Original` on the file-opener, source-code renderer and diff
   renderer props (the timeline renderer never carried the old name; the
   alias warns on its first render). A bundle that never uses an alias never
-  warns. All go in bb 0.42. The two 0.4.14 `app` exports
+  warns. All go in cc 0.42. The two 0.4.14 `app` exports
   (`experimental_ProviderModelPicker`, `experimental_PermissionModePicker`)
   are present and stay experimental; neither carries an alias.
-- The deleted `bb.agents.experimental_registerProvider` throws with the
-  removal named on first read (use `bb.providers.register`).
+- The deleted `cc.agents.experimental_registerProvider` throws with the
+  removal named on first read (use `cc.providers.register`).
 - Removed outright from a published subpath, with no alias and no throwing
   stub (an import fails to resolve): `ProviderInfo.experimental_providerHealth`
   / `experimental_providerUsage` / `experimental_providerInstallation`
-  (`@get-bb/plugin-sdk/app`, properties of the `ProviderInfo` rows
+  (`@codythatsme/plugin-sdk/app`, properties of the `ProviderInfo` rows
   `experimental_useProviders` serves: a typed read no longer compiles and
   the served row has no such key; read `maintenance.health` /
   `maintenance.usage` / `maintenance.installation` — the server no longer
   serves the three booleans beside `maintenance`, and every client ships
   with the server, so no reader is left behind),
   `experimental_aiServiceKindSchema` and
-  `ExperimentalAiServiceKind` (`@get-bb/plugin-sdk/ai-services`; the pair
+  `ExperimentalAiServiceKind` (`@codythatsme/plugin-sdk/ai-services`; the pair
   referenced only each other — the kind a service declares is
   `PluginAiServiceKind` on `PluginAiServiceDeclaration.kinds`, exported from
-  `@get-bb/plugin-sdk`, and there is no schema for it), `ExperimentalAiJsonValue`
-  (`@get-bb/plugin-sdk/ai-services`; none — import the domain type,
-  `JsonValue` from `@get-bb/plugin-sdk/provider-bridge`), and
-  `ExperimentalResolvedNativeRoot` (`@get-bb/plugin-sdk/host`; none — import
+  `@codythatsme/plugin-sdk`, and there is no schema for it), `ExperimentalAiJsonValue`
+  (`@codythatsme/plugin-sdk/ai-services`; none — import the domain type,
+  `JsonValue` from `@codythatsme/plugin-sdk/provider-bridge`), and
+  `ExperimentalResolvedNativeRoot` (`@codythatsme/plugin-sdk/host`; none — import
   the domain type, reachable as
   `ExperimentalNativeRootsResolveOutput["skills"][number]`), and from
-  `@get-bb/plugin-sdk/provider-bridge/testing` the three kit internals no
+  `@codythatsme/plugin-sdk/provider-bridge/testing` the three kit internals no
   suite used: `experimental_ConformanceClient` and
   `experimental_checkItemOpensBeforeDelta` (none —
   `experimental_runBridgeConformance` drives the client and applies the
@@ -177,14 +177,14 @@ then `PluginRowLabels` in SDK 0.4.102, the type of `presentation.label`.
 - Renamed declaration, tool and navPanel fields (`experimental_strings`,
   `experimental_presentation`, `experimental_fixedTabs`, …) are rejected at
   registration with a message naming the new field, from SDK 0.4.16 on.
-- `experimental_toConformanceMessages` (`@get-bb/plugin-sdk/provider-bridge/testing`)
+- `experimental_toConformanceMessages` (`@codythatsme/plugin-sdk/provider-bridge/testing`)
   throws on call, naming its replacement: `experimental_runBridgeConformance`
   assembles `thread/delta` itself from the raw messages a transport's
   `takeMessages` returns and takes the bridge's `providerId`. A conformance
   suite written against the pre-0.4.16 transport shape fails with that message
-  instead of a missing export. Goes in bb 0.42.
+  instead of a missing export. Goes in cc 0.42.
 - Presentation-less `toolCall` rows pass through the legacy-data adapter
-  (`upgradeLegacyToolItem` in `@bb/domain`, applied when a stored row is
+  (`upgradeLegacyToolItem` in `@cc/domain`, applied when a stored row is
   parsed): keyed on the absence of `presentation`, it reshapes
   Read/Grep/Glob and read/grep/find/ls by name into `fileRead`/`search`
   items and suppresses the Task*/Todo*/ToolSearch bookkeeping calls,
@@ -199,11 +199,11 @@ then `PluginRowLabels` in SDK 0.4.102, the type of `presentation.label`.
 
 ## Scheduled removals (next major)
 
-Unprefixed exports of `@get-bb/plugin-sdk/provider-bridge` that no longer
+Unprefixed exports of `@codythatsme/plugin-sdk/provider-bridge` that no longer
 have a consumer in this repository. They are kept on the facade because a
 third-party bridge compiled against an SDK before 0.4.16 may import them;
 dropping a published name is a breaking change. The first eleven are
-re-exported from `@bb/domain`, where each still has core consumers:
+re-exported from `@cc/domain`, where each still has core consumers:
 
 - `acpNativeReasoningSchema`
 - `acpPermissionCliSchema`
@@ -221,7 +221,7 @@ The next four are aliases of definitions that moved when the host-daemon
 wire lost the typed ACP launch spec (protocol 155) and the claude-code
 runtime became a plugin: the ACP pair aliases the ACP kit's
 `experimental_acpLaunchSpecSchema` / `AcpLaunchSpec`
-(`@get-bb/plugin-sdk/provider-bridge/acp`, where a plugin that declares an
+(`@codythatsme/plugin-sdk/provider-bridge/acp`, where a plugin that declares an
 ACP agent should read it) and the kit's normalizer; the task-tool pair is a
 copy kept in the SDK of what core used to share with the claude-code
 runtime, with no replacement. The type aliases `HostDaemonAcpLaunchSpec`
@@ -238,14 +238,14 @@ All fifteen values and both types: unreferenced by any first-party plugin;
 kept because 0.4.x published them; remove at the next major version. The
 `provider-bridge-scheduled-removals` SDK test holds the facade to this list.
 
-`AcpAgentProfile` on `@get-bb/plugin-sdk/provider-bridge/acp` is a deprecated
+`AcpAgentProfile` on `@codythatsme/plugin-sdk/provider-bridge/acp` is a deprecated
 alias of `AcpLaunchSpec` for the same reason. The bridge used to derive a
 profile from the parsed launch spec (`providerId`, `agentCommand: { command,
 args }`, an `env` dropped when empty) and read only the spec's own fields
 from it, so the profile type went with the derivation; the published name
 stays until the next major version.
 
-`CONFORMANCE_ASSEMBLED_EVENT_METHOD` (`@get-bb/plugin-sdk/provider-bridge/testing`)
+`CONFORMANCE_ASSEMBLED_EVENT_METHOD` (`@codythatsme/plugin-sdk/provider-bridge/testing`)
 is retired the same way: the conformance kit assembles `thread/delta` itself
 and reads nothing under that method, so the constant names a lane that no
 longer exists. Kept because 0.4.x published it; remove at the next major
@@ -260,7 +260,7 @@ synchronously without transforming their primitive value. The generated form
 autosaves one field at a time and displays the first validation issue beneath
 that field. A `PluginSettingsHandle` can call `experimental_set` to validate
 and persist its own fields, receive the effective values, fire `onChange`, and
-notify settings consumers just like a settings route or `bb plugin config`
+notify settings consumers just like a settings route or `cc plugin config`
 write.
 
 **Audit before stabilizing.**
@@ -290,12 +290,12 @@ are read as numbers so migrated plugins preserve their configuration.
 - Decide how long legacy stored numeric strings should be coerced on read.
 - Exercise decimal and exponent input across browser engines and the CLI.
 
-## `bb.experimental_hooks` (`on`, `recheck`)
+## `cc.experimental_hooks` (`on`, `recheck`)
 
 **What it does.** The one plugin surface that _decides_ rather than observes.
-`bb.experimental_hooks.on(hook, handler)` registers this plugin's answer to a
+`cc.experimental_hooks.on(hook, handler)` registers this plugin's answer to a
 hook — a question core stops to ask and then acts on the answer to. Its
-counterpart is `bb.events.on`, whose handlers are told what already happened
+counterpart is `cc.events.on`, whose handlers are told what already happened
 and whose return value is ignored; the split is the one git draws between
 pre-commit and post-commit hooks, and it is why the two are separate
 namespaces rather than one `on`.
@@ -322,7 +322,7 @@ pass runs under a single server-wide async lock. A handler that throws or
 exceeds a 10s decision box fails the attempt with the plugin named
 (fail-closed, the `deriveProviderOptions` precedent).
 
-`bb.experimental_hooks.recheck("message.dispatch")` is the second member and the pair to
+`cc.experimental_hooks.recheck("message.dispatch")` is the second member and the pair to
 `on`: `on` answers the question core asks, `recheck` asks core to ask it
 again. It schedules a walk that re-attempts every plugin-queued row in queue
 order — claim-CAS exactly-once, full hook pass per row, still-blocked rows
@@ -412,7 +412,7 @@ now, or when the orphan sweep clears a wait whose plugin is no longer running.
 - **The single server-wide lock.** One slow handler delays every dispatch in the
   server, up to its box.
 
-## `interaction.pending` (`bb.events.on`)
+## `interaction.pending` (`cc.events.on`)
 
 **What it does.** This announcement fires after core commits a pending
 interaction row. It carries the public thread and pending interaction DTOs.
@@ -423,9 +423,9 @@ and plugin interaction details. Confirm that the full interaction DTO remains
 the correct payload instead of an id that requires a fresh SDK read. Decide
 whether this event needs matching resolved, cancelled, or interrupted events.
 
-## `message.queued` / `message.dispatched` / `message.cancelled` / `turn.failed` (`bb.events.on`)
+## `message.queued` / `message.dispatched` / `message.cancelled` / `turn.failed` (`cc.events.on`)
 
-**What it does.** Four announcements on the observe-only `bb.events.on`
+**What it does.** Four announcements on the observe-only `cc.events.on`
 registry.
 
 `message.queued` and `message.dispatched` each carry the `ThreadQueuedMessage`
@@ -439,7 +439,7 @@ carries ids and failure facts only — `threadId`, the failed turn's `requestId`
 the provider `turnId`, the provider's `ProviderErrorInfo`, the latest
 `ProviderRateLimitState` and `attemptNumber` — and no thread DTO or copy of the
 message, because a retry is asked for by reference with
-`bb.sdk.threads.retry({ threadId, turnRequestId, sendAt })` and anything else is
+`cc.sdk.threads.retry({ threadId, turnRequestId, sendAt })` and anything else is
 one `threads.get` away and fresher for being read when it is used. It is an
 announcement, not a question: the failure stands as core applied it, a handler's
 return value is ignored, and a handler that throws is isolated like any other
@@ -447,7 +447,7 @@ event handler. A broken retry plugin can therefore cost a retry; it can never
 make failures unrecoverable.
 
 **Audit before stabilizing.** These are still the only non-thread events on
-`bb.events.on`, so the interface is called `PluginThreadEventPayloads` and its
+`cc.events.on`, so the interface is called `PluginThreadEventPayloads` and its
 handler type `PluginThreadEventHandler`; renaming both project-wide is part of
 stabilizing. Decide whether every plugin should see every queued row (it does
 today, and filtering on `entry.waitingOn` is the documented pattern) or whether
@@ -455,7 +455,7 @@ a plugin should only see the rows whose wait it owns. Decide too whether
 `message.queued` firing on every rewritten wait is what a listener wants, or
 whether a separate `message.updated` belongs alongside it — the timeline event
 already distinguishes the two. `message.cancelled` fires when a queued row is
-deleted before it dispatched (the queued card's Delete, `bb thread queue`);
+deleted before it dispatched (the queued card's Delete, `cc thread queue`);
 rows that vanish with their thread fire the thread event instead. Confirm
 that split is the teardown signal a plugin holding resources for a waiting
 message needs before this is stable. For `turn.failed`, confirm the payload answers every
@@ -463,7 +463,7 @@ question a retry policy asks without replaying the event log, and note that
 attempt caps are entirely the plugin's: core enforces no ceiling on retry chains
 beyond one live retry row per original request.
 
-## `bb.experimental_environments` (`register`, `recheck`)
+## `cc.experimental_environments` (`register`, `recheck`)
 
 **What it does.** Lets a plugin register a named place where threads can run.
 Provider ids are flat across plugins, and the first live registration wins.
@@ -541,10 +541,10 @@ those providers at the server boundary.
    isWorktree comes from git inspection. EnvironmentStatus does not restore
    retiring/destroying; lifecycle is a separate read-only view.
 
-## `@get-bb/plugin-sdk/environment-provider`
+## `@codythatsme/plugin-sdk/environment-provider`
 
 **What it does.** Exports the resource-operation contract for
-`bb.experimental_environments.register`. The SDK controller is removed.
+`cc.experimental_environments.register`. The SDK controller is removed.
 Core persists launch attempts, progress, cancellation, direct resource
 attachment, retirement deadlines and teardown state in SQLite. Providers supply
 idempotent long-running create and remove calls plus policy. Values retain their
@@ -563,7 +563,7 @@ The optional `restore(context)` method, unprefixed like `availability` because
 the whole registration is experimental, is the only way core
 rebuilds a destroyed environment, and runs only when a user restores an
 unarchived, settled thread (`POST /threads/:id/restore-environment`,
-`bb thread restore-environment`). Its context carries the creation inputs and
+`cc thread restore-environment`). Its context carries the creation inputs and
 `previous: { environment, resource }` for the removed environment; the provider
 decides what restoring means. Git worktree re-creates the worktree on the
 recorded branch, project checkout switches back to the recorded branch, and
@@ -591,7 +591,7 @@ Audit availability message ownership, create-time error presentation, the
 interaction between the `requires` floor and provider decisions, and whether
 the current decision timeout is appropriate before stabilizing it.
 
-## `app.slots.experimental_environmentProviderInputs`, `experimental_BranchPicker`, `experimental_useBranches` and `experimental_useCheckoutState` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_environmentProviderInputs`, `experimental_BranchPicker`, `experimental_useBranches` and `experimental_useCheckoutState` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** The picker-side half of environment providers. The slot
 registers the control the New Thread environment picker renders beside this
@@ -650,7 +650,7 @@ and owns the existing/new selection, labels, blocker copy, and emitted inputs.
    has to report ready from an effect on mount, as the worktree does.
    Decide whether the registration should instead declare a default value.
 
-## `app.slots.experimental_machineProviderInputs` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_machineProviderInputs` (`@codythatsme/plugin-sdk/app`)
 
 Supporting app exports are `PluginMachineProviderInputsRegistration`,
 `PluginMachineProviderInputsProps`, and `PluginMachineProviderInputsChange`.
@@ -669,7 +669,7 @@ settings and the value carries only non-secret configuration or references.
 shape works across machine providers, that ready/blocked is sufficient, and
 that provider changes and crashed controls cannot retain stale launch inputs.
 
-## `bb.experimental_machines` (`register`)
+## `cc.experimental_machines` (`register`)
 
 Registers project-independent machine providers with required id, displayName,
 description and icon; optional ephemeral policy, Standard Schema inputs,
@@ -703,7 +703,7 @@ interrupted allocation cleanup, checkpoint rejection, resource privacy, removal
 serialization and same-identity restoration. Machine lifecycle uses removing;
 removal retry timing is internal, not a public retirement policy.
 
-## `@get-bb/plugin-sdk/machine-provider`
+## `@codythatsme/plugin-sdk/machine-provider`
 
 Exports provider definitions, input schemas, availability/validation results,
 create and lifecycle contexts, progress and resource/removal results.
@@ -715,13 +715,13 @@ context and must be registered together. Description and icon are required.
 Supporting declarations belong to the experimental machine namespace.
 Stabilization follows the registration audit above.
 
-## `bb.branding.experimental_icons` (manifest) and namespaced presentation glyphs
+## `cc.branding.experimental_icons` (manifest) and namespaced presentation glyphs
 
 **What it does.** A plugin ships SVG files and declares a name → file map in
-its `package.json` manifest: `"bb": { "branding": { "experimental_icons": {
+its `package.json` manifest: `"cc": { "branding": { "experimental_icons": {
 "receipt": "./icons/receipt.svg" } } }`. Timeline row presentation
-(`presentation.icon.glyph`, including `bb.agents.registerTool` presentation)
-and provider branding (`bb.providers.register({ icon })`) may then reference
+(`presentation.icon.glyph`, including `cc.agents.registerTool` presentation)
+and provider branding (`cc.providers.register({ icon })`) may then reference
 an entry by the namespaced glyph `"<pluginId>/<name>"`. The server validates
 the map at build and at load (name grammar, `./` path ending in `.svg` inside
 the plugin root, 32 KiB per file, 64 entries, a reject-only SVG validator that
@@ -735,7 +735,7 @@ and `xml:base`), serves the bytes from the installed plugin directory at
 `/api/v1/plugins/<id>/assets/icons/<name>.svg?h=<hash>` with immutable
 caching, and rejects at ingest (`provider/unhandled`, reason naming the glyph)
 a namespaced glyph that is not the emitting plugin's own declared icon. The
-emitting plugin is the thread's provider plugin, except for a `server: "bb"`
+emitting plugin is the thread's provider plugin, except for a `server: "cc"`
 tool row: the bridge stamps the presentation the server resolved from the
 plugin that registered the tool, so that row's glyph is checked against the
 tool's plugin (it passes when the tool is still registered by the plugin the
@@ -747,7 +747,7 @@ renders. The conformance kit's `presentation/icon-namespaced-declared` rule
 (fixture `icons: { pluginId, names }`) catches a bad glyph before a bridge
 ships.
 
-`bb.branding.icon` refuses the namespaced form outright (the manifest
+`cc.branding.icon` refuses the namespaced form outright (the manifest
 schema fails the build and the load, naming the value): it is the plugin's
 own mark, read by every client as a host glyph name or a hashed compact-SVG
 URL, so a self-reference would only restate a path already in the map while
@@ -755,14 +755,14 @@ every tool without a `presentation.icon` inherited a glyph ingest rejects.
 
 **Audit before stabilizing.** Decide whether the key is `icons` outright
 (the strict manifest schema makes the rename breaking, so the stabilization
-release must accept both for one release). Decide whether `bb.branding.icon`
+release must accept both for one release). Decide whether `cc.branding.icon`
 should instead resolve a self-referencing namespaced glyph through the map
 (the refusal is the smaller, reversible choice). The SVG rules are three.
 A declared icon passes the strict set above at build and at load.
-`bb.branding.icon` (and a marketplace catalog icon) passes the
+`cc.branding.icon` (and a marketplace catalog icon) passes the
 document-shape check it always had — UTF-8, no doctype or processing
 instruction, well-formed XML, an `<svg>` root — at build and at load. An SVG
-`bb.branding.logo.light`/`.dark` is checked at `bb plugin build` only, and
+`cc.branding.logo.light`/`.dark` is checked at `cc plugin build` only, and
 only for script vectors: a `script`, `handler` or `listener` element in any
 namespace, an `on*` attribute, or an `href`/`xlink:href` whose scheme is
 `javascript:`. Nothing else, so an Illustrator `<!DOCTYPE svg PUBLIC …>`,
@@ -770,9 +770,9 @@ namespace, an `on*` attribute, or an `href`/`xlink:href` whose scheme is
 Inkscape `<sodipodi:namedview>` and `<rdf:RDF>`, an `<image
 href="data:…">`, an `<a>`-wrapped logo and Latin-1 bytes all build. Install
 and load never refuse a logo or a path-shaped provider icon: the manifest
-reader, the served snapshot and the `bb.providers.register` call take the
+reader, the served snapshot and the `cc.providers.register` call take the
 bytes as declared, so no installed plugin's tool-export artwork fails its
-load (a provider icon is named only in code, so `bb plugin build` cannot
+load (a provider icon is named only in code, so `cc plugin build` cannot
 reach it either). What keeps every such document inert is the response: the
 branding route (`/plugins/:id/assets/{icon,logo,logo-dark}`), the
 declared-icon route and the provider logo route
@@ -797,7 +797,7 @@ rows are never rewritten and simply fall back.
 
 **Kept experimental (2026-08-22).** it still accepts two input shapes (ordered `contentBlocks` and the legacy aggregate `{ content, images }`) though every first-party caller now passes the ordered form, and no image MIME/size policy exists at the server boundary; drop the legacy input and settle the policy, then stabilize.
 
-**What it does.** Converts a decoded bb tool-call response into the ordered
+**What it does.** Converts a decoded cc tool-call response into the ordered
 text and inline-image content blocks accepted by MCP and Pi tool result
 contracts. It preserves a legacy aggregate text/images input while first-party
 bridges migrate to ordered `contentBlocks`.
@@ -807,7 +807,7 @@ content-block vocabulary; decide whether legacy aggregate fields still need to
 be accepted; and define any image MIME validation, decoding, or payload-size
 policy at the server boundary before making the helper stable.
 
-## The ACP bridge kit (`@get-bb/plugin-sdk/provider-bridge/acp`)
+## The ACP bridge kit (`@codythatsme/plugin-sdk/provider-bridge/acp`)
 
 **Kept experimental (2026-08-22).** Four members remain, each with an open
 question below; the fourteen exports no plugin consumed (the dialect
@@ -815,9 +815,9 @@ registry and ids, the raw line handler, the protocol constants, the launch
 profile and the model-catalog helpers) left the public surface in the
 stabilization audit — the kit grows with a consumer, not ahead of one.
 
-**What it does.** Publishes bb's generic Agent Client Protocol bridge so any
-plugin can add an ACP agent without bb-side code. `experimental_acpProviderBridge`
-is the bridge a plugin re-exports from its `bb.host` artifact; the agent to
+**What it does.** Publishes cc's generic Agent Client Protocol bridge so any
+plugin can add an ACP agent without cc-side code. `experimental_acpProviderBridge`
+is the bridge a plugin re-exports from its `cc.host` artifact; the agent to
 launch arrives per command in `providerOptions.acpLaunchSpec`, so one
 implementation serves every agent. The bridge ships three dialects
 (`generic`, `cursor`, `grok`) — version 1 of the protocol has no sub-agent
@@ -854,7 +854,7 @@ plugin is owed when the spec grows a field.
 
 **What it does.** Names the directories a provider's own agent reads skills
 from, relative to the target host's home directory (`user`) or to the
-workspace (`project`). bb lists those skills beside its own and offers them in
+workspace (`project`). cc lists those skills beside its own and offers them in
 the composer. It replaces the one thing the server used to dig out of an ACP
 agent's launch spec: before the ACP tier was deleted, `GET /projects/:id/
 commands` read `acpLaunchSpec.nativeSkillRoots` out of a config record. A
@@ -863,7 +863,7 @@ core never reaches into a plugin's opaque bridge options for it. Validated at
 registration: `user` and `project` are relative paths only, no dot segments,
 no duplicates, at most 32 roots per side. The declaration is global; a
 directory only one host can name is the resolver's answer
-(`experimental_resolvesNativeRoots`), and bb scans each absolute path once
+(`experimental_resolvesNativeRoots`), and cc scans each absolute path once
 across the declared and resolved roots, the first in declaration order
 winning ([provider-plugin-api.md](provider-plugin-api.md) §1).
 
@@ -893,7 +893,7 @@ resolver's answer does.
 **What it does.** Names the directories a provider's agent reads its own
 slash commands from — flat directories of `*.md` prompt files, Claude Code's
 `.claude/commands` — in the same two-sided shape and with the same per-root
-options as `experimental_nativeSkillRoots`. bb offers the commands in the
+options as `experimental_nativeSkillRoots`. cc offers the commands in the
 composer beside the agent's skills. Added by stabilization S5 when the
 daemon's per-provider scan table was deleted: the claude-code plugin is the
 only first-party declarer.
@@ -904,8 +904,8 @@ two declarations or become one list of typed roots; confirm that a flat
 
 ## `PluginProviderDeclaration.experimental_resolvesNativeRoots`
 
-**What it does.** Declares that the plugin's `bb.host` entry implements
-`experimental_nativeRootsHostContract`. When bb lists a provider's commands or
+**What it does.** Declares that the plugin's `cc.host` entry implements
+`experimental_nativeRootsHostContract`. When cc lists a provider's commands or
 skills it calls `resolveNativeRoots({ providerId, cwd })` on the workspace
 host (cached for ten seconds per plugin, provider, host and workspace;
 invalidated when the plugin's settings change or the provider re-registers)
@@ -925,7 +925,7 @@ plugin with host-only roots now resolves them this way.
 whether the server should detect the method on the host entry; and settle
 the cache TTL and the invalidation set against a real multi-host setup.
 
-## `experimental_nativeRootsHostContract` (`@get-bb/plugin-sdk/host`)
+## `experimental_nativeRootsHostContract` (`@codythatsme/plugin-sdk/host`)
 
 **What it does.** The one-method RPC contract (`resolveNativeRoots`) a
 provider plugin's host entry serves when its declaration sets
@@ -941,7 +941,7 @@ third-party agent's layouts; decide whether the contract should accept a
 relative path the daemon resolves (so a plugin need not know the host home)
 and whether the 256-root cap per side is right.
 
-## `experimental_filterResolvedNativeRoots` (`@get-bb/plugin-sdk/host`)
+## `experimental_filterResolvedNativeRoots` (`@codythatsme/plugin-sdk/host`)
 
 **What it does.** Checks a `resolveNativeRoots` answer root by root against
 the contract (path, origin, name prefix, the manifest marker's form, shape,
@@ -961,7 +961,7 @@ in the answer) so a plugin cannot forget to call the helper, and whether
 `dropped[].reason` is a contract a resolver's test may pin or free text for
 the log.
 
-## Vendor plugin roots (`experimental_resolveClaudePluginRoots` and `experimental_resolveVendorPluginRoots`, `@get-bb/plugin-sdk/host`)
+## Vendor plugin roots (`experimental_resolveClaudePluginRoots` and `experimental_resolveVendorPluginRoots`, `@codythatsme/plugin-sdk/host`)
 
 **What it does.** The two readers a provider plugin's `resolveNativeRoots`
 handler calls for the vendor plugins installed on the host.
@@ -1018,13 +1018,13 @@ be validated as a name prefix here instead of at
 ## `PluginSettingDescriptor.experimental_multiline`
 
 **What it does.** A `type: "string"` setting descriptor field
-(`bb.settings.define`). When `true`, the host renders the setting as a
+(`cc.settings.define`). When `true`, the host renders the setting as a
 multi-line text field instead of a one-line input: on the web a monospace
 textarea below the label and description at the row's full width (six rows
 minimum, growing with its content to twenty-four, then scrolling; spellcheck
 off), on mobile a monospace multi-line `TextInput`. The stored value is the
 same string as before — the flag changes the editor, not the contract, so the
-CLI (`bb plugin config <id> set <key> <value>`) and `settings.get()` are
+CLI (`cc plugin config <id> set <key> <value>`) and `settings.get()` are
 unaffected and a plugin still parses the text itself (the ACP plugin's
 `customAgents` JSON array, the first consumer, parses on read and warns). A
 descriptor that sets it beside `secret: true` is refused at define time:
@@ -1049,14 +1049,14 @@ the server, so no client older than this field is served.
    should tolerate unknown fields so a hint degrades to the one-line input on
    an older client instead of failing the whole settings view.
 
-## `bb.server.experimental_dataDir`
+## `cc.server.experimental_dataDir`
 
 **Kept experimental (2026-08-22).** a sunset member: its only consumer is the ACP plugin's reader of the deprecated `customAcpAgents` array, and it is deleted with that window (`LEGACY_CUSTOM_AGENTS_REMOVED_IN`). A bare data-directory path does not stabilize.
 
 **What it does.** The server's data directory — the one holding `config.json`,
-`bb.db` and `plugins/<id>/`. Added because a plugin cannot compute it: a dev
+`cc.db` and `plugins/<id>/`. Added because a plugin cannot compute it: a dev
 server derives its data dir from its repo root and instance id
-(`~/.bb-dev/<instance>`), so the ACP plugin's own `~/.bb` fallback made a dev
+(`~/.cc-dev/<instance>`), so the ACP plugin's own `~/.cc` fallback made a dev
 server read the production `config.json` while the server read another one.
 Its only consumer is that plugin's read of the deprecated `customAcpAgents`
 array.
@@ -1064,18 +1064,18 @@ array.
 **Audit before stabilizing.** Its one caller dies with the `customAcpAgents`
 deprecation window, so decide then whether anything else needs it. If it
 stays, decide whether a bare path is the right shape or whether a plugin
-should get named, read-only accessors for the bb-managed files it may read —
-a path invites writes into bb's directory, which `bb.storage` exists to
+should get named, read-only accessors for the cc-managed files it may read —
+a path invites writes into cc's directory, which `cc.storage` exists to
 prevent.
 
-## `bb.server.experimental_appUrl`
+## `cc.server.experimental_appUrl`
 
 **What it does.** This value gives plugins the operator-configured public app
-URL from `BB_APP_URL`. It is `null` when the operator did not configure that
+URL from `CC_APP_URL`. It is `null` when the operator did not configure that
 value. Plugins can read it before the server starts to listen.
 
-**Audit before stabilizing.** Decide whether `BB_EXTERNAL_URL` or the bb
-connect URL should supply this value when `BB_APP_URL` is empty. Confirm that
+**Audit before stabilizing.** Decide whether `CC_EXTERNAL_URL` or the cc
+connect URL should supply this value when `CC_APP_URL` is empty. Confirm that
 one public URL has clear behavior when a server has several access paths.
 
 ## Bridge record mode (`experimental_recordProviderChildIo` and `experimental_isProviderBridgeRecording`)
@@ -1083,8 +1083,8 @@ one public URL has clear behavior when a server has several access paths.
 **Kept experimental (2026-08-22).** the recording entry shape is now consumed by the public testing kit, so it is a de-facto fixture format that must be frozen together with `experimental_readBridgeRecording` / `replayRecording`; the `{ threadId | null }` scope is untested against a multiplexing bridge.
 
 **What it does.** `experimental_recordProviderChildIo` tees a provider
-child's stdio into the bridge record mode (`BB_PROVIDER_BRIDGE_RECORD_DIR`),
-scoped to the bb thread the child serves. It is a no-op when record mode is
+child's stdio into the bridge record mode (`CC_PROVIDER_BRIDGE_RECORD_DIR`),
+scoped to the cc thread the child serves. It is a no-op when record mode is
 off, so a bridge calls it unconditionally after `spawn()`.
 `experimental_isProviderBridgeRecording` reports whether record mode is on,
 for a bridge whose provider pipe is owned by an SDK and must take the spawn
@@ -1117,7 +1117,7 @@ whether `retryable` should be per kind (only `sessionArchived` and
 `rateLimited` read it today) and whether the runtime should bound the
 `rateLimited` ladder from the hint rather than from a constant.
 
-## Provider maintenance toolkit (`experimental_resolveExecutablePath`, `experimental_readCliVersion`, `experimental_commandOutput`, `experimental_versionFrom`, `experimental_compareVersions`, `experimental_formatCommand`, `experimental_npmCommand`, `experimental_npmGlobalInstallCommand`, `experimental_npmLatestVersion`, `experimental_probeNpmGlobalPackage`, `experimental_npmGlobalInstallSource`, `experimental_installationVerification`, `experimental_downloadedInstallerCommand`, `experimental_clampPercent`) (`@get-bb/plugin-sdk/provider-bridge`)
+## Provider maintenance toolkit (`experimental_resolveExecutablePath`, `experimental_readCliVersion`, `experimental_commandOutput`, `experimental_versionFrom`, `experimental_compareVersions`, `experimental_formatCommand`, `experimental_npmCommand`, `experimental_npmGlobalInstallCommand`, `experimental_npmLatestVersion`, `experimental_probeNpmGlobalPackage`, `experimental_npmGlobalInstallSource`, `experimental_installationVerification`, `experimental_downloadedInstallerCommand`, `experimental_clampPercent`) (`@codythatsme/plugin-sdk/provider-bridge`)
 
 **What it does.** The host-local probes and install-action plumbing behind a
 bridge's `provider/health`, `provider/usage` and `provider/installation/*`
@@ -1170,7 +1170,7 @@ dist-tag and `doctor` parsing) beside them.
    and `bash`; there is no Windows form. Decide whether it should refuse on
    win32 rather than hand the daemon a command that cannot run.
 
-## Presentation builders (`experimental_presentationTitle`, `experimental_presentationDetail`, `experimental_withTitle`, `experimental_presentationFileName`, `experimental_COMPACTION_PRESENTATION`, `experimental_REASONING_PRESENTATION`, `experimental_fileReadPresentation`, `experimental_searchPresentation`, `experimental_webSearchPresentation`, `experimental_webFetchPresentation`, `experimental_planStepsPresentation`, `experimental_toolPresentation`) (`@get-bb/plugin-sdk/provider-bridge`)
+## Presentation builders (`experimental_presentationTitle`, `experimental_presentationDetail`, `experimental_withTitle`, `experimental_presentationFileName`, `experimental_COMPACTION_PRESENTATION`, `experimental_REASONING_PRESENTATION`, `experimental_fileReadPresentation`, `experimental_searchPresentation`, `experimental_webSearchPresentation`, `experimental_webFetchPresentation`, `experimental_planStepsPresentation`, `experimental_toolPresentation`) (`@codythatsme/plugin-sdk/provider-bridge`)
 
 **What it does.** The bridge kit's presentation building blocks for the
 grammar-v3 `presentation` a bridge stamps on every item it opens
@@ -1200,7 +1200,7 @@ tool is which kind, how a command headline is unwrapped, per-tool tables).
 **Audit before stabilizing.**
 
 1. **The wording is a product decision.** A third-party bridge that adopts
-   the constants inherits bb's English labels and glyph names; a bridge
+   the constants inherits cc's English labels and glyph names; a bridge
    that wants its own wording builds the object itself. Decide whether the
    labels should come from the host (localized, themed) rather than be
    persisted from the bridge before the constants are a promise.
@@ -1212,7 +1212,7 @@ tool is which kind, how a command headline is unwrapped, per-tool tables).
    its own uncollapsed variant. Decide which default a third-party bridge
    should get.
 
-## `experimental_readBoundedLines` (`@get-bb/plugin-sdk/provider-bridge`)
+## `experimental_readBoundedLines` (`@codythatsme/plugin-sdk/provider-bridge`)
 
 **What it does.** The bridge kit's newline-delimited line reader, the one the
 daemon reads every bridge's stdout with and the bridge worker reads its stdin
@@ -1236,7 +1236,7 @@ unterminated line is emitted before it.
    reasonably want to fail the session instead. Decide whether the reader
    should offer a fail-closed mode before the signature is a promise.
 
-## Live-file navigation (`experimental_FileLink`, `BbNavigate.experimental_openFilePreview`, `BbNavigate.experimental_openFileExternally`, and `PluginFileOpenerSource.experimental_hostId`)
+## Live-file navigation (`experimental_FileLink`, `CcNavigate.experimental_openFilePreview`, `CcNavigate.experimental_openFileExternally`, and `PluginFileOpenerSource.experimental_hostId`)
 
 **Kept experimental (2026-08-22).** `experimental_hostId` is persisted inside opener-tab `paramsJson` (a rename needs a read-compat shim), Windows/UNC paths were never verified, and `experimental_openFilePreview` has no consumer.
 
@@ -1271,11 +1271,11 @@ malformed runtime targets remain inert in both the app and SDK test runtime.
 7. Confirm `PluginFileOpenerSource.experimental_hostId` can become a stable
    required `hostId` field without breaking older opener implementations.
 
-## Host plugin foundation (`bb.hosts.experimental_client`, `ExperimentalHostClient.experimental_onWorkerExit`, `ExperimentalHostClient.experimental_onSignal`, `ExperimentalHostRpcContext.experimental_retainWorker`, `experimental_defineHostEntry`, `experimental_killProcessesWithCwdUnder`, and `experimental_createHostEntryHarness`)
+## Host plugin foundation (`cc.hosts.experimental_client`, `ExperimentalHostClient.experimental_onWorkerExit`, `ExperimentalHostClient.experimental_onSignal`, `ExperimentalHostRpcContext.experimental_retainWorker`, `experimental_defineHostEntry`, `experimental_killProcessesWithCwdUnder`, and `experimental_createHostEntryHarness`)
 
 **Kept experimental (2026-08-22).** signals and watches have no consumer (decide whether to delete them or keep them experimental separately from calls), none of the lifetime/limit numbers has been measured against a plugin other than keep-awake, and the artifact-contract names (`experimental_apiVersion`, `experimental_signals`, the injected context members) are read by the daemon from installed artifacts, so renaming them needs a dual-name window plus a protocol bump.
 
-**What it does.** Lets one plugin package declare a singular `bb.host` Node
+**What it does.** Lets one plugin package declare a singular `cc.host` Node
 entry, share a Standard Schema contract between its server and host entries,
 and call methods on an explicit enrolled host. A client may observe unexpected
 worker exits and typed, ephemeral host signals. The host context supplies
@@ -1288,7 +1288,7 @@ worker-count limit.
 
 The single-worker, idle-eviction, retention, and call-timeout rules above are
 specific to the host RPC consumer. Other daemon subsystems may attach the same
-`bb.host` artifact through a different bootstrap and own their own process
+`cc.host` artifact through a different bootstrap and own their own process
 lifecycle.
 
 The initial builtin proof is Keep Awake: it owns a host target, a worker-owned
@@ -1298,7 +1298,7 @@ unexpected-exit recovery without feature-specific core hooks.
 **Audit before stabilizing.**
 
 0a. **Process reap.** `experimental_killProcessesWithCwdUnder({ directory,
-   graceMs? })` from `@get-bb/plugin-sdk/host` is the same helper bb's own
+   graceMs? })` from `@codythatsme/plugin-sdk/host` is the same helper cc's own
 daemon used to reap a managed workspace before removing it: SIGTERM to
 every process whose working directory is at or under the path, SIGKILL
 after the grace, returning what it signalled. Published for the worktree
@@ -1338,22 +1338,22 @@ before deleting the directory. Confirm the platform coverage (Linux
    retaining only the most recently materialized artifact digest per plugin is
    sufficient.
 7. **Environment.** Confirm executable discovery through normalized `PATH`
-   and stripping all daemon-owned `BB_*` variables.
+   and stripping all daemon-owned `CC_*` variables.
 8. **Trust and dependencies.** V1 host plugins are trusted Node programs that
    may use `child_process`, filesystem, and network APIs. Decide whether later
    permissions, native artifacts, or an explicit dependency installer can be
    layered on without changing the RPC contract. Confirm rejecting all private
-   `@bb/*` imports from host bundles is the correct permanent boundary, and
+   `@cc/*` imports from host bundles is the correct permanent boundary, and
    audit the builder-supplied public SDK runtime against future host exports.
 9. **Composition boundary.** Confirm host RPC methods and signals should remain
    private to the owning plugin while allowing another daemon subsystem to
-   consume the same `bb.host` artifact through its own bootstrap and lifecycle.
+   consume the same `cc.host` artifact through its own bootstrap and lifecycle.
 10. **Test harness.** Audit both layers: the server harness's
     `experimental_callHostRpc` option, `experimental_hostEntry` option (a
-    plugin whose manifest declares no `bb.host` entry, so the fake refuses
-    `bb.providers.register` and `experimental_aiServices.register` the way
+    plugin whose manifest declares no `cc.host` entry, so the fake refuses
+    `cc.providers.register` and `experimental_aiServices.register` the way
     production does), `experimental_declaredIconNames` option (the names the
-    manifest declares under `bb.branding.experimental_icons`, so the fake
+    manifest declares under `cc.branding.experimental_icons`, so the fake
     refuses a provider `icon` or a tool `presentation.icon.glyph` that names
     another plugin's icon or an undeclared one, with production's messages;
     the rule itself, `undeclaredIconProblem`, lives in the SDK's host policy
@@ -1496,14 +1496,14 @@ Before stabilization, audit:
   candidate rename. Nothing under `plugins/*` sets a status today, so the
   rename is free until the prefix drops.
 
-## `bb.providers.register` (`experimental_bridgeOptions`, `experimental_visibility`, and the `experimental_providerBridge` artifact export)
+## `cc.providers.register` (`experimental_bridgeOptions`, `experimental_visibility`, and the `experimental_providerBridge` artifact export)
 
-**Kept experimental (2026-08-22).** `bb.providers.register` and the declaration's target-state fields are stable. `experimental_bridgeOptions` and `experimental_visibility` have one consumer (the ACP plugin); docs/provider-plugin-api.md §1 lists both under "Still experimental on the declaration" — decide whether static options survive beside `deriveProviderOptions` before naming them. The `experimental_providerBridge` export name is an artifact contract read by the daemon bootstrap from every installed plugin; renaming it needs a dual-name acceptance window plus a protocol bump, so it stabilizes with the bridge kit once that deprecation policy exists.
+**Kept experimental (2026-08-22).** `cc.providers.register` and the declaration's target-state fields are stable. `experimental_bridgeOptions` and `experimental_visibility` have one consumer (the ACP plugin); docs/provider-plugin-api.md §1 lists both under "Still experimental on the declaration" — decide whether static options survive beside `deriveProviderOptions` before naming them. The `experimental_providerBridge` export name is an artifact contract read by the daemon bootstrap from every installed plugin; renaming it needs a dual-name acceptance window plus a protocol bump, so it stabilizes with the bridge kit once that deprecation policy exists.
 
 **What it does.** Lets a plugin declare an agent provider into the server's
 `ProviderRegistryService`. The declaration owns static metadata and opaque
 bridge options; executable behavior is the bridge the plugin exports from its
-`bb.host` artifact. Registering without one fails the plugin load. The
+`cc.host` artifact. Registering without one fails the plugin load. The
 declaration is
 validated at call time by the shared host policy
 (`validatePluginProviderDeclaration`); registrations stage during the factory
@@ -1513,8 +1513,8 @@ the ONLY source of providers — the core catalog seed is deleted, so disabling
 a provider plugin removes its provider. A registered provider is mapped onto
 exactly one client shape, `ProviderInfo`, plus the backend-only
 `ProviderServerCapabilities`, and appears in the composed provider listing
-(`GET /system/providers` / execution options). `bb.providers` is the namespace
-(`bb.agents` keeps `configure`, `registerTool`, `contributeInstructions`).
+(`GET /system/providers` / execution options). `cc.providers` is the namespace
+(`cc.agents` keeps `configure`, `registerTool`, `contributeInstructions`).
 
 Ids are flat and first-wins: a live id collision fails the later plugin's
 load, and no id is reserved ahead of time (`RESERVED_PROVIDER_ID_OWNERS` is
@@ -1537,9 +1537,9 @@ bridge as provider-scoped static options. Core does not interpret its keys.
    order (vs. first-load time). The user overlay (`providerOrder`) is an
    ordered id list that ignores unknown ids; decide whether stale ids should
    be pruned on write.
-2. **Icon URL shape.** `icon` uses the `bb.branding.icon` grammar (a named host
+2. **Icon URL shape.** `icon` uses the `cc.branding.icon` grammar (a named host
    glyph, or a `./`-prefixed plugin-relative SVG) plus the plugin's own
-   declared icons as `"<pluginId>/<name>"` (`bb.branding.experimental_icons`;
+   declared icons as `"<pluginId>/<name>"` (`cc.branding.experimental_icons`;
    a foreign plugin id or an undeclared name is refused at the register
    call). A path, or a declared icon's bytes, is snapshotted at registration
    and served from `/api/v1/system/providers/<id>/logo`; a host glyph name
@@ -1555,7 +1555,7 @@ bridge as provider-scoped static options. Core does not interpret its keys.
    whether a namespace rule (plugin-scoped id prefixes) is wanted before
    third-party ids proliferate.
 4. **Bridge delivery.** A provider bridge is a second consumer of the
-   plugin's `bb.host` artifact: it is exported by name
+   plugin's `cc.host` artifact: it is exported by name
    (`experimental_providerBridge`), built into `dist/host.js`, recorded in the
    one live-host-artifact registry, served by the one host artifact route, and
    cached once per plugin on the daemon. Thread commands carry `bridgeLaunch
@@ -1570,7 +1570,7 @@ bridge as provider-scoped static options. Core does not interpret its keys.
    submit time, removed from the contract because nothing ever resolved one —
    returns as its own surface.
 5. **What a capability may be.** `supportsHostAiServices` was removed after
-   shipping: it declared that bb's voice-transcription and structured-inference
+   shipping: it declared that cc's voice-transcription and structured-inference
    features could route through the provider, which is a fact about the daemon
    bundle rather than about the provider. `supportsWorkflows` went the same
    way in WS2a: whether a session may use the Workflow tool is the Claude
@@ -1578,7 +1578,7 @@ bridge as provider-scoped static options. Core does not interpret its keys.
    `providerOptions`), not a fact core needs. Apply the same test to every
    remaining capability before stabilizing: a declaration may assert what the
    provider itself implements and an external consumer needs pre-session,
-   never what bb or its daemon can do with it.
+   never what cc or its daemon can do with it.
 6. **Static bridge options and visibility.** Confirm 64 KiB remains a suitable
    declaration-time limit, that opaque options should continue to be shared by
    every host rather than resolved per host, and whether deep-frozen plain JSON
@@ -1587,21 +1587,21 @@ bridge as provider-scoped static options. Core does not interpret its keys.
    installed-only provider, and that targeted requests may continue resolving
    a registered provider even while discovery says it is absent.
 
-## `@get-bb/plugin-sdk/provider-bridge` (the provider-bridge authoring surface)
+## `@codythatsme/plugin-sdk/provider-bridge` (the provider-bridge authoring surface)
 
 **Kept experimental (2026-08-22).** `experimental_defineProviderBridge` / `experimental_apiVersion` are an artifact↔daemon contract (the bootstrap refuses anything but version 1 by name), and the deprecation window between independently-updating artifacts and daemons (item 4) is undecided.
 
 **What it does.** The published module a provider bridge compiles against. A
-bridge ships inside its plugin's `bb.host` artifact, and a host artifact may
-not import private `@bb/*` workspace packages, so everything a bridge needs is
+bridge ships inside its plugin's `cc.host` artifact, and a host artifact may
+not import private `@cc/*` workspace packages, so everything a bridge needs is
 named here: `experimental_defineProviderBridge` (the export shape the
 daemon-side bootstrap looks for), the Provider Bridge Protocol's method
 vocabulary, the `thread/delta` grammar, and param schemas, the bridge kit's
 authoring helpers (JSON-RPC framing, tool-call and interaction codecs,
-visibility, dialect-parsing helpers), and the `@bb/domain` command-plane
+visibility, dialect-parsing helpers), and the `@cc/domain` command-plane
 vocabulary those params reference.
 Curated by hand — named exports only, never `export *`. Unlike
-`@get-bb/plugin-sdk` and `@get-bb/plugin-sdk/host`, it is NOT a build-time
+`@codythatsme/plugin-sdk` and `@codythatsme/plugin-sdk/host`, it is NOT a build-time
 runtime stub: it is pure schema and helper code with no daemon-pinned
 behavior, so a provider plugin depends on the SDK for real and the artifact
 build inlines the SDK's published, self-contained bundle.
@@ -1611,12 +1611,12 @@ build inlines the SDK's published, self-contained bundle.
 1. **Resolved (Aug 2026, the narrow-grammar cutover): the protocol owns its
    own timeline vocabulary.** Bridges no longer construct `ThreadEvent`s —
    they emit the protocol's own `thread/delta` grammar and the runtime's
-   assembler constructs every canonical event — so the `@bb/domain` event
+   assembler constructs every canonical event — so the `@cc/domain` event
    vocabulary (`ThreadEvent`, the item types, `threadScope`/`turnScope` and
    the scope helpers) left the surface with the kit's assembly machinery
    (turn-state registry, scoped-item-ids, accepted-user-messages, item
    constructors, unhandled-event builders). What still comes from
-   `@bb/domain` is deliberate and consumed by bridges today: the
+   `@cc/domain` is deliberate and consumed by bridges today: the
    command-plane and interaction surface the protocol's params are made of
    (`PromptInput`, `PendingInteraction*`, `DynamicTool`,
    `RuntimePermissionPolicy`, permission/reasoning/service-tier values,
@@ -1625,7 +1625,7 @@ build inlines the SDK's published, self-contained bundle.
    `ThreadEventPlanStep`, `ThreadEventTokenUsageBreakdown`,
    `ThreadEventContextWindowUsage`, `ThreadEventUserContent`). Those are
    shared server/app/runtime contracts, so the facade re-export (bundle
-   inlining, `@bb/domain` staying private) is the permanent answer for
+   inlining, `@cc/domain` staying private) is the permanent answer for
    them.
 2. **Surface size.** 184 names after the cutover (was ~190, then ~216 with
    the delta grammar added, then the assembly surface deleted: the
@@ -1636,9 +1636,9 @@ build inlines the SDK's published, self-contained bundle.
    `getMessageContentTypes` moved into the claude-code plugin,
    `normalizePendingInteractionRequestedPermissionProfile` (whole
    `pending-interaction-normalization` module plus test) into the codex
-   plugin, and the `cloneReasoningEfforts` helper out of `@bb/domain` into
+   plugin, and the `cloneReasoningEfforts` helper out of `@cc/domain` into
    claude-code's model catalog. The other named candidates turned out not to
-   be movable: they are `@bb/domain`/protocol definitions with core consumers
+   be movable: they are `@cc/domain`/protocol definitions with core consumers
    — the `acp*Cli`/`acpNativeReasoning` schemas are parsed by the ACP launch
    spec and config, and the workflow snapshot types are rendered by the app.
    The `claudeTaskTool*` schemas lost their last core consumer when the
@@ -1660,21 +1660,21 @@ build inlines the SDK's published, self-contained bundle.
    surface; and the shared accepted-user-message drain folded into the
    turn-state registry core.
 3. **Resolved (stabilization S2): the ACP launch spec is the ACP package's
-   own.** `acpLaunchSpecSchema` moved out of `@bb/host-daemon-contract` into
-   `@bb/provider-bridge-acp` and left this root entry; provider-scoped static
-   options are opaque to bb, and the shape is owned by the bridge that parses
+   own.** `acpLaunchSpecSchema` moved out of `@cc/host-daemon-contract` into
+   `@cc/provider-bridge-acp` and left this root entry; provider-scoped static
+   options are opaque to cc, and the shape is owned by the bridge that parses
    it and the plugin that stores it.
 4. **`experimental_apiVersion` 1.** The bootstrap accepts version 1 only and
    refuses anything else by name. Decide the deprecation window for a version
    bump (a plugin's artifact and the daemon update independently) before the
    first third-party bridge ships.
 
-## `@get-bb/plugin-sdk/provider-bridge/testing` (the provider-bridge testing kit)
+## `@codythatsme/plugin-sdk/provider-bridge/testing` (the provider-bridge testing kit)
 
 **Kept experimental (2026-08-22).** items 3 and 6 below change the public shape (a pluggable replay child, pinning a grammar version in the exports).
 
 **What it does.** The published kit a bridge author proves a bridge with
-before shipping it, with no private `@bb/*` package in reach: the
+before shipping it, with no private `@cc/*` package in reach: the
 conformance kit (`experimental_runBridgeConformance`,
 `experimental_formatConformanceReport`) that drives a bridge through the
 canonical protocol scenarios — the transport hands it raw wire messages
@@ -1692,7 +1692,7 @@ notifications through it (`experimental_createBridgeDeltaEventCollector`,
 normalizer (`experimental_normalizeCalibrationEvents`,
 `experimental_describeCalibrationEvents`); and the recorded-replay harness —
 the regression oracle the first-party bridges use, keyed by the caller's
-provider id and bridge module rather than a list of bb's providers:
+provider id and bridge module rather than a list of cc's providers:
 `experimental_resolveProviderBridgeLaunch` (the bridge process as the
 runtime spawns it, through the bootstrap the kit ships beside its bundle),
 `experimental_replayRecording` (the recorded runtime lane in, the recorded
@@ -1706,8 +1706,8 @@ rewritten), and the recording readers (`experimental_readBridgeRecording`,
 Framework-agnostic (the stdout capture patches `process.stdout.write`
 itself; nothing imports a test runner). Curated by hand, named exports only.
 The echo example and every first-party bridge suite import only this entry
-and `@get-bb/plugin-sdk/provider-bridge` — the "zero first-party privilege"
-proof for the testing surface. In-repo the kit is `@bb/provider-bridge-
+and `@codythatsme/plugin-sdk/provider-bridge` — the "zero first-party privilege"
+proof for the testing surface. In-repo the kit is `@cc/provider-bridge-
 protocol`'s `assembler`, `conformance`, and `testing` subpaths.
 
 **Audit before stabilizing.**
@@ -1754,7 +1754,7 @@ protocol`'s `assembler`, `conformance`, and `testing` subpaths.
    `ThreadEventExtensionItem`, `ThreadEventFileReadItem`,
    `ThreadEventSearchItem`, `ThreadEventPlanStepsItem`,
    `ThreadEventWebSearchItem`, `ThreadEventWebFetchItem`,
-   `ThreadEventBackgroundTaskItem`) as types, re-exported from `@bb/domain`
+   `ThreadEventBackgroundTaskItem`) as types, re-exported from `@cc/domain`
    and inlined into the bundled declarations. Before this a plugin test named
    the event type as `ReturnType<BridgeDeltaEventCollector["assembleMessage"]>[number]`.
    They are types only: a bridge never constructs an event (the assembler
@@ -1764,27 +1764,27 @@ protocol`'s `assembler`, `conformance`, and `testing` subpaths.
    Decide whether the kit should pin a grammar version in its exports (the
    assembler already names `ASSEMBLER_GRAMMAR_VERSIONS`) before stabilizing.
 
-## `experimental_scanPublicSdkOnly` (`@get-bb/plugin-sdk/testing`)
+## `experimental_scanPublicSdkOnly` (`@codythatsme/plugin-sdk/testing`)
 
 **What it does.** Scans a plugin package for imports outside the public SDK:
 walks every `.ts`/`.tsx`/`.js` file below the package root (skipping
 `node_modules` and `dist`), and returns the files it read, each import
-specifier that is a private `@bb/*` package or falls outside the allowlist —
-`@get-bb/plugin-sdk` and its published subpaths, `zod`, `node:` built-ins,
+specifier that is a private `@cc/*` package or falls outside the allowlist —
+`@codythatsme/plugin-sdk` and its published subpaths, `zod`, `node:` built-ins,
 relative paths that stay inside the package root, plus the public packages
 the plugin names in `allow`; test files may add the published testing
 subpaths and `vitest` — a relative path that resolves outside the package
 root (`outside-package`, unless an `allow` pattern names it), an `import()`
 or `require()` whose argument is not a string literal (`dynamic-specifier`),
-and the `@bb/*` names in the package.json dependency blocks. It returns data
+and the `@cc/*` names in the package.json dependency blocks. It returns data
 and imports no test runner; the suite asserts on it. The echo-provider
-example and the first-party ACP plugin run it over themselves: inside bb's
-monorepo a `@bb/*` import still typechecks and runs, and a relative path can
+example and the first-party ACP plugin run it over themselves: inside cc's
+monorepo a `@cc/*` import still typechecks and runs, and a relative path can
 climb into a private package's source, which is exactly why it needs a test.
 
 **Audit before stabilizing.**
 
-1. **The allowlist is bb's.** The default admits every published SDK subpath
+1. **The allowlist is cc's.** The default admits every published SDK subpath
    and `vitest`; a plugin on another runner or another schema library must
    name it in `allow`. Decide whether the defaults should read the plugin's
    own package.json dependencies instead of a fixed list.
@@ -1796,14 +1796,14 @@ climb into a private package's source, which is exactly why it needs a test.
    import (in a comment, say) is reported. Decide whether a parser is owed
    before the scan is a promise.
 
-## `app.experimental_useProviders` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_useProviders` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** the hook returns `ProviderInfo`, which carries the unresolved `icon` / `logoUrl` pair and `maintenance` (the pre-stabilization booleans an earlier draft served beside it were withdrawn before release; see "Removed outright" above); stabilizing the hook freezes that shape.
 
 **What it does.** The provider directory for plugin frontends: `{ status,
 providers }` where `providers` is the host's own `ProviderInfo[]` roster in
 picker order (the same query the composer's provider tabs read, shared cache,
-realtime invalidation). Pairs with the backend `bb.sdk.providers.list()`. It
+realtime invalidation). Pairs with the backend `cc.sdk.providers.list()`. It
 exists so that a plugin showing a thread's provider (tasks, automations,
 provider-retry) stops vendoring provider names, icons, and copy.
 
@@ -1813,7 +1813,7 @@ provider-retry) stops vendoring provider names, icons, and copy.
    `hostId` argument), so installed-only providers of another machine are not
    listed. Decide whether plugins need host-scoped listing before freezing the
    signature.
-2. **Icons.** Every provider bb ships now declares an SVG asset, served as
+2. **Icons.** Every provider cc ships now declares an SVG asset, served as
    `logoUrl` and drawn by the host as a `currentColor` mask (core vendors no
    brand marks), and a provider that declared a named glyph (`icon: "Zap"`)
    arrives as `icon: { glyph }` beside `logoUrl` (at most one of the two is
@@ -1824,24 +1824,24 @@ provider-retry) stops vendoring provider names, icons, and copy.
    (monochrome by construction) is the contract or a full-color logo path is
    owed.
 
-## `app.experimental_useCodeTheme` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_useCodeTheme` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Returns `{ mode, name, theme }`: the app's active light/dark
-mode, the registered name of the code theme bb renders that mode with, and the
+mode, the registered name of the code theme cc renders that mode with, and the
 resolved VS Code theme document behind it (`type`, `fg`, `bg`, `colors`,
-`tokenColors`) — the same document bb's own highlighter paints from. It exists
+`tokenColors`) — the same document cc's own highlighter paints from. It exists
 for plugins that render code with an engine of their own (the Monaco file
 editor is the first): without it, an embedded editor can only follow
-light/dark and strands its syntax colors on a palette bb is not using.
+light/dark and strands its syntax colors on a palette cc is not using.
 `theme` is null only before the first resolve, and holds the previous document
 while a palette switch resolves, so a consumer never paints an unthemed frame.
 
 **Audit before stabilizing.**
 
 1. **Shape of the document.** `PluginCodeThemeData` mirrors Shiki's
-   `ThemeRegistrationResolved` minus the fields bb does not promise
+   `ThemeRegistrationResolved` minus the fields cc does not promise
    (`semanticTokenColors`, `include`, `displayName`). Decide whether freezing a
-   Shiki-shaped payload is right, or whether the contract should be bb's own
+   Shiki-shaped payload is right, or whether the contract should be cc's own
    normalized token model — a Shiki major that changes `settings` normalization
    changes what plugins receive.
 2. **Both modes at once.** The hook serves only the active mode. An editor that
@@ -1855,10 +1855,10 @@ while a palette switch resolves, so a consumer never paints an unthemed frame.
 4. **Consumer count.** One consumer today. Confirm a second engine (CodeMirror,
    xterm) needs the same payload before the prefix drops.
 
-## `app.experimental_usePluginId` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_usePluginId` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Returns the id of the plugin that owns the calling component,
-the same value `bb.pluginId` gives the plugin's server. The id comes from the
+the same value `cc.pluginId` gives the plugin's server. The id comes from the
 package name, so a plugin that keys browser-side state by it (a localStorage
 mirror, log prefixes) keeps working unchanged when someone copies it and
 publishes the copy under another name, instead of sharing or clobbering the
@@ -1877,9 +1877,9 @@ returns `renderSlot`'s `pluginId` option, `test-plugin` by default.
 3. **Consumer count.** One consumer today. Confirm a second plugin needs it
    before the prefix drops.
 
-## `app.experimental_useQuestionFormHost` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_useQuestionFormHost` (`@codythatsme/plugin-sdk/app`)
 
-**What it does.** Returns the answer shortcuts bb binds while a pending
+**What it does.** Returns the answer shortcuts cc binds while a pending
 interaction is open (`question.select.1` and on, which users can remap), keyed
 by zero-based option index, and `registerChoiceHandler`, which receives the
 index a person chose with a shortcut while the thread's pane is focused. A
@@ -1889,7 +1889,7 @@ never run; the test harness returns that empty host. The registry's
 `question-form-host` item re-exports it as `useQuestionFormHost`, so the
 registry's `question-form` works in any plugin. Before this, the built-in Ask
 User Question and pi plugins reached the same host context through a private
-`@bb/shared-ui` module the build shimmed, which a copy of either plugin could
+`@cc/shared-ui` module the build shimmed, which a copy of either plugin could
 not import.
 
 **Audit before stabilizing.**
@@ -1903,7 +1903,7 @@ not import.
    extension dialogs). Confirm a third-party form needs it before the prefix
    drops.
 
-## `app.slots.experimental_providerIcon` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_providerIcon` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** zero shipped registrations — first-party
 agent, environment, and machine providers use declared glyphs or SVG assets,
@@ -1911,7 +1911,7 @@ and the provider catalogs' `glyph` / `logoUrl` icon metadata covers both forms
 without a frontend bundle; the remaining questions concern bundle loading cost
 and rendering behavior.
 
-**What it does.** Lets a plugin frontend supply the React component bb draws
+**What it does.** Lets a plugin frontend supply the React component cc draws
 as one agent, environment, or machine provider's icon: `{ providerKind, providerId, icon }`,
 where `icon` receives only the host's `className` (sizing; agent providers also
 have the declared `strings.iconTint`). The component wins over the provider's
@@ -1923,7 +1923,7 @@ environment reuse, sidebar, and metadata rows still resolve only built-in glyphs
 those rows bypass both asset URLs and the slot.
 Registrations are replaced wholesale with the rest of the plugin's slot set,
 so disable/uninstall/failed reload falls back to `logoUrl`, then the declared
-glyph, then the generic glyph. No provider bb ships registers the slot: each
+glyph, then the generic glyph. No provider cc ships registers the slot: each
 uses a declared glyph or SVG asset, which stays available without a frontend
 bundle (an icon-only bundle cost four JS+CSS fetches and four icon remounts at
 every boot).
@@ -1958,9 +1958,9 @@ every boot).
    the accessible label story: the host derives `ariaLabel` from its own
    provider data, falling back to the provider id, and the slot supplies none.
 
-## `experimental_ProviderModelPicker` (`@get-bb/plugin-sdk/app`)
+## `experimental_ProviderModelPicker` (`@codythatsme/plugin-sdk/app`)
 
-**What it does.** Exposes bb's execution picker as a controlled
+**What it does.** Exposes cc's execution picker as a controlled
 `{ providerId, model, reasoningLevel, serviceTier? }` component for plugin
 frontends. The host adapter reuses `useThreadCreationOptions` for catalog,
 fallback, reasoning reconciliation, service-tier capability, retired-model,
@@ -1986,7 +1986,7 @@ the trigger's `"start"`, `"center"`, or `"end"` edge and defaults to
 
 Tasks delegation presets and Automations agent execution both use this
 component end to end. They persist the same tuple and pass it to
-`bb.sdk.threads.spawn`; neither plugin exposes a parallel catalog RPC.
+`cc.sdk.threads.spawn`; neither plugin exposes a parallel catalog RPC.
 
 Implementation: `apps/app/src/components/plugin/PluginProviderModelPicker.tsx`,
 bound in `apps/app/src/lib/plugin-sdk-app-impl.tsx`.
@@ -2013,9 +2013,9 @@ bound in `apps/app/src/lib/plugin-sdk-app-impl.tsx`.
    Automations currently rely on the picker-owned loading/error UI. Environment,
    permission, and prompt submission stay separate controls.
 
-## `experimental_PermissionModePicker` (`@get-bb/plugin-sdk/app`)
+## `experimental_PermissionModePicker` (`@codythatsme/plugin-sdk/app`)
 
-**What it does.** Exposes BB's permission picker as a controlled
+**What it does.** Exposes CC's permission picker as a controlled
 `{ providerId, value, onChange, routing?, align?, disabled?, className? }`
 component. `align` accepts `"start"`, `"center"`, or `"end"` and defaults to
 `"end"` for compatibility with the prompt-row placement.
@@ -2052,7 +2052,7 @@ bound in `apps/app/src/lib/plugin-sdk-app-impl.tsx`.
    mode a provider supports and decide whether the picker should render an
    explicit unavailable state instead of the controller's existing fallback.
 
-## `app.slots.experimental_timelineRenderer` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_timelineRenderer` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** zero consumers; every audit item is about the prop shape and none has a consumer to answer it — the first real renderer (a Codex extension-kind body, or the echo example) precedes stabilization.
 
@@ -2064,10 +2064,10 @@ and extension rows need distinct `kind` values.
 **What it does.** Lets a provider plugin's frontend render the expanded body
 of the timeline rows it owns: `{ kind, component }`, where `kind` is one of
 the plugin's own extension item kinds (`"<pluginId>/<name>"`, as declared in
-`bb.providers.register({ extensionKinds })`) or `"tool"` for the
+`cc.providers.register({ extensionKinds })`) or `"tool"` for the
 generic tool items of the providers the plugin registered. Core kinds
 (messages, commands, file changes, reads, searches, delegations, plan steps)
-always use bb's renderers and are customized through the bridge's persisted
+always use cc's renderers and are customized through the bridge's persisted
 `presentation` alone (docs/provider-plugin-api.md §5, Q17). The component
 receives `{ row, payload, presentation, thread, Original }`; `Original` is
 the host's declarative base for the body. The row header (the presentation's
@@ -2105,19 +2105,19 @@ bundle loads in the same deferred boot pass as every other plugin's.
    sufficient for the first-party extension kinds before a third party
    relies on a web-only upgrade.
 
-## `experimental_NewThreadComposer` (`@get-bb/plugin-sdk/app`)
+## `experimental_NewThreadComposer` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** zero consumers; items 1 (a newly required create-thread field going missing silently) and 6 (projectless switching) need a consumer to validate.
 
 **What it does.** The host-owned new-thread compose surface, the create-side
-counterpart to `ThreadChat`. It renders bb's full control set — prompt editor
+counterpart to `ThreadChat`. It renders cc's full control set — prompt editor
 with @-mentions and expand, `+` attachments, provider/model/reasoning picker,
 voice, submit, and the row beneath with project, environment, "Branch from:",
 and permission mode — and calls `onSubmit` with a `NewThreadRequest`
 carrying every resolved selection.
 
 The composer deliberately does **not** create the thread. The plugin does,
-through `bb.sdk.threads.spawn`, which auto-fills `origin: "plugin"` and
+through `cc.sdk.threads.spawn`, which auto-fills `origin: "plugin"` and
 `originPluginId`. If the component created the thread it would go through the
 host's `useCreateThread` and the thread would look host-originated. So the
 rule is: the composer owns user selections; the plugin owns filing
@@ -2132,7 +2132,7 @@ Implementation: the shared workflow is
 
 1. **`NewThreadRequest` vs. what `threads.spawn` accepts.** The type mirrors
    the subset of `CreateThreadRequest` a composer can resolve. Confirm every
-   field still round-trips through `bb.sdk.threads.spawn` unchanged, that
+   field still round-trips through `cc.sdk.threads.spawn` unchanged, that
    `executionInputSources` still means the same thing to the server, and that
    no newly required create-thread field is silently missing. Note the
    composer runs `useThreadCreationOptions` with `scope: "component-local"`,
@@ -2186,9 +2186,9 @@ Implementation: the shared workflow is
    stabilizing, confirm unconditional project switching is right for embedded
    plugin workflows, rather than adding an explicit project-locking policy.
 
-## `app.slots.experimental_appOverlay` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_appOverlay` (`@codythatsme/plugin-sdk/app`)
 
-**What it does.** Mounts an additive plugin React component once per BB app
+**What it does.** Mounts an additive plugin React component once per CC app
 window, outside route-owned layout regions and inside `PluginSlotMount`. The
 component receives no props and owns its chrome, positioning, visibility,
 focus, and responsive behavior. It can call app-level SDK hooks and either
@@ -2211,7 +2211,7 @@ sibling overlays remain mounted.
    layouts and document which pane-local capabilities remain unavailable to a
    once-per-window owner, including composer and side-panel hosts.
 3. **Host-owned layer.** Decide whether arbitrary fixed/portalled content is
-   sufficient or BB should provide a named overlay root, z-index band,
+   sufficient or CC should provide a named overlay root, z-index band,
    collision area, docking, or drag persistence.
 4. **Responsive and accessibility policy.** Audit keyboard access, focus
    restoration, escape behavior, compact drawers, reduced motion, and whether
@@ -2226,7 +2226,7 @@ sibling overlays remain mounted.
    standard slot-owned CSS retention are the right failure semantics for UI
    that may have no in-layout representation.
 
-## `app.slots.experimental_newThreadPanelAction` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_newThreadPanelAction` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** zero consumers; item 5 (merging with `threadPanelAction`) is explicitly deferred until an external plugin adopts it.
 
@@ -2258,11 +2258,11 @@ Before stabilization, audit:
    had time to adopt the root surface deliberately. The two contexts' `openPanel`
    signatures were already unified: both take `PluginPanelActionOpenOptions` and
    return `boolean` (true = accepted, false = declined), matching
-   `messageAction`'s `openPanel` and `useBbNavigate().openThreadPanel`. Do not
+   `messageAction`'s `openPanel` and `useCcNavigate().openThreadPanel`. Do not
    re-litigate that in the stabilization audit; audit only whether the two
    _contexts_ should merge.
 
-## `app.experimental_sidebarFooter` (`@get-bb/plugin-sdk/app`)
+## `app.experimental_sidebarFooter` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Registers host-rendered icon items in the app sidebar footer.
 An item is either an `action`, whose `onActivate` callback runs when selected,
@@ -2301,19 +2301,19 @@ renders in the same footer row.
    disclosure replacement, plugin reload, crash isolation, and removal while
    open across desktop and compact sidebar layouts.
 
-## `app.slots.experimental_sidebarNavigation` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_sidebarNavigation` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Replaces the bounded sidebar navigation controls for New
 thread, Search threads, Plugins, Skills, and plugin panel destinations. The
 component receives `isCompactViewport` and `experimental_Original`; it reads
-items and host actions through `experimental_useSidebarNavigation()`. BB
+items and host actions through `experimental_useSidebarNavigation()`. CC
 retains the drawer, thread list, footer, resize handle, and hidden-body
 shortcut policy. While a provider calls `openCustomize()`, the host renders
 its customize editor in the region and keeps the provider mounted but hidden.
 
 Search activation opens the quick palette. The removed inline sidebar search
 field, query state, combobox, and result list do not form part of this API.
-bb's own rows ship as the bundled Navigation plugin. `sidebar.navigationProvider`
+cc's own rows ship as the bundled Navigation plugin. `sidebar.navigationProvider`
 defaults to `__automatic__`, which uses the first other registered navigation
 plugin in slot snapshot order and falls back to the bundled plugin; legacy
 `__builtin__` resolves to the bundled plugin. A picked provider that is
@@ -2339,7 +2339,7 @@ mounted.
    their region, and that focus returns to the control that opened it from a
    button, a dropdown item, and a context-menu item.
 
-## `experimental_useSidebarNavigation`, `experimental_useSidebarNavigationSplit`, `experimental_SidebarNavigationIcon` (`@get-bb/plugin-sdk/app`)
+## `experimental_useSidebarNavigation`, `experimental_useSidebarNavigationSplit`, `experimental_SidebarNavigationIcon` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** `experimental_useSidebarNavigation()` returns
 `{ items, activeItemId, isShortcutModifierHeld, actions }` from one host model mounted above the
@@ -2360,7 +2360,7 @@ and inert actions.
 
 `experimental_useSidebarNavigationSplit(id)` mirrors
 `experimental_useSidebarThreadSplit`. `experimental_SidebarNavigationIcon`
-renders bb's glyphs for its own items and plugin branding for panels.
+renders cc's glyphs for its own items and plugin branding for panels.
 
 **Audit before stabilizing.**
 
@@ -2380,23 +2380,23 @@ renders bb's glyphs for its own items and plugin branding for panels.
 6. **Accessibility.** Validate labels, `aria-current`, shortcut metadata,
    disabled and loading state, and focus order in third-party markup.
 
-## `app.slots.experimental_sidebarHeader` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_sidebarHeader` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Renders one plugin component in the sidebar header row,
-between the sidebar toggle (and the macOS window controls) and bb's back and
+between the sidebar toggle (and the macOS window controls) and cc's back and
 forward buttons. The slot is exclusive and opt-in: `sidebar.headerProvider`
-defaults to `__builtin__` (bb's controls only) and the user picks a provider
+defaults to `__builtin__` (cc's controls only) and the user picks a provider
 under Settings → Appearance → Header. The component receives `width`,
 `controlSize`, and `isCompactViewport`. The host clips content to the row,
 keeps the window drag region on macOS while interactive descendants opt out,
 hides the header while the navigation customize editor is open, and removes
-it with one toast on a crash. `--bb-sidebar-control-size` and
-`--bb-sidebar-control-icon-size` expose the header's control sizing.
+it with one toast on a crash. `--cc-sidebar-control-size` and
+`--cc-sidebar-control-icon-size` expose the header's control sizing.
 
 A plugin that moves its navigation into the header tracks whether its header
 is mounted itself (a module-level flag both components read) and returns null
 from its navigation component while it is. A plugin can pick its own header
-and navigation from `bb.onInstall`; later choices are the user's.
+and navigation from `cc.onInstall`; later choices are the user's.
 
 **Audit before stabilizing.**
 
@@ -2405,7 +2405,7 @@ and navigation from `bb.onInstall`; later choices are the user's.
    footer does.
 2. **Two pickers.** A plugin that wants its navigation in the header needs
    both its header and its navigation picked, which plugins do for the user
-   from `bb.onInstall`. Decide whether that write should become a declared,
+   from `cc.onInstall`. Decide whether that write should become a declared,
    host-applied default, or whether a navigation registration should declare
    a paired header instead.
 3. **Geometry.** Validate `width` and the start inset across macOS with and
@@ -2417,20 +2417,20 @@ and navigation from `bb.onInstall`; later choices are the user's.
 5. **Drag regions.** Confirm the interactive-descendant no-drag rule covers
    real plugin markup, including custom elements and menus.
 
-## `app.slots.experimental_threadList` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_threadList` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** examples only; no shipped consumer has tested the arbitration/fallback model or the accessibility contract.
 
 **What it does.** Replaces the sidebar's scrolling thread list with a plugin
 component. Unlike every other `app.slots.*` member this slot is **exclusive**:
 one list at a time fills the scroll area. Automatic activation is the default.
-bb ships its own list as the bundled `thread-list` plugin, and Automatic prefers
+cc ships its own list as the bundled `thread-list` plugin, and Automatic prefers
 any other registered list: the first in the slot snapshot wins (plugin ids are
 sorted, then each plugin's registration order is preserved), falling back to
 the bundled plugin; removing the automatic winner reveals the next. The user can
 override that behavior under Settings → Appearance by pinning a specific
 provider, including the bundled one; the choice is the synced
-`sidebar.threadListProvider` preference. bb has no separate built-in list, so
+`sidebar.threadListProvider` preference. cc has no separate built-in list, so
 there is no `Original` prop on this slot.
 
 Placeholders keep the sidebar usable: while plugin frontends boot the region
@@ -2461,37 +2461,37 @@ place of a whole sidebar would strand the user) plus one toast.
    focus order, and the mobile close behavior when a plugin owns the markup —
    `onNavigate` is currently the plugin's responsibility to call.
 
-## AI services (`bb.experimental_aiServices.register`)
+## AI services (`cc.experimental_aiServices.register`)
 
-**Reshaped (2026-09-22).** The host contract (`@get-bb/plugin-sdk/ai-services`),
+**Reshaped (2026-09-22).** The host contract (`@codythatsme/plugin-sdk/ai-services`),
 its error codes, `kinds`, the reserved server-direct ids, and the
-`BB_INFERENCE` / `BB_INFERENCE_FALLBACK` / `BB_TRANSCRIPTION` settings are gone.
-Consumers: the codex plugin and the bb-ai plugin.
+`CC_INFERENCE` / `CC_INFERENCE_FALLBACK` / `CC_TRANSCRIPTION` settings are gone.
+Consumers: the codex plugin and the cc-ai plugin.
 
 **What it does.** A plugin registers plain server-side functions:
-`bb.experimental_aiServices.register({ id, displayName, complete?, transcribe?, status? })`.
+`cc.experimental_aiServices.register({ id, displayName, complete?, transcribe?, status? })`.
 `complete(prompt, { signal }) → Promise<string>` serves thread titles and
 commit messages; `transcribe(audio: File, { signal, hint }) → Promise<string>`
 serves voice input; `status() → Promise<{ ready: true } | { ready: false, message }>`
 feeds the picker, Automatic, and the microphone (cached ~10 s; a task awaits a
 fresh status, bounded at 2 s, before skipping a service whose cached status is
 older). At least one of `complete` / `transcribe` is required; which tasks a
-service appears for follows from the functions it declares. bb owns the
+service appears for follows from the functions it declares. cc owns the
 prompts and the reply cleanup; the plugin owns the model, the API, and any retries. Failure is a
 rejected promise, and core aborts `signal` at 5 s (text) or 10 s (voice).
 
-The user picks per task in Settings → AI services, `bb settings ai-services
+The user picks per task in Settings → AI services, `cc settings ai-services
 set`, or `sdk.system.setAiServiceSelection` (`automatic` | `off` |
 `{ pluginId, serviceId }`, stored server-side under the `aiServiceSelections`
 app-settings key). Automatic walks `AUTOMATIC_AI_SERVICE_PLUGIN_IDS` in the
-builtin registry (`provider-codex`, then `bb-ai`) and only matches builtin
+builtin registry (`provider-codex`, then `cc-ai`) and only matches builtin
 installs, so a third-party plugin receives text only after the user picks it.
 An explicit pick is strict: failure uses the plain fallback text and never
 moves to another service. Services are keyed by plugin id plus service id, so
 ids only need to be unique within a plugin: a plugin that registers one id
 twice fails its load, and two plugins may share an id without either failing.
 `automatic` and `off` are reserved ids because the CLI and selections use them
-as modes. `bb settings ai-services set` takes `--plugin` to pick between
+as modes. `cc settings ai-services set` takes `--plugin` to pick between
 plugins that share an id; the Settings → AI services test result names both
 ids (`pluginId`, `serviceId`). The voice-transcription and test routes abort
 the service's `signal` when the HTTP request is cancelled.
@@ -2512,7 +2512,7 @@ the service's `signal` when the HTTP request is cancelled.
 5. **Several services per plugin.** Confirm the id-per-registration shape and
    the per-plugin id scope (plugin id plus service id).
 
-## `PluginFileOpenerSource.experimental_hostId` (`@get-bb/plugin-sdk/app`)
+## `PluginFileOpenerSource.experimental_hostId` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** persisted in opener-tab `paramsJson`; items 3–4 (every source kind vs project-only; omission semantics) decide whether the stable name is `hostId?` or a required field.
 
@@ -2533,13 +2533,13 @@ files, thread-storage files, and project files that use the primary host.
    this remains compatible with persisted opener tabs created before the field
    existed.
 
-## `experimental_SourceCode` / `experimental_Diff` (`@get-bb/plugin-sdk/app`)
+## `experimental_SourceCode` / `experimental_Diff` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** one consumer (the github plugin's `Diff`); items 2–4 (multi-file input, language override, worker pool at the component) all change the prop surface.
 
 **What it does.** Two host-owned renderers for supplied code content.
 `experimental_SourceCode` takes source text plus a path and owns syntax
-highlighting, gutters, wrapping, highlighted-line presentation, and the live BB
+highlighting, gutters, wrapping, highlighted-line presentation, and the live CC
 code theme. `experimental_Diff` takes a single-file patch plus a path and
 optional `experimental_fullFileContents` for both text sides, and owns patch normalization
 (a patch without a `diff --git` header is completed from `path`, which is what
@@ -2549,7 +2549,7 @@ theme. Patch content that will not parse degrades to plain monospace text. The
 caller still owns loading file contents; omission means a patch-only render
 without context expansion.
 
-These are the same components BB's own file preview, timeline file diffs, and
+These are the same components CC's own file preview, timeline file diffs, and
 environment diff panel render through, so an active
 `experimental_sourceCodeRenderer` / `experimental_diffRenderer` replacement
 covers first-party surfaces and plugin surfaces at once. Fetching files or git
@@ -2561,7 +2561,7 @@ behavior deliberately stay with the caller.
 1. **Prop surface.** Confirm content + path + presentation plus optional full
    diff sides is the right minimal contract, and decide whether `className`
    belongs in it at all — a
-   replacement never receives it today, so a `className` that only styles BB's
+   replacement never receives it today, so a `className` that only styles CC's
    renderer is a quiet inconsistency.
 2. **Diff input shape.** Confirm single-file patch text is the right currency.
    Multi-file patches, `processFile`-style pre-parsed input, and per-hunk
@@ -2569,12 +2569,12 @@ behavior deliberately stay with the caller.
 3. **Language selection.** Highlighting is inferred from `path` only. Confirm
    an explicit language override is not needed before the names freeze, and
    that no implementation-library language union leaks in when it is added.
-4. **Worker pool.** Highlighting needs BB's Pierre worker pool from React
+4. **Worker pool.** Highlighting needs CC's Pierre worker pool from React
    context. Thread panes and plugin nav panels provide one; homepage and
    settings sections do not, so a diff rendered there is unhighlighted rather
    than broken. Decide whether the host should provide the pool at the
    component instead of the surface.
-5. **Selection to chat.** BB's own surfaces pass a selection-to-composer
+5. **Selection to chat.** CC's own surfaces pass a selection-to-composer
    handler that the public component withholds. Confirm plugins should reach
    that through `useComposer()` rather than a renderer prop.
 6. **Size and virtualization.** Neither component caps input size or
@@ -2582,24 +2582,24 @@ behavior deliberately stay with the caller.
 7. **Resolved (Aug 2026): context expansion takes resolved semantic data, not
    a loader callback.** `experimental_fullFileContents` carries required `old` and `new`
    `{ path, content }` objects. This keeps lazy loading, retries, and viewport
-   policy with the caller while letting BB's renderer and a replacement consume
+   policy with the caller while letting CC's renderer and a replacement consume
    complete UTF-8 sides without exposing Pierre's `FileContents` type. A
    replacement always receives the caller-resolved field as an object or
    `null`, and owns patch-consistency validation if it uses those contents for
-   expansion. BB's original validates only when its lazy renderer mounts.
+   expansion. CC's original validates only when its lazy renderer mounts.
 
-## `app.slots.experimental_sourceCodeRenderer` / `app.slots.experimental_diffRenderer` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_sourceCodeRenderer` / `app.slots.experimental_diffRenderer` (`@codythatsme/plugin-sdk/app`)
 
 **Kept experimental (2026-08-22).** zero registrations; "two slots or one" changes the registration shape.
 
-**What it does.** Replaces BB's source or diff renderer everywhere it draws
+**What it does.** Replaces CC's source or diff renderer everywhere it draws
 supplied content — the native file preview, timeline file diffs, the
 environment diff panel's file bodies, and every plugin calling the public
 components. Like `experimental_threadList` these slots are **exclusive**: one
 renderer each. Registering activates it while the plugin is enabled; if several
 are registered the first in slot snapshot order wins (plugin ids sorted, then
 each plugin's registration order). The user can override that under
-Settings → Appearance ("Source code" and "Diffs") by pinning BB's renderer or
+Settings → Appearance ("Source code" and "Diffs") by pinning CC's renderer or
 a specific provider; the choice is per client, and it is the same
 automatic/built-in/named-provider model the sidebar thread list uses. There are
 deliberately no scope, extension, or enabled-by-setting filters on the
@@ -2607,10 +2607,10 @@ registration — conditional behavior belongs in the component, which decides pe
 call from its semantic props and renders `Original` when it does
 not want the render.
 
-Fallbacks: no registration renders BB's renderer; a disabled or uninstalled
-plugin reveals the next registration or BB's renderer; a component that throws
-renders BB's renderer through the slot's crash fallback. A pinned provider that
-is temporarily unavailable renders BB's renderer without erasing the pin.
+Fallbacks: no registration renders CC's renderer; a disabled or uninstalled
+plugin reveals the next registration or CC's renderer; a component that throws
+renders CC's renderer through the slot's crash fallback. A pinned provider that
+is temporarily unavailable renders CC's renderer without erasing the pin.
 
 **Audit before stabilizing.**
 
@@ -2621,7 +2621,7 @@ is temporarily unavailable renders BB's renderer without erasing the pin.
    now make an account-level pin cheap to add. Still open: the two renderers
    pin independently; confirm users do not instead expect one "code rendering"
    choice.
-2. **Resolved (Aug 2026): a crash swaps back to BB's renderer silently.**
+2. **Resolved (Aug 2026): a crash swaps back to CC's renderer silently.**
    A diff card is not a whole sidebar — the reader still sees a correct diff,
    where a blank thread list strands them — so neither host passes `onCrash`.
    Authors are not left without a signal: `PluginSlotBoundary` still
@@ -2630,7 +2630,7 @@ is temporarily unavailable renders BB's renderer without erasing the pin.
    than letting cards crash one at a time.
 3. **Resolved (Aug 2026): the replacement is global, other plugins'
    surfaces included.** "Install this and every diff looks like X" is the
-   point; covering BB's surfaces but not the GitHub plugin's would be a
+   point; covering CC's surfaces but not the GitHub plugin's would be a
    half-measure, and a plugin calling `experimental_Diff` would silently opt
    its users out. No first-party-only or own-surfaces-only scope. Audit this as
    precedent rather than as a fact about these two slots: no other slot lets a
@@ -2645,7 +2645,7 @@ is temporarily unavailable renders BB's renderer without erasing the pin.
 5. **Two slots or one.** Confirm source and diff should stay separately
    replaceable rather than one "code renderer" registration.
 
-## `experimental_useSidebarThreads` / `experimental_useSidebarThreadActions` (`@get-bb/plugin-sdk/app`)
+## `experimental_useSidebarThreads` / `experimental_useSidebarThreadActions` (`@codythatsme/plugin-sdk/app`)
 
 **New-thread machine selection (Sep 2026).**
 `PluginSidebarThreadActions.openNewThread` accepts `hostId` to
@@ -2680,7 +2680,7 @@ optimistic updates, toasts, and cache invalidation are identical.
 
 `PluginSidebarThread` is a deliberate copy of the fields a sidebar needs, not a
 re-export of the internal `ThreadListEntry`. `indicator` is
-`resolveThreadListIndicator` already run by the host, so plugins inherit bb's
+`resolveThreadListIndicator` already run by the host, so plugins inherit cc's
 precedence (attention before work; plan and goal before the spinner) instead of
 reimplementing it, and `indicatorLabel` carries the matching accessible string.
 
@@ -2689,7 +2689,7 @@ reimplementing it, and `indicatorLabel` carries the matching accessible string.
 1. **DTO scope.** Confirm every field earns its place and that the copy stays
    worth its maintenance over `ThreadListEntry`. `hasUnsubmittedDraft` is
    deliberately absent (client-local composer state); confirm plugins do not
-   need it. **Widened (Sep 2026)** with the columns bb's own list reads that
+   need it. **Widened (Sep 2026)** with the columns cc's own list reads that
    the copy had dropped: `status`, `runtimeStatus`, `queuedWork`,
    `pinSortKey`, `isHidden`, `lifecycleOwnerThreadId`, `sourceThreadId`, and
    `environment.path` / `environment.isWorktree`; `indicator` now reports
@@ -2700,7 +2700,7 @@ reimplementing it, and `indicatorLabel` carries the matching accessible string.
    cannot turn a host id into a machine name — confirm resolution belongs here
    rather than in a separate hosts hook, and that falling back to the id for an
    unknown host is the right failure.
-2. **Indicator coupling.** `indicator` freezes bb's precedence into the
+2. **Indicator coupling.** `indicator` freezes cc's precedence into the
    contract. Confirm new kinds can ship without breaking plugins, and that the
    documented "treat unknown as none" rule is enough.
 3. **Unread semantics.** `isUnread` is plain read state, so it is true for
@@ -2731,7 +2731,7 @@ reimplementing it, and `indicatorLabel` carries the matching accessible string.
    state; confirm router state stays the right transport.
 7. **Action surface.** Destructive and dialog-bearing actions route through
    `useThreadActions()`, so `archive` closes panes and repairs the route, and
-   `requestDelete` opens bb's confirmation rather than deleting silently.
+   `requestDelete` opens cc's confirmation rather than deleting silently.
    Confirm that split (silent `rename`, host-confirmed delete) is the right
    line, and decide whether bulk actions and undo belong here.
 8. **Permission.** Decide whether `archive` and `requestDelete` need any plugin
@@ -2758,12 +2758,12 @@ reimplementing it, and `indicatorLabel` carries the matching accessible string.
     exposing the full `panes` array does not leak more layout state than a row
     needs.
 
-## `app.slots.experimental_threadHeaderAction` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_threadHeaderAction` (`@codythatsme/plugin-sdk/app`)
 
-**Kept experimental (2026-08-22).** zero consumers; item 1 (merging behind one registration with `bb.ui.registerThreadAction`) is cheapest to decide before the first one.
+**Kept experimental (2026-08-22).** zero consumers; item 1 (merging behind one registration with `cc.ui.registerThreadAction`) is cheapest to decide before the first one.
 
 **What it does.** Renders a plugin component in the thread header's action row.
-The frontend sibling of the backend `bb.ui.registerThreadAction`, which renders
+The frontend sibling of the backend `cc.ui.registerThreadAction`, which renders
 a host-owned button and runs server-side: use that one for "do a thing", and
 this one when the control must draw live state (a count, a cluster, a status).
 
@@ -2774,7 +2774,7 @@ A crash removes just that control and leaves the rest of the header working.
 
 **Audit before stabilizing.**
 
-1. **Two APIs, one region.** `bb.ui.registerThreadAction` and this slot now
+1. **Two APIs, one region.** `cc.ui.registerThreadAction` and this slot now
    share a row. Confirm the ordering rule between them, and whether the two
    should merge behind one registration.
 2. **Budget.** The row is short and already holds five host controls. Decide a
@@ -2801,7 +2801,7 @@ deliberately: it mounts once, and a crash there should disable it everywhere.
 Confirm that split before stabilizing, and decide whether other multi-mount
 slots need the same treatment.
 
-## `app.slots.experimental_browserToolbarAction` (`@get-bb/plugin-sdk/app`)
+## `app.slots.experimental_browserToolbarAction` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Renders a plugin component beside the address bar in each
 open Browser tab. The component receives the owning `threadId`, active `tabId`,
@@ -2813,13 +2813,13 @@ controls without crowding the address field, whether ordering needs a user
 preference, and whether plugins need browser instance or environment identity
 instead of resolving it server-side from the thread and tab ids.
 
-## `ExperimentalPluginBrowserToolbarActionProps.experimental_page` (`@get-bb/plugin-sdk/app`)
+## `ExperimentalPluginBrowserToolbarActionProps.experimental_page` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Gives a Browser toolbar action script access to its tab's
 top-level document without a CDP lease. `evaluate(expression, { world })` runs
-an expression through Electron `executeJavaScript` (`main`) or in BB's isolated
+an expression through Electron `executeJavaScript` (`main`) or in CC's isolated
 world 1717 (`isolated`, the default), awaits it, and resolves the JSON-cloned
-value. Isolated-world expressions receive `bb.postMessage(data)`, backed by a
+value. Isolated-world expressions receive `cc.postMessage(data)`, backed by a
 Browser-tab preload that exposes the bridge only to that world; messages reach
 `onMessage` listeners scoped to the calling plugin id and tab. The value is
 `null` outside the desktop app.
@@ -2830,10 +2830,10 @@ or origin allowlist. Plugins share one isolated world, so a plugin can post on
 another plugin's channel; decide whether per-plugin worlds are required.
 Confirm message size and rate bounds, subframe support, behavior during
 navigation and renderer crashes, whether `evaluate` should time out while a
-page is still loading, and whether an SDK or `bb` CLI surface is needed for
+page is still loading, and whether an SDK or `cc` CLI surface is needed for
 automation outside the toolbar component.
 
-## `PluginMentionProviderRegistration.resolve().experimental_images` (`@get-bb/plugin-sdk`)
+## `PluginMentionProviderRegistration.resolve().experimental_images` (`@codythatsme/plugin-sdk`)
 
 **What it does.** Lets a mention provider resolve a picked composer mention to
 agent-only image inputs alongside its agent-only text context. Each image may
@@ -2959,19 +2959,19 @@ modes. The testing harness records accepted calls in `composer.selections`.
 
 ## Desktop browser control
 
-`bb.sdk.experimental_desktopBrowsers` and the exported `ExperimentalDesktopBrowsersArea`, `ExperimentalDesktopBrowserScope`, `ExperimentalDesktopBrowserLease`, `ExperimentalDesktopBrowserCreateInput`, and `ExperimentalDesktopBrowserAcquireInput` expose explicit host/window/thread discovery, isolated tab creation, expiring control leases, scoped CDP connections, capture, reveal, close, release, disposable tab-state subscriptions, and cookie import from an installed browser through `listImportSources` and `importCookies` (`ExperimentalDesktopBrowserInstanceRequest`, `ExperimentalDesktopBrowserImportCookiesInput`, `ExperimentalDesktopBrowserImportSources`, `ExperimentalDesktopBrowserImportOutcome`). The matching core CLI is `bb browser`.
+`cc.sdk.experimental_desktopBrowsers` and the exported `ExperimentalDesktopBrowsersArea`, `ExperimentalDesktopBrowserScope`, `ExperimentalDesktopBrowserLease`, `ExperimentalDesktopBrowserCreateInput`, and `ExperimentalDesktopBrowserAcquireInput` expose explicit host/window/thread discovery, isolated tab creation, expiring control leases, scoped CDP connections, capture, reveal, close, release, disposable tab-state subscriptions, and cookie import from an installed browser through `listImportSources` and `importCookies` (`ExperimentalDesktopBrowserInstanceRequest`, `ExperimentalDesktopBrowserImportCookiesInput`, `ExperimentalDesktopBrowserImportSources`, `ExperimentalDesktopBrowserImportOutcome`). The matching core CLI is `cc browser`.
 
-Before stabilization, audit cookie import authorization: any caller with server access can copy the desktop user's browser sessions into a BB profile, including an automation profile an agent controls, with OS consent only where the platform demands it (macOS Keychain for Chromium, Full Disk Access for Safari; none for Firefox or keyring-free Linux Chromium). Decide whether imports into automation profiles need an explicit handoff like personal-tab control, and whether the daemon should require a desktop-side confirmation. Also audit personal-profile handoff policy, per-tab mutual exclusion and child-target scope, native popup handling, debugger detachment, daemon/desktop disconnect and reconnect generations, expiry and cancellation races, bounded screenshot bytes, and cross-platform desktop startup. Connection credentials must remain private to workers on the browser host. `subscribe` polls every two seconds with one outstanding request; it is state observation, not a lossless event log. Cloud browsers and external provider registration are outside this surface.
+Before stabilization, audit cookie import authorization: any caller with server access can copy the desktop user's browser sessions into a CC profile, including an automation profile an agent controls, with OS consent only where the platform demands it (macOS Keychain for Chromium, Full Disk Access for Safari; none for Firefox or keyring-free Linux Chromium). Decide whether imports into automation profiles need an explicit handoff like personal-tab control, and whether the daemon should require a desktop-side confirmation. Also audit personal-profile handoff policy, per-tab mutual exclusion and child-target scope, native popup handling, debugger detachment, daemon/desktop disconnect and reconnect generations, expiry and cancellation races, bounded screenshot bytes, and cross-platform desktop startup. Connection credentials must remain private to workers on the browser host. `subscribe` polls every two seconds with one outstanding request; it is state observation, not a lossless event log. Cloud browsers and external provider registration are outside this surface.
 
-## Host process primitives (`@get-bb/plugin-sdk/host`)
+## Host process primitives (`@codythatsme/plugin-sdk/host`)
 
 `experimental_spawnPortableOutputProcess`,
 `experimental_sanitizeInheritedChildProcessEnv`, and
 `ExperimentalSanitizeInheritedChildProcessEnvArgs` expose output-only child
 process spawning and inherited-environment sanitization for host-local plugin
 operations. The private environment host module uses these for git commands.
-Core runs `.bb-env-setup.sh` after an owned-path create and
-`.bb-env-teardown.sh` before removal; providers must not run those hooks.
+Core runs `.cc-env-setup.sh` after an owned-path create and
+`.cc-env-teardown.sh` before removal; providers must not run those hooks.
 The unused public process-group kill and platform-check exports were removed.
 
 Before stabilization, audit command cancellation, inherited environment filtering,
@@ -2985,7 +2985,7 @@ and portable output handling for host-local plugin commands on every supported O
   including after failure. Stabilize after restart, cancellation,
   competing checkout, and path-reservation behavior has been audited.
 
-## `TimelineOutputPreview.experimental_fullOutputAvailability` (`@get-bb/plugin-sdk`)
+## `TimelineOutputPreview.experimental_fullOutputAvailability` (`@codythatsme/plugin-sdk`)
 
 **What it does.** Distinguishes why a timeline row contains a preview instead
 of the full completed output. `available` means an explicit detail read can
@@ -2993,7 +2993,7 @@ still hydrate the retained value, `detail-limit` means that read stayed
 previewed because its response byte budget was exceeded, and
 `retention-expired` means the full value reached its retention deadline and no
 longer exists. The field is reachable through the timeline results returned by
-`bb.sdk.threads.timeline` and lets clients avoid retrying an expired value or
+`cc.sdk.threads.timeline` and lets clients avoid retrying an expired value or
 describing it as merely too large.
 
 **Audit before stabilizing.**
@@ -3018,7 +3018,7 @@ Explicit absolute paths retain existing host-file behavior. HTML is unaffected.
 Stabilize after plugin consumers verify nested paths, source identity, missing
 files, containment and line locations, then rename and remove this audit entry.
 
-## `PluginFileOpenerProps.experimental_lineRange` (`@get-bb/plugin-sdk/app`)
+## `PluginFileOpenerProps.experimental_lineRange` (`@codythatsme/plugin-sdk/app`)
 
 **What it does.** Passes the owning file tab's latest one-based, inclusive
 `{ startLineNumber, endLineNumber }` range to its opener. `null` means no
@@ -3031,7 +3031,7 @@ Columns are not part of the existing preview range contract.
 
 The range uses the existing tab owner and persistence policy. This adds no
 RPC fields, server-daemon messages, file permissions, or new CLI syntax.
-Existing `bb thread open <thread> <path> --line <line>` / SDK thread-open requests
+Existing `cc thread open <thread> <path> --line <line>` / SDK thread-open requests
 and plugin file navigation feed the same opener boundary.
 
 **Audit before stabilizing.**
@@ -3045,7 +3045,7 @@ and plugin file navigation feed the same opener boundary.
 4. Verify older hosts omit the prop safely and older plugins ignore it; audit
    reload restoration and cross-client range updates under the existing tab policy.
 
-## `bb.experimental_serverAccess.recheck`
+## `cc.experimental_serverAccess.recheck`
 
 `recheck` sends a system `config-changed` notification to connected clients.
 It carries no payload. Connect signals when its paired state or public URL
@@ -3064,7 +3064,7 @@ plugin is inert, that a provider cannot use it to force repeated refreshes of
 unrelated configuration, and that pairing, unpairing and credential rejection
 each reach the Machines settings section without a manual reload.
 
-## `bb.experimental_serverAccess.register`
+## `cc.experimental_serverAccess.register`
 
 Availability may include an optional public `serverUrl`. Core validates HTTP(S)
 URLs without embedded credentials before exposing them through configuration.
@@ -3080,7 +3080,7 @@ Machines attach these optional headers to enrollment, HTTP, WebSocket and runtim
 requests. A direct grant omits headers; access providers own credential redemption.
 Core chooses the configured access provider and retains it for the machine. Core persists only
 provider id and grant id per host; credentials travel in bootstrap delivery.
-Direct access reads machineServerUrl with BB_EXTERNAL_URL fallback.
+Direct access reads machineServerUrl with CC_EXTERNAL_URL fallback.
 defaultMachineAccess selects a provider; otherwise core uses the first registered
 provider, or direct when none are registered. Access covers account-pool and other
 runtime requests after enrolment. Connect redeems Cloud codes server-side and persists connectMachineId with the
@@ -3100,7 +3100,7 @@ prove reachability from a remote machine.
 
 ## Machine enrollment and bootstrap
 
-`bb.experimental_machines.bootstrap` prepares enrollment and waits for the daemon connection. Enrollment keys are scoped to the calling plugin and retain their host identity. Pending credentials are single-use and short-lived. Manual bootstrap bundles live only in server memory, so the user regenerates the command after a restart. Bootstrap bundles carry optional access headers. A successful exchange is recovered as `enrolled` after a server crash.
+`cc.experimental_machines.bootstrap` prepares enrollment and waits for the daemon connection. Enrollment keys are scoped to the calling plugin and retain their host identity. Pending credentials are single-use and short-lived. Manual bootstrap bundles live only in server memory, so the user regenerates the command after a restart. Bootstrap bundles carry optional access headers. A successful exchange is recovered as `enrolled` after a server crash.
 
 `MachineExecutor` requires argv, stdin, a timeout, an abort signal, and an output callback; it returns only an exit code. `bootstrap` requires the executor, passes the bundle through private stdin, and streams command output into progress logs. It installs pending enrollments and restarts enrolled identities after snapshot restoration. Core Manual setup uses internal enrollment operations. Bootstrap returns the reserved host ID. Installation requires Node, npm, and curl and installs no OS packages. Cancellation propagates through enrollment preparation and access acquisition.
 
@@ -3118,7 +3118,7 @@ uninstall when installation never began, and retry after partial installation.
 ## Machine provider `reconcileCleanup`
 
 Required reconciliation-only cancellation callback on `PluginMachineProviderDefinition`.
-It remains experimental through `bb.experimental_machines`; the unprefixed callback
+It remains experimental through `cc.experimental_machines`; the unprefixed callback
 name does not indicate stabilization.
 Core supplies the durable launch key, progress reporter and a cleanup signal.
 This callback is only used without a resource checkpoint; remove receives known resources. Providers discover and remove uncertain
@@ -3186,14 +3186,14 @@ user-maintained attachments alone. Audit ownership propagation and recovery befo
 Plugins own idle timing using event notifications, plugin KV and background schedules.
 Core does not impose a second idle timeout or veto pause merely because work is active.
 
-`bb.sdk.hosts.experimental_suspend({hostId})` accepts follow-ups into the existing host-wait queue, drains active turns, setup hooks
+`cc.sdk.hosts.experimental_suspend({hostId})` accepts follow-ups into the existing host-wait queue, drains active turns, setup hooks
 and terminals with a five-minute bound, then invokes the provider's suspend callback.
 It rejects with `machine_busy` while persisted state still ties a live thread launch or a
 provisioning environment to the host, or while core is preparing a project checkout there.
 Automatic idle schedulers retry after that state clears.
 `await suspend.checkpoint(resource)` durably persists opaque provider state before destructive
 cleanup. Core fences operations and resumes the same host identity without rerunning checkout setup. Providers own vendor observations, snapshots, loss reporting,
-and expiry scheduling using `bb.background.schedule` and startup reconciliation.
+and expiry scheduling using `cc.background.schedule` and startup reconciliation.
 Providers must reserve the full drain bound plus snapshot time and scheduling jitter;
 a server outage or late wake cannot guarantee preservation. Unsafe recovery must fail
 inside the provider; a dispatch hook is not an integrity boundary.
@@ -3230,14 +3230,14 @@ pause, not a successful save.
 `PluginEvents.on("experimental_host.deleted", handler)` delivers `{host}` once after a
 machine is removed: from `DELETE /hosts/:id` for manually added machines, and after a
 machine provider finishes removal for provider machines. `host` is the public host DTO
-at removal time (status `disconnected`); `bb.sdk.hosts.get` returns 404 for it afterwards.
+at removal time (status `disconnected`); `cc.sdk.hosts.get` returns 404 for it afterwards.
 Delivery is fire-and-forget like every other event: a plugin that is not loaded at
 removal time never sees it, so per-host state must also be reconciled against a 404
-from `bb.sdk.hosts.get`. Connect does both to prune shared ports of removed machines.
+from `cc.sdk.hosts.get`. Connect does both to prune shared ports of removed machines.
 Stabilization requires deciding whether hosts deserve their own event map instead of
 `PluginThreadEventPayloads`, covering removal paths added later, and a second consumer.
 
-## `bb.experimental_machines.getResource`
+## `cc.experimental_machines.getResource`
 
 Returns core’s current persisted host resource as JSON, or null when the host or
 resource is absent. Reads are available across plugins, following the host access
@@ -3248,7 +3248,7 @@ validating missing-resource semantics and use by additional machine providers.
 
 ## Environment compositions
 
-`bb.experimental_environments.register({ id, displayName, description, icon, machineProviderId,
+`cc.experimental_environments.register({ id, displayName, description, icon, machineProviderId,
 environmentProviderId })` declares a new-machine environment option backed by
 one concrete environment provider. It cannot also supply lifecycle callbacks
 or inputs. Its required icon is resolved from the composition’s owning plugin;
@@ -3288,11 +3288,11 @@ returns a credential only while that host is creating.
 Before stabilizing, verify creation cancellation through host removal,
 same-host restoration, serialized removal, plugin callers and UI/CLI parity.
 
-## Moving the server (`bb.sdk.experimental_server`, `hosts.experimental_deleteOldServerCopy`)
+## Moving the server (`cc.sdk.experimental_server`, `hosts.experimental_deleteOldServerCopy`)
 
 `experimental_server.checkMove({ targetHostId, serverUrl })` returns the pre-move
 checklist (`ServerMoveCheckResponse`): blockers, warnings, whether a new server
-address is required, and any standalone bb data on the target that must be
+address is required, and any standalone cc data on the target that must be
 archived. `startMove({ targetHostId, serverUrl, stopRunningWork: true,
 archiveExistingTargetServerData })` freezes the server, stops running work,
 copies server-owned data to the target, starts the new server there, switches
@@ -3302,7 +3302,7 @@ was never confirmed reports `recovery_required`: this server stays up and
 frozen until the target confirms (activation retry or `<serverUrl>/health`
 reporting ready). In direct mode the status carries `destinationStatusUrl`, the
 new server's CORS-readable `/health`, so a client can follow the destination
-after this server retires; it is null for bb connect. `cancelMove()` works
+after this server retires; it is null for cc connect. `cancelMove()` works
 until the switch starts, and in `recovery_required` it abandons the move and
 rolls the switch back. `export({ signal })` streams an unencrypted gzip server
 archive and returns its `fileName`, `body`, and the `sha256` digest the server
@@ -3311,11 +3311,11 @@ hostId })` deletes the locked old server data on that machine. All refuse
 requests authenticated by a machine credential. `checkMove`, `startMove`,
 `export`, and old-copy deletion also require the default-off `serverMove`
 experiment and otherwise fail with 403 `server_move_experiment_disabled`. The CLI equivalents are
-`bb server move|export|import|unlock|allow-connect|delete-old-copy|install-machine-service`.
+`cc server move|export|import|unlock|allow-connect|delete-old-copy|install-machine-service`.
 
-Before stabilization, audit: authorization for plugin backends (`bb.sdk` runs
+Before stabilization, audit: authorization for plugin backends (`cc.sdk` runs
 with owner access, so a plugin can export every secret or move the server);
-the switch ordering against the bb connect tunnel and daemons that miss
+the switch ordering against the cc connect tunnel and daemons that miss
 `server.moved`; archive size limits and streaming memory use; cancellation
 and failure recovery at every step, including a server restart mid-move;
 behavior when the target runs a provider-managed machine; and whether
@@ -3361,7 +3361,7 @@ the existing manifest fields.
 ## `experimental_ProviderIcon`
 
 Shared frontend renderer for agent, machine, and environment provider artwork,
-exported from `@get-bb/plugin-sdk/app`. Pass required `providerKind` and the
+exported from `@codythatsme/plugin-sdk/app`. Pass required `providerKind` and the
 existing record as `provider`, plus optional
 `fallback` (default `Code`), `className`, `aria-label`, and `aria-hidden`.
 The renderer reads `provider.id`, `logoUrl`, `icon` (agent `{ glyph }` or machine/environment
@@ -3373,7 +3373,7 @@ the app registry, then fallback. Invalid tints are ignored. Overrides update on
 load/reload/unload, remount per generation, and fall back on render errors or
 recursive provider references. Without an accessible label the mark is decorative.
 
-The BB provider helper, machine/environment provider marks, Provider Usage and Tasks
+The CC provider helper, machine/environment provider marks, Provider Usage and Tasks
 comment avatars use the same renderer. Both plugin responses preserve the SDK's
 `icon` and `strings.iconTint` field shapes so callers pass records directly. Tasks
 adds this artwork to computed comment-provider RPC data; no persisted records, manifest API,
@@ -3396,13 +3396,13 @@ Active and transitional states are left unchanged;
 the plugin uses `experimental_suspend` to request a new pause. Core schedules
 no provider polling. Validate concurrent resume/removal, failure reporting,
 long-running caller behavior, and the scope of supported states before
-stabilizing this API. Exposed as `bb machine reconcile`.
+stabilizing this API. Exposed as `cc machine reconcile`.
 
 ## Lifecycle ownership on thread creation
 
-`bb.sdk.threads.spawn` and `bb.sdk.threads.fork` accept `lifecycleOwnerThreadId`;
+`cc.sdk.threads.spawn` and `cc.sdk.threads.fork` accept `lifecycleOwnerThreadId`;
 thread responses expose its nullable value. This adds data fields to existing
-SDK methods, not a new `BbPluginApi` property, app export or slot method, so no
+SDK methods, not a new `CcPluginApi` property, app export or slot method, so no
 new unprefixed public API member is introduced. Audit before stabilization:
 immutable cross-project ownership, cross-host cleanup, archive/delete retries,
 creation races, and preservation of existing unowned threads. The Plugin Guide SDK card

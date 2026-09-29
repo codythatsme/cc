@@ -2,14 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createFakePluginHost,
   type FakePluginHost,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import {
   createServerAccessRecheck,
   registerServerAccess,
 } from "./server-access.js";
 
 const credential = {
-  serverUrl: "https://test.getbb.app",
+  serverUrl: "https://test.cc.example.invalid",
   handle: "test",
   credential: "bbcred_private_server",
 };
@@ -31,7 +31,7 @@ async function setup(beforeInit?: (host: FakePluginHost) => Promise<void>) {
   });
   hosts.push(host);
   await beforeInit?.(host);
-  await registerServerAccess(host.bb, tunnel);
+  await registerServerAccess(host.cc, tunnel);
   return host;
 }
 function provider(host: FakePluginHost) {
@@ -62,7 +62,7 @@ function cloud() {
           serverUrl: credential.serverUrl,
         });
       }
-      expect(path).toBe("https://getbb.app/api/connect/revoke-machine");
+      expect(path).toBe("https://cc.example.invalid/api/connect/revoke-machine");
       expect(JSON.parse(String(init?.body))).toEqual({ machineId: "cloud-id" });
       if (failRevoke) return new Response(null, { status: 503 });
       active = false;
@@ -86,7 +86,7 @@ afterEach(async () => {
 describe("Connect server-owned machine access", () => {
   it("declares picker copy", async () => {
     const host = await setup();
-    expect(provider(host).description).toBe("Use a private getbb.app address.");
+    expect(provider(host).description).toBe("Use a private cc.example.invalid address.");
   });
 
   it("persists redemption before enrollment and revokes after restart", async () => {
@@ -97,13 +97,13 @@ describe("Connect server-owned machine access", () => {
     expect(grant).toEqual({
       id: request.hostId,
       serverUrl: credential.serverUrl,
-      headers: { "x-bb-connect-machine": "bbcm_private" },
+      headers: { "x-cc-connect-machine": "bbcm_private" },
     });
-    expect(await original.bb.storage.kv.get(key)).toMatchObject({
+    expect(await original.cc.storage.kv.get(key)).toMatchObject({
       result: { connectMachineId: "cloud-id" },
     });
-    const restarted = await original.harness.lifecycle.reload((bb) =>
-      registerServerAccess(bb, tunnel),
+    const restarted = await original.harness.lifecycle.reload((cc) =>
+      registerServerAccess(cc, tunnel),
     );
     hosts.push(restarted);
     expect(await provider(restarted).acquire(request)).toEqual(grant);
@@ -114,7 +114,7 @@ describe("Connect server-owned machine access", () => {
       grantId: grant.id,
     });
     expect(api.active()).toBe(false);
-    expect(await restarted.bb.storage.kv.get(key)).toBeUndefined();
+    expect(await restarted.cc.storage.kv.get(key)).toBeUndefined();
   });
   it("reacquires fresh access for the same host after release", async () => {
     const api = cloud();
@@ -138,9 +138,9 @@ describe("Connect server-owned machine access", () => {
       );
     await expect(provider(host).acquire(request)).resolves.toMatchObject({
       id: request.hostId,
-      headers: { "x-bb-connect-machine": "bbcm_new" },
+      headers: { "x-cc-connect-machine": "bbcm_new" },
     });
-    expect(await host.bb.storage.kv.get(key)).toMatchObject({
+    expect(await host.cc.storage.kv.get(key)).toMatchObject({
       result: { connectMachineId: "new-cloud-id" },
     });
     expect(api.fetchMock).toHaveBeenCalledTimes(5);
@@ -157,8 +157,8 @@ describe("Connect server-owned machine access", () => {
         grantId: request.hostId,
       }),
     ).rejects.toThrow("503");
-    const restarted = await original.harness.lifecycle.reload((bb) =>
-      registerServerAccess(bb, tunnel),
+    const restarted = await original.harness.lifecycle.reload((cc) =>
+      registerServerAccess(cc, tunnel),
     );
     hosts.push(restarted);
     api.failRevoke(false);
@@ -168,14 +168,14 @@ describe("Connect server-owned machine access", () => {
       grantId: request.hostId,
     });
     expect(api.active()).toBe(false);
-    expect(await restarted.bb.storage.kv.get(key)).toBeUndefined();
+    expect(await restarted.cc.storage.kv.get(key)).toBeUndefined();
   });
   it("retains the device ID when pairing is unavailable", async () => {
     cloud();
     const host = await setup();
     await provider(host).acquire(request);
-    const restarted = await host.harness.lifecycle.reload((bb) =>
-      registerServerAccess(bb, { ...tunnel, getCredential: () => null }),
+    const restarted = await host.harness.lifecycle.reload((cc) =>
+      registerServerAccess(cc, { ...tunnel, getCredential: () => null }),
     );
     hosts.push(restarted);
     await expect(
@@ -184,8 +184,8 @@ describe("Connect server-owned machine access", () => {
         hostId: request.hostId,
         grantId: request.hostId,
       }),
-    ).rejects.toThrow("Pair this bb instance");
-    expect(await restarted.bb.storage.kv.get(key)).toMatchObject({
+    ).rejects.toThrow("Pair this cc instance");
+    expect(await restarted.cc.storage.kv.get(key)).toMatchObject({
       result: { connectMachineId: "cloud-id" },
     });
   });
@@ -194,7 +194,7 @@ describe("Connect server-owned machine access", () => {
 it("does not redeem a code when persisting the pending record fails", async () => {
   const host = await setup();
   const api = cloud();
-  vi.spyOn(host.bb.storage.kv, "set").mockRejectedValueOnce(
+  vi.spyOn(host.cc.storage.kv, "set").mockRejectedValueOnce(
     new Error("KV write failed"),
   );
   await expect(provider(host).acquire(request)).rejects.toThrow(
@@ -218,7 +218,7 @@ it.each([true, false])(
         if (url.endsWith("/machine-code") && init?.method === "GET") {
           return available
             ? Response.json({ consumed: true, machineId: "device-1" })
-            : new Response("<!doctype html><title>bb</title>", {
+            : new Response("<!doctype html><title>cc</title>", {
                 headers: { "content-type": "text/html" },
               });
         }
@@ -273,13 +273,13 @@ it.each([true, false])(
       ).rejects.toThrow("Cloud device may need dashboard revocation");
       expect(minted).toBe(1);
       expect(redeemed).toBe(1);
-      expect(await host.bb.storage.kv.get(key)).toMatchObject({
+      expect(await host.cc.storage.kv.get(key)).toMatchObject({
         intent: { code: "CODE-1" },
       });
     }
     const storedValues = await Promise.all(
-      (await host.bb.storage.kv.list()).map((key) =>
-        host.bb.storage.kv.get(key),
+      (await host.cc.storage.kv.list()).map((key) =>
+        host.cc.storage.kv.get(key),
       ),
     );
     expect(JSON.stringify(storedValues)).not.toContain("private-bearer");
@@ -307,7 +307,7 @@ it.each(["expired", "valid"])(
   "renews only definitively unconsumed expired intents: %s",
   async (age) => {
     const host = await setup(async (host) => {
-      await host.bb.storage.kv.set(key, {
+      await host.cc.storage.kv.set(key, {
         intent: {
           key: request.key,
           hostId: request.hostId,
@@ -342,11 +342,11 @@ it.each(["expired", "valid"])(
       }),
     );
     await expect(provider(host).acquire(request)).resolves.toMatchObject({
-      headers: { "x-bb-connect-machine": "new-private" },
+      headers: { "x-cc-connect-machine": "new-private" },
     });
     expect(issued).toEqual(age === "valid" ? [] : ["NEW-CODE"]);
     expect(redeemed).toEqual([age === "valid" ? "OLD-CODE" : "NEW-CODE"]);
-    expect(await host.bb.storage.kv.get(key)).toMatchObject({
+    expect(await host.cc.storage.kv.get(key)).toMatchObject({
       result: { connectMachineId: "new-device", grant: { id: request.hostId } },
     });
   },
@@ -355,16 +355,16 @@ it.each(["expired", "valid"])(
 describe("server access recheck", () => {
   it("tells core only when paired state or public URL changes", async () => {
     const host = await setup();
-    const recheck = createServerAccessRecheck(host.bb);
+    const recheck = createServerAccessRecheck(host.cc);
     recheck({ paired: false, url: null });
     expect(host.harness.recheckCount).toBe(0);
     recheck({ paired: false, url: null });
     expect(host.harness.recheckCount).toBe(0);
-    recheck({ paired: true, url: "https://test.getbb.app" });
+    recheck({ paired: true, url: "https://test.cc.example.invalid" });
     expect(host.harness.recheckCount).toBe(1);
-    recheck({ paired: true, url: "https://test.getbb.app" });
+    recheck({ paired: true, url: "https://test.cc.example.invalid" });
     expect(host.harness.recheckCount).toBe(1);
-    recheck({ paired: true, url: "https://renamed.getbb.app" });
+    recheck({ paired: true, url: "https://renamed.cc.example.invalid" });
     expect(host.harness.recheckCount).toBe(2);
     recheck({ paired: false, url: null });
     expect(host.harness.recheckCount).toBe(3);
@@ -395,7 +395,7 @@ it("aborts pending code issuance and lets a later acquisition proceed", async ()
   await vi.waitFor(() => expect(started).toBe(true));
   controller.abort(new Error("cancelled"));
   await expect(pending).rejects.toThrow("cancelled");
-  expect(await host.bb.storage.kv.get(key)).toBeUndefined();
+  expect(await host.cc.storage.kv.get(key)).toBeUndefined();
   const api = cloud();
   await provider(host).acquire(request);
   await provider(host).release({
@@ -447,11 +447,11 @@ it("retains interrupted redemption intent and revokes the committed device", asy
   await vi.waitFor(() => expect(active).toBe(true));
   controller.abort(new Error("cancelled"));
   await expect(pending).rejects.toThrow("cancelled");
-  expect(await host.bb.storage.kv.get(key)).toMatchObject({
+  expect(await host.cc.storage.kv.get(key)).toMatchObject({
     intent: { code: "PENDING-CODE" },
   });
-  const restarted = await host.harness.lifecycle.reload((bb) =>
-    registerServerAccess(bb, tunnel),
+  const restarted = await host.harness.lifecycle.reload((cc) =>
+    registerServerAccess(cc, tunnel),
   );
   hosts.push(restarted);
   await provider(restarted).release({
@@ -460,12 +460,12 @@ it("retains interrupted redemption intent and revokes the committed device", asy
     grantId: null,
   });
   expect(active).toBe(false);
-  expect(await restarted.bb.storage.kv.get(key)).toBeUndefined();
+  expect(await restarted.cc.storage.kv.get(key)).toBeUndefined();
 });
 
 it("keeps an unexpired acquisition intent until a late redemption can be ruled out", async () => {
   const host = await setup(async (host) => {
-    await host.bb.storage.kv.set(key, {
+    await host.cc.storage.kv.set(key, {
       intent: {
         key: request.key,
         hostId: request.hostId,
@@ -493,11 +493,11 @@ it("keeps an unexpired acquisition intent until a late redemption can be ruled o
   await expect(provider(host).release(release)).rejects.toThrow(
     "still unsettled",
   );
-  expect(await host.bb.storage.kv.get(key)).toMatchObject({
+  expect(await host.cc.storage.kv.get(key)).toMatchObject({
     intent: { code: "UNSETTLED-CODE" },
   });
   consumed = true;
   await provider(host).release(release);
   expect(revoked).toBe(true);
-  expect(await host.bb.storage.kv.get(key)).toBeUndefined();
+  expect(await host.cc.storage.kv.get(key)).toBeUndefined();
 });

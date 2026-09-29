@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { makeEnvironment, makeHost } from "@bb/test-helpers/domain-fixtures";
+import { makeEnvironment, makeHost } from "@cc/test-helpers/domain-fixtures";
 import { HttpError } from "@/lib/api";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";

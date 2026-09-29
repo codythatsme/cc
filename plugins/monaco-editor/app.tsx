@@ -4,7 +4,7 @@ import {
   experimental_useCodeTheme,
   useRpc,
   type PluginFileOpenerProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import type * as MonacoNs from "monaco-editor";
 import type { rpcContract } from "./server.js";
 import { CLAIMED_EXTENSIONS, languageForPath } from "./lib/languages.js";

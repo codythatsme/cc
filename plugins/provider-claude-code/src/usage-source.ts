@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import {
   usageSourceRpcContract,
@@ -20,7 +20,7 @@ const windowMetadataSchema = z.object({
   model: z.string().nullable().catch(null),
 });
 
-export function registerUsageSource(bb: BbPluginApi) {
+export function registerUsageSource(cc: CcPluginApi) {
   const cache = new Map<string, UsageMeasurement>();
   const pending = new Map<
     string,
@@ -31,7 +31,7 @@ export function registerUsageSource(bb: BbPluginApi) {
     refresh: boolean,
   ): Promise<UsageMeasurement> => {
     const [hostId, providerId] = locatorSchema.parse(JSON.parse(resourceId));
-    const host = await bb.sdk.hosts.get({ hostId }).catch((error: unknown) => {
+    const host = await cc.sdk.hosts.get({ hostId }).catch((error: unknown) => {
       if (error instanceof Error && "status" in error && error.status === 404)
         throw new Error("Usage resource no longer exists.");
       throw error;
@@ -50,7 +50,7 @@ export function registerUsageSource(bb: BbPluginApi) {
       });
     if (host.status === "disconnected")
       return unavailable("Machine is disconnected.");
-    const providers = await bb.sdk.providers.list({
+    const providers = await cc.sdk.providers.list({
       hostId,
       capability: "usage",
     });
@@ -72,7 +72,7 @@ export function registerUsageSource(bb: BbPluginApi) {
       return previous;
     const promise = (async () => {
       try {
-        const result = await bb.sdk.system.usageLimits({ hostId, providerId });
+        const result = await cc.sdk.system.usageLimits({ hostId, providerId });
         const usage = result[providerId];
         if (!usage) throw new Error("Provider returned no usage information.");
         const metadata = metadataSchema.parse(usage);
@@ -121,15 +121,15 @@ export function registerUsageSource(bb: BbPluginApi) {
     pending.set(resourceId, { refresh, promise });
     return promise;
   };
-  bb.rpc.register(
+  cc.rpc.register(
     usageSourceRpcContract,
     {
       async [usageListMethod]() {
-        const hosts = await bb.sdk.hosts.list();
+        const hosts = await cc.sdk.hosts.list();
         const resources = (
           await Promise.all(
             hosts.map(async (host) => {
-              const providers = await bb.sdk.providers.list({
+              const providers = await cc.sdk.providers.list({
                 hostId: host.id,
                 capability: "usage",
               });

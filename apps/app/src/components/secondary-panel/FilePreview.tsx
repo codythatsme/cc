@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,14 +18,14 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@bb/shared-ui/dropdown-menu";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+} from "@cc/shared-ui/dropdown-menu";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { useElementWidth } from "@/hooks/useElementWidth";
 import { SourceCodeHost } from "@/components/code/SourceCodeHost";
-import { COARSE_POINTER_TEXT_SM_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
+import { COARSE_POINTER_TEXT_SM_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
+import { EmptyStatePanel } from "@cc/shared-ui/empty-state";
 import { CopyButton } from "@/components/ui/copy-button.js";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@cc/shared-ui/icon";
 import { OpenInEditorButton } from "@/components/ui/open-in-editor-button.js";
 import { useAppCommandShortcut } from "@/components/commands/AppCommandProvider";
 import { AppCommandShortcutHint } from "@/components/commands/AppCommandShortcutHint";
@@ -37,20 +37,20 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
+} from "@cc/shared-ui/tooltip";
 import { TruncateStart } from "@/components/ui/truncate-start.js";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import { openUrlInExternalBrowser } from "@/lib/url-open-routing";
 import type {
   FilePreviewLineRange,
   WorkspaceFilePreviewStatusLabel,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   DEFAULT_CODE_OVERFLOW_MODE,
   type CodeOverflowMode,
   type CodeOverflowModeChangeHandler,
 } from "@/lib/code-overflow-mode";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { SecondaryPanelSelectionActions } from "./SecondaryPanelSelectionActions.js";
 import { useImageTabLightbox } from "./ImageTabLightboxContext.js";
 

@@ -1,7 +1,7 @@
-import type { Host } from "@bb/domain";
-import type { SystemMachineProvider } from "@bb/server-contract";
-import { RETRY_ACTION_ICON } from "@bb/domain/update-state";
-import type { ResourceOverflowMenuItem } from "@bb/shared-ui/resource-list";
+import type { Host } from "@cc/domain";
+import type { SystemMachineProvider } from "@cc/server-contract";
+import { RETRY_ACTION_ICON } from "@cc/domain/update-state";
+import type { ResourceOverflowMenuItem } from "@cc/shared-ui/resource-list";
 import { serverMachineRemoveDisabledReason } from "@/components/machines/MachineRemoveDialog";
 import { machineLifecycleAction } from "@/components/machines/MachineLifecycleActions";
 import { canReconnectMachine } from "@/components/machines/machine-status";

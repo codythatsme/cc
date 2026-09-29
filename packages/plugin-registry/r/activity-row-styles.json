@@ -3,9 +3,9 @@
   "name": "activity-row-styles",
   "type": "registry:ui",
   "title": "activity-row-styles",
-  "description": "BB ui \"activity-row-styles\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"activity-row-styles\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@cc/utils"
   ],
   "files": [
     {

@@ -3,7 +3,7 @@ import type {
   CreateThreadSectionRequest,
   DeleteThreadSectionRequest,
   UpdateThreadSectionRequest,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { sdk } from "@/lib/sdk";
 import { applyThreadSectionRenameResult } from "../cache-owners/project-cache-owner";
 import {

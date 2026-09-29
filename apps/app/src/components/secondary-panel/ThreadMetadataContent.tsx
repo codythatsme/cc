@@ -18,13 +18,13 @@ import type {
   ThreadPullRequest,
   WorkspaceCommitSummary,
   WorkspaceStatus,
-} from "@bb/domain";
-import type { WorkspaceResolutionFailure } from "@bb/host-daemon-contract";
+} from "@cc/domain";
+import type { WorkspaceResolutionFailure } from "@cc/host-daemon-contract";
 import {
   formatEnvironmentDisplay,
   type EnvironmentDisplayHostContext,
-} from "@bb/core-ui";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/core-ui";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import {
   findEnvironmentDisplayProvider,
@@ -35,11 +35,11 @@ import { useSystemMachineProviders } from "@/hooks/queries/machine-provider-quer
 import { useHosts } from "@/hooks/queries/host-queries";
 import { MachineLabel } from "@/components/machines/MachineLabel";
 import { formatWorkspaceCheckoutDisplay } from "@/lib/workspace-checkout-display";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
+} from "@cc/shared-ui/coarse-pointer-sizing";
 import { CopyableInlineLabel } from "@/components/ui/copy-button.js";
 import { TruncatedList } from "@/components/ui/truncated-list.js";
 import {
@@ -47,10 +47,10 @@ import {
   DetailRow,
   DetailRowIconLabel,
 } from "@/components/ui/detail-card.js";
-import { CHROME_SECTION_LABEL_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { CHROME_SECTION_LABEL_CLASS } from "@cc/shared-ui/chrome-style-tokens";
 import { useCreateThreadInEnvironment } from "@/hooks/useCreateThreadInEnvironment";
-import { Icon } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
+import { Icon } from "@cc/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@cc/shared-ui/tooltip";
 import {
   BranchPicker,
   getMergeBaseBranchCandidateGroups,

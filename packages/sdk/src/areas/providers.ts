@@ -2,7 +2,7 @@ import type {
   SystemExecutionOptionsResponse,
   SystemProviderInfo,
   SystemProvidersQuery,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   readExecutionOptions,
   signalRequestArgs,

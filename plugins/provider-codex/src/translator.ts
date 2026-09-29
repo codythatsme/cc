@@ -6,7 +6,7 @@ import {
   extractResultText,
   type PreparedProviderCommandDispatch,
   type ProviderRuntimeEvent,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import {
   applyCodexRateLimitUpdate,
@@ -357,7 +357,7 @@ interface ActivateThreadGitWritableRootsArgs {
   threadId: string;
 }
 
-interface ClearGitWritableRootsByBbThreadIdArgs {
+interface ClearGitWritableRootsByCcThreadIdArgs {
   threadId: string;
 }
 
@@ -396,7 +396,7 @@ export function createCodexEventTranslator(
     string[]
   >();
   const workspaceWriteGitWritableRootsByThreadId = new Map<string, string[]>();
-  const bbThreadIdByProviderThreadId = new Map<string, string>();
+  const ccThreadIdByProviderThreadId = new Map<string, string>();
   const rawCommandOutputStateByProviderThreadId = new Map<
     string,
     CodexRawCommandOutputState
@@ -445,17 +445,17 @@ export function createCodexEventTranslator(
     workspaceWriteGitWritableRootsByThreadId.set(args.threadId, [
       ...writableRoots,
     ]);
-    bbThreadIdByProviderThreadId.set(args.providerThreadId, args.threadId);
+    ccThreadIdByProviderThreadId.set(args.providerThreadId, args.threadId);
   }
 
-  function clearGitWritableRootsByBbThreadId(
-    args: ClearGitWritableRootsByBbThreadIdArgs,
+  function clearGitWritableRootsByCcThreadId(
+    args: ClearGitWritableRootsByCcThreadIdArgs,
   ): void {
     pendingWorkspaceWriteGitWritableRootsByThreadId.delete(args.threadId);
     workspaceWriteGitWritableRootsByThreadId.delete(args.threadId);
-    for (const [providerThreadId, threadId] of bbThreadIdByProviderThreadId) {
+    for (const [providerThreadId, threadId] of ccThreadIdByProviderThreadId) {
       if (threadId === args.threadId) {
-        bbThreadIdByProviderThreadId.delete(providerThreadId);
+        ccThreadIdByProviderThreadId.delete(providerThreadId);
       }
     }
   }
@@ -463,12 +463,12 @@ export function createCodexEventTranslator(
   function clearGitWritableRootsByProviderThreadId(
     args: ClearGitWritableRootsByProviderThreadIdArgs,
   ): void {
-    const threadId = bbThreadIdByProviderThreadId.get(args.providerThreadId);
-    bbThreadIdByProviderThreadId.delete(args.providerThreadId);
+    const threadId = ccThreadIdByProviderThreadId.get(args.providerThreadId);
+    ccThreadIdByProviderThreadId.delete(args.providerThreadId);
     if (!threadId) {
       return;
     }
-    clearGitWritableRootsByBbThreadId({ threadId });
+    clearGitWritableRootsByCcThreadId({ threadId });
   }
 
   function prepareWorkspaceWriteGitRoots(
@@ -487,7 +487,7 @@ export function createCodexEventTranslator(
         writableRoots,
       });
     } else {
-      clearGitWritableRootsByBbThreadId({ threadId: command.threadId });
+      clearGitWritableRootsByCcThreadId({ threadId: command.threadId });
     }
     return {
       config: buildCodexConfig({

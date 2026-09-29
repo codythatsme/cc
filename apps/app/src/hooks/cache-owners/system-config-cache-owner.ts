@@ -2,11 +2,11 @@ import type { QueryClient } from "@tanstack/react-query";
 import {
   applyAppKeybindingOverrides,
   type AppKeybindingOverrides,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   SystemAiServicesResponse,
   SystemConfigResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   systemAiServicesQueryKey,
   systemConfigQueryKey,

@@ -1,4 +1,4 @@
-import { isRawThreadId } from "@bb/domain";
+import { isRawThreadId } from "@cc/domain";
 
 export const USER_MESSAGE_CHAR_CAP = 4096;
 

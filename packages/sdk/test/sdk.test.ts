@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { Environment, JsonValue } from "@bb/domain";
-import { createBbSdk } from "../src/core.js";
+import type { Environment, JsonValue } from "@cc/domain";
+import { createCcSdk } from "../src/core.js";
 import { createHttpTransport } from "../src/transport-http.js";
 import { ThreadWaitTimeoutError } from "../src/areas/threads.js";
 import type { FetchImplementation } from "../src/response.js";
@@ -106,7 +106,7 @@ function createFetchQueue(
   return { fetch: fetchMock, requests };
 }
 
-describe("@bb/sdk", () => {
+describe("@cc/sdk", () => {
   it("creates a DigitalOcean machine through the SDK without a project", async () => {
     const host = {
       id: "host_do",
@@ -137,9 +137,9 @@ describe("@bb/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: creating }, { body: host }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -157,12 +157,12 @@ describe("@bb/sdk", () => {
           inputs: {},
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/hosts",
+        url: "http://cc.test/api/v1/hosts",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/hosts/host_do",
+        url: "http://cc.test/api/v1/hosts/host_do",
       },
     ]);
   });
@@ -171,9 +171,9 @@ describe("@bb/sdk", () => {
     const queue = createFetchQueue([
       { body: { joinCode: "one", hostId: "host_1", expiresAt: 1 } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -185,7 +185,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: JSON.stringify({}),
         method: "POST",
-        url: "http://bb.test/api/v1/hosts/join-codes",
+        url: "http://cc.test/api/v1/hosts/join-codes",
       },
     ]);
   });
@@ -213,9 +213,9 @@ describe("@bb/sdk", () => {
       value: async () =>
         events.map((event) => JSON.stringify(event)).join("\n"),
     });
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: async () => response,
         runtime: "node",
       }),
@@ -232,9 +232,9 @@ describe("@bb/sdk", () => {
 
   it("sends thread pane presentation actions through the typed transport", async () => {
     const queue = createFetchQueue([{ body: { delivered: 3 } }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -250,16 +250,16 @@ describe("@bb/sdk", () => {
       {
         bodyText: JSON.stringify({ action: "spotlight" }),
         method: "POST",
-        url: "http://bb.test/api/v1/threads/thr_test/pane-action",
+        url: "http://cc.test/api/v1/threads/thr_test/pane-action",
       },
     ]);
   });
 
   it("keeps realtime subscriptions distinct under subscribe", () => {
     const queue = createFetchQueue([]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -271,9 +271,9 @@ describe("@bb/sdk", () => {
 
   it("maps thread event filters and reverse pagination onto the public query", async () => {
     const queue = createFetchQueue([{ body: [] }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -292,7 +292,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/threads/thr_test/events?beforeSeq=10&limit=2&order=desc&types=system%2Ferror%2Cturn%2Fcompleted",
+        url: "http://cc.test/api/v1/threads/thr_test/events?beforeSeq=10&limit=2&order=desc&types=system%2Ferror%2Cturn%2Fcompleted",
       },
     ]);
   });
@@ -304,9 +304,9 @@ describe("@bb/sdk", () => {
       receivedSignal = init?.signal;
       return jsonResponse({ body: [] });
     };
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch,
         runtime: "node",
       }),
@@ -325,9 +325,9 @@ describe("@bb/sdk", () => {
       receivedSignal = init?.signal;
       return jsonResponse({ body: {} });
     };
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch,
         runtime: "node",
       }),
@@ -345,9 +345,9 @@ describe("@bb/sdk", () => {
     const controller = new AbortController();
     let receivedSignal: AbortSignal | null | undefined;
     const queue = createFetchQueue([{ body: [] }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: async (input, init) => {
           receivedSignal = init?.signal;
           return queue.fetch(input, init);
@@ -361,7 +361,7 @@ describe("@bb/sdk", () => {
     ).resolves.toEqual([]);
     expect(receivedSignal).toBe(controller.signal);
     expect(queue.requests[0]?.url).toBe(
-      "http://bb.test/api/v1/projects?includePersonal=true",
+      "http://cc.test/api/v1/projects?includePersonal=true",
     );
   });
 
@@ -377,9 +377,9 @@ describe("@bb/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: appearance }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -392,7 +392,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: JSON.stringify({ themeId: "nord", faviconColor: "teal" }),
         method: "PUT",
-        url: "http://bb.test/api/v1/settings/appearance",
+        url: "http://cc.test/api/v1/settings/appearance",
       },
     ]);
   });
@@ -421,9 +421,9 @@ describe("@bb/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: current }, { body: updated }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -434,12 +434,12 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/config",
+        url: "http://cc.test/api/v1/system/config",
       },
       {
         bodyText: JSON.stringify({ themeId: "nord", faviconColor: "purple" }),
         method: "PUT",
-        url: "http://bb.test/api/v1/settings/appearance",
+        url: "http://cc.test/api/v1/settings/appearance",
       },
     ]);
   });
@@ -456,9 +456,9 @@ describe("@bb/sdk", () => {
       },
     };
     const queue = createFetchQueue([{ body: resolved }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -471,7 +471,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/settings/themes/plugin:pack:ocean",
+        url: "http://cc.test/api/v1/settings/themes/plugin:pack:ocean",
       },
     ]);
   });
@@ -488,15 +488,15 @@ describe("@bb/sdk", () => {
           type: "localFile",
           path: "payload-uploaded.bin",
           name: "payload.bin",
-          mimeType: "application/x-bb-test",
+          mimeType: "application/x-cc-test",
           sizeBytes: binary.byteLength,
         },
         status: 201,
       });
     };
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "https://remote-bb.test/",
+        baseUrl: "https://remote-cc.test/",
         fetch: authenticatedFetch,
         runtime: "node",
       }),
@@ -506,19 +506,19 @@ describe("@bb/sdk", () => {
       sdk.projects.attachments.upload({
         clientFile: binary,
         filename: "payload.bin",
-        mimeType: "application/x-bb-test",
+        mimeType: "application/x-cc-test",
         projectId: "proj_remote",
       }),
     ).resolves.toEqual({
       type: "localFile",
       path: "payload-uploaded.bin",
       name: "payload.bin",
-      mimeType: "application/x-bb-test",
+      mimeType: "application/x-cc-test",
       sizeBytes: binary.byteLength,
     });
 
     expect(forwardedRequest?.url).toBe(
-      "https://remote-bb.test/api/v1/projects/proj_remote/attachments",
+      "https://remote-cc.test/api/v1/projects/proj_remote/attachments",
     );
     expect(forwardedRequest?.method).toBe("POST");
     expect(forwardedRequest?.headers.get("authorization")).toBe(
@@ -534,7 +534,7 @@ describe("@bb/sdk", () => {
       throw new Error("Expected multipart attachment file");
     }
     expect(file.name).toBe("payload.bin");
-    expect(file.type).toBe("application/x-bb-test");
+    expect(file.type).toBe("application/x-cc-test");
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(binary);
   });
 
@@ -561,9 +561,9 @@ describe("@bb/sdk", () => {
       if (!response) throw new Error("No queued attachment response");
       return response;
     };
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch,
         runtime: "browser",
       }),
@@ -586,15 +586,15 @@ describe("@bb/sdk", () => {
       sizeBytes: 4,
     });
     expect(requests).toEqual([
-      "http://bb.test/api/v1/projects/proj_image/attachments",
-      "http://bb.test/api/v1/projects/proj_image/attachments/content?path=pixel-uploaded.png",
+      "http://cc.test/api/v1/projects/proj_image/attachments",
+      "http://cc.test/api/v1/projects/proj_image/attachments/content?path=pixel-uploaded.png",
     ]);
   });
 
   it("preserves project attachment error envelopes", async () => {
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: async () =>
           jsonResponse({
             body: {
@@ -625,9 +625,9 @@ describe("@bb/sdk", () => {
     const fetch = async (): Promise<Response> => {
       throw new Error("Voice transcription should not reach the transport");
     };
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch,
         runtime: "node",
       }),
@@ -650,13 +650,13 @@ describe("@bb/sdk", () => {
       new Response("remote text", {
         headers: {
           "content-type": "text/plain",
-          "x-bb-content-encoding": "utf8",
+          "x-cc-content-encoding": "utf8",
         },
       }),
       new Response(new Uint8Array([0, 1, 254, 255]), {
         headers: {
           "content-type": "application/octet-stream",
-          "x-bb-content-encoding": "base64",
+          "x-cc-content-encoding": "base64",
         },
       }),
     ];
@@ -670,9 +670,9 @@ describe("@bb/sdk", () => {
       if (!response) throw new Error("No queued project file response");
       return response;
     };
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch,
         runtime: "browser",
       }),
@@ -710,9 +710,9 @@ describe("@bb/sdk", () => {
     });
 
     expect(requests.map((request) => request.url)).toEqual([
-      "http://bb.test/api/v1/projects/proj_remote/files?hostId=host_remote",
-      "http://bb.test/api/v1/projects/proj_remote/files/content?environmentId=env_remote&path=remote.txt",
-      "http://bb.test/api/v1/projects/proj_remote/files/content?hostId=host_remote&path=image.bin",
+      "http://cc.test/api/v1/projects/proj_remote/files?hostId=host_remote",
+      "http://cc.test/api/v1/projects/proj_remote/files/content?environmentId=env_remote&path=remote.txt",
+      "http://cc.test/api/v1/projects/proj_remote/files/content?hostId=host_remote&path=image.bin",
     ]);
   });
 
@@ -728,9 +728,9 @@ describe("@bb/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -750,12 +750,12 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/providers?capability=usage&hostId=host_remote",
+        url: "http://cc.test/api/v1/system/providers?capability=usage&hostId=host_remote",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/execution-options?environmentId=env_remote&providerId=acp-remote",
+        url: "http://cc.test/api/v1/system/execution-options?environmentId=env_remote&providerId=acp-remote",
       },
     ]);
   });
@@ -767,9 +767,9 @@ describe("@bb/sdk", () => {
       "acp-cursor": { status: "unauthenticated" as const },
     };
     const queue = createFetchQueue([{ body: usage }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -785,7 +785,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/usage-limits?hostId=host_remote&providerId=codex",
+        url: "http://cc.test/api/v1/system/usage-limits?hostId=host_remote&providerId=codex",
       },
     ]);
   });
@@ -812,9 +812,9 @@ describe("@bb/sdk", () => {
       },
     ];
     const queue = createFetchQueue([{ body: { providers } }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -830,7 +830,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/environment-providers?projectId=proj_test&hostId=host_test",
+        url: "http://cc.test/api/v1/system/environment-providers?projectId=proj_test&hostId=host_test",
       },
     ]);
   });
@@ -838,9 +838,9 @@ describe("@bb/sdk", () => {
   it("routes onboarding agent status through a reused environment", async () => {
     const states = { providers: [] };
     const queue = createFetchQueue([{ body: states }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -853,16 +853,16 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/system/providers/state?environmentId=env_remote",
+        url: "http://cc.test/api/v1/system/providers/state?environmentId=env_remote",
       },
     ]);
   });
 
   it("routes thread list calls through the HTTP transport", async () => {
     const queue = createFetchQueue([{ body: [] }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -876,7 +876,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/threads?projectId=proj_123&archived=true",
+        url: "http://cc.test/api/v1/threads?projectId=proj_123&archived=true",
       },
     ]);
   });
@@ -890,9 +890,9 @@ describe("@bb/sdk", () => {
       },
     ];
     const queue = createFetchQueue([{ body: resolved }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -909,7 +909,7 @@ describe("@bb/sdk", () => {
           threadIds: ["thr_23456789ab", "thr_23456789ab"],
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/threads/resolve-mentions",
+        url: "http://cc.test/api/v1/threads/resolve-mentions",
       },
     ]);
   });
@@ -930,9 +930,9 @@ describe("@bb/sdk", () => {
       { body: { chunks: [], nextSeq: 4, truncated: false } },
       { body: { ...session, status: "exited", closeReason: "user" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -995,17 +995,17 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals?threadId=thr_remote",
+        url: "http://cc.test/api/v1/terminals?threadId=thr_remote",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals?environmentId=env_remote",
+        url: "http://cc.test/api/v1/terminals?environmentId=env_remote",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals?hostId=host_remote&cwd=%2Fsrv%2Fapp",
+        url: "http://cc.test/api/v1/terminals?hostId=host_remote&cwd=%2Fsrv%2Fapp",
       },
       {
         bodyText: JSON.stringify({
@@ -1014,7 +1014,7 @@ describe("@bb/sdk", () => {
           target: { kind: "thread", threadId: "thr_remote" },
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals",
+        url: "http://cc.test/api/v1/terminals",
       },
       {
         bodyText: JSON.stringify({
@@ -1023,7 +1023,7 @@ describe("@bb/sdk", () => {
           target: { kind: "environment", environmentId: "env_remote" },
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals",
+        url: "http://cc.test/api/v1/terminals",
       },
       {
         bodyText: JSON.stringify({
@@ -1032,37 +1032,37 @@ describe("@bb/sdk", () => {
           target: { kind: "host_path", hostId: "host_remote", cwd: null },
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals",
+        url: "http://cc.test/api/v1/terminals",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals/term_remote",
+        url: "http://cc.test/api/v1/terminals/term_remote",
       },
       {
         bodyText: JSON.stringify({ title: "Dev server" }),
         method: "PATCH",
-        url: "http://bb.test/api/v1/terminals/term_remote",
+        url: "http://cc.test/api/v1/terminals/term_remote",
       },
       {
         bodyText: JSON.stringify({ dataBase64: "aGk=" }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_remote/input",
+        url: "http://cc.test/api/v1/terminals/term_remote/input",
       },
       {
         bodyText: JSON.stringify({ cols: 120, rows: 40 }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_remote/resize",
+        url: "http://cc.test/api/v1/terminals/term_remote/resize",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/terminals/term_remote/output?sinceSeq=2&tailBytes=1024&limitChunks=10",
+        url: "http://cc.test/api/v1/terminals/term_remote/output?sinceSeq=2&tailBytes=1024&limitChunks=10",
       },
       {
         bodyText: JSON.stringify({ mode: "force", reason: "user" }),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_remote/close",
+        url: "http://cc.test/api/v1/terminals/term_remote/close",
       },
     ]);
   });
@@ -1070,9 +1070,9 @@ describe("@bb/sdk", () => {
   it("restarts a terminal without requiring its scope from the caller", async () => {
     const replacement = makeTerminalSession({ id: "term_new" });
     const queue = createFetchQueue([{ body: replacement, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1085,16 +1085,16 @@ describe("@bb/sdk", () => {
       {
         bodyText: JSON.stringify({}),
         method: "POST",
-        url: "http://bb.test/api/v1/terminals/term_old/restart",
+        url: "http://cc.test/api/v1/terminals/term_old/restart",
       },
     ]);
   });
 
   it("rejects mixed terminal scope selectors before transport", async () => {
     const queue = createFetchQueue([]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1120,9 +1120,9 @@ describe("@bb/sdk", () => {
         status: 404,
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1136,9 +1136,9 @@ describe("@bb/sdk", () => {
   it("routes environment pull request calls through the HTTP transport", async () => {
     const response = { outcome: "absent" };
     const queue = createFetchQueue([{ body: response }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1152,7 +1152,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/environments/env_pr/pull-request",
+        url: "http://cc.test/api/v1/environments/env_pr/pull-request",
       },
     ]);
   });
@@ -1164,9 +1164,9 @@ describe("@bb/sdk", () => {
       mergeBaseBranch: "release",
     });
     const queue = createFetchQueue([{ body: environment }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1187,16 +1187,16 @@ describe("@bb/sdk", () => {
           name: "Review workspace",
         }),
         method: "PATCH",
-        url: "http://bb.test/api/v1/environments/env_update",
+        url: "http://cc.test/api/v1/environments/env_update",
       },
     ]);
   });
 
   it("rejects empty environment updates before sending a request", async () => {
     const queue = createFetchQueue([]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1211,9 +1211,9 @@ describe("@bb/sdk", () => {
 
   it("fills thread spawn defaults before sending a request", async () => {
     const queue = createFetchQueue([{ body: { id: "thr_1" }, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1247,9 +1247,9 @@ describe("@bb/sdk", () => {
 
   it("defaults thread forks to source-environment reuse and preserves an agent-only context seed", async () => {
     const queue = createFetchQueue([{ body: { id: "thr_fork" }, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1269,7 +1269,7 @@ describe("@bb/sdk", () => {
 
     expect(queue.requests[0]).toMatchObject({
       method: "POST",
-      url: "http://bb.test/api/v1/threads/fork",
+      url: "http://cc.test/api/v1/threads/fork",
     });
     expect(JSON.parse(queue.requests[0]?.bodyText ?? "{}")).toEqual({
       sourceThreadId: "thr_source",
@@ -1291,9 +1291,9 @@ describe("@bb/sdk", () => {
       { body: [] },
       { body: { id: "thr_hidden", visibility: "hidden" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1306,7 +1306,7 @@ describe("@bb/sdk", () => {
     });
 
     expect(queue.requests[0]?.url).toBe(
-      "http://bb.test/api/v1/threads?includeHidden=true",
+      "http://cc.test/api/v1/threads?includeHidden=true",
     );
     expect(JSON.parse(queue.requests[1]?.bodyText ?? "{}")).toEqual({
       visibility: "hidden",
@@ -1319,9 +1319,9 @@ describe("@bb/sdk", () => {
       { body: { ok: true, delivery: "sent" } },
       { body: { id: "qmsg_full" }, status: 201 },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1378,9 +1378,9 @@ describe("@bb/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1403,16 +1403,16 @@ describe("@bb/sdk", () => {
           input: [{ type: "text", text: "Replacement", mentions: [] }],
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/threads/thr_edit/edit-message",
+        url: "http://cc.test/api/v1/threads/thr_edit/edit-message",
       },
     ]);
   });
 
   it("preserves explicit thread spawn origin for CLI callers", async () => {
     const queue = createFetchQueue([{ body: { id: "thr_1" }, status: 201 }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1447,9 +1447,9 @@ describe("@bb/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1463,15 +1463,15 @@ describe("@bb/sdk", () => {
     expect(queue.requests[0]).toEqual({
       bodyText: JSON.stringify({ sectionId: "sec_123" }),
       method: "PATCH",
-      url: "http://bb.test/api/v1/threads/thr_section",
+      url: "http://cc.test/api/v1/threads/thr_section",
     });
   });
 
   it("sends the queued message version when updating its content", async () => {
     const queue = createFetchQueue([{ body: { id: "qmsg_123" } }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1490,7 +1490,7 @@ describe("@bb/sdk", () => {
         input: [{ type: "text", text: "Edited", mentions: [] }],
       }),
       method: "PATCH",
-      url: "http://bb.test/api/v1/threads/thr_123/queued-messages/qmsg_123",
+      url: "http://cc.test/api/v1/threads/thr_123/queued-messages/qmsg_123",
     });
   });
 
@@ -1502,9 +1502,9 @@ describe("@bb/sdk", () => {
       { body: { ok: true, delivery: "sent" } },
       { body: null, status: 204 },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1524,9 +1524,9 @@ describe("@bb/sdk", () => {
     expect(
       queue.requests.map((request) => `${request.method} ${request.url}`),
     ).toEqual([
-      "GET http://bb.test/api/v1/queued-messages?",
-      "POST http://bb.test/api/v1/threads/thr_123/queued-messages/qm_1/send",
-      "DELETE http://bb.test/api/v1/threads/thr_123/queued-messages/qm_1",
+      "GET http://cc.test/api/v1/queued-messages?",
+      "POST http://cc.test/api/v1/threads/thr_123/queued-messages/qm_1/send",
+      "DELETE http://cc.test/api/v1/threads/thr_123/queued-messages/qm_1",
     ]);
     expect(queue.requests[1].bodyText).toBe(JSON.stringify({ mode: "auto" }));
   });
@@ -1546,9 +1546,9 @@ describe("@bb/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1576,7 +1576,7 @@ describe("@bb/sdk", () => {
     });
 
     expect(queue.requests[0].url).toBe(
-      "http://bb.test/api/v1/queued-messages?threadId=thr_123&waitHolder=plugin%3Aconcurrency-limit",
+      "http://cc.test/api/v1/queued-messages?threadId=thr_123&waitHolder=plugin%3Aconcurrency-limit",
     );
     expect(queue.requests[1].bodyText).toBe(
       JSON.stringify({
@@ -1602,9 +1602,9 @@ describe("@bb/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1629,9 +1629,9 @@ describe("@bb/sdk", () => {
       ],
     });
 
-    expect(queue.requests[0].url).toBe("http://bb.test/api/v1/threads/count?");
+    expect(queue.requests[0].url).toBe("http://cc.test/api/v1/threads/count?");
     expect(queue.requests[1].url).toBe(
-      "http://bb.test/api/v1/threads/count?status=active&hostId=host_a&providerId=codex&projectId=proj_123&parentThreadId=none&groupBy=host",
+      "http://cc.test/api/v1/threads/count?status=active&hostId=host_a&providerId=codex&projectId=proj_123&parentThreadId=none&groupBy=host",
     );
   });
 
@@ -1642,9 +1642,9 @@ describe("@bb/sdk", () => {
       { id: "thr_b", hostId: null },
     ];
     const queue = createFetchQueue([{ body: rows }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1653,7 +1653,7 @@ describe("@bb/sdk", () => {
     await expect(sdk.threads.listRunning()).resolves.toEqual(rows);
     // No filters at all: the occupying set is small, and a caller that needs
     // more than "which ids, on which hosts" fetches the threads it named.
-    expect(queue.requests[0].url).toBe("http://bb.test/api/v1/threads/running");
+    expect(queue.requests[0].url).toBe("http://cc.test/api/v1/threads/running");
   });
 
   it("lists thread sections without fetching sidebar projects", async () => {
@@ -1661,9 +1661,9 @@ describe("@bb/sdk", () => {
       { id: "sec_123", name: "Review", createdAt: 1, updatedAt: 2 },
     ];
     const queue = createFetchQueue([{ body: sections }]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1674,7 +1674,7 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/thread-sections",
+        url: "http://cc.test/api/v1/thread-sections",
       },
     ]);
   });
@@ -1691,9 +1691,9 @@ describe("@bb/sdk", () => {
         status: 201,
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1705,7 +1705,7 @@ describe("@bb/sdk", () => {
     expect(queue.requests[0]).toEqual({
       bodyText: JSON.stringify({ name: "Review" }),
       method: "POST",
-      url: "http://bb.test/api/v1/thread-sections",
+      url: "http://cc.test/api/v1/thread-sections",
     });
   });
 
@@ -1718,9 +1718,9 @@ describe("@bb/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test/",
+        baseUrl: "http://cc.test/",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1737,21 +1737,21 @@ describe("@bb/sdk", () => {
     expect(queue.requests[0]).toEqual({
       bodyText: "null",
       method: "POST",
-      url: "http://bb.test/api/v1/plugins/custom-instructions/rpc/getInstructions",
+      url: "http://cc.test/api/v1/plugins/custom-instructions/rpc/getInstructions",
     });
   });
 
   it("routes every typed plugin administration method through the transport", async () => {
     const plugin = {
       id: "notes",
-      source: "npm:@bb/notes@^1",
+      source: "npm:@cc/notes@^1",
       rootDir: "/plugins/notes",
       version: "1.2.0",
       provenance: "catalog" as const,
       isOrphanedBuiltin: false,
       catalogEntryId: "notes",
-      publisherLabel: "BB Community",
-      sourceDisplay: "npm · @bb/notes · tracks compatible",
+      publisherLabel: "CC Community",
+      sourceDisplay: "npm · @cc/notes · tracks compatible",
       updateState: {},
       enabled: true,
       description: "Notes",
@@ -1791,9 +1791,9 @@ describe("@bb/sdk", () => {
       { body: { ok: true, plugin } },
       {
         body: {
-          requested: "npm:@bb/notes@^1",
+          requested: "npm:@cc/notes@^1",
           resolved: "1.2.0",
-          engines: { bb: ">=0.9", bbPluginSdk: "^0.2.0" },
+          engines: { cc: ">=0.9", ccPluginSdk: "^0.2.0" },
           installedAt: 5,
           history: [{ version: "1.2.0", activatedAt: 5 }],
         },
@@ -1821,7 +1821,7 @@ describe("@bb/sdk", () => {
               icon: null,
               iconUrl: null,
               category: "Productivity",
-              source: "npm:@bb/notes@^1",
+              source: "npm:@cc/notes@^1",
               marketplace: "acme-plugins",
               marketplaceDisplayName: "Acme Plugins",
               publisherKey: "acme-plugins",
@@ -1843,9 +1843,9 @@ describe("@bb/sdk", () => {
         },
       },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test/",
+        baseUrl: "http://cc.test/",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1853,7 +1853,7 @@ describe("@bb/sdk", () => {
 
     await expect(sdk.plugins.list()).resolves.toEqual({ plugins: [plugin] });
     await expect(
-      sdk.plugins.install({ source: "npm:@bb/notes@^1" }),
+      sdk.plugins.install({ source: "npm:@cc/notes@^1" }),
     ).resolves.toEqual(plugin);
     await expect(
       sdk.plugins.catalog.install({
@@ -1887,51 +1887,51 @@ describe("@bb/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugins",
+        url: "http://cc.test/api/v1/plugins",
       },
       {
         bodyText: JSON.stringify({
-          source: "npm:@bb/notes@^1",
+          source: "npm:@cc/notes@^1",
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/plugins/install",
+        url: "http://cc.test/api/v1/plugins/install",
       },
       {
         bodyText: JSON.stringify({
           entryId: "notes",
         }),
         method: "POST",
-        url: "http://bb.test/api/v1/plugin-catalog/install",
+        url: "http://cc.test/api/v1/plugin-catalog/install",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugins/notes/source",
+        url: "http://cc.test/api/v1/plugins/notes/source",
       },
       {
         bodyText: JSON.stringify({ id: "notes" }),
         method: "POST",
-        url: "http://bb.test/api/v1/plugins/updates/check",
+        url: "http://cc.test/api/v1/plugins/updates/check",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugins/updates",
+        url: "http://cc.test/api/v1/plugins/updates",
       },
       {
         bodyText: "{}",
         method: "POST",
-        url: "http://bb.test/api/v1/plugins/notes/update",
+        url: "http://cc.test/api/v1/plugins/notes/update",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugin-catalog",
+        url: "http://cc.test/api/v1/plugin-catalog",
       },
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://bb.test/api/v1/plugin-catalog/search?q=notes",
+        url: "http://cc.test/api/v1/plugin-catalog/search?q=notes",
       },
     ]);
   });
@@ -1942,9 +1942,9 @@ describe("@bb/sdk", () => {
       { body: { ok: true, plugin } },
       { body: { ok: true, plugin } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1983,9 +1983,9 @@ describe("@bb/sdk", () => {
     const queue = createFetchQueue([
       { body: { error: "candidate unavailable" }, status: 422 },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -1998,9 +1998,9 @@ describe("@bb/sdk", () => {
 
   it("rejects thread spawn requests with both prompt and input", async () => {
     const queue = createFetchQueue([]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2027,9 +2027,9 @@ describe("@bb/sdk", () => {
       { body: { id: "thr_wait", status: "active" } },
       { body: { id: "thr_wait", status: "idle" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2049,8 +2049,8 @@ describe("@bb/sdk", () => {
     });
 
     expect(queue.requests.map((request) => request.url)).toEqual([
-      "http://bb.test/api/v1/threads/thr_wait",
-      "http://bb.test/api/v1/threads/thr_wait",
+      "http://cc.test/api/v1/threads/thr_wait",
+      "http://cc.test/api/v1/threads/thr_wait",
     ]);
   });
 
@@ -2058,9 +2058,9 @@ describe("@bb/sdk", () => {
     const queue = createFetchQueue([
       { body: { id: "thr_wait", status: "active" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2098,7 +2098,7 @@ describe("@bb/sdk", () => {
               name: "local-skill",
               description: null,
               provider: null,
-              scope: "bb-user",
+              scope: "cc-user",
               pluginId: null,
               filePath: "/skills/local-skill/SKILL.md",
               manageable: true,
@@ -2117,9 +2117,9 @@ describe("@bb/sdk", () => {
       { body: { stars: 27_053 } },
       { body: { ok: true, filePath: "/skills/useful-skill/SKILL.md" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2146,22 +2146,22 @@ describe("@bb/sdk", () => {
     expect(queue.requests).toEqual([
       {
         method: "GET",
-        url: "http://bb.test/api/v1/projects/proj_123/skills?environmentId=",
+        url: "http://cc.test/api/v1/projects/proj_123/skills?environmentId=",
         bodyText: undefined,
       },
       {
         method: "GET",
-        url: "http://bb.test/api/v1/skills-registry?page=0&perPage=24",
+        url: "http://cc.test/api/v1/skills-registry?page=0&perPage=24",
         bodyText: undefined,
       },
       {
         method: "GET",
-        url: "http://bb.test/api/v1/skills-registry/repository-stars?source=owner%2Frepo",
+        url: "http://cc.test/api/v1/skills-registry/repository-stars?source=owner%2Frepo",
         bodyText: undefined,
       },
       {
         method: "POST",
-        url: "http://bb.test/api/v1/skills-registry/install",
+        url: "http://cc.test/api/v1/skills-registry/install",
         bodyText: JSON.stringify({
           registrySkillId: registrySkill.id,
         }),
@@ -2183,9 +2183,9 @@ describe("@bb/sdk", () => {
       },
       { body: { deletedPath: "/skills/review" } },
     ]);
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
-        baseUrl: "http://bb.test",
+        baseUrl: "http://cc.test",
         fetch: queue.fetch,
         runtime: "node",
       }),
@@ -2218,17 +2218,17 @@ describe("@bb/sdk", () => {
     expect(queue.requests).toEqual([
       {
         method: "GET",
-        url: `http://bb.test/api/v1/projects/proj_123/skills/content?skillId=${skillId}&path=SKILL.md&environmentId=`,
+        url: `http://cc.test/api/v1/projects/proj_123/skills/content?skillId=${skillId}&path=SKILL.md&environmentId=`,
         bodyText: undefined,
       },
       {
         method: "GET",
-        url: `http://bb.test/api/v1/projects/proj_123/skills/files?skillId=${skillId}&environmentId=`,
+        url: `http://cc.test/api/v1/projects/proj_123/skills/files?skillId=${skillId}&environmentId=`,
         bodyText: undefined,
       },
       {
         method: "PATCH",
-        url: "http://bb.test/api/v1/projects/proj_123/skills/content",
+        url: "http://cc.test/api/v1/projects/proj_123/skills/content",
         bodyText: JSON.stringify({
           skillId,
           environmentId: null,
@@ -2238,7 +2238,7 @@ describe("@bb/sdk", () => {
       },
       {
         method: "DELETE",
-        url: "http://bb.test/api/v1/projects/proj_123/skills",
+        url: "http://cc.test/api/v1/projects/proj_123/skills",
         bodyText: JSON.stringify({ skillId, environmentId: null }),
       },
     ]);

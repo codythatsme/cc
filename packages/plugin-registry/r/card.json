@@ -3,9 +3,9 @@
   "name": "card",
   "type": "registry:ui",
   "title": "card",
-  "description": "BB ui \"card\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"card\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@cc/utils"
   ],
   "files": [
     {

@@ -4,11 +4,11 @@ import {
   experimental_useAppPanel,
   experimental_useFixedTabTarget,
   ThreadChat,
-  useBbContext,
-  useBbNavigate,
+  useCcContext,
+  useCcNavigate,
   type PluginFixedTabRegistration,
   type JsonValue,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 
 type DemoThreadTarget = { kind: "thread"; threadId: string };
 
@@ -25,12 +25,12 @@ function isDemoThreadTarget(value: JsonValue): value is DemoThreadTarget {
 }
 
 function ThreadChatDemoPanel({ subPath }: { subPath: string }) {
-  const { threadId: routeThreadId } = useBbContext();
+  const { threadId: routeThreadId } = useCcContext();
   const [threadId, setThreadId] = useState(subPath);
   const [focusRequest, setFocusRequest] = useState(0);
   const activeThreadId = threadId || routeThreadId || "";
   const panel = experimental_useAppPanel();
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b p-2">
@@ -66,7 +66,7 @@ function ThreadChatDemoPanel({ subPath }: { subPath: string }) {
           className="h-8 cursor-pointer rounded-md border px-2 text-sm hover:bg-surface-recessed"
           onClick={() =>
             navigate.openUrl(
-              "https://github.com/get-bb/bb/tree/main/examples/plugins/thread-chat-demo",
+              "https://github.com/codythatsme/cc/tree/main/examples/plugins/thread-chat-demo",
             )
           }
         >

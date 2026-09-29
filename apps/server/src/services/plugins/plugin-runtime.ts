@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import {
   providerWithoutBridgeMessage,
   type NormalizedPluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk/internal/host-policy";
 import { createHash, randomUUID } from "node:crypto";
 import {
   createReadStream,
@@ -19,7 +19,7 @@ import { createRequire, registerHooks } from "node:module";
 import { performance } from "node:perf_hooks";
 import { createJiti } from "jiti";
 import semver from "semver";
-import { HOST_ARTIFACT_MAX_BYTES } from "@bb/host-daemon-contract/protocol";
+import { HOST_ARTIFACT_MAX_BYTES } from "@cc/host-daemon-contract/protocol";
 import {
   calculateExponentialBackoffDelay,
   isPluginOwnedIconPath,
@@ -28,15 +28,15 @@ import {
   PLUGIN_SDK_VERSION,
   type Thread,
   type ThreadQueuedMessage,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   buildPluginApp,
   buildPluginHost,
   isIgnoredPluginDevPath,
-} from "@bb/plugin-build";
+} from "@cc/plugin-build";
 import { PluginHostArtifactRegistry } from "./plugin-host-artifact-registry.js";
 import { getPluginBuildToolchain } from "./build-toolchain.js";
-import { createNodeBbSdk, type BbSdk } from "@bb/sdk";
+import { createNodeCcSdk, type CcSdk } from "@cc/sdk";
 import {
   getExperiments,
   getInstalledPlugin,
@@ -45,7 +45,7 @@ import {
   prunePluginSchedules,
   upsertPluginSchedule,
   type InstalledPluginRow,
-} from "@bb/db";
+} from "@cc/db";
 import { toThreadResponseFromThread } from "../threads/thread-runtime-display.js";
 import {
   brandingAssetHash,
@@ -71,7 +71,7 @@ import {
 import type {
   PluginHookName,
   PluginSettingDescriptors,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import type { PluginHookRegistration } from "./plugin-hook-registry.js";
 import type { PluginEnvironmentProviderRecord } from "./plugin-environment-provider-registry.js";
 import type { PluginMachineProviderRecord } from "./plugin-machine-provider-registry.js";
@@ -82,7 +82,7 @@ import {
 import {
   createPluginApi,
   isNeedsConfigurationError,
-  type BbPluginApi,
+  type CcPluginApi,
   type PluginApiHandle,
   type PluginThreadEventName,
   type PluginThreadEventPayloads,
@@ -90,7 +90,7 @@ import {
 import type {
   PluginHandlerStats,
   PluginRuntimeStatus,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type {
   LoadedPlugin,
   PluginServiceDeps,
@@ -106,9 +106,9 @@ import { buildCachedPluginServer } from "./plugin-server-cache.js";
 const serverRuntimeDir = dirname(fileURLToPath(import.meta.url));
 const pluginSdkRuntimePath = join(serverRuntimeDir, "plugin-sdk-runtime.js");
 const zodRuntimePath = join(serverRuntimeDir, "zod-runtime.js");
-const PLUGIN_SDK_SPECIFIER = "@get-bb/plugin-sdk";
+const PLUGIN_SDK_SPECIFIER = "@codythatsme/plugin-sdk";
 
-const LEGACY_PLUGIN_SDK_SPECIFIER = "@bb/plugin-sdk";
+const LEGACY_PLUGIN_SDK_SPECIFIER = "@cc/plugin-sdk";
 const ZOD_SPECIFIER = "zod";
 
 async function hashFile(
@@ -173,7 +173,7 @@ interface MutableRoot {
 
 const mutableRoots = new Map<string, MutableRoot>();
 const builtinZodParentUrls = new Set<string>();
-const MUTABLE_ROOT_MARKER = /[?&]bbPluginLoad=(\d+)\.(\d+)/;
+const MUTABLE_ROOT_MARKER = /[?&]ccPluginLoad=(\d+)\.(\d+)/;
 let nextMutableRootId = 1;
 let nextMutableRootEpoch = 1;
 let mutableRootHooks: { deregister: () => void } | null = null;
@@ -218,7 +218,7 @@ function registerMutableRootHooks(): void {
       const separator = resolved.url.includes("?") ? "&" : "?";
       return {
         ...resolved,
-        url: `${resolved.url}${separator}bbPluginLoad=${match.id}.${epoch}`,
+        url: `${resolved.url}${separator}ccPluginLoad=${match.id}.${epoch}`,
         shortCircuit: true,
       };
     },
@@ -444,7 +444,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
   const needsConfiguration = new Map<string, string>();
   const agentToolProblems = new Map<string, string>();
   const handlerStats = new Map<string, PluginHandlerStats>();
-  let boundSdk: BbSdk | undefined;
+  let boundSdk: CcSdk | undefined;
   let boundLoopbackBaseUrl: string | undefined;
   let loadHold: PluginLoadHold | null = null;
 
@@ -945,7 +945,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
   }
 
   function checkEngineRange(manifest: PluginManifest): string | undefined {
-    if (!manifest.bbEngineRange) return undefined;
+    if (!manifest.ccEngineRange) return undefined;
     const version = semver.coerce(deps.appVersion);
     if (!version) {
       logger.warn(
@@ -956,23 +956,23 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     if (version.major === 0 && version.minor === 0 && version.patch === 0) {
       return undefined;
     }
-    if (!semver.satisfies(version, manifest.bbEngineRange)) {
-      return `requires bb ${manifest.bbEngineRange}, this is ${version.version}`;
+    if (!semver.satisfies(version, manifest.ccEngineRange)) {
+      return `requires cc ${manifest.ccEngineRange}, this is ${version.version}`;
     }
     return undefined;
   }
 
   function checkPluginSdkRange(manifest: PluginManifest): string | undefined {
-    if (!manifest.bbPluginSdkRange) return undefined;
-    if (!isPluginSdkRangeSatisfied(manifest.bbPluginSdkRange)) {
-      return pluginSdkRangeProblem(manifest.bbPluginSdkRange);
+    if (!manifest.ccPluginSdkRange) return undefined;
+    if (!isPluginSdkRangeSatisfied(manifest.ccPluginSdkRange)) {
+      return pluginSdkRangeProblem(manifest.ccPluginSdkRange);
     }
     return undefined;
   }
 
   async function runFactoryTimeBoxed(
-    factory: (api: BbPluginApi) => unknown,
-    api: BbPluginApi,
+    factory: (api: CcPluginApi) => unknown,
+    api: CcPluginApi,
   ): Promise<void> {
     await raceTimeout(
       Promise.resolve(factory(api)),
@@ -1154,7 +1154,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
           dataDir: deps.dataDir,
           pluginId: row.id,
           sdkVersion: PLUGIN_SDK_VERSION,
-          bbVersion: deps.appVersion,
+          ccVersion: deps.appVersion,
           validatedConfig: {
             serverEntry,
             packageName: manifest.packageName,
@@ -1557,7 +1557,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
     args: SafeModeActivationRefusalArgs,
   ): string | null {
     if (isSafeModeExempt(args) || !getPluginSafeMode(deps.db)) return null;
-    return `plugin safe mode is on; turn it off with \`bb plugin safe-mode off\` before you ${args.action} "${args.pluginId}"`;
+    return `plugin safe mode is on; turn it off with \`cc plugin safe-mode off\` before you ${args.action} "${args.pluginId}"`;
   }
 
   async function loadOne(row: InstalledPluginRow): Promise<string | null> {
@@ -1748,7 +1748,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       callPluginHost: (args) => {
         if (hostArtifactCandidate === null) {
           throw new Error(
-            `plugin "${row.id}" does not declare a bb.host entry`,
+            `plugin "${row.id}" does not declare a cc.host entry`,
           );
         }
         if (!deps.callPluginHost) {
@@ -1857,11 +1857,11 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       const factory = mod.default;
       if (typeof factory !== "function") {
         throw new Error(
-          `server entry must default-export a factory (bb) => void, got ${typeof factory}`,
+          `server entry must default-export a factory (cc) => void, got ${typeof factory}`,
         );
       }
       await runFactoryTimeBoxed(
-        factory as (api: BbPluginApi) => unknown,
+        factory as (api: CcPluginApi) => unknown,
         handle.api,
       );
     } catch (error) {
@@ -1869,7 +1869,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
       discardCandidateHandle(handle);
       let message = error instanceof Error ? error.message : String(error);
       if (/ERR_DLOPEN_FAILED|\.node/.test(message)) {
-        message += " (native dependencies are not supported in BB plugins)";
+        message += " (native dependencies are not supported in CC plugins)";
       }
       if (previous !== undefined) {
         setStatus(row.id, "running", `reload failed: ${message}`);
@@ -2078,7 +2078,7 @@ export function createPluginRuntime(context: PluginRuntimeContext) {
   }
 
   function bindSdk(args: { baseUrl: string }): void {
-    boundSdk = createNodeBbSdk({ baseUrl: args.baseUrl });
+    boundSdk = createNodeCcSdk({ baseUrl: args.baseUrl });
     boundLoopbackBaseUrl = args.baseUrl;
   }
 

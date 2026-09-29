@@ -1,10 +1,10 @@
-import { getLastStoredProviderThreadId, getThread, listEvents } from "@bb/db";
+import { getLastStoredProviderThreadId, getThread, listEvents } from "@cc/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
   type PromptInput,
-} from "@bb/domain";
+} from "@cc/domain";
 import { describe, expect, it, vi } from "vitest";
 import { registerHostRpcResponder } from "../helpers/host-rpc.js";
 import { readJson } from "../helpers/json.js";

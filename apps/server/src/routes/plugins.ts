@@ -9,7 +9,7 @@ import type {
   ExperimentalPluginWebSocket,
   ExperimentalPluginWebSocketHandlers,
   PluginCliExecutionResult,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import type { ServerRuntimeConfig } from "../types.js";
 import { ApiError } from "../errors.js";
 import {
@@ -42,11 +42,11 @@ import {
   pluginSettingsUpdateRequestSchema,
   pluginTokenRequestSchema,
   pluginUpdateCheckRequestSchema,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 
 interface PluginRoutesDeps {
   config: Pick<ServerRuntimeConfig, "serverPort" | "appUrl" | "devAppPort">;
-  db: import("@bb/db").DbConnection;
+  db: import("@cc/db").DbConnection;
 }
 
 type WireAuthProblem = BrowserRequestProblem | { status: 401; error: string };
@@ -216,7 +216,7 @@ async function tokenAuthProblem(
   id: string,
 ): Promise<WireAuthProblem | null> {
   const presented =
-    context.req.header("x-bb-plugin-token") ?? context.req.query("token");
+    context.req.header("x-cc-plugin-token") ?? context.req.query("token");
   const expected = await plugins.httpToken(id);
   if (
     expected === undefined ||
@@ -226,8 +226,8 @@ async function tokenAuthProblem(
     return {
       status: 401,
       error:
-        'missing or invalid plugin token — send it as the "x-bb-plugin-token" header ' +
-        "or ?token=; print it with `bb plugin token " +
+        'missing or invalid plugin token — send it as the "x-cc-plugin-token" header ' +
+        "or ?token=; print it with `cc plugin token " +
         `${id}\``,
     };
   }

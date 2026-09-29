@@ -7,7 +7,7 @@ import {
   defaultAppSettings,
   PERSONAL_PROJECT_ID,
   type ThreadListEntry,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   act,
   cleanup,
@@ -27,11 +27,11 @@ import type {
   ExperimentalComposerSelection,
   NewThreadRequest,
   PluginEnvironmentProviderInputsProps,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import type {
   SystemEnvironmentProvider,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   NewThreadComposer,
   type NewThreadComposerState,
@@ -45,9 +45,9 @@ import {
 import { encodeReuseValue } from "@/components/pickers/environment-picker-value";
 import { useRootComposeReuseEnvironment } from "@/lib/root-compose-selection";
 import { getPromptDraftAccessor } from "@/hooks/usePromptDraftStorage";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
-import { createDeferredPromise } from "@bb/test-helpers";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
+import { createDeferredPromise } from "@cc/test-helpers";
+import type { PromptDraftAttachment } from "@cc/client-core";
 import { makeProjectWithThreadsResponse } from "@/test/fixtures/projects";
 import { RootComposeView } from "@/views/RootComposeView";
 import { ROOT_COMPOSE_FIXED_PANEL_STATE_ID } from "@/views/RootComposePanelTabContent";
@@ -260,16 +260,16 @@ vi.mock("@/hooks/queries/system-queries", () => ({
         providers: [
           {
             id: "connect",
-            displayName: "bb connect",
-            description: "Use a private getbb.app address.",
+            displayName: "cc connect",
+            description: "Use a private cc.example.invalid address.",
             pluginId: "connect",
             availability: mocks.serverAccessReady
-              ? { status: "available", serverUrl: "https://sawyer.getbb.app" }
-              : { status: "setup-required", message: "Pair with bb connect" },
+              ? { status: "available", serverUrl: "https://sawyer.cc.example.invalid" }
+              : { status: "setup-required", message: "Pair with cc connect" },
           },
         ],
         defaultProviderId: "connect",
-        effectiveUrl: "https://sawyer.getbb.app",
+        effectiveUrl: "https://sawyer.cc.example.invalid",
         urlSource: null,
       },
     },
@@ -835,10 +835,10 @@ describe("PluginNewThreadComposer seeding", () => {
     "falls back when remembered machine %s cannot run the project",
     async (hostId) => {
       window.localStorage.setItem(
-        "bb.promptbox.environment-proj_2-1",
+        "cc.promptbox.environment-proj_2-1",
         "provider:git-worktree",
       );
-      window.localStorage.setItem("bb.promptbox.machine-proj_2-1", hostId);
+      window.localStorage.setItem("cc.promptbox.machine-proj_2-1", hostId);
       render(newThreadElement("proj_2"));
       await waitFor(() => {
         expect(latestPromptBoxProps().modeConfig.environment.value).toBe(
@@ -848,14 +848,14 @@ describe("PluginNewThreadComposer seeding", () => {
           latestPromptBoxProps().modeConfig.environment.selectedProviderHostId,
         ).toBe("host_1");
       });
-      expect(window.localStorage.getItem("bb.promptbox.machine-proj_2-1")).toBe(
+      expect(window.localStorage.getItem("cc.promptbox.machine-proj_2-1")).toBe(
         hostId,
       );
     },
   );
 
   it("keeps a plugin composer's machine separate from the new-thread preference", async () => {
-    window.localStorage.setItem("bb.promptbox.machine-proj_1-1", "host_2");
+    window.localStorage.setItem("cc.promptbox.machine-proj_1-1", "host_2");
     renderComposer(STORED_REQUEST, () => undefined, "local-machine");
     expect(
       latestPromptBoxProps().modeConfig.environment.selectedProviderHostId,
@@ -866,7 +866,7 @@ describe("PluginNewThreadComposer seeding", () => {
         "host_1",
       );
     });
-    expect(window.localStorage.getItem("bb.promptbox.machine-proj_1-1")).toBe(
+    expect(window.localStorage.getItem("cc.promptbox.machine-proj_1-1")).toBe(
       "host_2",
     );
   });
@@ -1360,7 +1360,7 @@ describe("PluginNewThreadComposer seeding", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    window.localStorage.setItem("bb.root-compose.project-id", "proj_1");
+    window.localStorage.setItem("cc.root-compose.project-id", "proj_1");
     const router = createMemoryRouter(
       [{ path: "/", element: <RootComposeView /> }],
       { initialEntries: ["/"] },
@@ -1385,7 +1385,7 @@ describe("PluginNewThreadComposer seeding", () => {
 
   it("applies a plugin machine target after the root composer loads", async () => {
     mocks.sidebarNavigationSettled = false;
-    window.localStorage.setItem("bb.root-compose.project-id", "proj_1");
+    window.localStorage.setItem("cc.root-compose.project-id", "proj_1");
     const router = createMemoryRouter(
       [{ path: "/", element: <RootComposeView /> }],
       {
@@ -1444,7 +1444,7 @@ describe("PluginNewThreadComposer seeding", () => {
         environmentProviderId: "git-worktree",
       }),
     ];
-    window.localStorage.setItem("bb.root-compose.project-id", "proj_1");
+    window.localStorage.setItem("cc.root-compose.project-id", "proj_1");
     const router = createMemoryRouter(
       [{ path: "/", element: <RootComposeView /> }],
       {
@@ -1494,7 +1494,7 @@ describe("PluginNewThreadComposer seeding", () => {
         },
       }),
     );
-    window.localStorage.setItem("bb.root-compose.project-id", "proj_1");
+    window.localStorage.setItem("cc.root-compose.project-id", "proj_1");
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -1593,7 +1593,7 @@ describe("PluginNewThreadComposer seeding", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    window.localStorage.setItem("bb.root-compose.project-id", "proj_1");
+    window.localStorage.setItem("cc.root-compose.project-id", "proj_1");
     const router = createMemoryRouter(
       [{ path: "/", element: <RootComposeView /> }],
       { initialEntries: ["/"] },
@@ -1616,7 +1616,7 @@ describe("PluginNewThreadComposer seeding", () => {
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
       });
-      window.localStorage.setItem("bb.root-compose.project-id", "proj_1");
+      window.localStorage.setItem("cc.root-compose.project-id", "proj_1");
       const router = createMemoryRouter(
         [{ path: "/", element: <RootComposeView /> }],
         { initialEntries: ["/"] },
@@ -1636,7 +1636,7 @@ describe("PluginNewThreadComposer seeding", () => {
       act(() => {
         window.dispatchEvent(
           new StorageEvent("storage", {
-            key: "bb.root-compose.project-id",
+            key: "cc.root-compose.project-id",
             oldValue: "proj_1",
             newValue: remoteProjectId,
             storageArea: window.localStorage,
@@ -1646,7 +1646,7 @@ describe("PluginNewThreadComposer seeding", () => {
 
       await waitFor(() => {
         expect(setItem).not.toHaveBeenCalledWith(
-          "bb.root-compose.project-id",
+          "cc.root-compose.project-id",
           PERSONAL_PROJECT_ID,
         );
       });
@@ -1675,7 +1675,7 @@ describe("PluginNewThreadComposer seeding", () => {
         );
       };
       window.localStorage.setItem(
-        "bb.root-compose.project-id",
+        "cc.root-compose.project-id",
         inheritedProjectId,
       );
       const first = mountRoot();
@@ -1690,7 +1690,7 @@ describe("PluginNewThreadComposer seeding", () => {
       const remoteProjectId =
         inheritedProjectId === "proj_1" ? PERSONAL_PROJECT_ID : "proj_1";
       window.localStorage.setItem(
-        "bb.root-compose.project-id",
+        "cc.root-compose.project-id",
         remoteProjectId,
       );
       mountRoot();
@@ -1701,10 +1701,10 @@ describe("PluginNewThreadComposer seeding", () => {
             : inheritedProjectId,
         );
       });
-      expect(window.sessionStorage.getItem("bb.root-compose.project-id")).toBe(
+      expect(window.sessionStorage.getItem("cc.root-compose.project-id")).toBe(
         inheritedProjectId,
       );
-      expect(window.localStorage.getItem("bb.root-compose.project-id")).toBe(
+      expect(window.localStorage.getItem("cc.root-compose.project-id")).toBe(
         remoteProjectId,
       );
     },
@@ -1714,7 +1714,7 @@ describe("PluginNewThreadComposer seeding", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    window.localStorage.setItem("bb.root-compose.project-id", "proj_1");
+    window.localStorage.setItem("cc.root-compose.project-id", "proj_1");
     const rootDraft = getPromptDraftAccessor({ kind: "new-thread" });
     rootDraft.setDraft({
       text: "leftover draft",
@@ -1895,7 +1895,7 @@ describe("PluginNewThreadComposer seeding", () => {
     mocks.uploadAttachment.mockResolvedValue({
       type: "localFile",
       name: "notes.txt",
-      path: ".bb/attachments/notes.txt",
+      path: ".cc/attachments/notes.txt",
       mimeType: "text/plain",
       sizeBytes: 5,
     });
@@ -1920,7 +1920,7 @@ describe("PluginNewThreadComposer seeding", () => {
     expect(mocks.copyAttachments).toHaveBeenCalledWith({
       projectId: "proj_2",
       sourceProjectId: "proj_1",
-      paths: [".bb/attachments/notes.txt"],
+      paths: [".cc/attachments/notes.txt"],
     });
     expect(latestPromptBoxProps().project.value).toBe("proj_1");
     expect(latestPromptBoxProps().attachments.items).toHaveLength(1);
@@ -2244,7 +2244,7 @@ describe("NewThreadComposer environment providers", () => {
         null,
       );
     });
-    await screen.findByText("Pair with bb connect");
+    await screen.findByText("Pair with cc connect");
     expect(latestPromptBoxProps().disabled).toBe(true);
     mocks.serverAccessReady = true;
     rendered.rerender(
@@ -2259,7 +2259,7 @@ describe("NewThreadComposer environment providers", () => {
       </MemoryRouter>,
     );
     await waitFor(() =>
-      expect(screen.queryByText("Pair with bb connect")).toBeNull(),
+      expect(screen.queryByText("Pair with cc connect")).toBeNull(),
     );
     expect(latestPromptBoxProps().disabled).toBe(false);
     mocks.serverAccessReady = false;
@@ -2274,7 +2274,7 @@ describe("NewThreadComposer environment providers", () => {
         />
       </MemoryRouter>,
     );
-    await screen.findByText("Pair with bb connect");
+    await screen.findByText("Pair with cc connect");
     expect(latestPromptBoxProps().disabled).toBe(true);
   });
 
@@ -2744,16 +2744,16 @@ describe("NewThreadComposer setSelection", () => {
       projectId: "proj_1",
     });
     expect(
-      window.localStorage.getItem("bb.promptbox.environment-proj_1-1"),
+      window.localStorage.getItem("cc.promptbox.environment-proj_1-1"),
     ).toBe("provider:git-worktree");
-    expect(window.localStorage.getItem("bb.promptbox.machine-proj_1-1")).toBe(
+    expect(window.localStorage.getItem("cc.promptbox.machine-proj_1-1")).toBe(
       "host_2",
     );
     expect(
-      window.localStorage.getItem("bb.promptbox.environment-proj_2-1"),
+      window.localStorage.getItem("cc.promptbox.environment-proj_2-1"),
     ).toBeNull();
     expect(
-      window.localStorage.getItem("bb.promptbox.machine-proj_2-1"),
+      window.localStorage.getItem("cc.promptbox.machine-proj_2-1"),
     ).toBeNull();
   });
 
@@ -2810,7 +2810,7 @@ describe("NewThreadComposer setSelection", () => {
     expect(latestPromptBoxProps().execution.model.selected).toBe("gpt-5.6-sol");
     expect(latestPromptBoxProps().execution.reasoning.value).toBe("medium");
     expect(latestPromptBoxProps().modeConfig.permission.value).toBe("auto");
-    expect(window.localStorage.getItem("bb.promptbox.model-codex-1")).toBe(
+    expect(window.localStorage.getItem("cc.promptbox.model-codex-1")).toBe(
       "gpt-5.6-sol",
     );
   });
@@ -2831,7 +2831,7 @@ describe("NewThreadComposer setSelection", () => {
       reasoningLevel: "high",
     });
     expect(
-      window.localStorage.getItem("bb.promptbox.model-claude-code-1"),
+      window.localStorage.getItem("cc.promptbox.model-claude-code-1"),
     ).toBe("gpt-5.6-sol");
 
     const unknownProvider = await settled(
@@ -2846,11 +2846,11 @@ describe("NewThreadComposer setSelection", () => {
       model: "gpt-5.6-sol",
       reasoningLevel: "high",
     });
-    expect(window.localStorage.getItem("bb.promptbox.provider")).toBe(
+    expect(window.localStorage.getItem("cc.promptbox.provider")).toBe(
       "claude-code",
     );
     expect(
-      window.localStorage.getItem("bb.promptbox.model-claude-code-1"),
+      window.localStorage.getItem("cc.promptbox.model-claude-code-1"),
     ).toBe("gpt-5.6-sol");
   });
 
@@ -2864,7 +2864,7 @@ describe("NewThreadComposer setSelection", () => {
       },
     );
     await waitFor(() => {
-      expect(window.localStorage.getItem("bb.promptbox.permission-mode")).toBe(
+      expect(window.localStorage.getItem("cc.promptbox.permission-mode")).toBe(
         "accept-edits",
       );
     });
@@ -2893,7 +2893,7 @@ describe("NewThreadComposer setSelection", () => {
   });
 
   it("leaves the stored new-thread preferences alone from a plugin-embedded composer", async () => {
-    window.localStorage.setItem("bb.promptbox.model-claude-code-1", "gpt-5.6");
+    window.localStorage.setItem("cc.promptbox.model-claude-code-1", "gpt-5.6");
     renderComposer(STORED_REQUEST, () => undefined, "selection-local");
     expect(latestPromptBoxProps().execution.model.selected).toBe("gpt-5.6-sol");
 
@@ -2915,16 +2915,16 @@ describe("NewThreadComposer setSelection", () => {
     expect(latestPromptBoxProps().execution.model.selected).toBe("gpt-5.6");
     expect(
       Object.keys(window.localStorage).filter((key) =>
-        /^bb\.promptbox\.(model|reasoning|provider|service-tier|permission-mode|environment|machine)/.test(
+        /^cc\.promptbox\.(model|reasoning|provider|service-tier|permission-mode|environment|machine)/.test(
           key,
         ),
       ),
-    ).toEqual(["bb.promptbox.model-claude-code-1"]);
+    ).toEqual(["cc.promptbox.model-claude-code-1"]);
     expect(
-      window.localStorage.getItem("bb.promptbox.model-claude-code-1"),
+      window.localStorage.getItem("cc.promptbox.model-claude-code-1"),
     ).toBe("gpt-5.6");
     expect(
-      window.localStorage.getItem("bb.promptbox.permission-mode"),
+      window.localStorage.getItem("cc.promptbox.permission-mode"),
     ).toBeNull();
   });
 });

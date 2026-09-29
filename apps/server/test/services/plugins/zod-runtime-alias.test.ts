@@ -14,7 +14,7 @@ afterEach(async () => {
 });
 
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), "bb-zod-alias-"));
+  const root = await mkdtemp(join(tmpdir(), "cc-zod-alias-"));
   tempDirs.push(root);
   const dist = join(root, "dist");
   const zod = join(root, "node_modules", "zod");

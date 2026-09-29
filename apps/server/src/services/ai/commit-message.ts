@@ -1,5 +1,5 @@
-import { renderTemplate } from "@bb/templates";
-import { truncateToWidthAtWordBoundary } from "@bb/text-utils";
+import { renderTemplate } from "@cc/templates";
+import { truncateToWidthAtWordBoundary } from "@cc/text-utils";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { runTextAiTask } from "./ai-tasks.js";
 

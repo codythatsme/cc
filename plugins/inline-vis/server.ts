@@ -1,9 +1,9 @@
 import path from "node:path";
 import {
   defineRpcContract,
-  type BbPluginApi,
+  type CcPluginApi,
   type MarkdownProps,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 
 export const MAX_PREVIEW_BYTES = 5 * 1024 * 1024;
@@ -145,20 +145,20 @@ export const inlineVisRpcContract = defineRpcContract({
   },
 });
 
-export default async function plugin(bb: BbPluginApi) {
-  bb.rpc.register(inlineVisRpcContract, {
+export default async function plugin(cc: CcPluginApi) {
+  cc.rpc.register(inlineVisRpcContract, {
     async preparePreview({ threadId, file, source }) {
       let rootPath: string;
       let hostId: string;
       let target: NonNullable<MarkdownProps["experimental_document"]>["target"];
 
       if (source === "thread-storage") {
-        const storage = await bb.sdk.threads.storageLocation({ threadId });
+        const storage = await cc.sdk.threads.storageLocation({ threadId });
         rootPath = storage.storageRootPath;
         hostId = storage.hostId;
         target = { kind: source, threadId, path: file };
       } else {
-        const thread = await bb.sdk.threads.get({
+        const thread = await cc.sdk.threads.get({
           threadId,
           include: "environment",
         });
@@ -193,7 +193,7 @@ export default async function plugin(bb: BbPluginApi) {
 
       let result;
       try {
-        result = await bb.sdk.files.read({
+        result = await cc.sdk.files.read({
           path: absolutePath,
           rootPath,
           hostId,

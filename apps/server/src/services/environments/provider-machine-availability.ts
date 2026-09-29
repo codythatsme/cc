@@ -1,6 +1,6 @@
-import { getProjectSourceByHost } from "@bb/db";
-import { isLocalPathProjectSource } from "@bb/domain";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import { getProjectSourceByHost } from "@cc/db";
+import { isLocalPathProjectSource } from "@cc/domain";
+import type { SystemEnvironmentProvider } from "@cc/server-contract";
 import type { WorkSessionDeps } from "../../types.js";
 import {
   getNonDestroyedHostWithStatus,

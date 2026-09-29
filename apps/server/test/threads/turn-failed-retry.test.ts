@@ -5,9 +5,9 @@ import {
   listEvents,
   listQueuedThreadMessages,
   setThreadExecutionOverride,
-} from "@bb/db";
-import type { ThreadQueuedMessage } from "@bb/domain";
-import type { PluginHookName } from "@get-bb/plugin-sdk";
+} from "@cc/db";
+import type { ThreadQueuedMessage } from "@cc/domain";
+import type { PluginHookName } from "@codythatsme/plugin-sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   invokePluginInline,

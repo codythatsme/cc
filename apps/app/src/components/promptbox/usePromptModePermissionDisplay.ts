@@ -2,13 +2,13 @@ import { useMemo } from "react";
 import type {
   PromptTextMention,
   ThreadTimelineActivePromptMode,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   isPlanModePrompt,
   permissionDisplayForActivePromptMode,
   permissionDisplayForPromptMode,
   shouldDisablePermissionPickerForActivePromptMode,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import type { ExecutionControlsProps } from "@/components/promptbox/ExecutionControls";
 
 interface UsePromptModePermissionDisplayArgs {

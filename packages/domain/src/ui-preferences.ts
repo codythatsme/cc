@@ -188,7 +188,7 @@ export const uiPreferenceDefinitions = {
       value === "__automatic__" ? "__builtin__" : value,
     ),
     "__builtin__",
-    "Plugin that renders controls beside the sidebar toggle, or __builtin__ for bb's own header only.",
+    "Plugin that renders controls beside the sidebar toggle, or __builtin__ for cc's own header only.",
   ),
   "sidebar.threadListProvider": defineUiPreference(
     uiPreferenceStringSchema.transform((value) =>

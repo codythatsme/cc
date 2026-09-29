@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { getSessionById, getThread, listEvents } from "@bb/db";
-import { threadScope, turnScope } from "@bb/domain";
+import { getSessionById, getThread, listEvents } from "@cc/db";
+import { threadScope, turnScope } from "@cc/domain";
 import {
   writeServerImportFile,
   type ServerImportFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { describe, expect, it } from "vitest";
 import { disconnectImportedDaemonSessions } from "../../src/internal/session-owner-side-effects.js";
 import { applyServerImportAtBoot } from "../../src/services/server-move/pending-boot.js";
@@ -29,11 +29,11 @@ const MANUAL_IMPORT: ServerImportFile = {
   kind: "manual",
   moveId: null,
   activationToken: null,
-  sourceDataDir: "/home/old/.bb",
+  sourceDataDir: "/home/old/.cc",
   sourceServerHostId: null,
   targetHostId: null,
   serverUrl: null,
-  importedEntries: ["bb.db"],
+  importedEntries: ["cc.db"],
   createdAt: 1,
   fixupsAppliedAt: null,
 };

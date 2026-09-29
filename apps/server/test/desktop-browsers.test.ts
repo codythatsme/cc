@@ -1,14 +1,14 @@
-import { getStoredThreadTabs, markThreadDeleted } from "@bb/db";
+import { getStoredThreadTabs, markThreadDeleted } from "@cc/db";
 import {
   desktopBrowserLeaseSchema,
   desktopBrowserResultSchemas,
   type DesktopBrowserTab,
   type HostDaemonOnlineRpcRequestMessage,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import {
   desktopBrowserScopeSchema,
   threadTabsSchema,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import { revokeThreadDesktopBrowserControl } from "../src/services/desktop-browsers.js";

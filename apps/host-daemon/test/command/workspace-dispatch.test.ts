@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { GitHostPullRequest } from "@bb/domain";
+import type { GitHostPullRequest } from "@cc/domain";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   dispatchCommand,
@@ -81,7 +81,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("uses a repository added after the runtime cached a plain workspace", async () => {
-    const workspacePath = await makeTempDir("bb-runtime-late-git-");
+    const workspacePath = await makeTempDir("cc-runtime-late-git-");
     const harness = createHarness({ workspacePath });
     harness.workspace.isGitRepo = false;
     await harness.manager.ensureEnvironment({
@@ -124,10 +124,10 @@ describe("workspace command dispatch", () => {
       number: 42,
       title: "Add timeline polish",
       state: "OPEN",
-      url: "https://github.com/bb/bb/pull/42",
+      url: "https://github.com/cc/cc/pull/42",
       isDraft: false,
       baseRefName: "main",
-      headRefName: "bb/timeline-polish",
+      headRefName: "cc/timeline-polish",
       updatedAt: "2026-06-16T12:30:00Z",
       checks: [],
       reviewDecision: null,
@@ -190,10 +190,10 @@ describe("workspace command dispatch", () => {
       number: 7,
       title: "Should not surface",
       state: "OPEN",
-      url: "https://github.com/bb/bb/pull/7",
+      url: "https://github.com/cc/cc/pull/7",
       isDraft: false,
       baseRefName: "main",
-      headRefName: "bb/hidden-pr",
+      headRefName: "cc/hidden-pr",
       updatedAt: "2026-06-16T12:30:00Z",
       checks: [],
       reviewDecision: null,
@@ -365,7 +365,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("covers host.list_files", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-list-files-");
+    const tempDir = await makeTempDir("cc-dispatch-host-list-files-");
     await fs.writeFile(path.join(tempDir, "notes.md"), "hello");
     await fs.mkdir(path.join(tempDir, "notes"));
     await fs.writeFile(path.join(tempDir, "notes", "todo.md"), "world");
@@ -389,7 +389,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("covers host.list_paths with directories included", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-list-paths-");
+    const tempDir = await makeTempDir("cc-dispatch-host-list-paths-");
     await fs.mkdir(path.join(tempDir, "notes", "daily"), { recursive: true });
     await fs.writeFile(
       path.join(tempDir, "notes", "daily", "todo.md"),
@@ -432,7 +432,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("returns empty files for host.list_files when path does not exist", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-list-missing-");
+    const tempDir = await makeTempDir("cc-dispatch-host-list-missing-");
     const missingPath = path.join(tempDir, "does-not-exist");
 
     const harness = createHarness();
@@ -453,7 +453,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("returns empty paths for host.list_paths when path does not exist", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-list-paths-missing-");
+    const tempDir = await makeTempDir("cc-dispatch-host-list-paths-missing-");
     const missingPath = path.join(tempDir, "does-not-exist");
 
     const harness = createHarness();
@@ -476,7 +476,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("rejects host.list_files when path itself is a symlink", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-list-symlink-root-");
+    const tempDir = await makeTempDir("cc-dispatch-host-list-symlink-root-");
     const targetRoot = path.join(tempDir, "target-root");
     const symlinkRoot = path.join(tempDir, "root-link");
     await fs.mkdir(targetRoot);
@@ -504,7 +504,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("covers host.read_file", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-file-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-file-");
     const filePath = path.join(tempDir, "notes.md");
     await fs.writeFile(filePath, "durable thread notes");
 
@@ -527,7 +527,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("returns base64 for image files", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-image-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-image-");
     const imagePath = path.join(tempDir, "preview.png");
     const imageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
     await fs.writeFile(imagePath, imageBytes);
@@ -552,7 +552,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("covers host.read_file_relative for nested status assets", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-relative-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-relative-");
     const assetDir = path.join(tempDir, "assets");
     const assetPath = path.join(assetDir, "logo.png");
     const imageBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
@@ -578,7 +578,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("does not apply host.read_file size caps to host.read_file_relative", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-relative-large-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-relative-large-");
     const imagePath = path.join(tempDir, "large.png");
     const imageBytes = Buffer.alloc(10 * 1024 * 1024 + 1);
     await fs.writeFile(imagePath, imageBytes);
@@ -600,7 +600,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("rejects host.read_file_relative traversal", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-relative-dotdot-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-relative-dotdot-");
     const harness = createHarness();
 
     await expect(
@@ -621,7 +621,7 @@ describe("workspace command dispatch", () => {
 
   it("hides host.read_file_relative dotfiles when dotfiles are denied", async () => {
     const tempDir = await makeTempDir(
-      "bb-dispatch-host-read-relative-dotfile-",
+      "cc-dispatch-host-read-relative-dotfile-",
     );
     await fs.writeFile(path.join(tempDir, ".env"), "secret");
     const harness = createHarness();
@@ -644,7 +644,7 @@ describe("workspace command dispatch", () => {
 
   it("rejects host.read_file_relative symlink escapes", async () => {
     const tempDir = await makeTempDir(
-      "bb-dispatch-host-read-relative-symlink-",
+      "cc-dispatch-host-read-relative-symlink-",
     );
     const outsidePath = path.join(tempDir, "..", "outside.txt");
     await fs.writeFile(outsidePath, "outside");
@@ -669,7 +669,7 @@ describe("workspace command dispatch", () => {
 
   it("rejects host.read_file_relative when rootPath itself is a symlink", async () => {
     const tempDir = await makeTempDir(
-      "bb-dispatch-host-read-relative-root-symlink-",
+      "cc-dispatch-host-read-relative-root-symlink-",
     );
     const targetRoot = path.join(tempDir, "target-root");
     const symlinkRoot = path.join(tempDir, "root-link");
@@ -696,7 +696,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("rejects host.read_file when the resolved path escapes rootPath through a symlink", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-root-escape-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-root-escape-");
     const outsidePath = path.join(tempDir, "..", "outside.txt");
     const nestedDir = path.join(tempDir, "notes");
     const symlinkPath = path.join(nestedDir, "secrets");
@@ -722,7 +722,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("rejects host.read_file when rootPath itself is a symlink", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-root-symlink-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-root-symlink-");
     const targetRoot = path.join(tempDir, "target-root");
     const symlinkRoot = path.join(tempDir, "root-link");
     const filePath = path.join(symlinkRoot, "notes.txt");
@@ -748,7 +748,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("enforces the 10 MB image read limit", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-large-image-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-large-image-");
     const imagePath = path.join(tempDir, "large.png");
     await fs.writeFile(imagePath, Buffer.alloc(10 * 1024 * 1024 + 1));
 
@@ -770,7 +770,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("enforces the 25 MB non-image read limit", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-large-file-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-large-file-");
     const filePath = path.join(tempDir, "large.bin");
     await fs.writeFile(filePath, Buffer.alloc(25 * 1024 * 1024 + 1));
 
@@ -792,7 +792,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("treats svg files as utf8 text with the non-image size limit", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-svg-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-svg-");
     const filePath = path.join(tempDir, "diagram.svg");
     const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
     await fs.writeFile(filePath, svg);
@@ -813,7 +813,7 @@ describe("workspace command dispatch", () => {
   });
 
   it("falls back to base64 for declared text files whose bytes are not valid utf8", async () => {
-    const tempDir = await makeTempDir("bb-dispatch-host-read-invalid-utf8-");
+    const tempDir = await makeTempDir("cc-dispatch-host-read-invalid-utf8-");
     const filePath = path.join(tempDir, "notes.txt");
     const bytes = Buffer.from([0x63, 0x61, 0x66, 0xe9]);
     await fs.writeFile(filePath, bytes);

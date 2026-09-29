@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import { ShareHostResolver } from "./hosts.js";
 import { ShareRegistry } from "./shares.js";
 
@@ -57,9 +57,9 @@ function createTunnelFixture() {
       },
     },
   });
-  const pluginBb = fakeHost.bb;
+  const pluginCc = fakeHost.cc;
   const credential = {
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.cc.example.invalid",
     handle: "sawyer",
     credential: "bbcred_x",
   };
@@ -71,11 +71,11 @@ function createTunnelFixture() {
       set: async () => {},
       delete: async () => {},
     },
-    hosts: pluginBb.hosts,
-    hostResolver: new ShareHostResolver(() => pluginBb.sdk),
+    hosts: pluginCc.hosts,
+    hostResolver: new ShareHostResolver(() => pluginCc.sdk),
     getLoopbackBaseUrl: () => "http://127.0.0.1:38886",
     getCredential: () => credential,
-    log: pluginBb.log,
+    log: pluginCc.log,
   });
   const tunnel = new ConnectTunnel({
     store: {
@@ -86,7 +86,7 @@ function createTunnelFixture() {
     shares,
     defaultBaseUrl: DEFAULT_CONNECT_BASE_URL,
     getLoopbackBaseUrl: () => "http://127.0.0.1:38886",
-    log: pluginBb.log,
+    log: pluginCc.log,
     onStatusChange,
   });
   return {
@@ -188,7 +188,7 @@ describe("ConnectTunnel socket lifecycle", () => {
 
       tunnel.stop();
 
-      expect(close).toHaveBeenCalledWith(1000, "tunnel closed by bb");
+      expect(close).toHaveBeenCalledWith(1000, "tunnel closed by cc");
       expect(terminate).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(1_000);
       expect(terminate).toHaveBeenCalledOnce();
@@ -226,7 +226,7 @@ describe("ConnectTunnel socket lifecycle", () => {
     }
   });
 
-  it("backs off for minutes when another bb takes over the tunnel", async () => {
+  it("backs off for minutes when another cc takes over the tunnel", async () => {
     vi.useFakeTimers();
     const { fakeHost, tunnel } = createTunnelFixture();
 
@@ -242,7 +242,7 @@ describe("ConnectTunnel socket lifecycle", () => {
         Buffer.from("replaced by a new tunnel connection"),
       );
 
-      expect(tunnel.status().lastError).toContain("another bb connected");
+      expect(tunnel.status().lastError).toContain("another cc connected");
       await vi.advanceTimersByTimeAsync(60_000);
       expect(fakeWebSockets.instances).toHaveLength(1);
       await vi.advanceTimersByTimeAsync(4 * 60_000);

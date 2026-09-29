@@ -18,16 +18,16 @@ import type { QueryClient } from "@tanstack/react-query";
 import type {
   ThreadTimelineResponse,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
-import { mergeLatestTimelineRows } from "@bb/client-core";
-import { createDeferredPromise, type DeferredPromise } from "@bb/test-helpers";
+} from "@cc/server-contract";
+import { mergeLatestTimelineRows } from "@cc/client-core";
+import { createDeferredPromise, type DeferredPromise } from "@cc/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BottomAnchorContext,
   type BottomAnchorContextValue,
 } from "@/components/ui/bottom-anchored-scroll-body.js";
-import { BbHttpError, sdk } from "@/lib/sdk";
-import { OPTIMISTIC_TIMELINE_ROW_ID_PREFIX } from "@bb/client-core";
+import { CcHttpError, sdk } from "@/lib/sdk";
+import { OPTIMISTIC_TIMELINE_ROW_ID_PREFIX } from "@cc/client-core";
 import { threadTimelineQueryKey } from "@/hooks/queries/query-keys";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { systemRow } from "@/test/fixtures/thread-timeline-rows";
@@ -125,8 +125,8 @@ function rowIds(controller: UseThreadTimelineControllerResult): string[] {
   return controller.timelineRows.map((row) => row.id);
 }
 
-function makeServerError(): BbHttpError {
-  return new BbHttpError({
+function makeServerError(): CcHttpError {
+  return new CcHttpError({
     body: null,
     code: null,
     message: "Server error",
@@ -179,7 +179,7 @@ async function renderControllerWithPendingOlderPage() {
       await olderRequest;
     });
   };
-  const failOlderPage = async (error: BbHttpError) => {
+  const failOlderPage = async (error: CcHttpError) => {
     olderPage.reject(error);
     await act(async () => {
       await expect(olderRequest).rejects.toBe(error);
@@ -636,7 +636,7 @@ describe("useThreadTimelineController", () => {
     );
 
     await waitFor(() => {
-      expect(result.current.timelineError).toBeInstanceOf(BbHttpError);
+      expect(result.current.timelineError).toBeInstanceOf(CcHttpError);
     });
 
     startTimelineRefetch(queryClient);
@@ -752,7 +752,7 @@ describe("useThreadTimelineController", () => {
         }),
       )
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new CcHttpError({
           body: null,
           code: "invalid_request",
           message: "Stale timeline cursor",

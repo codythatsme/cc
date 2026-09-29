@@ -1,12 +1,12 @@
-import { REGISTRY_ENTRY_BATCH_LIMIT } from "@bb/server-contract";
-import type { SkillSummary } from "@bb/server-contract";
+import { REGISTRY_ENTRY_BATCH_LIMIT } from "@cc/server-contract";
+import type { SkillSummary } from "@cc/server-contract";
 import type {
   RegistryRanking,
   RegistrySkill,
   RegistrySkillDetail,
   RegistrySkillsPage,
-} from "@bb/server-contract";
-import { RESOURCE_GRID_PAGE_SIZE } from "@bb/shared-ui/resource-pagination";
+} from "@cc/server-contract";
+import { RESOURCE_GRID_PAGE_SIZE } from "@cc/shared-ui/resource-pagination";
 import { sdk } from "@/lib/sdk";
 
 export type { RegistryRanking, RegistrySkill, RegistrySkillDetail };
@@ -76,7 +76,7 @@ export function resolveInstalledRegistrySkill(
   return (
     installedSkills.find((installedSkill) => {
       return (
-        installedSkill.scope === "bb-user" &&
+        installedSkill.scope === "cc-user" &&
         installedSkill.provider === null &&
         installedSkill.manageable &&
         installedSkill.registrySkillId === registrySkill.id
@@ -89,7 +89,7 @@ export function buildRegistrySkillReferencePrompt(
   skill: RegistrySkill,
 ): string {
   return [
-    "Create a new, distinct bb skill using the skills.sh entry below as a reference.",
+    "Create a new, distinct cc skill using the skills.sh entry below as a reference.",
     "",
     `Reference name: ${JSON.stringify(skill.name)}`,
     `Reference skill ID: ${JSON.stringify(skill.id)}`,

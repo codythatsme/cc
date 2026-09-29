@@ -12,13 +12,13 @@ import {
 import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import { registerThreadCommands } from "../../commands/thread/index.js";
 
-describe("bb thread tell command output", () => {
+describe("cc thread tell command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
     registerThreadCommands(program, () => "http://server");
 
-  it("bb thread tell --json prints the raw response plus thread id", async () => {
+  it("cc thread tell --json prints the raw response plus thread id", async () => {
     const post = vi.fn(async () => ({ ok: true, delivery: "sent" }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -37,8 +37,8 @@ describe("bb thread tell command output", () => {
     });
   });
 
-  it("bb thread tell --message-file sends shell-active text untouched", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-tell-file-"));
+  it("cc thread tell --message-file sends shell-active text untouched", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "cc-tell-file-"));
     const path = join(dir, "message.md");
     const message =
       "Rebase with `git rebase --onto main` then run $(pnpm test)";
@@ -67,7 +67,7 @@ describe("bb thread tell command output", () => {
     );
   });
 
-  it("bb thread message is an alias for tell", async () => {
+  it("cc thread message is an alias for tell", async () => {
     const post = vi.fn(async () => ({ ok: true, delivery: "sent" }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -76,7 +76,7 @@ describe("bb thread tell command output", () => {
     expect(post).toHaveBeenCalledTimes(1);
   });
 
-  it("bb thread tell without any message says both ways to pass one", async () => {
+  it("cc thread tell without any message says both ways to pass one", async () => {
     const post = vi.fn(async () => ({ ok: true, delivery: "sent" }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -91,7 +91,7 @@ describe("bb thread tell command output", () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it("bb thread tell names the typed reason a message queued for", async () => {
+  it("cc thread tell names the typed reason a message queued for", async () => {
     // The server says WHY, so the CLI stops inferring it from the flags it
     // sent — which is what let the old four-way delivery enum collapse.
     const post = vi.fn(async () => ({
@@ -113,11 +113,11 @@ describe("bb thread tell command output", () => {
   });
 
   it.each([
-    ["destroyed", true, "bb thread restore-environment thread-gone"],
+    ["destroyed", true, "cc thread restore-environment thread-gone"],
     ["destroyed", false, "Start a new thread"],
     ["never_attached", true, null],
   ] as const)(
-    "bb thread tell explains a %s environment (restorable: %s)",
+    "cc thread tell explains a %s environment (restorable: %s)",
     async (reason, canRestoreEnvironment, hint) => {
       stubServerApi({
         "v1.threads.:id.$get": async () => ({
@@ -154,7 +154,7 @@ describe("bb thread tell command output", () => {
     },
   );
 
-  it("bb thread tell names the plugin a message is waiting on", async () => {
+  it("cc thread tell names the plugin a message is waiting on", async () => {
     const post = vi.fn(async () => ({
       ok: true,
       delivery: "queued",
@@ -177,7 +177,7 @@ describe("bb thread tell command output", () => {
     );
   });
 
-  it("bb thread tell keeps the steered wording for servers that only report ok", async () => {
+  it("cc thread tell keeps the steered wording for servers that only report ok", async () => {
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -188,7 +188,7 @@ describe("bb thread tell command output", () => {
     );
   });
 
-  it("bb thread tell --mode queue preserves non-urgent queued delivery", async () => {
+  it("cc thread tell --mode queue preserves non-urgent queued delivery", async () => {
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -206,7 +206,7 @@ describe("bb thread tell command output", () => {
     });
   });
 
-  it("bb thread tell --mode auto preserves explicit legacy auto delivery", async () => {
+  it("cc thread tell --mode auto preserves explicit legacy auto delivery", async () => {
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -224,7 +224,7 @@ describe("bb thread tell command output", () => {
     });
   });
 
-  it("bb thread tell forwards execution options", async () => {
+  it("cc thread tell forwards execution options", async () => {
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -259,7 +259,7 @@ describe("bb thread tell command output", () => {
     });
   });
 
-  it("bb thread tell forwards automatic review mode", async () => {
+  it("cc thread tell forwards automatic review mode", async () => {
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -285,7 +285,7 @@ describe("bb thread tell command output", () => {
     });
   });
 
-  it("bb thread tell --plan sends the composer's /plan command mention", async () => {
+  it("cc thread tell --plan sends the composer's /plan command mention", async () => {
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -337,9 +337,9 @@ describe("bb thread tell command output", () => {
     ["file", "localFile", "report.pdf", "application/pdf", false],
     ["file", "localFile", "report with spaces.pdf", "application/pdf", true],
   ] as const)(
-    "bb thread tell uploads client %s paths to the target project",
+    "cc thread tell uploads client %s paths to the target project",
     async (flag, type, filename, mimeType, fileUrl) => {
-      const clientDir = await mkdtemp(join(tmpdir(), "bb-cli-thread-image-"));
+      const clientDir = await mkdtemp(join(tmpdir(), "cc-cli-thread-image-"));
       try {
         const attachmentPath = join(clientDir, filename);
         const uploadedPath = "uploaded-" + filename;
@@ -422,8 +422,8 @@ describe("bb thread tell command output", () => {
     },
   );
 
-  it("bb thread tell includes sender thread metadata when run inside another thread", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-sender");
+  it("cc thread tell includes sender thread metadata when run inside another thread", async () => {
+    vi.stubEnv("CC_THREAD_ID", "thread-sender");
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 
@@ -442,8 +442,8 @@ describe("bb thread tell command output", () => {
     });
   });
 
-  it("bb thread tell omits sender metadata when targeting the current thread", async () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-self");
+  it("cc thread tell omits sender metadata when targeting the current thread", async () => {
+    vi.stubEnv("CC_THREAD_ID", "thread-self");
     const post = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.threads.:id.send.$post": post });
 

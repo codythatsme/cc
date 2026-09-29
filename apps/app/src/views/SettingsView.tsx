@@ -7,7 +7,7 @@ import {
   useLocation,
   matchPath,
 } from "react-router-dom";
-import "@bb/shared-ui/icon-extended";
+import "@cc/shared-ui/icon-extended";
 import {
   builtInThemes,
   defaultAppSettings,
@@ -20,23 +20,23 @@ import {
   type Experiments,
   type FaviconColorPreference,
   type PluginThemeMeta,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   WorkspaceOpenTarget,
   WorkspaceOpenTargetId,
-} from "@bb/host-daemon-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { Switch } from "@bb/shared-ui/switch";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+} from "@cc/host-daemon-contract";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
+import { Switch } from "@cc/shared-ui/switch";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@cc/shared-ui/dropdown-menu";
 import { PageShell } from "@/components/ui/page-shell.js";
 import {
   SettingsSection,
@@ -81,7 +81,7 @@ import {
 } from "@/hooks/mutations/settings-mutations";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useWorkspaceOpenTargets } from "@/hooks/useWorkspaceOpenTargets";
-import { isDesktopBrowserAvailable } from "@/lib/bb-desktop";
+import { isDesktopBrowserAvailable } from "@/lib/cc-desktop";
 import {
   FAVICON_COLOR_VALUES,
   getFaviconGlyphHref,
@@ -95,7 +95,7 @@ import {
   getRootComposeRoutePath,
 } from "@/lib/route-paths";
 import { useNavigateToThreadAfterCreatePreference } from "@/lib/root-compose-create-preference";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   resolvePreferredWorkspaceOpenTarget,
   supportsWorkspaceOpenTargetCapability,
@@ -109,7 +109,7 @@ import type { LocalHostDaemonAccessState } from "@/lib/local-host-daemon-access"
 import { openUrlInExternalBrowser } from "@/lib/url-open-routing";
 
 const LOCAL_EDITOR_INTEGRATION_DOCS_URL =
-  "https://github.com/get-bb/bb/blob/main/docs/multiple-devices.md#open-bb-from-another-browser";
+  "https://github.com/codythatsme/cc/blob/main/docs/multiple-devices.md#open-cc-from-another-browser";
 
 interface ThemePreferenceOption {
   label: string;
@@ -186,8 +186,6 @@ interface GeneralSettingsSectionProps {
 interface PrivacySettingsSectionProps {
   onStreamerModeChange: (enabled: boolean) => void;
   streamerMode: boolean;
-  telemetryEnabled: boolean;
-  onTelemetryEnabledChange: (enabled: boolean) => void;
   disabled: boolean;
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
@@ -253,9 +251,9 @@ const SETTINGS_DROPDOWN_CONTENT_CLASS =
   "min-w-[var(--radix-dropdown-menu-trigger-width)]";
 
 const CREATE_CUSTOM_PALETTE_PROMPT =
-  "Create a custom bb palette. First run `bb theme dir` to find the custom theme directory. Ask me for the palette name and visual direction, then create `<theme-dir>/<name>/theme.css` with light and dark theme variables compatible with bb's theme tokens.";
+  "Create a custom cc palette. First run `cc theme dir` to find the custom theme directory. Ask me for the palette name and visual direction, then create `<theme-dir>/<name>/theme.css` with light and dark theme variables compatible with cc's theme tokens.";
 const PALETTE_SETTING_DESCRIPTION =
-  "Palettes change bb's colors, including syntax colors in diffs and file previews. Choose a built-in palette or create one from a prompt.";
+  "Palettes change cc's colors, including syntax colors in diffs and file previews. Choose a built-in palette or create one from a prompt.";
 
 interface PaletteMenuItemProps {
   active: boolean;
@@ -502,10 +500,10 @@ export function LocalOpenTargetSettingsSection({
     const accessDenied = accessState === "denied";
     const accessAvailable = accessState === "available";
     const descriptionText = accessDenied
-      ? "Your browser blocked access to bb on this device. Allow local network access for this site in browser settings, then reload bb."
+      ? "Your browser blocked access to cc on this device. Allow local network access for this site in browser settings, then reload cc."
       : accessAvailable
-        ? "bb couldn’t connect to its local editor helper. Make sure the bb desktop app or CLI is running on this device, then retry. If it is already running, a remote browser origin may need to be configured."
-        : "Connect this browser to bb on this device so it can discover installed editors. bb only contacts the local helper after you choose Enable; your browser may ask for local network access.";
+        ? "cc couldn’t connect to its local editor helper. Make sure the cc desktop app or CLI is running on this device, then retry. If it is already running, a remote browser origin may need to be configured."
+        : "Connect this browser to cc on this device so it can discover installed editors. cc only contacts the local helper after you choose Enable; your browser may ask for local network access.";
     const buttonLabel = accessRequestPending
       ? accessAvailable
         ? "Retrying…"
@@ -636,7 +634,7 @@ function ManagedBranchPrefixSetting({
       label={MANAGED_BRANCH_PREFIX_SETTING_LABEL}
       description={
         valid ? (
-          `bb puts this in front of every branch it creates for a worktree, such as ${draft}${MANAGED_BRANCH_PREFIX_EXAMPLE_SLUG}. Leave it empty for no prefix.`
+          `cc puts this in front of every branch it creates for a worktree, such as ${draft}${MANAGED_BRANCH_PREFIX_EXAMPLE_SLUG}. Leave it empty for no prefix.`
         ) : (
           <span className="text-destructive" role="alert">
             This prefix cannot start a valid git branch name.
@@ -948,7 +946,7 @@ export function GeneralSettingsSection({
             {desktopBrowserAvailable ? (
               <SettingsWithControl
                 label={IN_APP_BROWSER_LINK_SETTING_LABEL}
-                description="Open web links inside bb."
+                description="Open web links inside cc."
               >
                 <Switch
                   checked={openLinksInAppBrowser}
@@ -996,8 +994,6 @@ export function PrivacySettingsSection({
   onEnabledChange,
   streamerMode,
   onStreamerModeChange,
-  telemetryEnabled,
-  onTelemetryEnabledChange,
 }: PrivacySettingsSectionProps) {
   return (
     <SettingsSection title="Privacy & diagnostics">
@@ -1011,18 +1007,6 @@ export function PrivacySettingsSection({
             disabled={disabled}
             onCheckedChange={onStreamerModeChange}
             aria-label={STREAMER_MODE_SETTING_LABEL}
-          />
-        </SettingsWithControl>
-
-        <SettingsWithControl
-          label="Share anonymous usage data"
-          description="Send anonymous app starts, thread and message counts, and plugin installs to help improve BB. Turning this off takes effect immediately for this server."
-        >
-          <Switch
-            checked={telemetryEnabled}
-            disabled={disabled}
-            onCheckedChange={onTelemetryEnabledChange}
-            aria-label="Share anonymous usage data"
           />
         </SettingsWithControl>
 
@@ -1059,12 +1043,12 @@ const EXPERIMENT_DEFINITIONS: Record<
   mobileApp: {
     label: "Mobile app",
     description:
-      "Pair the bb mobile app over bb connect: shows Add mobile device under Remote access and enables bb connect machine-code.",
+      "Pair the cc mobile app over cc connect: shows Add mobile device under Remote access and enables cc connect machine-code.",
   },
   serverMove: {
     label: "Server move",
     description:
-      "Move the bb server to another machine from Settings → Machines, and export or import server data with bb server.",
+      "Move the cc server to another machine from Settings → Machines, and export or import server data with cc server.",
   },
   sidebarProgressiveDisclosure: {
     label: "Sidebar progressive disclosure",
@@ -1308,13 +1292,6 @@ export function SettingsView() {
         <CliSkillsSettingsSection />
         <VoiceInputSettingsSection />
         <PrivacySettingsSection
-          telemetryEnabled={generalSettings.telemetryEnabled}
-          onTelemetryEnabledChange={(enabled) =>
-            updateGeneralSettingsMutation.mutate({
-              ...generalSettings,
-              telemetryEnabled: enabled,
-            })
-          }
           streamerMode={generalSettings.streamerMode}
           onStreamerModeChange={(enabled) =>
             updateGeneralSettingsMutation.mutate({

@@ -6,7 +6,7 @@ import { transcribeVoiceInput } from "@/lib/api";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import type { PromptBoxHandle } from "./PromptBoxInternal";
 import { usePromptVoice } from "./usePromptVoice";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PromptDraftState } from "@cc/client-core";
 
 vi.mock("@/lib/api", () => ({
   transcribeVoiceInput: vi.fn(),

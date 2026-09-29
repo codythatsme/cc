@@ -1,5 +1,5 @@
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
 import {
   normalizeThreadLifecycleFilter,
   type ThreadArchiveFilter,
@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@cc/shared-ui/dropdown-menu";
 
 export const THREAD_LIFECYCLE_OPTIONS = [
   { value: "active", label: "Active" },

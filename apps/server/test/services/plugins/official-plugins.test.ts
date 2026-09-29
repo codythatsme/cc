@@ -9,9 +9,9 @@ import {
   migrate,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
-import type { Logger } from "@bb/logger";
-import { derivePluginId } from "@bb/domain";
+} from "@cc/db";
+import type { Logger } from "@cc/logger";
+import { derivePluginId } from "@cc/domain";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -24,7 +24,6 @@ import {
 } from "../../../src/services/plugins/builtin-registry.js";
 import { readPluginManifest } from "../../../src/services/plugins/manifest.js";
 import { testLogger } from "../../helpers/test-app.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
 const logger = testLogger as unknown as Logger;
 const testDir = dirname(fileURLToPath(import.meta.url));
@@ -34,7 +33,7 @@ const fixtureRoot = resolve(
   "..",
   "fixtures",
   "plugins",
-  "bb-plugin-builtin-fixture",
+  "cc-plugin-builtin-fixture",
 );
 const globals = globalThis as Record<string, unknown>;
 
@@ -62,7 +61,6 @@ function createService(args: {
 }): PluginService {
   return createPluginService({
     aiServices: createAiServiceRegistry(),
-    telemetry: createNoopTelemetryService(),
     db: args.db,
     hub: {
       getDaemonSessionIdForHost: () => null,
@@ -103,7 +101,7 @@ describe("store-installed official plugins", () => {
     delete globals.__builtinFixtureLoads;
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-community-plugins-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-community-plugins-"));
   });
 
   afterEach(async () => {
@@ -162,14 +160,14 @@ describe("store-installed official plugins", () => {
   });
 
   it.each([true, false])(
-    "moves old BB Community provenance to BB Official when autoInstall is %s",
+    "moves old CC Community provenance to CC Official when autoInstall is %s",
     async (autoInstall) => {
       upsertInstalledPlugin(db, {
         id: "builtin-fixture",
         source: "builtin:fixture",
         provenance: {
           kind: "catalog",
-          marketplace: "bb-community",
+          marketplace: "cc-community",
           entryId: "fixture",
         },
         sourceIntent: { kind: "builtin", name: "fixture" },
@@ -198,15 +196,15 @@ describe("store-installed official plugins", () => {
       ).toMatchObject({
         provenance: "catalog",
         catalogEntryId: "fixture",
-        catalogMarketplaceName: "bb-official",
+        catalogMarketplaceName: "cc-official",
       });
       expect(service.list()).toMatchObject([
         {
           id: "builtin-fixture",
           provenance: "catalog",
           catalogEntryId: "fixture",
-          catalogMarketplaceName: "bb-official",
-          publisherLabel: "BB Official",
+          catalogMarketplaceName: "cc-official",
+          publisherLabel: "CC Official",
           status: "running",
         },
       ]);
@@ -214,7 +212,7 @@ describe("store-installed official plugins", () => {
   );
 
   it("re-points an installed official plugin when the bundled copy changes", async () => {
-    const mutableRoot = join(workDir, "bb-plugin-builtin-fixture");
+    const mutableRoot = join(workDir, "cc-plugin-builtin-fixture");
     await cp(fixtureRoot, mutableRoot, { recursive: true });
     service = createService({
       db,

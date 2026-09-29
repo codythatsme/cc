@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
-import { getBbDesktopInfo, readWindowFindTopOffset } from "@/lib/bb-desktop";
+import { getCcDesktopInfo, readWindowFindTopOffset } from "@/lib/cc-desktop";
 
 export function WindowFindHost() {
   const openWindowFind = useCallback((): boolean => {
-    const desktop = getBbDesktopInfo();
+    const desktop = getCcDesktopInfo();
     if (desktop?.openWindowFind === undefined) {
       return false;
     }

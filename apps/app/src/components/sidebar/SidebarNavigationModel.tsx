@@ -13,9 +13,9 @@ import type {
   ExperimentalSidebarNavigationIconProps,
   ExperimentalSidebarNavigationItem,
   ExperimentalSidebarNavigationState,
-} from "@get-bb/plugin-sdk";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+} from "@codythatsme/plugin-sdk";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   useAppCommandRunner,
   useAppCommandShortcut,

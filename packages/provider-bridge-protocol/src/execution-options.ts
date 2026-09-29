@@ -3,7 +3,7 @@ import {
   reasoningLevelSchema,
   runtimePermissionPolicySchema,
   serviceTierSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import { z } from "zod";
 
 export const bridgeExecutionOptionsSchema = z

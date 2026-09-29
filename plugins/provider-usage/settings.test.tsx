@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 import type { UsageMachine, UsageProvider } from "./usage-schema.js";
 
 afterEach(cleanup);
@@ -140,7 +140,7 @@ it("renders loading and a friendly transport error without exposing raw errors",
     { rpc: { getUsage: () => pending } },
   );
   expect(slot.getByText("Loading usage…")).toBeTruthy();
-  reject(new Error("Unexpected token 'b', bb connect..."));
+  reject(new Error("Unexpected token 'b', cc connect..."));
   await slot.findByText("Couldn’t load usage.");
   expect(
     slot.queryByRole("button", { name: "Retry usage refresh" }),

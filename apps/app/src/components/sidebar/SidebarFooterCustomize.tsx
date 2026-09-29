@@ -5,11 +5,11 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Button } from "@bb/shared-ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { CHROME_SECTION_LABEL_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { Button } from "@cc/shared-ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@cc/shared-ui/tooltip";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { CHROME_SECTION_LABEL_CLASS } from "@cc/shared-ui/chrome-style-tokens";
 import { FooterItemIcon } from "@/components/plugin/PluginSidebarFooterItems";
 import {
   type FooterItem,

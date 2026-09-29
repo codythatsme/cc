@@ -3,23 +3,23 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { useCloseMobileSidebar } from "@/components/ui/sidebar.js";
 import {
   CHROME_ROW_CLASS,
-  getBbDesktopInfo,
+  getCcDesktopInfo,
   MACOS_CHROME_CONTROL_NO_DRAG_CLASS,
   MACOS_WINDOW_DRAG_CLASS,
   shouldReserveMacosTrafficLights,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/cc-desktop";
 import { useDesktopWindowState } from "@/hooks/useDesktopWindowState";
 import { SidebarHistoryNavigationControls } from "./SidebarHistoryNavigationControls";
 
 const BROWSER_HEADER_SLOT_START_CLASS =
-  "pl-[calc(env(safe-area-inset-left)_+_12px_+_var(--bb-sidebar-control-size)_-_4px)]";
+  "pl-[calc(env(safe-area-inset-left)_+_12px_+_var(--cc-sidebar-control-size)_-_4px)]";
 const MACOS_TRAFFIC_LIGHT_HEADER_SLOT_START_CLASS =
-  "pl-[calc(84px_+_var(--bb-sidebar-control-size)_-_4px)]";
+  "pl-[calc(84px_+_var(--cc-sidebar-control-size)_-_4px)]";
 
 export function SidebarTopReserveRow({
   testId,
@@ -29,7 +29,7 @@ export function SidebarTopReserveRow({
   renderHeaderSlot?: (startInsetClassName: string) => ReactNode;
 }) {
   const closeOnMobile = useCloseMobileSidebar();
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getCcDesktopInfo);
   const desktopWindowState = useDesktopWindowState();
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const reserveMacosTrafficLights = shouldReserveMacosTrafficLights({

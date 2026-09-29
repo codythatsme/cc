@@ -1,16 +1,16 @@
-import { hasQueuedRetryOfTurnRequest } from "@bb/db";
-import { permissionModeSchema } from "@bb/domain";
+import { hasQueuedRetryOfTurnRequest } from "@cc/db";
+import { permissionModeSchema } from "@cc/domain";
 import type {
   ClientTurnRequestId,
   PermissionMode,
   PromptInput,
   Thread,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   RetryTurnRequest,
   RetryTurnResponse,
   SendMessageRequest,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { ApiError } from "../../errors.js";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { attemptDispatch } from "./dispatch-attempt.js";

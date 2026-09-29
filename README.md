@@ -1,100 +1,55 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/e40bda56-54a4-47f8-a417-6bbadf2e5b40">
-    <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/4d9d02fb-c179-449b-a38a-041955143232">
-    <img alt="bb" src="https://github.com/user-attachments/assets/4d9d02fb-c179-449b-a38a-041955143232" width="128">
-  </picture>
+  <img alt="cc" src="assets/cc-logo.svg" width="128">
 </p>
 
-# bb
+# cc
 
-[![npm version](https://img.shields.io/npm/v/bb-app.svg)](https://www.npmjs.com/package/bb-app)
-[![Join Discord](https://img.shields.io/badge/Discord-Join%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/kvBU6tJhcJ)
-
-bb is an agentic IDE that builds itself. It can control, customize, and automate
-itself, laying the groundwork for your own software factory.
-
-Every surface — the desktop app, web app, CLI, and HTTP API — is a first-class
-way to drive bb. Work runs in threads you can follow live, steer at any point,
-or hand off to another agent.
-
-> [!NOTE]
-> bb is in active development. Core architecture is stable, but workflows
-> and surfaces are still evolving.
+A personal, telemetry-free fork of [bb](https://github.com/get-bb/bb), an agentic IDE with a desktop app, web UI, CLI, and HTTP API. cc uses the provider CLIs you already have authenticated.
 
 <p align="center">
-  <img alt="bb desktop app showing a code review thread, dispatch panel, and task board" src="assets/app-screenshot.png" width="800">
+  <img alt="cc agent workspace" src="assets/cc-banner.png" width="800">
 </p>
 
-## Use bb
+## Install with Homebrew
 
-### Download the desktop app
-
-The recommended way to start using bb is the desktop app:
-
-**[Download the latest desktop app](https://github.com/get-bb/bb/releases/tag/desktop-latest)**
-
-The desktop app supports macOS on Apple Silicon (arm64). The Linux x64 AppImage
-is alpha: expect problems, and please report them. Intel Mac users should run bb
-with `npx` instead. On Windows, run bb inside
-[WSL2 (Windows Subsystem for Linux)](https://learn.microsoft.com/windows/wsl/install):
-install WSL2 first, then run the same `npx` command below from your WSL2 (Linux)
-shell. Native Windows PowerShell and CMD are not supported.
-
-Early adopters can install
-**[bb Nightly](https://github.com/get-bb/bb/releases/tag/desktop-nightly)**
-alongside the stable desktop app. It has a separate application identity,
-yellow icon, and auto-update feed.
-
-### Or run it anywhere with npx
+On an Apple Silicon Mac running macOS 13 or later:
 
 ```bash
-npx bb-app@latest
+brew tap codythatsme/tap
+brew install --cask cc
+open -a cc
 ```
 
-Then open `http://localhost:38886`.
+You can also install directly with `brew install --cask codythatsme/tap/cc`.
+Update with `brew upgrade --cask cc`. Homebrew installs `cc.app` in `/Applications`;
+it does not replace the system C compiler command `/usr/bin/cc`.
 
-To run the newest automated build instead:
+The initial release is not Apple-notarized. If macOS blocks the first launch,
+open **System Settings → Privacy & Security → Open Anyway** for cc.
+The cask does not disable Gatekeeper or remove quarantine attributes.
 
-```bash
-npx bb-app@nightly
-```
+The fork uses its own application identity and `~/.cc` data directory. It does not
+migrate or overwrite an existing bb installation. Hosted connection services and
+external marketplaces require explicit configuration. npm distribution is not
+published for this fork; use Homebrew or build from source.
 
-npm 12 and later block dependency install scripts by default. bb needs those
-scripts to build its native add-ons. If your npm version is 12 or later, allow
-the scripts for the install:
+See [release maintenance](docs/releasing-cc.md) for building and updating the tap.
 
-```bash
-npx --allow-scripts=better-sqlite3,node-pty,@parcel/watcher bb-app@latest
-```
+### Privacy
 
-Or set the policy once for all global installs:
+cc does not collect usage telemetry, installation identifiers, click events, or
+crash reports. The server and website reporting implementations are removed;
+there is no setting or environment variable that enables them. Better Auth's
+transitive telemetry implementation is also removed by a dependency patch.
 
-```bash
-npm config set allow-scripts=better-sqlite3,node-pty,@parcel/watcher --location=user
-```
-
-bb uses the provider CLI you already have authenticated.
-
-For install requirements, provider setup, configuration, and package-focused
-docs, start with
-[`packages/bb-app`](./packages/bb-app/README.md).
-
-### Telemetry
-
-Production runs (the desktop app and `npx bb-app`) send anonymous usage
-telemetry (app starts, thread creation counts, user message counts, and plugin
-installs) to help us understand adoption. Identification is a random per-install
-id stored in your data dir — no user, host, project, workspace, or message
-content is ever attached. Plugin install events name only public plugins
-(bundled plugins and `bb-community` marketplace entries); installs from a local
-path, a private git or npm source, or a third-party marketplace report no name. Development/source runs never send. Opt out any run with
-`BB_TELEMETRY=false`. See
-[`apps/server/src/services/system/telemetry.ts`](./apps/server/src/services/system/telemetry.ts).
+Model providers still receive the requests you send to them. cc disables the
+supported analytics and telemetry controls for the Claude Code and Codex
+processes it launches. Other third-party providers and plugins follow their
+own privacy policies.
 
 ## Development
 
-Use the development loop when working on bb itself:
+Use the development loop when working on cc itself:
 
 ```bash
 pnpm dev
@@ -103,10 +58,10 @@ pnpm dev
 That starts the Vite app and proxies API and WebSocket traffic to a separate
 dev server. The launcher prints the actual ports at startup. Each checkout gets
 a data directory under
-`~/.bb-dev/<checkout-instance>/` and deterministic high ports derived from the
+`~/.cc-dev/<checkout-instance>/` and deterministic high ports derived from the
 checkout path. The checkout instance id is the sanitized path to the checkout,
 relative to your home directory, plus a short hash suffix. Separate worktrees
-can run alongside each other and the packaged `npx bb-app@latest` instance.
+can run alongside each other and the Homebrew desktop instance.
 
 To test the production bundle and serving path without switching to production
 data or ports, use:
@@ -116,16 +71,16 @@ pnpm start:worktree
 ```
 
 This builds the same optimized frontend and runtime artifacts as `pnpm start`,
-then serves the app from the BB server on the checkout-specific dev server port.
+then serves the app from the CC server on the checkout-specific dev server port.
 It keeps the normal checkout-specific dev data directory and host-daemon port.
 There is no Vite dev server or hot reload in this mode; rerun the command after
-source changes. As with `pnpm dev`, worktree starts do not send telemetry.
+source changes.
 
 For the Electron desktop shell, keep `pnpm dev` running and start the desktop
 package in a second terminal:
 
 ```bash
-pnpm exec turbo run dev --filter=@bb/desktop
+pnpm exec turbo run dev --filter=@cc/desktop
 ```
 
 The desktop shell connects to this checkout's running dev app. Stop each command
@@ -200,15 +155,14 @@ pnpm start
 ```
 
 That builds only the app, server, and host-daemon runtime artifacts, then runs
-the launcher directly against those workspace outputs. Use the `bb-app`
-tarball smoke task when validating the published `npx bb-app@latest` package
-layout.
+the launcher directly against those workspace outputs. Use the `cc-app`
+tarball smoke task when validating the bundled runtime package layout.
 
 ```bash
-pnpm bb --help            # built CLI, targets the default/prod instance
+pnpm cc --help            # built CLI, targets the default/prod instance
 pnpm reset                # clear production state
 
-pnpm bb:dev --help        # source CLI, targets this checkout's dev instance
+pnpm cc:dev --help        # source CLI, targets this checkout's dev instance
 pnpm reset:dev            # clear this checkout's dev state
 
 pnpm reset:all            # clear both production and dev states
@@ -229,7 +183,7 @@ See [System overview](docs/system-overview.md) for runtime architecture, data mo
 - [Vision](docs/VISION.md)
 - [Platform support](docs/platform-support.md)
 - [Configuration](docs/configuration.md)
-- [Using bb on multiple devices](docs/multiple-devices.md)
+- [Using cc on multiple devices](docs/multiple-devices.md)
 - [Worktrees and setup scripts](docs/worktrees.md)
 
 ## Contributing
@@ -238,64 +192,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 ## Troubleshooting
 
-### `Could not locate the bindings file`
-
-bb uses native add-ons, for example `better-sqlite3` and `@parcel/watcher`. npm
-downloads or builds those binaries in a package install script. If npm does not
-run install scripts, the binaries are absent. bb then stops at startup with this
-error:
-
-```
-Error: Could not locate the bindings file. Tried:
- → .../node_modules/better-sqlite3/build/better_sqlite3.node
-```
-
-There are two usual causes.
-
-The first cause is npm 12 or later. Since npm 12, npm blocks dependency install
-scripts by default and prints
-`npm warn install-scripts N packages had install scripts blocked`. Name bb's
-native add-ons in `--allow-scripts` to let this one command run their install
-scripts:
-
-```bash
-npx --allow-scripts=better-sqlite3,node-pty,@parcel/watcher bb-app@latest
-```
-
-For a permanent install with the same setting, use:
-
-```bash
-npm install -g --allow-scripts=better-sqlite3,node-pty,@parcel/watcher bb-app
-bb-app
-```
-
-To allow them for all global installs on this machine, run
-`npm config set allow-scripts=better-sqlite3,node-pty,@parcel/watcher --location=user`.
-npm 10 and 11 accept or ignore the flag, so it is safe on every supported Node.
-
-The second cause is `ignore-scripts=true` in your `~/.npmrc`. Set the
-`npm_config_ignore_scripts` environment variable to let this one command run its
-install scripts:
-
-```bash
-npm_config_ignore_scripts=false npx bb-app@latest
-```
-
-For a permanent install with the same setting, use:
-
-```bash
-npm_config_ignore_scripts=false npm install -g bb-app
-bb-app
-```
-
-The environment variable applies to that one command only. Keep
-`ignore-scripts=true` in your `~/.npmrc` if you want it for security.
-
-The same error has other causes. A Node.js major-version change after the
-install causes it. A copy of `node_modules` from a different operating system,
-CPU architecture, or libc variant also causes it. To recover, install the
-package again, or run `npm rebuild better-sqlite3`.
+For a desktop install, use `brew reinstall --cask codythatsme/tap/cc` to restore
+the tested native modules. For source development, use the Node version in
+`.nvmrc`, run `pnpm install --frozen-lockfile`, then `pnpm ensure-native-modules`.
+Do not reuse native modules built for a different Node version or architecture.
 
 ## Acknowledgements
 
-<a href="https://blacksmith.sh"><img src="assets/blacksmith-ci.png" alt="CI powered by Blacksmith" width="400"></a>
+cc is derived from [bb](https://github.com/get-bb/bb). The original project's MIT
+copyright and permission notice are preserved in [LICENSE](LICENSE).

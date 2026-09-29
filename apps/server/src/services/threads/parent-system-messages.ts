@@ -4,7 +4,7 @@ import {
   getThread,
   requireThreadLifecycleEventApplied,
   type DbTransaction,
-} from "@bb/db";
+} from "@cc/db";
 import type {
   PromptInput,
   PromptMentionResource,
@@ -13,11 +13,11 @@ import type {
   SystemMessageKind,
   SystemMessageSubject,
   Thread,
-} from "@bb/domain";
-import type { HostDaemonCommand } from "@bb/host-daemon-contract";
+} from "@cc/domain";
+import type { HostDaemonCommand } from "@cc/host-daemon-contract";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { requireThreadEnvironment } from "../lib/entity-lookup.js";
-import { createQueuedThreadMessage } from "@bb/db";
+import { createQueuedThreadMessage } from "@cc/db";
 import {
   addRequestIdToTurnSubmitCommandPayload,
   buildExecutionOptions,

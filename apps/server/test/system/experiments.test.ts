@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { getExperiments } from "@bb/db";
-import { experimentsSchema } from "@bb/domain";
-import { systemConfigResponseSchema } from "@bb/server-contract";
+import { getExperiments } from "@cc/db";
+import { experimentsSchema } from "@cc/domain";
+import { systemConfigResponseSchema } from "@cc/server-contract";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, type RefObject } from "react";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { transcribeVoiceInput } from "@/lib/api";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PromptDraftState } from "@cc/client-core";
 import type { PromptBoxHandle, PromptVoiceConfig } from "./PromptBoxInternal";
 
 async function requestVoiceTranscription({

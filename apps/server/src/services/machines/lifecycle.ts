@@ -7,7 +7,7 @@ import {
   terminalSessions,
   threads,
   updateHost,
-} from "@bb/db";
+} from "@cc/db";
 import type {
   WorkSessionDeps,
   LoggedPendingInteractionWorkSessionDeps,
@@ -19,7 +19,7 @@ import {
 } from "../server-move/freeze-state.js";
 
 import { appendSystemErrorEvent } from "../threads/thread-events.js";
-import { threadScope } from "@bb/domain";
+import { threadScope } from "@cc/domain";
 import { stopThreadForCurrentState } from "../threads/thread-lifecycle.js";
 
 const RETRY_MS = 10_000;

@@ -2,19 +2,19 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { rm, rmdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import type { AppSurface } from "@bb/config/app-surface";
-import type { ServerBindHost } from "@bb/config/server";
-import { listNonDestroyedHostsByIds } from "@bb/db";
+import type { AppSurface } from "@cc/config/app-surface";
+import type { ServerBindHost } from "@cc/config/server";
+import { listNonDestroyedHostsByIds } from "@cc/db";
 import {
   formatServerDataSize,
   SERVER_MOVE_STEP_IDS,
   type ServerMoveStepId,
-} from "@bb/domain";
-import { writeServerMovedFile } from "@bb/server-archive";
+} from "@cc/domain";
+import { writeServerMovedFile } from "@cc/server-archive";
 import type {
   ServerMovedErrorDetails,
   ServerMoveProgressMessage,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckRequest,
@@ -23,7 +23,7 @@ import type {
   ServerMoveStatus,
   ServerMoveStep,
   ServerMoveStepStatus,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import { callHostOnlineRpc } from "../hosts/online-rpc.js";
@@ -34,8 +34,8 @@ import {
 } from "./checks.js";
 import type { ServerArchiveExport } from "./export.js";
 import type {
-  FullBbAppArtifact,
-  FullBbAppArtifactService,
+  FullCcAppArtifact,
+  FullCcAppArtifactService,
 } from "./full-artifact.js";
 import {
   setServerMoveFrozen,
@@ -100,7 +100,7 @@ export interface ServerMoveEnvironment {
   bindHost: ServerBindHost | null;
   deps: AppDeps;
   exportArchive(args: ServerMoveExportArgs): Promise<ServerArchiveExport>;
-  fullArtifact: FullBbAppArtifactService;
+  fullArtifact: FullCcAppArtifactService;
   now(): number;
   plugins: ServerMovePluginControl;
   readServerDiskFreeBytes(): Promise<number | null>;
@@ -118,7 +118,7 @@ export interface ServerMoveEnvironment {
   timings: ServerMoveTimings;
 }
 
-export type ServerMoveDownloadKind = "archive" | "bb-app";
+export type ServerMoveDownloadKind = "archive" | "cc-app";
 
 export interface ServerMoveDownload {
   path: string;
@@ -165,7 +165,7 @@ interface MoveRun {
   activationToken: string;
   archive: ServerArchiveExport | null;
   archiveExistingTargetServerData: boolean;
-  bbApp: FullBbAppArtifact | null;
+  ccApp: FullCcAppArtifact | null;
   configBackup: OldServerDaemonConfigBackup | null;
   connectHandle: string | null;
   finished: boolean;
@@ -201,9 +201,9 @@ const DAEMON_ERROR_SUMMARIES: Record<string, string> = {
   server_move_cancelled: "The machine cancelled the move",
   server_move_digest_mismatch: "The export was damaged in transit",
   server_move_download_failed: "The machine couldn't download the export",
-  server_move_install_failed: "Installing bb on the machine failed",
+  server_move_install_failed: "Installing cc on the machine failed",
   server_move_rejected: "The machine rejected the move",
-  server_move_server_entry_unavailable: "The machine can't run the bb server",
+  server_move_server_entry_unavailable: "The machine can't run the cc server",
   server_move_start_failed: "The new server didn't start",
 };
 
@@ -218,8 +218,8 @@ export function serverMoveArchiveDownloadPath(moveId: string): string {
   return `/internal/server-move/${encodeURIComponent(moveId)}/archive`;
 }
 
-export function serverMoveBbAppDownloadPath(moveId: string): string {
-  return `/internal/server-move/${encodeURIComponent(moveId)}/bb-app.tgz`;
+export function serverMoveCcAppDownloadPath(moveId: string): string {
+  return `/internal/server-move/${encodeURIComponent(moveId)}/cc-app.tgz`;
 }
 
 export function serverMoveDestinationStatusUrl(serverUrl: string): string {
@@ -299,7 +299,7 @@ function moveFromRunFile(run: ServerMoveRunFile): MoveRun {
     activationToken: run.activationToken,
     archive: null,
     archiveExistingTargetServerData: run.archiveExistingTargetServerData,
-    bbApp: null,
+    ccApp: null,
     configBackup: run.configBackup,
     connectHandle: run.connectHandle,
     finished: true,
@@ -593,7 +593,7 @@ export function createServerMoveCoordinator(
     );
     if (inspect.dataDirHasServerData) {
       throw new Error(
-        `${targetName} already has bb server data in ${inspect.dataDir}`,
+        `${targetName} already has cc server data in ${inspect.dataDir}`,
       );
     }
     if (!inspect.portAvailable) {
@@ -606,16 +606,16 @@ export function createServerMoveCoordinator(
       !move.archiveExistingTargetServerData
     ) {
       throw new Error(
-        `${targetName} has its own bb data at ${inspect.existingServerData.path}. Confirm archiving it, then start the move again.`,
+        `${targetName} has its own cc data at ${inspect.existingServerData.path}. Confirm archiving it, then start the move again.`,
       );
     }
     const appVersion = deps.config.appVersion;
-    if (inspect.serverEntryAvailable && inspect.bbAppVersion === appVersion) {
+    if (inspect.serverEntryAvailable && inspect.ccAppVersion === appVersion) {
       setStep(
         move,
         "update-target",
         "skipped",
-        `${targetName} already runs bb ${appVersion}`,
+        `${targetName} already runs cc ${appVersion}`,
       );
       return;
     }
@@ -623,15 +623,15 @@ export function createServerMoveCoordinator(
       move,
       "update-target",
       "running",
-      `Packing bb ${appVersion} for ${targetName}`,
+      `Packing cc ${appVersion} for ${targetName}`,
     );
-    const bbApp = await untilCancelled(move, environment.fullArtifact.build());
-    move.bbApp = bbApp;
+    const ccApp = await untilCancelled(move, environment.fullArtifact.build());
+    move.ccApp = ccApp;
     setStep(
       move,
       "update-target",
       "done",
-      `bb ${bbApp.version} will be installed on ${targetName}`,
+      `cc ${ccApp.version} will be installed on ${targetName}`,
     );
   }
 
@@ -675,14 +675,14 @@ export function createServerMoveCoordinator(
             sha256: archive.sha256,
             sizeBytes: archive.sizeBytes,
           },
-          bbApp:
-            move.bbApp === null
+          ccApp:
+            move.ccApp === null
               ? null
               : {
-                  downloadPath: serverMoveBbAppDownloadPath(move.status.moveId),
-                  sha256: move.bbApp.sha256,
-                  sizeBytes: move.bbApp.sizeBytes,
-                  version: move.bbApp.version,
+                  downloadPath: serverMoveCcAppDownloadPath(move.status.moveId),
+                  sha256: move.ccApp.sha256,
+                  sizeBytes: move.ccApp.sizeBytes,
+                  version: move.ccApp.version,
                 },
           serverPort: environment.targetServerPort(),
           bindHost: environment.bindHost === "0.0.0.0" ? "0.0.0.0" : null,
@@ -1413,7 +1413,7 @@ export function createServerMoveCoordinator(
       if (move.status.targetHostId !== args.hostId) {
         return { outcome: "forbidden" };
       }
-      const artifact = args.kind === "archive" ? move.archive : move.bbApp;
+      const artifact = args.kind === "archive" ? move.archive : move.ccApp;
       if (artifact === null) {
         return { outcome: "not_found" };
       }
@@ -1459,7 +1459,7 @@ export function createServerMoveCoordinator(
             blockers.push({
               id: "archive-existing-data-required",
               severity: "blocker",
-              title: `Confirm archiving the existing bb data on ${check.response.targetHostName}`,
+              title: `Confirm archiving the existing cc data on ${check.response.targetHostName}`,
               detail: existingData.path,
             });
           }
@@ -1491,7 +1491,7 @@ export function createServerMoveCoordinator(
             archive: null,
             archiveExistingTargetServerData:
               request.archiveExistingTargetServerData,
-            bbApp: null,
+            ccApp: null,
             configBackup: null,
             connectHandle: mode.mode === "connect" ? mode.connectHandle : null,
             finished: false,

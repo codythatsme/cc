@@ -18,14 +18,14 @@ afterEach(async () => {
 async function createSetupPath(name: string, script: string): Promise<string> {
   const path = await mkdtemp(join(tmpdir(), name));
   tempPaths.push(path);
-  await writeFile(join(path, ".bb-env-setup.sh"), script);
+  await writeFile(join(path, ".cc-env-setup.sh"), script);
   return path;
 }
 
 describe("environment attach recovery", () => {
   it("cancels an in-flight setup script before attaching the workspace", async () => {
     const path = await createSetupPath(
-      "bb-attach-cancel-",
+      "cc-attach-cancel-",
       "echo started > started\nsleep 120\necho unsafe > completed\n",
     );
     const harness = createHarness({ workspacePath: path });
@@ -63,7 +63,7 @@ describe("environment attach recovery", () => {
 
   it("coalesces a repeated attach while setup is still running", async () => {
     const path = await createSetupPath(
-      "bb-attach-coalesce-",
+      "cc-attach-coalesce-",
       "echo started >> started\nwhile [ ! -f proceed ]; do sleep 0.05; done\necho completed > completed\n",
     );
     const harness = createHarness({ workspacePath: path });
@@ -92,7 +92,7 @@ describe("environment attach recovery", () => {
 
   it("can retry attachment after setup fails", async () => {
     const path = await createSetupPath(
-      "bb-attach-retry-",
+      "cc-attach-retry-",
       "echo failed > first-attempt\nexit 7\n",
     );
     const harness = createHarness({ workspacePath: path });
@@ -111,7 +111,7 @@ describe("environment attach recovery", () => {
     );
     expect(harness.provisions).toEqual([]);
     await writeFile(
-      join(path, ".bb-env-setup.sh"),
+      join(path, ".cc-env-setup.sh"),
       "echo completed > second-attempt\n",
     );
 

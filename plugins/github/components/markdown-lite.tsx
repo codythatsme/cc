@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { UrlLink } from "@get-bb/plugin-sdk/app";
+import { UrlLink } from "@codythatsme/plugin-sdk/app";
 
 const INLINE_PATTERN =
   /(!\[[^\]]*\]\([^)\s]+\))|(<img\s[^>]*?\/?>)|(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(\[[^\]]+\]\([^)\s]+\))/g;

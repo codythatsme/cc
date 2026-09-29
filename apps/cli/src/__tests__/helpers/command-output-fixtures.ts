@@ -7,13 +7,13 @@ import {
   type PendingInteractionApprovalDecision,
   type ProviderPendingInteraction,
   type Thread,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ThreadTimelineResponse,
   TimelineRow,
   TimelineRowBase,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 
 interface TimelineBaseArgs {
   id: string;
@@ -135,7 +135,7 @@ export function makeEnvironment(overrides: MakeEnvironmentArgs): Environment {
     path: "/tmp/environment",
     isGitRepo: true,
     isWorktree: false,
-    branchName: "bb/thread",
+    branchName: "cc/thread",
     defaultBranch: "main",
     baseBranch: null,
     mergeBaseBranch: null,

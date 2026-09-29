@@ -16,7 +16,7 @@ const REDACT_SCRIPT = new URL(
 );
 
 it("redacts every documented GitHub token prefix", () => {
-  const root = mkdtempSync(join(tmpdir(), "bb-recording-redact-"));
+  const root = mkdtempSync(join(tmpdir(), "cc-recording-redact-"));
   const inputDir = join(root, "input");
   const outputDir = join(root, "output");
   const tokens = [
@@ -46,6 +46,32 @@ it("redacts every documented GitHub token prefix", () => {
     expect(stdout).toContain("0 survivors");
     for (const token of tokens) expect(output).not.toContain(token);
     expect(output.match(/REDACTED/g)).toHaveLength(tokens.length);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it.each(["Bearer", "bearer"])("redacts a token after %s", (scheme) => {
+  const root = mkdtempSync(join(tmpdir(), "cc-recording-redact-"));
+  const inputDir = join(root, "input");
+  const outputDir = join(root, "output");
+  const token = "synthetic-token-for-redaction-1234567890";
+  try {
+    mkdirSync(inputDir);
+    writeFileSync(
+      join(inputDir, "bearer.ndjson"),
+      `${JSON.stringify({ line: `${scheme} ${token}` })}\n`,
+    );
+    const stdout = execFileSync(
+      process.execPath,
+      [REDACT_SCRIPT.pathname, inputDir, outputDir, "--home", "/home/tester"],
+      { encoding: "utf8" },
+    );
+    const output = readFileSync(join(outputDir, "bearer.ndjson"), "utf8");
+    expect(stdout).toContain("0 survivors");
+    expect(output).not.toContain(token);
+    expect(output).toContain(`${scheme} `);
+    expect(output).toContain("REDACTED");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

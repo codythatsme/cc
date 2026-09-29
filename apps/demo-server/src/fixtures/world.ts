@@ -3,14 +3,14 @@ import type {
   ResolvedThreadExecutionOptions,
   ThreadListEntry,
   ThreadQueuedMessage,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ProjectWithThreadsResponse,
   SidebarBootstrapResponse,
   SystemVersionResponse,
   ThreadResponse,
   ThreadTabsResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   DEMO_HOST_ID,
   DEMO_PERSONAL_PROJECT_ID,
@@ -190,7 +190,7 @@ export const SYSTEM_VERSION: SystemVersionResponse = {
   source: "npm",
   updateAvailable: false,
   isDevelopment: false,
-  upgradeCommand: "npx bb-app@latest",
+  upgradeCommand: "brew upgrade --cask codythatsme/tap/cc",
 };
 
 export const PLUGIN_CONTRIBUTIONS = { cliCommands: [], mentionProviders: [] };

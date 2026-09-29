@@ -7,7 +7,7 @@ import { findMachineServiceFile } from "../src/machine-service.js";
 const tempDirs: string[] = [];
 
 async function createRoot(): Promise<{ dataDir: string; homeDir: string }> {
-  const root = await mkdtemp(join(tmpdir(), "bb-machine-service-"));
+  const root = await mkdtemp(join(tmpdir(), "cc-machine-service-"));
   tempDirs.push(root);
   const homeDir = join(root, "home");
   const dataDir = join(root, "data & more");
@@ -46,8 +46,8 @@ async function writeLaunchAgent(args: {
 <dict>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>BB_APP_NPM_PREFIX</key><string>${xmlEscape(args.dataDir)}/npm</string>
-    <key>BB_DATA_DIR</key><string>${xmlEscape(args.dataDir)}</string>
+    <key>CC_APP_NPM_PREFIX</key><string>${xmlEscape(args.dataDir)}/npm</string>
+    <key>CC_DATA_DIR</key><string>${xmlEscape(args.dataDir)}</string>
   </dict>
 </dict>
 </plist>
@@ -66,9 +66,9 @@ async function writeSystemdUnit(args: {
   await writeFile(
     path,
     `[Service]
-ExecStart="/usr/bin/node" "/opt/bb-app" host-daemon --auto-update
-Environment="BB_APP_NPM_PREFIX=${systemdEscape(args.dataDir)}/npm"
-Environment="BB_DATA_DIR=${systemdEscape(args.dataDir)}"
+ExecStart="/usr/bin/node" "/opt/cc-app" host-daemon --auto-update
+Environment="CC_APP_NPM_PREFIX=${systemdEscape(args.dataDir)}/npm"
+Environment="CC_DATA_DIR=${systemdEscape(args.dataDir)}"
 `,
   );
   return path;
@@ -86,12 +86,12 @@ describe("findMachineServiceFile", () => {
     await writeLaunchAgent({
       dataDir: join(dataDir, "..", "other"),
       homeDir,
-      name: "app.getbb.host-daemon.a-other.plist",
+      name: "io.github.codythatsme.cc.host-daemon.a-other.plist",
     });
     const expected = await writeLaunchAgent({
       dataDir,
       homeDir,
-      name: "app.getbb.host-daemon.b-machine.plist",
+      name: "io.github.codythatsme.cc.host-daemon.b-machine.plist",
     });
     await writeLaunchAgent({
       dataDir,
@@ -111,7 +111,7 @@ describe("findMachineServiceFile", () => {
     const expected = await writeLaunchAgent({
       dataDir: linkedDataDir,
       homeDir,
-      name: "app.getbb.host-daemon.machine.plist",
+      name: "io.github.codythatsme.cc.host-daemon.machine.plist",
     });
 
     await expect(
@@ -126,12 +126,12 @@ describe("findMachineServiceFile", () => {
     const userUnit = await writeSystemdUnit({
       dataDir: escapedDataDir,
       directory: join(homeDir, ".config", "systemd", "user"),
-      name: "bb-host-daemon-machine.service",
+      name: "cc-host-daemon-machine.service",
     });
     const systemUnit = await writeSystemdUnit({
       dataDir,
       directory: join(dataDir, "systemd"),
-      name: "bb-host-daemon-machine.service",
+      name: "cc-host-daemon-machine.service",
     });
 
     await expect(
@@ -155,7 +155,7 @@ describe("findMachineServiceFile", () => {
     await writeLaunchAgent({
       dataDir: join(homeDir, "elsewhere"),
       homeDir,
-      name: "app.getbb.host-daemon.elsewhere.plist",
+      name: "io.github.codythatsme.cc.host-daemon.elsewhere.plist",
     });
     await expect(
       findMachineServiceFile({ dataDir, homeDir, platform: "darwin" }),

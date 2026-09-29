@@ -8,16 +8,16 @@ import {
   getThread,
   listQueuedThreadMessages,
   setProjectGitRemoteUrlIfMissing,
-} from "@bb/db";
+} from "@cc/db";
 import {
   systemThreadProvisioningEventDataSchema,
   threadScope,
   turnScope,
   type ThreadEvent,
-} from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
-import { validatePluginMachineProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@cc/domain";
+import { groupHostDaemonEvents } from "@cc/host-daemon-contract";
+import { validatePluginMachineProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sweepMachineLifecycles } from "../../src/services/machines/provider-orchestration.js";
 import { setPluginEnvironmentProviderBridge } from "../../src/services/plugins/plugin-environment-provider-registry.js";

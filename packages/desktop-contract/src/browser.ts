@@ -4,54 +4,54 @@ import {
   desktopBrowserProfileSchema,
   type DesktopBrowserImportOutcome,
   type DesktopBrowserImportSource,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 
-export const BB_DESKTOP_BROWSER_MAX_URL_LENGTH = 4096;
-export const BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH = 1024;
+export const CC_DESKTOP_BROWSER_MAX_URL_LENGTH = 4096;
+export const CC_DESKTOP_BROWSER_MAX_TITLE_LENGTH = 1024;
 
-export const bbDesktopBrowserTargetSchema = z
+export const ccDesktopBrowserTargetSchema = z
   .object({
     hostId: z.string().min(1),
     instanceId: z.string().min(1),
     generation: z.string().min(1),
   })
   .strict();
-export type BbDesktopBrowserTarget = z.infer<
-  typeof bbDesktopBrowserTargetSchema
+export type CcDesktopBrowserTarget = z.infer<
+  typeof ccDesktopBrowserTargetSchema
 >;
 
-export const bbDesktopBrowserControlSchema = z
+export const ccDesktopBrowserControlSchema = z
   .object({
     leaseId: z.string().min(1),
     controllerLabel: z.string().min(1),
     expiresAt: z.number().int().positive(),
   })
   .strict();
-export type BbDesktopBrowserControl = z.infer<
-  typeof bbDesktopBrowserControlSchema
+export type CcDesktopBrowserControl = z.infer<
+  typeof ccDesktopBrowserControlSchema
 >;
-export const bbDesktopBrowserControlStateSchema = z
+export const ccDesktopBrowserControlStateSchema = z
   .object({
     tabId: z.string().min(1),
     threadId: z.string().min(1),
-    control: bbDesktopBrowserControlSchema.nullable(),
+    control: ccDesktopBrowserControlSchema.nullable(),
   })
   .strict();
-export type BbDesktopBrowserControlState = z.infer<
-  typeof bbDesktopBrowserControlStateSchema
+export type CcDesktopBrowserControlState = z.infer<
+  typeof ccDesktopBrowserControlStateSchema
 >;
-export const bbDesktopBrowserRevealRequestSchema = z
+export const ccDesktopBrowserRevealRequestSchema = z
   .object({
     tabId: z.string().min(1),
     threadId: z.string().min(1),
-    desktopTarget: bbDesktopBrowserTargetSchema,
+    desktopTarget: ccDesktopBrowserTargetSchema,
   })
   .strict();
-export type BbDesktopBrowserRevealRequest = z.infer<
-  typeof bbDesktopBrowserRevealRequestSchema
+export type CcDesktopBrowserRevealRequest = z.infer<
+  typeof ccDesktopBrowserRevealRequestSchema
 >;
 
-const bbDesktopBrowserViewBoundsSchema = z
+const ccDesktopBrowserViewBoundsSchema = z
   .object({
     x: z.number().int(),
     y: z.number().int(),
@@ -59,11 +59,11 @@ const bbDesktopBrowserViewBoundsSchema = z
     height: z.number().int().nonnegative(),
   })
   .strict();
-export type BbDesktopBrowserViewBounds = z.infer<
-  typeof bbDesktopBrowserViewBoundsSchema
+export type CcDesktopBrowserViewBounds = z.infer<
+  typeof ccDesktopBrowserViewBoundsSchema
 >;
 
-export interface BbDesktopBrowserViewportBounds {
+export interface CcDesktopBrowserViewportBounds {
   width: number;
   height: number;
 }
@@ -74,18 +74,18 @@ interface ClampIntegerToRangeArgs {
   value: number;
 }
 
-interface ClampBbDesktopBrowserViewBoundsArgs {
-  bounds: BbDesktopBrowserViewBounds;
-  viewport: BbDesktopBrowserViewportBounds;
+interface ClampCcDesktopBrowserViewBoundsArgs {
+  bounds: CcDesktopBrowserViewBounds;
+  viewport: CcDesktopBrowserViewportBounds;
 }
 
 function clampIntegerToRange(args: ClampIntegerToRangeArgs): number {
   return Math.min(Math.max(args.value, args.min), args.max);
 }
 
-export function clampBbDesktopBrowserViewBounds(
-  args: ClampBbDesktopBrowserViewBoundsArgs,
-): BbDesktopBrowserViewBounds {
+export function clampCcDesktopBrowserViewBounds(
+  args: ClampCcDesktopBrowserViewBoundsArgs,
+): CcDesktopBrowserViewBounds {
   const viewportRight = Math.max(0, Math.round(args.viewport.width));
   const viewportBottom = Math.max(0, Math.round(args.viewport.height));
   const x = clampIntegerToRange({
@@ -117,131 +117,131 @@ export function clampBbDesktopBrowserViewBounds(
   };
 }
 
-export const bbDesktopBrowserAttachRequestSchema = z
+export const ccDesktopBrowserAttachRequestSchema = z
   .object({
     tabId: z.string().min(1),
     threadId: z.string().min(1),
-    url: z.string().max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH),
     existingOnly: z.literal(true).optional(),
-    bounds: bbDesktopBrowserViewBoundsSchema,
+    bounds: ccDesktopBrowserViewBoundsSchema,
     visible: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserAttachRequest = z.infer<
-  typeof bbDesktopBrowserAttachRequestSchema
+export type CcDesktopBrowserAttachRequest = z.infer<
+  typeof ccDesktopBrowserAttachRequestSchema
 >;
 
-export const bbDesktopBrowserNavigateRequestSchema = z
+export const ccDesktopBrowserNavigateRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    url: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().min(1).max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserNavigateRequest = z.infer<
-  typeof bbDesktopBrowserNavigateRequestSchema
+export type CcDesktopBrowserNavigateRequest = z.infer<
+  typeof ccDesktopBrowserNavigateRequestSchema
 >;
 
-export const bbDesktopBrowserSetBoundsRequestSchema = z
+export const ccDesktopBrowserSetBoundsRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    bounds: bbDesktopBrowserViewBoundsSchema,
+    bounds: ccDesktopBrowserViewBoundsSchema,
   })
   .strict();
-export type BbDesktopBrowserSetBoundsRequest = z.infer<
-  typeof bbDesktopBrowserSetBoundsRequestSchema
+export type CcDesktopBrowserSetBoundsRequest = z.infer<
+  typeof ccDesktopBrowserSetBoundsRequestSchema
 >;
 
-export const bbDesktopBrowserSetVisibleRequestSchema = z
+export const ccDesktopBrowserSetVisibleRequestSchema = z
   .object({
     tabId: z.string().min(1),
     visible: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserSetVisibleRequest = z.infer<
-  typeof bbDesktopBrowserSetVisibleRequestSchema
+export type CcDesktopBrowserSetVisibleRequest = z.infer<
+  typeof ccDesktopBrowserSetVisibleRequestSchema
 >;
 
-export const bbDesktopBrowserTabRefSchema = z
+export const ccDesktopBrowserTabRefSchema = z
   .object({
     tabId: z.string().min(1),
   })
   .strict();
-export type BbDesktopBrowserTabRef = z.infer<
-  typeof bbDesktopBrowserTabRefSchema
+export type CcDesktopBrowserTabRef = z.infer<
+  typeof ccDesktopBrowserTabRefSchema
 >;
 
-export const bbDesktopBrowserStateSchema = z
+export const ccDesktopBrowserStateSchema = z
   .object({
     tabId: z.string().min(1),
-    url: z.string().max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
-    title: z.string().max(BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH).nullable(),
+    url: z.string().max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    title: z.string().max(CC_DESKTOP_BROWSER_MAX_TITLE_LENGTH).nullable(),
     isLoading: z.boolean(),
     canGoBack: z.boolean(),
     canGoForward: z.boolean(),
-    errorText: z.string().max(BB_DESKTOP_BROWSER_MAX_TITLE_LENGTH).nullable(),
+    errorText: z.string().max(CC_DESKTOP_BROWSER_MAX_TITLE_LENGTH).nullable(),
   })
   .strict();
-export type BbDesktopBrowserState = z.infer<typeof bbDesktopBrowserStateSchema>;
+export type CcDesktopBrowserState = z.infer<typeof ccDesktopBrowserStateSchema>;
 
-export const bbDesktopBrowserOpenTabRequestSchema = z
+export const ccDesktopBrowserOpenTabRequestSchema = z
   .object({
-    url: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().min(1).max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserOpenTabRequest = z.infer<
-  typeof bbDesktopBrowserOpenTabRequestSchema
+export type CcDesktopBrowserOpenTabRequest = z.infer<
+  typeof ccDesktopBrowserOpenTabRequestSchema
 >;
 
-export const bbDesktopBrowserScopedOpenTabRequestSchema = z
+export const ccDesktopBrowserScopedOpenTabRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    url: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_URL_LENGTH),
+    url: z.string().min(1).max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserScopedOpenTabRequest = z.infer<
-  typeof bbDesktopBrowserScopedOpenTabRequestSchema
+export type CcDesktopBrowserScopedOpenTabRequest = z.infer<
+  typeof ccDesktopBrowserScopedOpenTabRequestSchema
 >;
 
-const BB_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH = 8_388_608;
+const CC_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH = 8_388_608;
 
-export const bbDesktopBrowserSnapshotSchema = z
+export const ccDesktopBrowserSnapshotSchema = z
   .object({
     tabId: z.string().min(1),
     dataUrl: z
       .string()
-      .max(BB_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH)
+      .max(CC_DESKTOP_BROWSER_MAX_SNAPSHOT_DATA_URL_LENGTH)
       .nullable(),
   })
   .strict();
-export type BbDesktopBrowserSnapshot = z.infer<
-  typeof bbDesktopBrowserSnapshotSchema
+export type CcDesktopBrowserSnapshot = z.infer<
+  typeof ccDesktopBrowserSnapshotSchema
 >;
 
-export const BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH = 1024;
+export const CC_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH = 1024;
 
-export const bbDesktopBrowserFindInPageRequestSchema = z
+export const ccDesktopBrowserFindInPageRequestSchema = z
   .object({
     tabId: z.string().min(1),
-    text: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH),
+    text: z.string().min(1).max(CC_DESKTOP_BROWSER_MAX_FIND_TEXT_LENGTH),
     forward: z.boolean(),
     newSession: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserFindInPageRequest = z.infer<
-  typeof bbDesktopBrowserFindInPageRequestSchema
+export type CcDesktopBrowserFindInPageRequest = z.infer<
+  typeof ccDesktopBrowserFindInPageRequestSchema
 >;
 
-export const bbDesktopBrowserStopFindInPageRequestSchema = z
+export const ccDesktopBrowserStopFindInPageRequestSchema = z
   .object({
     tabId: z.string().min(1),
     action: z.enum(["clearSelection", "keepSelection", "activateSelection"]),
   })
   .strict();
-export type BbDesktopBrowserStopFindInPageRequest = z.infer<
-  typeof bbDesktopBrowserStopFindInPageRequestSchema
+export type CcDesktopBrowserStopFindInPageRequest = z.infer<
+  typeof ccDesktopBrowserStopFindInPageRequestSchema
 >;
 
-export const bbDesktopBrowserFindResultSchema = z
+export const ccDesktopBrowserFindResultSchema = z
   .object({
     tabId: z.string().min(1),
     requestId: z.number().int(),
@@ -250,131 +250,131 @@ export const bbDesktopBrowserFindResultSchema = z
     finalUpdate: z.boolean(),
   })
   .strict();
-export type BbDesktopBrowserFindResult = z.infer<
-  typeof bbDesktopBrowserFindResultSchema
+export type CcDesktopBrowserFindResult = z.infer<
+  typeof ccDesktopBrowserFindResultSchema
 >;
 
-export const BB_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH = 4_000_000;
-export const BB_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH = 256;
+export const CC_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH = 4_000_000;
+export const CC_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH = 256;
 
-export const bbDesktopBrowserPageWorldSchema = z.enum(["main", "isolated"]);
-export type BbDesktopBrowserPageWorld = z.infer<
-  typeof bbDesktopBrowserPageWorldSchema
+export const ccDesktopBrowserPageWorldSchema = z.enum(["main", "isolated"]);
+export type CcDesktopBrowserPageWorld = z.infer<
+  typeof ccDesktopBrowserPageWorldSchema
 >;
 
-export const bbDesktopBrowserEvaluateRequestSchema = z
+export const ccDesktopBrowserEvaluateRequestSchema = z
   .object({
     tabId: z.string().min(1),
     expression: z
       .string()
       .min(1)
-      .max(BB_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH),
-    world: bbDesktopBrowserPageWorldSchema,
-    channel: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
+      .max(CC_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH),
+    world: ccDesktopBrowserPageWorldSchema,
+    channel: z.string().min(1).max(CC_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
   })
   .strict();
-export type BbDesktopBrowserEvaluateRequest = z.infer<
-  typeof bbDesktopBrowserEvaluateRequestSchema
+export type CcDesktopBrowserEvaluateRequest = z.infer<
+  typeof ccDesktopBrowserEvaluateRequestSchema
 >;
 
-export const bbDesktopBrowserEvaluateResultSchema = z.discriminatedUnion("ok", [
+export const ccDesktopBrowserEvaluateResultSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(true), value: z.json() }).strict(),
   z.object({ ok: z.literal(false), error: z.string() }).strict(),
 ]);
-export type BbDesktopBrowserEvaluateResult = z.infer<
-  typeof bbDesktopBrowserEvaluateResultSchema
+export type CcDesktopBrowserEvaluateResult = z.infer<
+  typeof ccDesktopBrowserEvaluateResultSchema
 >;
 
-export const bbDesktopBrowserPageMessageSchema = z
+export const ccDesktopBrowserPageMessageSchema = z
   .object({
     tabId: z.string().min(1),
-    channel: z.string().min(1).max(BB_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
+    channel: z.string().min(1).max(CC_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
     data: z.json(),
   })
   .strict();
-export type BbDesktopBrowserPageMessage = z.infer<
-  typeof bbDesktopBrowserPageMessageSchema
+export type CcDesktopBrowserPageMessage = z.infer<
+  typeof ccDesktopBrowserPageMessageSchema
 >;
-export type BbDesktopBrowserPageMessageHandler = (
-  message: BbDesktopBrowserPageMessage,
+export type CcDesktopBrowserPageMessageHandler = (
+  message: CcDesktopBrowserPageMessage,
 ) => void;
 
-export type BbDesktopBrowserStateHandler = (
-  state: BbDesktopBrowserState,
+export type CcDesktopBrowserStateHandler = (
+  state: CcDesktopBrowserState,
 ) => void;
-export type BbDesktopBrowserOpenTabHandler = (
-  request: BbDesktopBrowserOpenTabRequest,
+export type CcDesktopBrowserOpenTabHandler = (
+  request: CcDesktopBrowserOpenTabRequest,
 ) => void;
-export type BbDesktopBrowserScopedOpenTabHandler = (
-  request: BbDesktopBrowserScopedOpenTabRequest,
+export type CcDesktopBrowserScopedOpenTabHandler = (
+  request: CcDesktopBrowserScopedOpenTabRequest,
 ) => void;
-export type BbDesktopBrowserSnapshotHandler = (
-  snapshot: BbDesktopBrowserSnapshot,
+export type CcDesktopBrowserSnapshotHandler = (
+  snapshot: CcDesktopBrowserSnapshot,
 ) => void;
-export type BbDesktopBrowserFocusHandler = (tabId: string) => void;
-export type BbDesktopBrowserFindResultHandler = (
-  result: BbDesktopBrowserFindResult,
+export type CcDesktopBrowserFocusHandler = (tabId: string) => void;
+export type CcDesktopBrowserFindResultHandler = (
+  result: CcDesktopBrowserFindResult,
 ) => void;
-export type BbDesktopBrowserUnsubscribe = () => void;
+export type CcDesktopBrowserUnsubscribe = () => void;
 
-export const bbDesktopBrowserImportCookiesRequestSchema =
+export const ccDesktopBrowserImportCookiesRequestSchema =
   desktopBrowserImportSelectionSchema
     .extend({ profile: desktopBrowserProfileSchema })
     .strict();
-export type BbDesktopBrowserImportCookiesRequest = z.infer<
-  typeof bbDesktopBrowserImportCookiesRequestSchema
+export type CcDesktopBrowserImportCookiesRequest = z.infer<
+  typeof ccDesktopBrowserImportCookiesRequestSchema
 >;
-export type BbDesktopBrowserImportSourcesResult = {
+export type CcDesktopBrowserImportSourcesResult = {
   sources: DesktopBrowserImportSource[];
 };
-export type BbDesktopBrowserImportCookiesResult = DesktopBrowserImportOutcome;
+export type CcDesktopBrowserImportCookiesResult = DesktopBrowserImportOutcome;
 
-export interface BbDesktopBrowserApi {
-  listImportSources?(): Promise<BbDesktopBrowserImportSourcesResult>;
+export interface CcDesktopBrowserApi {
+  listImportSources?(): Promise<CcDesktopBrowserImportSourcesResult>;
   importCookies?(
-    request: BbDesktopBrowserImportCookiesRequest,
-  ): Promise<BbDesktopBrowserImportCookiesResult>;
+    request: CcDesktopBrowserImportCookiesRequest,
+  ): Promise<CcDesktopBrowserImportCookiesResult>;
   openFullDiskAccessSettings?(): void;
-  getTarget?(): Promise<BbDesktopBrowserTarget | null>;
-  getControl?(tabId: string): Promise<BbDesktopBrowserControlState | null>;
+  getTarget?(): Promise<CcDesktopBrowserTarget | null>;
+  getControl?(tabId: string): Promise<CcDesktopBrowserControlState | null>;
   releaseControl?(tabId: string): void;
   onControl?(
-    listener: (state: BbDesktopBrowserControlState) => void,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: (state: CcDesktopBrowserControlState) => void,
+  ): CcDesktopBrowserUnsubscribe;
   onReveal?(
-    listener: (request: BbDesktopBrowserRevealRequest) => void,
-  ): BbDesktopBrowserUnsubscribe;
-  attach(request: BbDesktopBrowserAttachRequest): void;
+    listener: (request: CcDesktopBrowserRevealRequest) => void,
+  ): CcDesktopBrowserUnsubscribe;
+  attach(request: CcDesktopBrowserAttachRequest): void;
   detach(tabId: string): void;
-  navigate(request: BbDesktopBrowserNavigateRequest): void;
+  navigate(request: CcDesktopBrowserNavigateRequest): void;
   goBack(tabId: string): void;
   goForward(tabId: string): void;
   reload(tabId: string): void;
   stop(tabId: string): void;
   focus?(tabId: string): void;
-  setBounds(request: BbDesktopBrowserSetBoundsRequest): void;
-  setVisible(request: BbDesktopBrowserSetVisibleRequest): void;
-  setVisibleWithoutFocus?(request: BbDesktopBrowserSetVisibleRequest): void;
-  onState(listener: BbDesktopBrowserStateHandler): BbDesktopBrowserUnsubscribe;
+  setBounds(request: CcDesktopBrowserSetBoundsRequest): void;
+  setVisible(request: CcDesktopBrowserSetVisibleRequest): void;
+  setVisibleWithoutFocus?(request: CcDesktopBrowserSetVisibleRequest): void;
+  onState(listener: CcDesktopBrowserStateHandler): CcDesktopBrowserUnsubscribe;
   onOpenTab(
-    listener: BbDesktopBrowserOpenTabHandler,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: CcDesktopBrowserOpenTabHandler,
+  ): CcDesktopBrowserUnsubscribe;
   onScopedOpenTab?(
-    listener: BbDesktopBrowserScopedOpenTabHandler,
-  ): BbDesktopBrowserUnsubscribe;
-  onFocus?(listener: BbDesktopBrowserFocusHandler): BbDesktopBrowserUnsubscribe;
+    listener: CcDesktopBrowserScopedOpenTabHandler,
+  ): CcDesktopBrowserUnsubscribe;
+  onFocus?(listener: CcDesktopBrowserFocusHandler): CcDesktopBrowserUnsubscribe;
   onSnapshot?(
-    listener: BbDesktopBrowserSnapshotHandler,
-  ): BbDesktopBrowserUnsubscribe;
-  findInPage?(request: BbDesktopBrowserFindInPageRequest): void;
-  stopFindInPage?(request: BbDesktopBrowserStopFindInPageRequest): void;
+    listener: CcDesktopBrowserSnapshotHandler,
+  ): CcDesktopBrowserUnsubscribe;
+  findInPage?(request: CcDesktopBrowserFindInPageRequest): void;
+  stopFindInPage?(request: CcDesktopBrowserStopFindInPageRequest): void;
   onFindResult?(
-    listener: BbDesktopBrowserFindResultHandler,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: CcDesktopBrowserFindResultHandler,
+  ): CcDesktopBrowserUnsubscribe;
   evaluate?(
-    request: BbDesktopBrowserEvaluateRequest,
-  ): Promise<BbDesktopBrowserEvaluateResult>;
+    request: CcDesktopBrowserEvaluateRequest,
+  ): Promise<CcDesktopBrowserEvaluateResult>;
   onPageMessage?(
-    listener: BbDesktopBrowserPageMessageHandler,
-  ): BbDesktopBrowserUnsubscribe;
+    listener: CcDesktopBrowserPageMessageHandler,
+  ): CcDesktopBrowserUnsubscribe;
 }

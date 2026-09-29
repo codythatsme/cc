@@ -4,8 +4,8 @@ import {
   getWrappedImageIndex,
   ImageLightbox,
 } from "@/components/ui/image-lightbox.js";
-import { Icon } from "@bb/shared-ui/icon";
-import type { PromptDraftAttachment } from "@bb/client-core";
+import { Icon } from "@cc/shared-ui/icon";
+import type { PromptDraftAttachment } from "@cc/client-core";
 import { toUserAttachmentImageSrc } from "@/lib/user-attachment-images";
 import {
   getLocalAttachmentPreviewSrc,

@@ -14,8 +14,8 @@ import {
   defaultAppSettings,
   type AppDefaultKeybindings,
   type AppKeybindingOverrides,
-} from "@bb/domain";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+} from "@cc/domain";
+import { collectPluginAppRegistrations } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
 import {
   setPluginSlotRegistrations,
   removePluginSlotRegistrations,
@@ -163,8 +163,8 @@ vi.mock("@/hooks/mutations/settings-mutations", () => ({
   }),
 }));
 
-vi.mock("@bb/shared-ui/button", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@bb/shared-ui/button")>();
+vi.mock("@cc/shared-ui/button", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@cc/shared-ui/button")>();
   return {
     ...actual,
     Button: (props: ComponentProps<typeof actual.Button>) => {
@@ -183,8 +183,8 @@ vi.mock("@bb/shared-ui/button", async (importOriginal) => {
   };
 });
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => (testState.isDesktop ? {} : null),
+vi.mock("@/lib/cc-desktop", () => ({
+  getCcDesktopInfo: () => (testState.isDesktop ? {} : null),
 }));
 
 afterEach(() => {
@@ -221,7 +221,7 @@ describe("KeyboardSettingsSection", () => {
     setPluginSlotRegistrations(
       "test-shortcuts",
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __ccPluginApp: true,
         setup(app) {
           for (const [id, title] of [
             ["sidebar-open", "Open navigation"],
@@ -308,7 +308,7 @@ describe("KeyboardSettingsSection", () => {
     setPluginSlotRegistrations(
       "test-shortcuts",
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __ccPluginApp: true,
         setup(app) {
           app.commands.register({
             id: "open",
@@ -336,7 +336,7 @@ describe("KeyboardSettingsSection", () => {
     setPluginSlotRegistrations(
       "test-shortcuts",
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __ccPluginApp: true,
         setup(app) {
           app.commands.register({
             id: "open",

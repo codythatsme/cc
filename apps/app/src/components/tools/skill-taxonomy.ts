@@ -2,15 +2,15 @@ import type {
   EditableSkillScope,
   SkillScope,
   SkillSummary,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 
 const SKILL_ROOT_LABELS: Record<
   Exclude<SkillScope, "provider-user" | "provider-project">,
   string
 > = {
-  "bb-builtin": "Built-in",
-  "bb-user": "bb · user",
-  "bb-project": "bb · project",
+  "cc-builtin": "Built-in",
+  "cc-user": "cc · user",
+  "cc-project": "cc · project",
   "shared-user": "Shared · user",
   "shared-project": "Shared · project",
   plugin: "Plugin",
@@ -34,15 +34,15 @@ export function isSkillEditable(
   skill: SkillSummary,
 ): skill is SkillSummary & { scope: EditableSkillScope } {
   switch (skill.scope) {
-    case "bb-user":
-    case "bb-project":
+    case "cc-user":
+    case "cc-project":
       return true;
     case "provider-user":
     case "provider-project":
       return skill.manageable;
     case "shared-user":
     case "shared-project":
-    case "bb-builtin":
+    case "cc-builtin":
     case "plugin":
       return false;
   }

@@ -1,0 +1,39 @@
+{
+  "name": "cc-plugin-cc-guide",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Control the CC introduction and bundled agent skills.",
+  "engines": {
+    "cc": ">=0.0"
+  },
+  "cc": {
+    "name": "CC guide",
+    "description": "Control the CC introduction and bundled agent skills.",
+    "branding": {
+      "icon": "Explore"
+    },
+    "server": "./server.ts"
+  },
+  "keywords": [
+    "cc-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "prepare:bundled": "cc-plugin-build prepare-bundled"
+  },
+  "devDependencies": {
+    "@cc/plugin-build": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "hono": "4.11.9",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2",
+    "vitest": "^4.1.1"
+  }
+}

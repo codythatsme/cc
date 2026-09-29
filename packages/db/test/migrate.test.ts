@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { publishedMigrationWhensByTag } from "../src/migration-history.js";
-import { defaultAppSettings } from "@bb/domain";
+import { defaultAppSettings } from "@cc/domain";
 import {
   createQueuedThreadMessage,
   createThread,
@@ -352,9 +352,9 @@ function dropRewindAddedTables(db: DbConnection): void {
       .prepare("ALTER TABLE system_experiments DROP COLUMN plugins")
       .run();
   }
-  if (experimentColumns.has("bb_connect")) {
+  if (experimentColumns.has("cc_connect")) {
     db.$client
-      .prepare("ALTER TABLE system_experiments DROP COLUMN bb_connect")
+      .prepare("ALTER TABLE system_experiments DROP COLUMN cc_connect")
       .run();
   }
   if (experimentColumns.has("multi_machine")) {
@@ -1995,8 +1995,7 @@ describe("migrate", () => {
         machineGitCredentialsEnabled: true,
         streamerMode: false,
         allowFastServiceTier: true,
-        telemetryEnabled: true,
-        managedBranchPrefix: "bb/",
+        managedBranchPrefix: "cc/",
       });
       expect(
         db.$client
@@ -5229,10 +5228,10 @@ describe("migrate", () => {
           updated_at integer NOT NULL
         );
         INSERT INTO marketplaces VALUES
-          ('bb-official', 'git', 'https://github.com/ymichael/bb.git', 'main', '{"schemaVersion":1,"name":"bb-official","displayName":"BB Official","plugins":[]}', 10, 20, NULL, 1, 20),
+          ('cc-official', 'git', 'https://github.com/ymichael/cc.git', 'main', '{"schemaVersion":1,"name":"cc-official","displayName":"CC Official","plugins":[]}', 10, 20, NULL, 1, 20),
           ('other', 'git', 'https://example.test/catalog.git', 'main', '{"schemaVersion":1}', 30, 40, NULL, 2, 40);
         INSERT INTO plugins VALUES
-          ('official', 'marketplace', 'bb-official', 'notes', 'npm:notes@^1'),
+          ('official', 'marketplace', 'cc-official', 'notes', 'npm:notes@^1'),
           ('third-party', 'marketplace', 'other', 'tasks', 'git:https://example.test/tasks@main'),
           ('already-direct', 'direct', NULL, NULL, 'path:/tmp/plugin');
       `);
@@ -5288,7 +5287,7 @@ describe("migrate", () => {
     }
   });
 
-  it("does not grant catalog provenance to a custom marketplace named bb-official", () => {
+  it("does not grant catalog provenance to a custom marketplace named cc-official", () => {
     const db = createConnection(":memory:");
     try {
       db.$client.exec(`
@@ -5312,7 +5311,7 @@ describe("migrate", () => {
           updated_at integer NOT NULL
         );
         INSERT INTO marketplaces VALUES (
-          'bb-official',
+          'cc-official',
           'git',
           'https://example.test/custom.git',
           'main',
@@ -5326,9 +5325,9 @@ describe("migrate", () => {
         INSERT INTO plugins VALUES (
           'custom',
           'marketplace',
-          'bb-official',
+          'cc-official',
           'custom-entry',
-          'npm:bb-plugin-custom@^1'
+          'npm:cc-plugin-custom@^1'
         );
       `);
 
@@ -5379,13 +5378,13 @@ describe("migrate", () => {
           catalog_marketplace_name text
         );
         INSERT INTO plugin_marketplaces VALUES
-          ('bb-official', 'W/\"abc\"', 'Wed, 01 Jan 2025 00:00:00 GMT'),
+          ('cc-official', 'W/\"abc\"', 'Wed, 01 Jan 2025 00:00:00 GMT'),
           ('acme', 'W/\"xyz\"', 'Thu, 02 Jan 2025 00:00:00 GMT');
         INSERT INTO plugin_marketplace_icons VALUES
-          ('bb-official', 'notes'),
+          ('cc-official', 'notes'),
           ('acme', 'tasks');
         INSERT INTO plugins VALUES
-          ('notes', 'bb-official'),
+          ('notes', 'cc-official'),
           ('tasks', 'acme'),
           ('local', NULL);
       `);
@@ -5401,7 +5400,7 @@ describe("migrate", () => {
             "SELECT name FROM plugin_marketplaces ORDER BY name",
           )
           .all(),
-      ).toEqual([{ name: "acme" }, { name: "bb-community" }]);
+      ).toEqual([{ name: "acme" }, { name: "cc-community" }]);
       expect(
         db.$client
           .prepare<[], { marketplaceName: string }>(
@@ -5410,7 +5409,7 @@ describe("migrate", () => {
           .all(),
       ).toEqual([
         { marketplaceName: "acme" },
-        { marketplaceName: "bb-community" },
+        { marketplaceName: "cc-community" },
       ]);
       expect(
         db.$client
@@ -5420,7 +5419,7 @@ describe("migrate", () => {
           .all(),
       ).toEqual([
         { id: "local", catalogMarketplaceName: null },
-        { id: "notes", catalogMarketplaceName: "bb-community" },
+        { id: "notes", catalogMarketplaceName: "cc-community" },
         { id: "tasks", catalogMarketplaceName: "acme" },
       ]);
 
@@ -5439,7 +5438,7 @@ describe("migrate", () => {
           etag: 'W/"xyz"',
           lastModified: "Thu, 02 Jan 2025 00:00:00 GMT",
         },
-        { name: "bb-community", etag: null, lastModified: null },
+        { name: "cc-community", etag: null, lastModified: null },
       ]);
     } finally {
       closeConnection(db);
@@ -5479,7 +5478,7 @@ describe("migrate", () => {
           .all(),
       ).toEqual([
         { id: "builtin-plugin", catalogMarketplaceName: null },
-        { id: "catalog-plugin", catalogMarketplaceName: "bb-official" },
+        { id: "catalog-plugin", catalogMarketplaceName: "cc-official" },
         { id: "direct-plugin", catalogMarketplaceName: null },
       ]);
     } finally {
@@ -5771,7 +5770,7 @@ describe("environment providers migration", () => {
         environmentIntent: {
           type: "direct-managed",
           hostId: "host_ep",
-          sourcePath: "/checkouts/bb",
+          sourcePath: "/checkouts/cc",
           baseBranch: { kind: "named", name: "release/1.2" },
           workspaceProvisionType: "managed-worktree",
         },
@@ -6108,7 +6107,7 @@ describe("machine providers migration", () => {
           id text PRIMARY KEY NOT NULL,
           host_type text NOT NULL
         );
-        CREATE TEMP TABLE bb_migration_local_host (id text PRIMARY KEY NOT NULL);
+        CREATE TEMP TABLE cc_migration_local_host (id text PRIMARY KEY NOT NULL);
         INSERT INTO hosts VALUES
           ('legacy', 'Legacy', 'persistent', 'cloud-machine', NULL),
           ('direct', 'Direct', 'persistent', NULL, NULL);

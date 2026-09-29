@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef } from "react";
-import { BbHttpError } from "@bb/sdk/browser";
-import { Icon } from "@bb/shared-ui/icon";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { CcHttpError } from "@cc/sdk/browser";
+import { Icon } from "@cc/shared-ui/icon";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { SIDEBAR_CONTROL_BUTTON_CLASS } from "./sidebarRowClasses";
 import type { RenameSession, RenameController } from "./SidebarInlineRename";
 
 export function renameError(error: unknown, kind: RenameSession["kind"]) {
-  if (error instanceof BbHttpError) {
+  if (error instanceof CcHttpError) {
     if (
       error.code === "section_name_conflict" ||
       (kind === "section" && error.status === 409)

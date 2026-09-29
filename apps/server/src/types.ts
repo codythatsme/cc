@@ -1,13 +1,12 @@
-import type { CustomProviderModel } from "@bb/config/bb-app-managed-config";
-import type { DbConnection } from "@bb/db";
-import type { FeatureFlags, ProviderNativeSkillRoots } from "@bb/domain";
-import type { Logger } from "@bb/logger";
+import type { CustomProviderModel } from "@cc/config/cc-app-managed-config";
+import type { DbConnection } from "@cc/db";
+import type { FeatureFlags, ProviderNativeSkillRoots } from "@cc/domain";
+import type { Logger } from "@cc/logger";
 import type { PendingInteractionLifecycle } from "./services/interactions/pending-interactions.js";
 import type { MachineAuthService } from "./services/machine-auth.js";
 import type { AppUpdateService } from "./services/system/app-update.js";
 import type { AppVersionService } from "./services/system/app-version.js";
-import type { BbAppManagedConfigReloader } from "./services/system/bb-app-managed-config.js";
-import type { TelemetryService } from "./services/system/telemetry.js";
+import type { CcAppManagedConfigReloader } from "./services/system/cc-app-managed-config.js";
 import type { TerminalSessionLifecycle } from "./services/terminals/terminal-session-lifecycle.js";
 import type { LifecycleDedupers } from "./lifecycle-dedupers.js";
 import type { NotificationHub } from "./ws/hub.js";
@@ -52,7 +51,6 @@ export interface AppDeps {
   providerNativeRoots: ProviderNativeRootsCache;
   aiServices: AiServiceRegistry;
   skillTreeRegistry: SkillTreeRegistry;
-  telemetry: TelemetryService;
   terminalSessions: TerminalSessionLifecycle;
   watchInterests: WatchInterestCoordinator;
   sharedPorts: HostSharedPortCoordinator;
@@ -62,7 +60,7 @@ export interface AppDeps {
 export interface ServerAppDeps extends AppDeps {
   appUpdate: AppUpdateService;
   appVersion: AppVersionService;
-  bbAppManagedConfig: BbAppManagedConfigReloader;
+  ccAppManagedConfig: CcAppManagedConfigReloader;
 }
 
 export type WorkSessionDeps = Pick<
@@ -77,7 +75,6 @@ export type WorkSessionDeps = Pick<
   | "pluginHostArtifacts"
   | "aiServices"
   | "skillTreeRegistry"
-  | "telemetry"
 >;
 
 export type LoggedWorkSessionDeps = WorkSessionDeps & Pick<AppDeps, "logger">;

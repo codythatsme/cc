@@ -10,8 +10,8 @@ import type {
   GitBranchRefClassification,
   ThreadPullRequest,
   ThreadRuntimeDisplayStatus,
-} from "@bb/domain";
-import type { PullRequestMergeMethod } from "@bb/server-contract";
+} from "@cc/domain";
+import type { PullRequestMergeMethod } from "@cc/server-contract";
 import {
   BranchPicker,
   getMergeBaseBranchCandidateGroups,
@@ -27,7 +27,7 @@ import {
 import {
   activityIconClass,
   activityRowClass,
-} from "@bb/shared-ui/activity-row-styles";
+} from "@cc/shared-ui/activity-row-styles";
 import { WorkspaceChangesList } from "@/components/thread/WorkspaceChangesList";
 import {
   formatChangeSummary,
@@ -36,8 +36,8 @@ import {
   type WorkspaceChangedFileSelection,
   type WorkspaceChangedFilesSection,
 } from "@/components/workspace/workspace-change-summary";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
 import {
   getPullRequestAttentionDisplay,
   getPullRequestGithubCheckStatus,
@@ -57,7 +57,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
+} from "@cc/shared-ui/dropdown-menu";
 import { useUrlAnchorClickHandler } from "@/lib/url-open-routing";
 import {
   ThreadTitle,

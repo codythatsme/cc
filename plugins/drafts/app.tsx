@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { definePluginApp } from "@get-bb/plugin-sdk/app";
+import { definePluginApp } from "@codythatsme/plugin-sdk/app";
 
 export default definePluginApp((app) => {
   app.composer.customize({

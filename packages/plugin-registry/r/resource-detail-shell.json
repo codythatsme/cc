@@ -3,10 +3,10 @@
   "name": "resource-detail-shell",
   "type": "registry:ui",
   "title": "resource-detail-shell",
-  "description": "BB ui \"resource-detail-shell\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"resource-detail-shell\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils"
+    "@cc/icon",
+    "@cc/utils"
   ],
   "files": [
     {

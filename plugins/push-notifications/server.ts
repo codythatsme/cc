@@ -3,8 +3,8 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
-} from "@get-bb/plugin-sdk";
+  type CcPluginApi,
+} from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import {
   addPushSubscriptionInputSchema,
@@ -95,9 +95,9 @@ export function createPushNotificationsPlugin(
   options: PushNotificationsPluginOptions = {},
 ) {
   return async function pushNotificationsPlugin(
-    bb: BbPluginApi,
+    cc: CcPluginApi,
   ): Promise<void> {
-    const settings = bb.settings.define({
+    const settings = cc.settings.define({
       mobileEnabled: {
         type: "boolean",
         label: "Mobile notifications",
@@ -109,14 +109,14 @@ export function createPushNotificationsPlugin(
         type: "boolean",
         label: "Web notifications",
         description:
-          "Show system notifications while bb is open in a browser. Each browser needs notification permission.",
+          "Show system notifications while cc is open in a browser. Each browser needs notification permission.",
         default: true,
       },
       desktopEnabled: {
         type: "boolean",
         label: "Desktop notifications",
         description:
-          "Show system notifications while the bb desktop app is running.",
+          "Show system notifications while the cc desktop app is running.",
         default: true,
       },
       expoPushUrl: {
@@ -127,12 +127,12 @@ export function createPushNotificationsPlugin(
         experimental_schema: z.string().url(),
       },
     });
-    const subscriptions = createPushSubscriptionStore(bb, {
+    const subscriptions = createPushSubscriptionStore(cc, {
       ...(options.now === undefined ? {} : { now: options.now }),
       ...(options.createId === undefined ? {} : { createId: options.createId }),
     });
     const sender = createPushSender({
-      bb,
+      cc,
       subscriptions,
       getDeliverySettings: () => settings.get(),
       getExpoPushUrl: async () => (await settings.get()).expoPushUrl,
@@ -162,9 +162,9 @@ export function createPushNotificationsPlugin(
       if (!(channel === "web" ? config.webEnabled : config.desktopEnabled)) {
         throw new Error(`${channel} notifications are disabled`);
       }
-      bb.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
+      cc.realtime.publish(CLIENT_NOTIFICATION_CHANNEL, {
         id: randomUUID(),
-        title: "bb notifications are working",
+        title: "cc notifications are working",
         body: "You’ll be notified when a thread needs your attention.",
         threadId: null,
         channels: [channel],
@@ -172,7 +172,7 @@ export function createPushNotificationsPlugin(
       return { ok: true as const };
     }
 
-    bb.rpc.register(pushNotificationsRpcContract, {
+    cc.rpc.register(pushNotificationsRpcContract, {
       "notifications.test": ({ channel }) => sendTest(channel),
       "pushSubscriptions.list": async () => ({
         subscriptions: await subscriptions.listSummaries(),
@@ -186,7 +186,7 @@ export function createPushNotificationsPlugin(
       },
     });
 
-    bb.cli.register(
+    cc.cli.register(
       defineCli({
         name: "push-notifications",
         summary: "Manage mobile, web, and desktop notifications",
@@ -221,7 +221,7 @@ export function createPushNotificationsPlugin(
                   error instanceof Error ? error.message : String(error),
                   {
                     code: "channel_disabled",
-                    hint: `Turn it on with \`bb plugin config push-notifications set ${channel.data}Enabled true\`.`,
+                    hint: `Turn it on with \`cc plugin config push-notifications set ${channel.data}Enabled true\`.`,
                   },
                 );
               }
@@ -299,7 +299,7 @@ export function createPushNotificationsPlugin(
               {
                 name: "id",
                 description:
-                  "Subscription id, as `bb push-notifications list` prints it",
+                  "Subscription id, as `cc push-notifications list` prints it",
                 required: true,
               },
             ],
@@ -309,7 +309,7 @@ export function createPushNotificationsPlugin(
               if (!(await subscriptions.remove(id))) {
                 throw new PluginCliError(`Push subscription not found: ${id}`, {
                   code: "subscription_not_found",
-                  hint: "Run `bb push-notifications list` for the registered ids.",
+                  hint: "Run `cc push-notifications list` for the registered ids.",
                 });
               }
               return {
@@ -337,16 +337,16 @@ export function createPushNotificationsPlugin(
       }),
     );
 
-    bb.events.on("interaction.pending", (payload) => {
+    cc.events.on("interaction.pending", (payload) => {
       sender.onInteractionPending(payload);
     });
-    bb.events.on("thread.idle", (payload) => {
+    cc.events.on("thread.idle", (payload) => {
       sender.onThreadIdle(payload);
     });
-    bb.events.on("thread.failed", (payload) => {
+    cc.events.on("thread.failed", (payload) => {
       sender.onThreadFailed(payload);
     });
-    bb.background.service("push-sender", {
+    cc.background.service("push-sender", {
       async start(signal) {
         await sender.start();
         try {

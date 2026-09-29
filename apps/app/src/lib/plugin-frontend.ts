@@ -1,4 +1,4 @@
-import * as questionFormHost from "@bb/shared-ui/question-form-host";
+import * as questionFormHost from "@cc/shared-ui/question-form-host";
 import * as react from "react";
 import * as reactDom from "react-dom";
 import * as reactDomClient from "react-dom/client";
@@ -20,9 +20,9 @@ import * as pierreDiffs from "@pierre/diffs";
 import * as clsx from "clsx";
 import * as tailwindMerge from "tailwind-merge";
 import * as classVarianceAuthority from "class-variance-authority";
-import * as sharedUiIcon from "@bb/shared-ui/icon";
-import { createDebouncedCallbackScheduler } from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
+import * as sharedUiIcon from "@cc/shared-ui/icon";
+import { createDebouncedCallbackScheduler } from "@cc/domain";
+import { CcHttpError } from "@cc/sdk/browser";
 import type { QueryClient } from "@tanstack/react-query";
 import { markEnabledPluginListStale } from "@/hooks/cache-owners/plugin-cache-owner";
 import { pluginListQueryOptions } from "@/hooks/queries/plugin-settings-queries";
@@ -36,8 +36,8 @@ import type {
   PluginContentScriptDisposer,
   PluginContentScriptRegistration,
   PluginSdkApp,
-} from "@get-bb/plugin-sdk";
-import { normalizePluginThreadRowStatus } from "@get-bb/plugin-sdk/internal/composer-customization-validation";
+} from "@codythatsme/plugin-sdk";
+import { normalizePluginThreadRowStatus } from "@codythatsme/plugin-sdk/internal/composer-customization-validation";
 import { resetCrashedPluginSlots } from "@/components/plugin/PluginSlotMount";
 import { runWithPluginDomIsolationAsync } from "./foreign-dom-mutation-guard";
 import { applyPluginCss, retainPluginCss } from "./plugin-css";
@@ -45,7 +45,7 @@ import {
   collectPluginAppRegistrations,
   isPluginAppDefinition,
 } from "./plugin-app-definition";
-import { setPluginAssetIcons } from "@bb/shared-ui/icon-registry";
+import { setPluginAssetIcons } from "@cc/shared-ui/icon-registry";
 import { setPluginLogoUrls, type PluginLogoUrls } from "./plugin-logos";
 import { createGatedPierreDiffsReact } from "./plugin-pierre-diffs-react";
 import { getPluginPanelRoutePluginId } from "./route-paths";
@@ -179,7 +179,7 @@ async function loadOneBundle(
   }
 }
 
-interface BbPluginRuntime {
+interface CcPluginRuntime {
   react: unknown;
   reactDom: unknown;
   reactDomClient: unknown;
@@ -207,12 +207,12 @@ interface BbPluginRuntime {
   questionFormHost: typeof questionFormHost;
 }
 
-type RuntimeHost = typeof globalThis & { __bbPluginRuntime?: BbPluginRuntime };
+type RuntimeHost = typeof globalThis & { __ccPluginRuntime?: CcPluginRuntime };
 
 export function installPluginRuntime(): void {
   const host = globalThis as RuntimeHost;
-  if (host.__bbPluginRuntime !== undefined) return;
-  host.__bbPluginRuntime = {
+  if (host.__ccPluginRuntime !== undefined) return;
+  host.__ccPluginRuntime = {
     react,
     reactDom,
     reactDomClient,
@@ -252,7 +252,7 @@ export async function fetchFrontendCandidates(
   } catch (error) {
     setServerPluginsStarting(false);
     if (
-      error instanceof BbHttpError &&
+      error instanceof CcHttpError &&
       (error.status === 401 || error.status === 403)
     ) {
       setPluginLogoUrls(new Map());
@@ -330,7 +330,7 @@ async function runWithConcurrencyLimit<T>(
 }
 
 function appendPluginImportRetry(url: string, retryCount: number): string {
-  return `${url}${url.includes("?") ? "&" : "?"}bb_retry=${retryCount}`;
+  return `${url}${url.includes("?") ? "&" : "?"}cc_retry=${retryCount}`;
 }
 
 interface PluginFrontendReconcileState {
@@ -506,20 +506,20 @@ async function mountWithTimeout(
             if (controller.signal.aborted) return;
             if (typeof threadId !== "string") {
               deps.warn(
-                `bb plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
+                `cc plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
               );
               return;
             }
             const normalizedThreadId = threadId.trim();
             if (normalizedThreadId.length === 0) {
               deps.warn(
-                `bb plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
+                `cc plugin "${pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
               );
               return;
             }
             const normalizedStatus = normalizePluginThreadRowStatus(
               status,
-              (reason) => deps.warn(`bb plugin "${pluginId}": ${reason}`),
+              (reason) => deps.warn(`cc plugin "${pluginId}": ${reason}`),
             );
             if (normalizedStatus === undefined) return;
             setPluginThreadRowStatus(
@@ -734,7 +734,7 @@ async function reconcileCandidates(
         const definition = record.module.default;
         if (!isPluginAppDefinition(definition)) {
           throw new Error(
-            "the bundle's default export is not definePluginApp(...) from @get-bb/plugin-sdk/app",
+            "the bundle's default export is not definePluginApp(...) from @codythatsme/plugin-sdk/app",
           );
         }
         collected = collectPluginAppRegistrations(definition, (reason) => {

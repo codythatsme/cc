@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">cc — Your agentic workspace</title>
+  <desc id="desc">cc. Local. Open source. Telemetry free.</desc>
+  <defs>
+    <linearGradient id="canvas" x2="1" y2="1">
+      <stop stop-color="#102e3b"/>
+      <stop offset="1" stop-color="#155b65"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#canvas)"/>
+  <circle cx="1010" cy="150" r="390" fill="none" stroke="#a3e6de" stroke-opacity=".08"/>
+  <circle cx="1010" cy="150" r="310" fill="none" stroke="#a3e6de" stroke-opacity=".08"/>
+  <g fill="#f4fcff" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+    <text x="84" y="162" font-size="76" font-weight="700" letter-spacing="-4">cc</text>
+    <text x="84" y="282" font-size="57" font-weight="600" letter-spacing="-2">Your agentic</text>
+    <text x="84" y="352" font-size="57" font-weight="600" letter-spacing="-2">workspace.</text>
+    <text x="84" y="421" font-size="24" fill="#b0d9dc">Local. Open source. Telemetry free.</text>
+    <text x="84" y="552" font-size="20" fill="#b0d9dc">github.com/codythatsme/cc</text>
+  </g>
+  <g transform="translate(716 85) scale(.84)" fill="none" stroke="#f4fcff" stroke-width="46" stroke-linecap="round">
+    <path d="M210 176C193 157 172 148 146 148C90 148 54 193 54 256C54 319 90 364 146 364C172 364 193 355 210 336M430 176C413 157 392 148 366 148C310 148 274 193 274 256C274 319 310 364 366 364C392 364 413 355 430 336"/>
+  </g>
+</svg>

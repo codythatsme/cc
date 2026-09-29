@@ -15,7 +15,7 @@ import {
   experimental_ProviderModelPicker as ProviderModelPicker,
   type ExperimentalProviderModelPickerRouting,
   type ExperimentalProviderModelPickerValue,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { COARSE_POINTER_HOVER_REVEAL_VISIBLE_CLASS } from "@/components/ui/coarse-pointer-visibility";
 import { DelayedLoading } from "@/components/ui/delayed-loading";

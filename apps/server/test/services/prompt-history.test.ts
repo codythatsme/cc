@@ -11,8 +11,8 @@ import {
   noopNotifier,
   promptHistoryEntries,
   upsertHost,
-} from "@bb/db";
-import type { PromptHistoryScope, PromptInput } from "@bb/domain";
+} from "@cc/db";
+import type { PromptHistoryScope, PromptInput } from "@cc/domain";
 import {
   listProjectPromptHistory,
   listThreadPromptHistory,

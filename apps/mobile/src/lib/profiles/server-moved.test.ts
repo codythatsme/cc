@@ -23,7 +23,7 @@ async function setup() {
   });
   const connect = await store.addProfile({
     mode: "connect",
-    serverUrl: "https://laptop.getbb.app",
+    serverUrl: "https://laptop.cc.example.invalid",
     label: "laptop",
     handle: "laptop",
     credential: "bbcm_secret",

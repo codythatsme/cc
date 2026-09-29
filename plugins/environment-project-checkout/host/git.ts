@@ -1,4 +1,4 @@
-import { detectGitRepo, runGit } from "bb-environment-provider-host/git";
+import { detectGitRepo, runGit } from "cc-environment-provider-host/git";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { GitCheckoutRef, WorkspaceGitOperation } from "../contract.js";

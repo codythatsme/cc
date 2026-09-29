@@ -2,13 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   SystemAppUpdateAcknowledgeRequest,
   SystemAppUpdateApplyRequest,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { runningThreadCountFromError } from "@/components/app-update/app-update-presentation";
 import { showMutationErrorToast } from "@/lib/mutation-errors";
 import { sdk } from "@/lib/sdk";
 import { hydrateAppUpdateStatus } from "../cache-owners/app-update-cache-owner";
 
-const APPLY_APP_UPDATE_ERROR_MESSAGE = "Couldn't start the bb update.";
+const APPLY_APP_UPDATE_ERROR_MESSAGE = "Couldn't start the cc update.";
 
 export function useApplyAppUpdate() {
   const queryClient = useQueryClient();

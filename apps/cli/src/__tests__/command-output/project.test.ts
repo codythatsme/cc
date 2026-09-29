@@ -15,7 +15,7 @@ import {
 import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import { registerProjectCommands } from "../../commands/project.js";
 
-describe("bb project command output", () => {
+describe("cc project command output", () => {
   setupCommandOutputTestEnvironment();
 
   const register: CommandRegistrar = (program) =>
@@ -44,7 +44,7 @@ describe("bb project command output", () => {
   });
 
   it("uploads binary bytes read on a remote CLI machine with explicit metadata", async () => {
-    const clientDir = await mkdtemp(join(tmpdir(), "bb-cli-attachment-"));
+    const clientDir = await mkdtemp(join(tmpdir(), "cc-cli-attachment-"));
     try {
       const clientPath = join(clientDir, "payload.bin");
       const bytes = new Uint8Array([0, 255, 1, 128, 42]);
@@ -57,7 +57,7 @@ describe("bb project command output", () => {
             type: "localFile",
             path: "payload-uploaded.bin",
             name: "renamed.bin",
-            mimeType: "application/x-bb-test",
+            mimeType: "application/x-cc-test",
             sizeBytes: bytes.byteLength,
           }),
           {
@@ -78,7 +78,7 @@ describe("bb project command output", () => {
           "--filename",
           "renamed.bin",
           "--mime-type",
-          "application/x-bb-test",
+          "application/x-cc-test",
           "--json",
         ],
         register,
@@ -94,7 +94,7 @@ describe("bb project command output", () => {
         throw new Error("Expected multipart attachment file");
       }
       expect(file.name).toBe("renamed.bin");
-      expect(file.type).toBe("application/x-bb-test");
+      expect(file.type).toBe("application/x-cc-test");
       expect(new Uint8Array(await file.arrayBuffer())).toEqual(bytes);
       expect(
         JSON.parse(String(vi.mocked(console.log).mock.calls[0]?.[0])),
@@ -102,7 +102,7 @@ describe("bb project command output", () => {
         type: "localFile",
         path: "payload-uploaded.bin",
         name: "renamed.bin",
-        mimeType: "application/x-bb-test",
+        mimeType: "application/x-cc-test",
         sizeBytes: bytes.byteLength,
       });
     } finally {
@@ -111,7 +111,7 @@ describe("bb project command output", () => {
   });
 
   it("downloads attachment bytes to an explicit client-local path", async () => {
-    const clientDir = await mkdtemp(join(tmpdir(), "bb-cli-attachment-"));
+    const clientDir = await mkdtemp(join(tmpdir(), "cc-cli-attachment-"));
     try {
       const outputPath = join(clientDir, "downloaded.bin");
       const bytes = new Uint8Array([3, 2, 1, 0, 255]);
@@ -156,7 +156,7 @@ describe("bb project command output", () => {
   });
 
   it("prints the server attachment limit envelope without rewriting it", async () => {
-    const clientDir = await mkdtemp(join(tmpdir(), "bb-cli-attachment-"));
+    const clientDir = await mkdtemp(join(tmpdir(), "cc-cli-attachment-"));
     try {
       const clientPath = join(clientDir, "huge.png");
       await writeFile(clientPath, new Uint8Array([1]));
@@ -194,7 +194,7 @@ describe("bb project command output", () => {
     }
   });
 
-  it("bb project list --json prints raw projects", async () => {
+  it("cc project list --json prints raw projects", async () => {
     const projects = [
       {
         id: "proj-1",
@@ -214,7 +214,7 @@ describe("bb project command output", () => {
     expect(get).toHaveBeenCalledWith({ query: {} });
   });
 
-  it("bb project list can include the personal project", async () => {
+  it("cc project list can include the personal project", async () => {
     const projects = [{ id: "proj_personal", name: "Personal" }];
     const get = vi.fn(async () => projects);
     stubServerApi({ "v1.projects.$get": get });
@@ -232,7 +232,7 @@ describe("bb project command output", () => {
     ).toEqual(projects);
   });
 
-  it("bb project branches waits for remote refs implicitly", async () => {
+  it("cc project branches waits for remote refs implicitly", async () => {
     const branches = { branches: ["main"], remoteBranches: ["origin/main"] };
     const get = vi.fn(async () => branches);
     stubServerApi({ "v1.projects.:id.branches.$get": get });
@@ -251,7 +251,7 @@ describe("bb project command output", () => {
     ).toEqual(branches);
   });
 
-  it("bb project list renders the shared borderless table", async () => {
+  it("cc project list renders the shared borderless table", async () => {
     const projects = [
       {
         id: "proj-1",
@@ -275,7 +275,7 @@ describe("bb project command output", () => {
     ]);
   });
 
-  it("bb project files resolves a machine name and prints JSON", async () => {
+  it("cc project files resolves a machine name and prints JSON", async () => {
     const getFiles = vi.fn(async () => ({
       files: [{ name: "remote.txt", path: "remote.txt" }],
       truncated: false,
@@ -311,13 +311,13 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project content routes by environment and prints the portable DTO as JSON", async () => {
+  it("cc project content routes by environment and prints the portable DTO as JSON", async () => {
     const getContent = vi.fn(
       async () =>
         new Response("environment text", {
           headers: {
             "content-type": "text/plain",
-            "x-bb-content-encoding": "utf8",
+            "x-cc-content-encoding": "utf8",
           },
         }),
     );
@@ -352,7 +352,7 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project discovery rejects simultaneous machine and environment selectors", async () => {
+  it("cc project discovery rejects simultaneous machine and environment selectors", async () => {
     await expect(
       runCommand(
         [
@@ -373,7 +373,7 @@ describe("bb project command output", () => {
     );
   });
 
-  it("bb project create --json prints the created project", async () => {
+  it("cc project create --json prints the created project", async () => {
     const created = {
       id: "proj-created",
       name: "Alpha",
@@ -416,7 +416,7 @@ describe("bb project command output", () => {
     ["machine name", "--machine", "builder"],
     ["host alias", "--host", "host-remote"],
   ])(
-    "bb project create binds a local path through an explicit %s",
+    "cc project create binds a local path through an explicit %s",
     async (_selectorKind, selectorFlag, selector) => {
       const post = vi.fn(async () => ({
         id: "proj-created",
@@ -467,7 +467,7 @@ describe("bb project command output", () => {
     },
   );
 
-  it("bb project create rejects simultaneous machine and host selectors", async () => {
+  it("cc project create rejects simultaneous machine and host selectors", async () => {
     await expect(
       runCommand(
         [
@@ -492,7 +492,7 @@ describe("bb project command output", () => {
     expect(resolveLocalHostIdMock).not.toHaveBeenCalled();
   });
 
-  it("bb project create rejects an unknown machine selection", async () => {
+  it("cc project create rejects an unknown machine selection", async () => {
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => [
         {
@@ -527,7 +527,7 @@ describe("bb project command output", () => {
     );
   });
 
-  it("bb project create rejects an ambiguous machine name", async () => {
+  it("cc project create rejects an ambiguous machine name", async () => {
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => [
         {
@@ -623,7 +623,7 @@ describe("bb project command output", () => {
     );
   });
 
-  it("bb project source add targets an unambiguous machine name", async () => {
+  it("cc project source add targets an unambiguous machine name", async () => {
     const post = vi.fn(async () => ({
       id: "source-remote",
       projectId: "proj-1",
@@ -673,7 +673,7 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project source add supports clone options through the --host alias", async () => {
+  it("cc project source add supports clone options through the --host alias", async () => {
     const post = vi.fn(async () => ({
       id: "source-clone",
       projectId: "proj-1",
@@ -726,7 +726,7 @@ describe("bb project command output", () => {
     });
   });
 
-  it("bb project source add rejects clone-only options without --clone", async () => {
+  it("cc project source add rejects clone-only options without --clone", async () => {
     await expect(
       runCommand(
         [
@@ -747,7 +747,7 @@ describe("bb project command output", () => {
     expect(resolveLocalHostIdMock).not.toHaveBeenCalled();
   });
 
-  it("bb project source update patches the existing source type", async () => {
+  it("cc project source update patches the existing source type", async () => {
     const get = vi.fn(async () => ({
       createdAt: 1,
       id: "proj-1",
@@ -813,7 +813,7 @@ describe("bb project command output", () => {
     );
   });
 
-  it("bb project source delete deletes without prompting when --yes is passed", async () => {
+  it("cc project source delete deletes without prompting when --yes is passed", async () => {
     const del = vi.fn(async () => ({ ok: true }));
     stubServerApi({ "v1.projects.:id.sources.:sourceId.$delete": del });
 

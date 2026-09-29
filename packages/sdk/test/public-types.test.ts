@@ -1,8 +1,8 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type {
-  BbRealtime as RootBbRealtime,
-  BbSdk as RootBbSdk,
-  BbRealtimeConnectionEvent as RootRealtimeConnection,
+  CcRealtime as RootCcRealtime,
+  CcSdk as RootCcSdk,
+  CcRealtimeConnectionEvent as RootRealtimeConnection,
   EnvironmentStatusResult as RootEnvironmentStatus,
   FileReadResult as RootFileRead,
   GuideRenderResult as RootGuideRender,
@@ -27,11 +27,11 @@ import type {
   ThemeSetInput as RootThemeSetInput,
   ThreadSectionListResult as RootThreadSectionList,
   ThreadSpawnResult as RootThreadSpawn,
-} from "@bb/sdk";
+} from "@cc/sdk";
 import type {
-  BbSdk as BrowserBbSdk,
-  BrowserBbSdk as BrowserRuntimeBbSdk,
-  BbRealtimeConnectionEvent as BrowserRealtimeConnection,
+  CcSdk as BrowserCcSdk,
+  BrowserCcSdk as BrowserRuntimeCcSdk,
+  CcRealtimeConnectionEvent as BrowserRealtimeConnection,
   EnvironmentStatusResult as BrowserEnvironmentStatus,
   FileReadResult as BrowserFileRead,
   GuideRenderResult as BrowserGuideRender,
@@ -55,10 +55,10 @@ import type {
   ThemeSetInput as BrowserThemeSetInput,
   ThreadSectionListResult as BrowserThreadSectionList,
   ThreadSpawnResult as BrowserThreadSpawn,
-} from "@bb/sdk/browser";
+} from "@cc/sdk/browser";
 import type {
-  BbSdk as CoreBbSdk,
-  BbRealtimeConnectionEvent as CoreRealtimeConnection,
+  CcSdk as CoreCcSdk,
+  CcRealtimeConnectionEvent as CoreRealtimeConnection,
   EnvironmentStatusResult as CoreEnvironmentStatus,
   FileReadResult as CoreFileRead,
   GuideRenderResult as CoreGuideRender,
@@ -82,10 +82,10 @@ import type {
   ThemeSetInput as CoreThemeSetInput,
   ThreadSectionListResult as CoreThreadSectionList,
   ThreadSpawnResult as CoreThreadSpawn,
-} from "@bb/sdk/core";
+} from "@cc/sdk/core";
 import type {
-  BbSdk as NodeBbSdk,
-  BbRealtimeConnectionEvent as NodeRealtimeConnection,
+  CcSdk as NodeCcSdk,
+  CcRealtimeConnectionEvent as NodeRealtimeConnection,
   EnvironmentStatusResult as NodeEnvironmentStatus,
   FileReadResult as NodeFileRead,
   GuideRenderResult as NodeGuideRender,
@@ -109,8 +109,8 @@ import type {
   ThemeSetInput as NodeThemeSetInput,
   ThreadSectionListResult as NodeThreadSectionList,
   ThreadSpawnResult as NodeThreadSpawn,
-} from "@bb/sdk/node";
-import type { createBrowserBbSdk } from "@bb/sdk/browser";
+} from "@cc/sdk/node";
+import type { createBrowserCcSdk } from "@cc/sdk/browser";
 
 interface RootSurface {
   environmentStatus: RootEnvironmentStatus;
@@ -220,7 +220,7 @@ interface NodeSurface {
   threadSpawn: NodeThreadSpawn;
 }
 
-type ExpectedBbSdkKey =
+type ExpectedCcSdkKey =
   | "experimental_desktopBrowsers"
   | "experimental_server"
   | "environments"
@@ -473,19 +473,19 @@ describe("SDK public type entrypoints", () => {
   });
 
   it("preserves the complete SDK surface at every entrypoint", () => {
-    expectTypeOf<keyof RootBbSdk>().toEqualTypeOf<ExpectedBbSdkKey>();
-    expectTypeOf<BrowserBbSdk>().toEqualTypeOf<RootBbSdk>();
-    expectTypeOf<CoreBbSdk>().toEqualTypeOf<RootBbSdk>();
-    expectTypeOf<NodeBbSdk>().toEqualTypeOf<RootBbSdk>();
+    expectTypeOf<keyof RootCcSdk>().toEqualTypeOf<ExpectedCcSdkKey>();
+    expectTypeOf<BrowserCcSdk>().toEqualTypeOf<RootCcSdk>();
+    expectTypeOf<CoreCcSdk>().toEqualTypeOf<RootCcSdk>();
+    expectTypeOf<NodeCcSdk>().toEqualTypeOf<RootCcSdk>();
   });
 
   it("keeps the local guide area off the browser SDK instance", () => {
-    expectTypeOf<keyof BrowserRuntimeBbSdk>().toEqualTypeOf<
-      Exclude<ExpectedBbSdkKey, "guide">
+    expectTypeOf<keyof BrowserRuntimeCcSdk>().toEqualTypeOf<
+      Exclude<ExpectedCcSdkKey, "guide">
     >();
     expectTypeOf<
-      ReturnType<typeof createBrowserBbSdk>
-    >().toEqualTypeOf<BrowserRuntimeBbSdk>();
+      ReturnType<typeof createBrowserCcSdk>
+    >().toEqualTypeOf<BrowserRuntimeCcSdk>();
   });
 
   it("exports only the public permission presets", () => {
@@ -541,67 +541,67 @@ describe("SDK public type entrypoints", () => {
   });
 
   it("snapshots every SDK area and nested method group", () => {
-    expectTypeOf<keyof RootBbRealtime>().toEqualTypeOf<ExpectedRealtimeKey>();
+    expectTypeOf<keyof RootCcRealtime>().toEqualTypeOf<ExpectedRealtimeKey>();
     expectTypeOf<
-      keyof RootBbSdk["environments"]
+      keyof RootCcSdk["environments"]
     >().toEqualTypeOf<ExpectedEnvironmentsKey>();
-    expectTypeOf<keyof RootBbSdk["files"]>().toEqualTypeOf<ExpectedFilesKey>();
-    expectTypeOf<keyof RootBbSdk["guide"]>().toEqualTypeOf<ExpectedGuideKey>();
-    expectTypeOf<keyof RootBbSdk["hosts"]>().toEqualTypeOf<ExpectedHostsKey>();
+    expectTypeOf<keyof RootCcSdk["files"]>().toEqualTypeOf<ExpectedFilesKey>();
+    expectTypeOf<keyof RootCcSdk["guide"]>().toEqualTypeOf<ExpectedGuideKey>();
+    expectTypeOf<keyof RootCcSdk["hosts"]>().toEqualTypeOf<ExpectedHostsKey>();
     expectTypeOf<
-      keyof RootBbSdk["plugins"]
+      keyof RootCcSdk["plugins"]
     >().toEqualTypeOf<ExpectedPluginsKey>();
     expectTypeOf<
-      keyof RootBbSdk["plugins"]["catalog"]
+      keyof RootCcSdk["plugins"]["catalog"]
     >().toEqualTypeOf<ExpectedPluginCatalogKey>();
     expectTypeOf<
-      keyof RootBbSdk["plugins"]["marketplaces"]
+      keyof RootCcSdk["plugins"]["marketplaces"]
     >().toEqualTypeOf<ExpectedPluginMarketplacesKey>();
     expectTypeOf<
-      keyof RootBbSdk["projects"]
+      keyof RootCcSdk["projects"]
     >().toEqualTypeOf<ExpectedProjectsKey>();
     expectTypeOf<
-      keyof RootBbSdk["projects"]["attachments"]
+      keyof RootCcSdk["projects"]["attachments"]
     >().toEqualTypeOf<ExpectedProjectAttachmentsKey>();
     expectTypeOf<
-      keyof RootBbSdk["projects"]["sources"]
+      keyof RootCcSdk["projects"]["sources"]
     >().toEqualTypeOf<ExpectedProjectSourcesKey>();
     expectTypeOf<
-      keyof RootBbSdk["providers"]
+      keyof RootCcSdk["providers"]
     >().toEqualTypeOf<ExpectedProvidersKey>();
     expectTypeOf<
-      keyof RootBbSdk["status"]
+      keyof RootCcSdk["status"]
     >().toEqualTypeOf<ExpectedStatusKey>();
     expectTypeOf<
-      keyof RootBbSdk["system"]
+      keyof RootCcSdk["system"]
     >().toEqualTypeOf<ExpectedSystemKey>();
     expectTypeOf<
-      keyof RootBbSdk["system"]["uiPreferences"]
+      keyof RootCcSdk["system"]["uiPreferences"]
     >().toEqualTypeOf<ExpectedSystemUiPreferencesKey>();
     expectTypeOf<
-      keyof RootBbSdk["terminals"]
+      keyof RootCcSdk["terminals"]
     >().toEqualTypeOf<ExpectedTerminalsKey>();
-    expectTypeOf<keyof RootBbSdk["theme"]>().toEqualTypeOf<ExpectedThemeKey>();
+    expectTypeOf<keyof RootCcSdk["theme"]>().toEqualTypeOf<ExpectedThemeKey>();
     expectTypeOf<
-      keyof RootBbSdk["threadSections"]
+      keyof RootCcSdk["threadSections"]
     >().toEqualTypeOf<ExpectedThreadSectionsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]
+      keyof RootCcSdk["threads"]
     >().toEqualTypeOf<ExpectedThreadsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["events"]
+      keyof RootCcSdk["threads"]["events"]
     >().toEqualTypeOf<ExpectedThreadEventsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["queue"]
+      keyof RootCcSdk["threads"]["queue"]
     >().toEqualTypeOf<ExpectedThreadQueueKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["interactions"]
+      keyof RootCcSdk["threads"]["interactions"]
     >().toEqualTypeOf<ExpectedThreadInteractionsKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["queuedMessages"]
+      keyof RootCcSdk["threads"]["queuedMessages"]
     >().toEqualTypeOf<ExpectedThreadQueuedMessagesKey>();
     expectTypeOf<
-      keyof RootBbSdk["threads"]["tabs"]
+      keyof RootCcSdk["threads"]["tabs"]
     >().toEqualTypeOf<ExpectedThreadTabsKey>();
   });
 });

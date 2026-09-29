@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { isRawThreadId } from "@bb/domain";
-import type { PromptDraftState } from "@bb/client-core";
-import { THREAD_MENTION_RESOLVE_MAX_IDS } from "@bb/server-contract";
+import { isRawThreadId } from "@cc/domain";
+import type { PromptDraftState } from "@cc/client-core";
+import { THREAD_MENTION_RESOLVE_MAX_IDS } from "@cc/server-contract";
 import {
   resolveSerializedPromptMentions,
   useSidebarThreadTitleMentionResources,

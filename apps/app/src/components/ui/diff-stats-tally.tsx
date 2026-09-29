@@ -1,5 +1,5 @@
-import { formatDiffCount } from "@bb/thread-view";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { formatDiffCount } from "@cc/thread-view";
+import { cn } from "@cc/shared-ui/lib/utils";
 
 interface DiffStatsTallyProps {
   insertions: number;

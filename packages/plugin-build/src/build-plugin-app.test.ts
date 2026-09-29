@@ -21,7 +21,7 @@ import { RUNTIME_EXPORT_MANIFEST } from "./generated/runtime-export-manifest.gen
 import { resolvePluginBuildToolchain } from "./toolchain.js";
 
 function testToolchain() {
-  return resolvePluginBuildToolchain(join(tmpdir(), "bb-toolchain-unused"));
+  return resolvePluginBuildToolchain(join(tmpdir(), "cc-toolchain-unused"));
 }
 
 describe("plugin app runtime shim", () => {
@@ -35,8 +35,8 @@ describe("plugin app runtime shim", () => {
     );
   });
 
-  it("re-derives @get-bb/plugin-sdk/app exports for every rebuild", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-shim-"));
+  it("re-derives @codythatsme/plugin-sdk/app exports for every rebuild", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "cc-plugin-shim-"));
     tempDirs.push(dir);
     const facadePath = join(dir, "app-facade.mjs");
     const facadeUrl = pathToFileURL(facadePath).href;
@@ -44,7 +44,7 @@ describe("plugin app runtime shim", () => {
     async function bundle(importName: string): Promise<string> {
       const result = await build({
         stdin: {
-          contents: `import { ${importName} } from "@get-bb/plugin-sdk/app"; export { ${importName} };`,
+          contents: `import { ${importName} } from "@codythatsme/plugin-sdk/app"; export { ${importName} };`,
           loader: "js",
           resolveDir: dir,
         },
@@ -76,7 +76,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("routes host-resident libraries to runtime slots and forwards real default exports", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-libs-"));
+    const dir = await mkdtemp(join(tmpdir(), "cc-plugin-libs-"));
     tempDirs.push(dir);
     const result = await build({
       stdin: {
@@ -84,8 +84,8 @@ describe("plugin app runtime shim", () => {
           `import clsx from "clsx";`,
           `import { twMerge } from "tailwind-merge";`,
           `import { cva } from "class-variance-authority";`,
-          `import { Icon } from "@bb/shared-ui/icon";`,
-          `import { useQuestionFormHost } from "@bb/shared-ui/question-form-host";`,
+          `import { Icon } from "@cc/shared-ui/icon";`,
+          `import { useQuestionFormHost } from "@cc/shared-ui/question-form-host";`,
           `export { clsx, twMerge, cva, Icon, useQuestionFormHost };`,
         ].join("\n"),
         loader: "js",
@@ -114,7 +114,7 @@ describe("plugin app runtime shim", () => {
     const cvaFn = () => "cva";
     const IconComponent = () => null;
     const useQuestionFormHost = () => null;
-    (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime = {
+    (globalThis as { __ccPluginRuntime?: unknown }).__ccPluginRuntime = {
       clsx: { default: clsxFn, clsx: clsxFn },
       tailwindMerge: { twMerge: twMergeFn },
       classVarianceAuthority: { cva: cvaFn },
@@ -134,17 +134,17 @@ describe("plugin app runtime shim", () => {
       expect(loaded.Icon).toBe(IconComponent);
       expect(loaded.useQuestionFormHost).toBe(useQuestionFormHost);
     } finally {
-      delete (globalThis as { __bbPluginRuntime?: unknown }).__bbPluginRuntime;
+      delete (globalThis as { __ccPluginRuntime?: unknown }).__ccPluginRuntime;
     }
   });
 
   it("shims shared-ui's relative ./icon import but bundles a plugin's own icon module", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icon-rel-"));
+    const dir = await mkdtemp(join(tmpdir(), "cc-plugin-icon-rel-"));
     tempDirs.push(dir);
-    const sharedUiDir = join(dir, "node_modules", "@bb", "shared-ui");
+    const sharedUiDir = join(dir, "node_modules", "@cc", "shared-ui");
     const files: Record<string, string> = {
       [join(sharedUiDir, "package.json")]: JSON.stringify({
-        name: "@bb/shared-ui",
+        name: "@cc/shared-ui",
         type: "module",
         exports: {
           "./empty-state": "./src/components/ui/empty-state.tsx",
@@ -160,7 +160,7 @@ describe("plugin app runtime shim", () => {
       [join(dir, "components", "ui", "button.tsx")]:
         `import { Icon } from "./icon";\nexport function Button() { return Icon; }\n`,
       [join(dir, "app.tsx")]:
-        `import { EmptyState } from "@bb/shared-ui/empty-state";\nimport { Button } from "./components/ui/button";\nexport { EmptyState, Button };\n`,
+        `import { EmptyState } from "@cc/shared-ui/empty-state";\nimport { Button } from "./components/ui/button";\nexport { EmptyState, Button };\n`,
     };
     for (const [filePath, contents] of Object.entries(files)) {
       await mkdir(dirname(filePath), { recursive: true });
@@ -183,12 +183,12 @@ describe("plugin app runtime shim", () => {
   });
 
   it("shims shared-ui's relative ./question-form-host import to the host's context", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-question-host-rel-"));
+    const dir = await mkdtemp(join(tmpdir(), "cc-plugin-question-host-rel-"));
     tempDirs.push(dir);
-    const sharedUiDir = join(dir, "node_modules", "@bb", "shared-ui");
+    const sharedUiDir = join(dir, "node_modules", "@cc", "shared-ui");
     const files: Record<string, string> = {
       [join(sharedUiDir, "package.json")]: JSON.stringify({
-        name: "@bb/shared-ui",
+        name: "@cc/shared-ui",
         type: "module",
         exports: {
           "./question-form": "./src/components/ui/question-form.tsx",
@@ -199,7 +199,7 @@ describe("plugin app runtime shim", () => {
       [join(sharedUiDir, "src", "components", "ui", "question-form.tsx")]:
         `import { useQuestionFormHost } from "./question-form-host";\nexport function QuestionForm() { return useQuestionFormHost(); }\n`,
       [join(dir, "app.tsx")]:
-        `import { QuestionForm } from "@bb/shared-ui/question-form";\nexport { QuestionForm };\n`,
+        `import { QuestionForm } from "@cc/shared-ui/question-form";\nexport { QuestionForm };\n`,
     };
     for (const [filePath, contents] of Object.entries(files)) {
       await mkdir(dirname(filePath), { recursive: true });
@@ -224,23 +224,23 @@ describe("plugin app runtime shim", () => {
     const sharedUiComponent =
       "/repo/packages/shared-ui/src/components/ui/empty-state.tsx";
     expect(sharedUiRuntimeModuleFor("./icon", sharedUiComponent)).toBe(
-      "@bb/shared-ui/icon",
+      "@cc/shared-ui/icon",
     );
     expect(sharedUiRuntimeModuleFor("./icon.js", sharedUiComponent)).toBe(
-      "@bb/shared-ui/icon",
+      "@cc/shared-ui/icon",
     );
     expect(
       sharedUiRuntimeModuleFor(
         "../components/ui/icon",
         "/repo/packages/shared-ui/src/hooks/use-thing.ts",
       ),
-    ).toBe("@bb/shared-ui/icon");
+    ).toBe("@cc/shared-ui/icon");
     expect(
       sharedUiRuntimeModuleFor(
         "./question-form-host",
         "/repo/packages/shared-ui/src/components/ui/question-form.tsx",
       ),
-    ).toBe("@bb/shared-ui/question-form-host");
+    ).toBe("@cc/shared-ui/question-form-host");
     expect(sharedUiRuntimeModuleFor("./button", sharedUiComponent)).toBe(null);
     expect(
       sharedUiRuntimeModuleFor(
@@ -257,14 +257,14 @@ describe("plugin app runtime shim", () => {
   });
 
   it("scopes Tailwind utilities while preserving imported CSS unscoped", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-css-"));
+    const dir = await mkdtemp(join(tmpdir(), "cc-plugin-css-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-css-fixture",
+        name: "cc-plugin-css-fixture",
         version: "0.0.0",
-        bb: {
+        cc: {
           name: "CSS fixture",
           description: "Verifies plugin CSS emission.",
           branding: { icon: "Paintbrush" },
@@ -296,7 +296,7 @@ describe("plugin app runtime shim", () => {
     const css = await readFile(result.cssPath, "utf8");
 
     const scope =
-      ":where([data-bb-plugin=css-fixture],[data-bb-plugin-root]:not([data-bb-plugin]))";
+      ":where([data-cc-plugin=css-fixture],[data-cc-plugin-root]:not([data-cc-plugin]))";
     expect(css).toContain(`${scope} .flex-col`);
     expect(css).toContain(`${scope}.flex-col`);
     const sibling = String.raw`.\[\&\~\*\]\:hidden`;
@@ -308,14 +308,14 @@ describe("plugin app runtime shim", () => {
   });
 
   it("minifies app.js and app.css unless the caller asks for readable output", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-minify-"));
+    const dir = await mkdtemp(join(tmpdir(), "cc-plugin-minify-"));
     tempDirs.push(dir);
     await writeFile(
       join(dir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-minify-fixture",
+        name: "cc-plugin-minify-fixture",
         version: "0.0.0",
-        bb: {
+        cc: {
           name: "Minify fixture",
           description: "Verifies artifact minification.",
           branding: { icon: "Zap" },
@@ -337,7 +337,7 @@ describe("plugin app runtime shim", () => {
         '  const fixtureLocalResult = [fixtureInputValue, "flex-col"].join(" ");',
         "  return fixtureLocalResult;",
         "}",
-        'export default computeFixtureLabel("bb-minify");',
+        'export default computeFixtureLabel("cc-minify");',
         "",
       ].join("\n"),
     );
@@ -352,7 +352,7 @@ describe("plugin app runtime shim", () => {
     const minifiedCss = await readFile(minified.cssPath, "utf8");
     expect(minifiedJs).not.toContain("fixtureLocalResult");
     expect(minifiedJs).not.toContain("fixture-legal-comment");
-    expect(minifiedJs).toContain("bb-minify");
+    expect(minifiedJs).toContain("cc-minify");
     expect(minifiedCss).toContain(".flex-col{flex-direction:column}");
     expect(minifiedCss).toContain(".bb71-authored{color:#ff69b4;margin:0}");
     expect(minifiedCss).not.toContain("\n  ");
@@ -370,7 +370,7 @@ describe("plugin app runtime shim", () => {
   });
 
   it("scans bundled Tailwind content from a symlinked workspace dependency by filesystem identity", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "bb-plugin-scan-"));
+    const dir = await mkdtemp(join(tmpdir(), "cc-plugin-scan-"));
     tempDirs.push(dir);
     const uiPackageDir = join(dir, "packages", "fixture-ui");
     await mkdir(join(uiPackageDir, "src", "excluded"), { recursive: true });
@@ -381,7 +381,7 @@ describe("plugin app runtime shim", () => {
         name: "fixture-ui",
         version: "0.0.0",
         type: "module",
-        bb: { pluginTailwindContent: ["src/**/*", "!src/excluded/**/*"] },
+        cc: { pluginTailwindContent: ["src/**/*", "!src/excluded/**/*"] },
       }),
     );
     await writeFile(
@@ -406,10 +406,10 @@ describe("plugin app runtime shim", () => {
     await writeFile(
       join(pluginDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-scan-fixture",
+        name: "cc-plugin-scan-fixture",
         version: "0.0.0",
         type: "module",
-        bb: {
+        cc: {
           name: "Scan fixture",
           description: "Verifies dependency content scanning.",
           branding: { icon: "Zap" },
@@ -438,7 +438,7 @@ describe("plugin app runtime shim", () => {
     );
 
     const aliasContainer = await mkdtemp(
-      join(tmpdir(), "bb-plugin-scan-alias-"),
+      join(tmpdir(), "cc-plugin-scan-alias-"),
     );
     tempDirs.push(aliasContainer);
     const aliasedRoot = join(aliasContainer, "fixture");
@@ -471,14 +471,14 @@ describe("plugin app runtime shim", () => {
   ])(
     "rejects %s in a path-shaped branding.icon before building",
     async (_case, icon, expectedError) => {
-      const dir = await mkdtemp(join(tmpdir(), "bb-plugin-icon-"));
+      const dir = await mkdtemp(join(tmpdir(), "cc-plugin-icon-"));
       tempDirs.push(dir);
       await writeFile(
         join(dir, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-icon-fixture",
+          name: "cc-plugin-icon-fixture",
           version: "0.0.0",
-          bb: {
+          cc: {
             name: "Icon fixture",
             description: "Verifies compact icon validation.",
             branding: { icon: "./icon.svg" },

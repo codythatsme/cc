@@ -2,11 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { resolveDataDirSkillsRootPath } from "@bb/config/skill-storage-paths";
-import type { AgentRuntimeSkillRoot } from "@bb/agent-runtime";
-import type { HostDaemonInjectedSkillSource } from "@bb/host-daemon-contract";
-import type { HostDaemonSkillTree } from "@bb/host-daemon-contract";
-import { isPathWithinDirectory } from "@bb/process-utils";
+import { resolveDataDirSkillsRootPath } from "@cc/config/skill-storage-paths";
+import type { AgentRuntimeSkillRoot } from "@cc/agent-runtime";
+import type { HostDaemonInjectedSkillSource } from "@cc/host-daemon-contract";
+import type { HostDaemonSkillTree } from "@cc/host-daemon-contract";
+import { isPathWithinDirectory } from "@cc/process-utils";
 import { SKILL_FILE_NAME } from "./command-discovery.js";
 import { isFsErrorWithCode } from "./fs-errors.js";
 import { runInSerialLane } from "./serial-lane.js";
@@ -24,7 +24,7 @@ const MAX_STAGED_SKILL_FILES = 1_000;
 const MAX_STAGED_SKILL_BYTES = 10 * 1024 * 1024;
 const MAX_STAGED_SKILL_DEPTH = 24;
 export const EMPTY_SKILL_CATALOG_HASH = createHash("sha256")
-  .update("bb-global-skills-v1-empty")
+  .update("cc-global-skills-v1-empty")
   .digest("hex");
 
 export interface InjectedSkillsLogger {
@@ -351,7 +351,7 @@ async function collectSkillTree(
 
 function hashCollectedTrees(trees: readonly CollectedSkillTree[]): string {
   const hash = createHash("sha256");
-  hash.update("bb-global-skills-v1");
+  hash.update("cc-global-skills-v1");
   for (const tree of trees) {
     hash.update("\0skill\0");
     hash.update(tree.source.name);
@@ -573,7 +573,7 @@ function validatedTreeEntries(tree: HostDaemonSkillTree): CollectedSkillFile[] {
 
 function hashStoredTreeFiles(files: readonly CollectedSkillFile[]): string {
   const hash = createHash("sha256");
-  hash.update("bb-skill-tree-v1");
+  hash.update("cc-skill-tree-v1");
   for (const file of files) {
     hash.update("\0file\0");
     hash.update(file.relativePath);

@@ -33,7 +33,7 @@ import type {
   PluginThreadListRegistration,
   PluginThreadPanelActionRegistration,
   PluginTimelineRendererRegistration,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   collectComposerCustomization,
   PLUGIN_SLOT_ID_PATTERN,
@@ -452,7 +452,7 @@ function collectPanelAction<C, Run>(
 
 /**
  * Run a plugin app definition against the canonical validating collector.
- * Both the BB app and the public test harness use this implementation so a
+ * Both the CC app and the public test harness use this implementation so a
  * registration accepted by one cannot be rejected or normalized differently
  * by the other.
  */

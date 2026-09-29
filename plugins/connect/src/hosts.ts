@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginCliContext } from "@get-bb/plugin-sdk";
+import type { CcPluginApi, PluginCliContext } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 
 const hostSchema = z.object({ id: z.string().min(1), name: z.string().min(1) });
@@ -36,7 +36,7 @@ function isNotFoundError(error: unknown): boolean {
 }
 
 export class ShareHostResolver {
-  constructor(private readonly getSdk: () => BbPluginApi["sdk"]) {}
+  constructor(private readonly getSdk: () => CcPluginApi["sdk"]) {}
 
   async serverHost(): Promise<ShareHost> {
     return this.byId(await this.serverHostId(), true);
@@ -48,7 +48,7 @@ export class ShareHostResolver {
     );
     if (config.primaryHostId !== null) return config.primaryHostId;
     throw new Error(
-      "this bb has no server machine yet — connect a machine before sharing ports",
+      "this cc has no server machine yet — connect a machine before sharing ports",
     );
   }
 
@@ -123,7 +123,7 @@ export class ShareHostResolver {
     );
     if (nameMatches.length === 0) {
       throw new Error(
-        `unknown host "${query}"; run \`bb machine list\` to list hosts`,
+        `unknown host "${query}"; run \`cc machine list\` to list hosts`,
       );
     }
     if (nameMatches.length > 1) {

@@ -11,7 +11,7 @@ import {
 const roots: string[] = [];
 
 async function createDataDir(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "bb-managed-config-test-"));
+  const root = await mkdtemp(join(tmpdir(), "cc-managed-config-test-"));
   roots.push(root);
   return root;
 }
@@ -28,10 +28,10 @@ describe("rewriteManagedConfigServer", () => {
     await writeFile(
       join(dataDir, "config.json"),
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { CC_LOG_LEVEL: "debug" },
         customModels: [{ providerId: "codex", model: "gpt-custom" }],
         serverUrl: "https://old.example.test",
-        serverHeaders: { "x-bb-connect-machine": "bbcm_old" },
+        serverHeaders: { "x-cc-connect-machine": "bbcm_old" },
         machineCredential: "bbcm_old",
         connectMachineId: "machine-1",
       }),
@@ -41,16 +41,16 @@ describe("rewriteManagedConfigServer", () => {
     await rewriteManagedConfigServer({
       dataDir,
       serverUrl: "https://new.example.test",
-      headers: { "x-bb-connect-machine": "bbcm_new" },
+      headers: { "x-cc-connect-machine": "bbcm_new" },
     });
 
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_LOG_LEVEL: "debug" },
+      config: { CC_LOG_LEVEL: "debug" },
       customModels: [{ providerId: "codex", model: "gpt-custom" }],
       serverUrl: "https://new.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_new" },
+      serverHeaders: { "x-cc-connect-machine": "bbcm_new" },
     });
     expect((await stat(join(dataDir, "config.json"))).mode & 0o777).toBe(0o600);
   });
@@ -83,7 +83,7 @@ describe("move import config handling", () => {
     await writeFile(
       join(dataDir, "config.json"),
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "info" },
+        config: { CC_LOG_LEVEL: "info" },
         serverUrl: "http://127.0.0.1:38886",
         connectMachineId: "imported-server-machine",
       }),
@@ -92,9 +92,9 @@ describe("move import config handling", () => {
     await writeFile(
       backupPath,
       JSON.stringify({
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { CC_LOG_LEVEL: "debug" },
         serverUrl: "https://old.example.test",
-        serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
+        serverHeaders: { "x-cc-connect-machine": "bbcm_target" },
         machineCredential: "bbcm_target",
       }),
     );
@@ -107,9 +107,9 @@ describe("move import config handling", () => {
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { CC_LOG_LEVEL: "info" },
       serverUrl: "https://old.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
+      serverHeaders: { "x-cc-connect-machine": "bbcm_target" },
       machineCredential: "bbcm_target",
     });
 
@@ -121,7 +121,7 @@ describe("move import config handling", () => {
     expect(
       JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { CC_LOG_LEVEL: "info" },
       serverUrl: "http://127.0.0.1:38886",
     });
   });

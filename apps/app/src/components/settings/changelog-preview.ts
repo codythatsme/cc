@@ -7,7 +7,7 @@ export { RELEASE_META } from "../../../../../changelog-metadata";
 export type { ChangelogBlock } from "../../../../../changelog-parser";
 
 const LATEST_CHANGELOG_SOURCE_URL =
-  "https://raw.githubusercontent.com/get-bb/bb/main/CHANGELOG.md";
+  "https://raw.githubusercontent.com/codythatsme/cc/main/CHANGELOG.md";
 
 export const CHANGELOG_ENTRIES = parseChangelog(changelogSource);
 

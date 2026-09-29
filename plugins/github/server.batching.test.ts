@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import plugin, { githubRpcContract } from "./server";
 
 const fake = vi.hoisted(() => ({
@@ -68,19 +68,19 @@ async function start(repos = "acme/one") {
     sdk: { projects: { list: async () => [] } },
   });
   hosts.push(host);
-  await plugin(host.bb);
+  await plugin(host.cc);
   return host;
 }
 
 it("maps all four lists into SQLite and preserves closed/merged filtering", async () => {
   fake.responses.set("one", response());
-  const { harness, bb } = await start();
+  const { harness, cc } = await start();
   expect(await harness.behavior.callRpc("refresh")).toEqual({
     repos: 1,
     items: 5,
   });
   expect(
-    bb.storage.database().prepare("SELECT count(*) AS n FROM items").get(),
+    cc.storage.database().prepare("SELECT count(*) AS n FROM items").get(),
   ).toEqual({ n: 5 });
   const { items } = githubRpcContract.listItems.output.parse(
     await harness.behavior.callRpc("listItems", { state: "closed" }),
@@ -197,14 +197,14 @@ it.each([
   "retains repository rows and cursor after %s, then allows another repository to succeed",
   async (_name, failed) => {
     fake.responses.set("one", response());
-    const { harness, bb } = await start();
+    const { harness, cc } = await start();
     await harness.behavior.callRpc("refresh");
     const before = await harness.behavior.callRpc("listItems", {});
-    const cursor = await bb.storage.kv.get("sync-cursor");
+    const cursor = await cc.storage.kv.get("sync-cursor");
     fake.responses.set("one", failed);
     await expect(harness.behavior.callRpc("refresh")).rejects.toThrow();
     expect(await harness.behavior.callRpc("listItems", {})).toEqual(before);
-    expect(await bb.storage.kv.get("sync-cursor")).toEqual(cursor);
+    expect(await cc.storage.kv.get("sync-cursor")).toEqual(cursor);
     await harness.behavior.setSettings({ extraRepos: "acme/one,acme/two" });
     fake.responses.set("two", response());
     expect(await harness.behavior.callRpc("refresh")).toEqual({
@@ -215,7 +215,7 @@ it.each([
       await harness.behavior.callRpc("listItems", { repo: "acme/one" }),
     ).toEqual(before);
     expect(
-      bb.storage.database().prepare("SELECT count(*) AS n FROM items").get(),
+      cc.storage.database().prepare("SELECT count(*) AS n FROM items").get(),
     ).toEqual({ n: 10 });
   },
 );

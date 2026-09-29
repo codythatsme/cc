@@ -1,0 +1,54 @@
+import type { CcProjectOption } from "../../shared/contract.js";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const NO_LINK = "__none__";
+
+export function CcProjectLinkPicker({
+  value,
+  onChange,
+  ccProjects,
+  noneLabel = "Not linked",
+}: {
+  value: string | null;
+  onChange: (value: string | null) => void;
+  ccProjects: readonly CcProjectOption[];
+  noneLabel?: string;
+}) {
+  const unavailableSelection =
+    value !== null && !ccProjects.some((project) => project.id === value)
+      ? value
+      : null;
+  return (
+    <Select
+      value={value ?? NO_LINK}
+      onValueChange={(next) => onChange(next === NO_LINK ? null : next)}
+    >
+      <SelectTrigger aria-label="Linked cc project" className="h-8">
+        <SelectValue>
+          {ccProjects.find((project) => project.id === value)?.name ??
+            unavailableSelection ??
+            noneLabel}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NO_LINK}>{noneLabel}</SelectItem>
+        {unavailableSelection !== null ? (
+          <SelectItem value={unavailableSelection}>
+            Unavailable · {unavailableSelection}
+          </SelectItem>
+        ) : null}
+        {ccProjects.map((project) => (
+          <SelectItem key={project.id} value={project.id}>
+            {project.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}

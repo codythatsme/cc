@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://getbb.app/schemas/marketplace-v2.schema.json",
-  "title": "BB plugin marketplace manifest version 2",
+  "$id": "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace-v2.schema.json",
+  "title": "CC plugin marketplace manifest version 2",
   "description": "This document lists plugins and discovery data.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "name", "displayName", "plugins"],
   "properties": {
     "$schema": {
-      "const": "https://getbb.app/schemas/marketplace-v2.schema.json"
+      "const": "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace-v2.schema.json"
     },
     "schemaVersion": {
       "const": 2

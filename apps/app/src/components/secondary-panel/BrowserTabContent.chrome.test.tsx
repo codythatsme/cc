@@ -9,14 +9,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type {
-  BbDesktopBrowserApi,
-  BbDesktopBrowserState,
-} from "@bb/desktop-contract";
+  CcDesktopBrowserApi,
+  CcDesktopBrowserState,
+} from "@cc/desktop-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createBbDesktopApi,
+  createCcDesktopApi,
   createNoopDesktopBrowserApi,
-} from "@/test/bb-desktop-test-utils";
+} from "@/test/cc-desktop-test-utils";
 import { BrowserTabContent } from "./BrowserTabContent";
 
 const desktopInfo = {
@@ -30,8 +30,8 @@ const desktopInfo = {
 };
 
 interface BrowserChromeHarness {
-  api: BbDesktopBrowserApi;
-  emitState: (state: BbDesktopBrowserState) => void;
+  api: CcDesktopBrowserApi;
+  emitState: (state: CcDesktopBrowserState) => void;
   emitNativeFocus: (tabId: string) => void;
   focus: ReturnType<typeof vi.fn>;
   goBack: ReturnType<typeof vi.fn>;
@@ -39,12 +39,12 @@ interface BrowserChromeHarness {
 }
 
 function createBrowserChromeHarness(): BrowserChromeHarness {
-  const stateListeners = new Set<(state: BbDesktopBrowserState) => void>();
+  const stateListeners = new Set<(state: CcDesktopBrowserState) => void>();
   const focusListeners = new Set<(tabId: string) => void>();
   const focus = vi.fn();
   const goBack = vi.fn();
   const stop = vi.fn();
-  const api: BbDesktopBrowserApi = {
+  const api: CcDesktopBrowserApi = {
     ...createNoopDesktopBrowserApi(),
     goBack,
     focus,
@@ -73,8 +73,8 @@ function createBrowserChromeHarness(): BrowserChromeHarness {
 }
 
 function browserState(
-  overrides: Partial<BbDesktopBrowserState> = {},
-): BbDesktopBrowserState {
+  overrides: Partial<CcDesktopBrowserState> = {},
+): CcDesktopBrowserState {
   return {
     tabId: "browser:test",
     url: "https://example.com/docs",
@@ -96,7 +96,7 @@ function renderBrowserChrome(
     onNativeFocus?: () => void;
   } = {},
 ) {
-  window.bbDesktop = createBbDesktopApi(desktopInfo, harness.api);
+  window.ccDesktop = createCcDesktopApi(desktopInfo, harness.api);
   return render(
     <>
       <BrowserTabContent
@@ -127,7 +127,7 @@ describe("BrowserTabContent persistent navigation", () => {
     cleanup();
     vi.restoreAllMocks();
     window.localStorage.clear();
-    delete window.bbDesktop;
+    delete window.ccDesktop;
   });
 
   it("keeps the top navigation visible through pointer and focus changes", () => {

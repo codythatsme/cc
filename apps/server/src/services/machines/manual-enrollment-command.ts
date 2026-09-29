@@ -7,7 +7,7 @@ function quote(value: string): string {
 export function manualEnrollmentCommand(
   bootstrap: EnrollmentBootstrap,
 ): string {
-  const header = `X-BB-Enrollment: ${bootstrap.credential}`;
+  const header = `X-CC-Enrollment: ${bootstrap.credential}`;
   const installerUrl = new URL("/install.sh", bootstrap.serverUrl).href;
   return `curl -sSL --fail-with-body -H ${quote(header)} ${quote(installerUrl)} | sh`;
 }
@@ -16,5 +16,5 @@ export function enrolledInstallerScript(
   script: string,
   bootstrap: EnrollmentBootstrap,
 ): string {
-  return `export BB_ENROLLMENT=${quote(JSON.stringify(bootstrap))}\nset -- --bootstrap-env BB_ENROLLMENT\n${script}`;
+  return `export CC_ENROLLMENT=${quote(JSON.stringify(bootstrap))}\nset -- --bootstrap-env CC_ENROLLMENT\n${script}`;
 }

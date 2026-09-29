@@ -1,21 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://getbb.app/schemas/marketplace.schema.json",
-  "title": "BB plugin marketplace manifest",
-  "description": "A catalog of plugin listings with store branding. Entries point at npm packages or git repositories; BB's install pipeline stays authoritative for identity and compatibility.",
+  "$id": "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace.schema.json",
+  "title": "CC plugin marketplace manifest",
+  "description": "A catalog of plugin listings with store branding. Entries point at npm packages or git repositories; CC's install pipeline stays authoritative for identity and compatibility.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "name", "displayName", "plugins"],
   "properties": {
     "$schema": {
-      "const": "https://getbb.app/schemas/marketplace.schema.json"
+      "const": "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace.schema.json"
     },
     "schemaVersion": {
       "const": 1
     },
     "name": {
       "type": "string",
-      "$comment": "The handle every bb route and command addresses the marketplace by.",
+      "$comment": "The handle every cc route and command addresses the marketplace by.",
       "maxLength": 64,
       "pattern": "^[a-z0-9][a-z0-9-]*$"
     },
@@ -39,7 +39,7 @@
     "entry": {
       "type": "object",
       "additionalProperties": false,
-      "$comment": "An entry does not declare compatibility. BB reads engines.bb and engines.bbPluginSdk from the plugin's own package.json and refuses the install there.",
+      "$comment": "An entry does not declare compatibility. CC reads engines.cc and engines.ccPluginSdk from the plugin's own package.json and refuses the install there.",
       "required": [
         "id",
         "displayName",
@@ -51,7 +51,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "$comment": "The plugin id this entry installs; BB refuses an install whose manifest declares another id.",
+          "$comment": "The plugin id this entry installs; CC refuses an install whose manifest declares another id.",
           "pattern": "^[a-z0-9][a-z0-9-]*$"
         },
         "displayName": {
@@ -77,7 +77,7 @@
                 "url": {
                   "type": "string",
                   "minLength": 1,
-                  "$comment": "Absolute https URL, or a URL relative to this manifest. The path must end in .svg, .png, or .webp. BB masks an SVG with the surrounding text color, so single-color artwork follows the theme; PNG and WebP keep their own colors.",
+                  "$comment": "Absolute https URL, or a URL relative to this manifest. The path must end in .svg, .png, or .webp. CC masks an SVG with the surrounding text color, so single-color artwork follows the theme; PNG and WebP keep their own colors.",
                   "pattern": "^(?:(?![A-Za-z][A-Za-z0-9+.-]*:)|(?=[Hh][Tt][Tt][Pp][Ss]:))[^\\s]*\\.(?:[Ss][Vv][Gg]|[Pp][Nn][Gg]|[Ww][Ee][Bb][Pp])(?:[?#][^\\s]*)?$"
                 }
               }
@@ -175,7 +175,7 @@
             "subdir": { "$ref": "#/$defs/gitSubdir" },
             "ref": {
               "type": "string",
-              "$comment": "Must round-trip through BB's git:<url>@<ref> install syntax, so \":\" (which BB reads as a ref:/semver: selector) is rejected.",
+              "$comment": "Must round-trip through CC's git:<url>@<ref> install syntax, so \":\" (which CC reads as a ref:/semver: selector) is rejected.",
               "pattern": "^(?!-)(?![\\s\\S]*\\.\\.)(?![\\s\\S]*@)(?![\\s\\S]*:)[\\s\\S]+$"
             }
           }
@@ -186,7 +186,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["git"],
-      "$comment": "A semver range resolved over the repository's [tagPrefix]vX.Y.Z release tags. BB records the tag and commit it selected and refuses a tag that later points elsewhere.",
+      "$comment": "A semver range resolved over the repository's [tagPrefix]vX.Y.Z release tags. CC records the tag and commit it selected and refuses a tag that later points elsewhere.",
       "properties": {
         "git": {
           "type": "object",
@@ -209,7 +209,7 @@
     "semverRange": {
       "type": "string",
       "minLength": 1,
-      "$comment": "An npm semver range. Mirrors semver.validRange, which BB's parser applies at refresh time.",
+      "$comment": "An npm semver range. Mirrors semver.validRange, which CC's parser applies at refresh time.",
       "pattern": "^\\s*(?:\\*|v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?\\s+-\\s+v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?|(?:[<>]=?|=|~>?|\\^)?\\s*v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\s+(?:[<>]=?|=|~>?|\\^)?\\s*v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?)*|)(?:\\s*\\|\\|\\s*(?:\\*|v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?\\s+-\\s+v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?|(?:[<>]=?|=|~>?|\\^)?\\s*v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\s+(?:[<>]=?|=|~>?|\\^)?\\s*v?(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*])(?:\\.(?:0|[1-9]\\d*|[xX*]))?)?(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?)*|))*\\s*$"
     }
   }

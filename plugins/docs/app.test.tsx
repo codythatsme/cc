@@ -13,7 +13,7 @@ import {
   loadPluginApp,
   renderSlot,
   type RenderSlotOptions,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 const docsRegistration = app.navPanels[0]!;
@@ -244,7 +244,7 @@ describe("Docs nav panel", () => {
     });
   });
 
-  it("renders navigation in the BB-owned right-panel view without custom chrome", async () => {
+  it("renders navigation in the CC-owned right-panel view without custom chrome", async () => {
     const slot = renderSlot(
       navigationRegistration,
       { subPath: "personal" },
@@ -784,7 +784,7 @@ describe("Docs nav panel", () => {
 
   it("keeps task checkboxes aligned with the first line of their text", async () => {
     const existingStyles = document.head.querySelector(
-      "style[data-bb-simple-notes-styles]",
+      "style[data-cc-simple-notes-styles]",
     );
     if (existingStyles) existingStyles.textContent = "stale editor styles";
     const slot = renderSlot(
@@ -815,7 +815,7 @@ describe("Docs nav panel", () => {
     expect(slot.queryByRole("button", { name: "Add image" })).toBeNull();
     expect(slot.container.querySelector('input[type="file"]')).toBeNull();
     const styles = document.head.querySelector(
-      "style[data-bb-simple-notes-styles]",
+      "style[data-cc-simple-notes-styles]",
     );
     expect(styles?.textContent).not.toBe("stale editor styles");
     expect(styles?.textContent).toContain("align-items: flex-start");
@@ -869,7 +869,7 @@ describe("Docs nav panel", () => {
     expect(table?.closest('[contenteditable="true"]')).toBeTruthy();
 
     const styles = document.head.querySelector(
-      "style[data-bb-simple-notes-styles]",
+      "style[data-cc-simple-notes-styles]",
     );
     expect(styles?.textContent).toContain("border-collapse: collapse");
     expect(styles?.textContent).toContain("column-resize-handle");

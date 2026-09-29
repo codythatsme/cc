@@ -71,7 +71,7 @@ describe("probeServer", () => {
     });
   });
 
-  it("rejects a non-bb server that answers /health with something else", async () => {
+  it("rejects a non-cc server that answers /health with something else", async () => {
     const fetchImpl = fakeFetch({ "/health": { body: "<html>" } });
     expect(await probeServer("https://example.com", fetchImpl)).toMatchObject({
       ok: false,
@@ -85,9 +85,9 @@ describe("probeServer", () => {
       "/health": { body: { ok: true } },
       "/api/v1/system/config": { status: 401 },
     });
-    expect(await probeServer("https://me.getbb.app", fetchImpl)).toEqual({
+    expect(await probeServer("https://me.cc.example.invalid", fetchImpl)).toEqual({
       ok: false,
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.cc.example.invalid",
       stage: "config",
       error: "HTTP 401",
     });

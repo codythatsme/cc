@@ -1,9 +1,9 @@
 ---
 name: browser-automation
-description: Use the Browser Automation BB plugin to inspect and automate persistent browser pages in an explicit desktop or local headless session. Use for browser navigation, snapshots, clicking, forms, and verification screenshots.
+description: Use the Browser Automation CC plugin to inspect and automate persistent browser pages in an explicit desktop or local headless session. Use for browser navigation, snapshots, clicking, forms, and verification screenshots.
 ---
 
-Use `bb browser-automation`. Open one session, retain its session ID, then inspect,
+Use `cc browser-automation`. Open one session, retain its session ID, then inspect,
 act, and verify in short scripts.
 
 `--machine` accepts an exact host ID or an unambiguous machine name. Exact IDs
@@ -19,7 +19,7 @@ controlled, a desktop tab never takes keyboard focus from the composer or other
 apps; the user presses Take over to type into it. Headless sessions remain headless.
 Plugin-owned local/headless Chrome launches with `--no-sandbox`, disabling Chrome's
 sandbox. Desktop attachment does not change the browser's launch flags.
-Resolve the explicit instance with `bb browser instances --host <host-id> --json`
+Resolve the explicit instance with `cc browser instances --host <host-id> --json`
 first. Never silently choose a different host, mode, or login profile.
 Adding `--tab <tab-id>` hands off an existing tab and its profile's logged-in
 authority; do so only when the user asked to use that tab. The CLI uses the
@@ -29,16 +29,16 @@ that thread.
 CLI opening:
 
 ```sh
-bb browser-automation open --backend local --headless --machine <host-id> --json
-bb browser-automation open --backend desktop --machine <host-id> --desktop <instance-id> --json
+cc browser-automation open --backend local --headless --machine <host-id> --json
+cc browser-automation open --backend desktop --machine <host-id> --desktop <instance-id> --json
 ```
 
 Run scripts:
 
 ```sh
-bb browser-automation run <session-id> --script 'const p = await browser.getPage("main"); await p.goto("https://example.com"); await p.snapshot()' --json
-bb browser-automation run <session-id> --script 'const p = await browser.getPage("main"); await p.click("ref/e6"); await p.snapshot()' --json
-bb browser-automation screenshot <session-id> --page main --json
+cc browser-automation run <session-id> --script 'const p = await browser.getPage("main"); await p.goto("https://example.com"); await p.snapshot()' --json
+cc browser-automation run <session-id> --script 'const p = await browser.getPage("main"); await p.click("ref/e6"); await p.snapshot()' --json
+cc browser-automation screenshot <session-id> --page main --json
 ```
 
 Take a fresh snapshot before using refs after navigation or document changes.
@@ -55,7 +55,7 @@ you are on the same machine. If the browser host differs, fetch the image to
 local temporary storage first (substitute the returned path and host ID):
 
 ```sh
-bb file read '<image-path>' --host '<host-id>' --json | node -e '
+cc file read '<image-path>' --host '<host-id>' --json | node -e '
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const file = JSON.parse(fs.readFileSync(0, "utf8"));
 if (file.contentEncoding !== "base64") throw new Error("Expected binary image");
@@ -73,11 +73,11 @@ finished.
 A local headless `open` returns a `previewDirective`, for example
 `::browser-preview{session="<session-id>"}`. Copy it into your next message
 exactly once as a standalone line, before you continue working. Do not wrap it
-in backticks or a code fence, and do not invent or edit the session ID. BB
+in backticks or a code fence, and do not invent or edit the session ID. CC
 renders it as a live view of that browser in the chat, which the user can
 expand, so they can watch while you work. Desktop
 sessions return no directive; that browser is already visible in the side
-panel. `bb browser-automation preview <session-id> --json` reports the live
+panel. `cc browser-automation preview <session-id> --json` reports the live
 frame's `url`, `title`, size, and `sequence` without image bytes; it is not a
 substitute for `screenshot` when you need to see the page.
 
@@ -96,8 +96,8 @@ a unit (`90s`, `2m`, `1500ms`) and a bare number is read as seconds (1-120) or
 milliseconds (1000-120000).
 
 A run may return at most 4 screenshots, JPEG only, 500 KB combined; a larger or
-differently encoded capture fails the run. `bb browser-automation --help` and
-`bb browser-automation <command> --help` print every flag with these limits.
+differently encoded capture fails the run. `cc browser-automation --help` and
+`cc browser-automation <command> --help` print every flag with these limits.
 Unknown commands and flags fail with a suggestion, and with `--json` a failure
 prints `{"ok":false,"error":{"code":…,"message":…,"hint":…}}` on stdout (code
 `session_unavailable` when the session stopped or expired, `screenshot_limit`

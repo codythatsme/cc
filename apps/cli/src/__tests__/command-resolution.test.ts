@@ -10,7 +10,7 @@ import {
 } from "../command-resolution.js";
 
 function buildProgram(): Command {
-  const program = new Command().name("bb");
+  const program = new Command().name("cc");
   const thread = program.command("thread");
   thread.command("show [id]").aliases(["get"]).option("--json");
   thread.command("tell <id> [message]").option("--mode <mode>");
@@ -31,7 +31,7 @@ function buildProgram(): Command {
 }
 
 function argv(...args: string[]): string[] {
-  return ["node", "bb", ...args];
+  return ["node", "cc", ...args];
 }
 
 describe("resolveInvocation", () => {
@@ -79,13 +79,13 @@ describe("resolveInvocation", () => {
 
 describe("suggestCommand", () => {
   const cases: Array<[string[], string | null]> = [
-    [["thread", "message"], "bb thread tell"],
-    [["thread", "timeline"], "bb thread log"],
-    [["thread", "create"], "bb thread spawn"],
-    [["thread", "shwo"], "bb thread show"],
-    [["terminal", "read"], "bb terminal output"],
-    [["host"], "bb machine"],
-    [["models"], "bb provider models"],
+    [["thread", "message"], "cc thread tell"],
+    [["thread", "timeline"], "cc thread log"],
+    [["thread", "create"], "cc thread spawn"],
+    [["thread", "shwo"], "cc thread show"],
+    [["terminal", "read"], "cc terminal output"],
+    [["host"], "cc machine"],
+    [["models"], "cc provider models"],
     [["thread", "zzzzzz"], null],
     [["tasks"], null],
   ];
@@ -135,7 +135,7 @@ describe("usage formatting", () => {
       new Command().createOption("--thread <id>").hideHelp(),
     );
     expect(formatUsageLine(invocation)).toBe(
-      "Usage: bb terminal output [options] <terminalId>",
+      "Usage: cc terminal output [options] <terminalId>",
     );
     expect(formatOptionList(invocation.command)).toBe(
       "--tail-bytes <n>, --json",

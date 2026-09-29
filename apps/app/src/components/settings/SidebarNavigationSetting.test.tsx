@@ -50,7 +50,7 @@ describe("SidebarNavigationSetting", () => {
     ).toContain("Chooses Navigation grid (navbar).");
     expect(options).toHaveLength(3);
     expect(options[1]).toContain("Navigation gridFrom the navbar plugin.");
-    expect(options[2]).toContain("Navigation (built-in)BB default.");
+    expect(options[2]).toContain("Navigation (built-in)CC default.");
 
     fireEvent.click(screen.getByRole("menuitem", { name: /^Navigation \(built-in\)/u }));
     expect(store.get(sidebarNavigationProviderAtom)).toBe(

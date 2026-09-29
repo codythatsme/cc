@@ -11,13 +11,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useImmediateRouteNavigate } from "@/components/ui/app-route-anchor";
-import type { IconName } from "@bb/shared-ui/icon";
+import type { IconName } from "@cc/shared-ui/icon";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import {
   getFollowUpPromptPlaceholder,
   getCompactFollowUpPromptPlaceholder,
 } from "@/components/promptbox/follow-up-placeholder";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@cc/domain";
 import type {
   PermissionMode,
   ReasoningLevel,
@@ -31,17 +31,17 @@ import type {
   ThreadTimelineModelFallback,
   ThreadTimelinePendingTodos,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   PullRequestMergeMethod,
   SendMessageRequest,
   ThreadTimelineResponse,
   TimelineWorkflowWorkRow,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type {
   ExperimentalComposerSelection,
   ExperimentalComposerSubmitOptions,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import type { ChildThreadPendingAttention } from "@/hooks/queries/child-thread-pending-interactions";
 import {
   readExecutionSelection,
@@ -129,13 +129,13 @@ import {
   buildThreadHandoffFollowUpDraft,
   stripThreadHandoffPrefix,
   type ThreadHandoffCreateSeed,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   emptyPromptDraftState,
   promptDraftToInput,
   type PromptDraftAttachment,
   type PromptDraftState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   FollowUpPromptBox,
   type FollowUpComposerProps,
@@ -152,7 +152,7 @@ import {
   resolveDefaultExecutionOptionsState,
   shouldQueueFollowUpMessage,
   type FollowUpExecutionSelection,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 const ignorePromptBannerFileClick = () => {};
 const ignoreToastedCreateThreadError = () => {};

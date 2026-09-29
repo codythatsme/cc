@@ -2,19 +2,19 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { writeCcAppRuntimeFile } from "@cc/config/app-runtime-file";
 import {
   SERVER_MOVED_FILE_NAME,
   writeServerMovedFile,
   type ServerMovedFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   applyServerMove,
   createServerMovedWatcher,
   createServerMoveNoticeStore,
   ensureServerMovedRuntime,
-  hasLiveBbAppLauncher,
+  hasLiveCcAppLauncher,
   probeLocalServerMove,
   readServerMovedConnectCredential,
   readServerMovedLock,
@@ -38,7 +38,7 @@ afterEach(async () => {
 });
 
 async function createTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "bb-desktop-server-moved-"));
+  const dir = await mkdtemp(join(tmpdir(), "cc-desktop-server-moved-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -50,8 +50,8 @@ function movedFile(overrides: Partial<ServerMovedFile> = {}): ServerMovedFile {
     mode: "connect",
     moveId: "move-1",
     movedAt: 1_750_000_000_000,
-    oldCopyEntries: ["bb.db", "attachments"],
-    serverUrl: "https://laptop.getbb.app/",
+    oldCopyEntries: ["cc.db", "attachments"],
+    serverUrl: "https://laptop.cc.example.invalid/",
     toHostId: "host-desktop",
     toHostName: "Studio desktop",
     version: 1,
@@ -113,7 +113,7 @@ const CONNECT_MOVE: DesktopServerMove = {
     server: {
       handle: "laptop",
       name: "Studio desktop",
-      url: "https://laptop.getbb.app",
+      url: "https://laptop.cc.example.invalid",
     },
   },
   toHostName: "Studio desktop",
@@ -137,7 +137,7 @@ describe("readServerMovedLock", () => {
     expect(logWarning).not.toHaveBeenCalled();
   });
 
-  it("selects the bb Connect handle for a connect move", async () => {
+  it("selects the cc Connect handle for a connect move", async () => {
     const dataDir = await createTempDir();
     await writeServerMovedFile(dataDir, movedFile());
 
@@ -151,7 +151,7 @@ describe("readServerMovedLock", () => {
         server: {
           handle: "laptop",
           name: "Studio desktop",
-          url: "https://laptop.getbb.app",
+          url: "https://laptop.cc.example.invalid",
         },
       },
       toHostName: "Studio desktop",
@@ -246,13 +246,13 @@ describe("applyServerMove", () => {
       server: {
         handle: "laptop",
         name: "Studio desktop",
-        url: "https://laptop.getbb.app",
+        url: "https://laptop.cc.example.invalid",
       },
     });
     expect(stores.notices).toEqual([
       {
-        detail: "bb now opens there. This computer stays connected.",
-        message: "Your bb server moved to Studio desktop",
+        detail: "cc now opens there. This computer stays connected.",
+        message: "Your cc server moved to Studio desktop",
       },
     ]);
 
@@ -384,7 +384,7 @@ describe("ensureServerMovedRuntime", () => {
     expect(startLocalRuntime).not.toHaveBeenCalled();
   });
 
-  it("does not start a second launcher when another bb answers the address", async () => {
+  it("does not start a second launcher when another cc answers the address", async () => {
     const { args, logInfo, startLocalRuntime } = runtimeArgs({
       isLocalAddressFree: false,
     });
@@ -532,7 +532,7 @@ describe("createServerMovedWatcher", () => {
     harness.watcher.start();
     await harness.timers.flush();
 
-    harness.fakeWatch.emit("bb.db-wal");
+    harness.fakeWatch.emit("cc.db-wal");
     expect(harness.timers.pendingCount()).toBe(0);
     await writeServerMovedFile(harness.dataDir, movedFile());
     harness.fakeWatch.emit(`${SERVER_MOVED_FILE_NAME}.abc123.tmp`);
@@ -713,7 +713,7 @@ describe("createServerMovedWatcher", () => {
     });
     watcher.start();
 
-    await writeFile(join(dataDir, "bb.db-wal"), "noise");
+    await writeFile(join(dataDir, "cc.db-wal"), "noise");
     await writeServerMovedFile(
       dataDir,
       movedFile({
@@ -918,10 +918,10 @@ describe("probeLocalServerMove", () => {
         code: "server_moved",
         details: {
           movedAt: 1,
-          serverUrl: "https://laptop.getbb.app",
+          serverUrl: "https://laptop.cc.example.invalid",
           toHostName: "Studio desktop",
         },
-        message: "This bb server moved",
+        message: "This cc server moved",
       });
     });
 
@@ -988,11 +988,11 @@ describe("probeLocalServerMove", () => {
   });
 });
 
-describe("hasLiveBbAppLauncher", () => {
+describe("hasLiveCcAppLauncher", () => {
   async function writeRuntimeFile(dataDir: string, pid: number) {
-    await writeBbAppRuntimeFile({
+    await writeCcAppRuntimeFile({
       dataDir,
-      entryPath: "/opt/bb/bb-app.js",
+      entryPath: "/opt/cc/cc-app.js",
       pid,
       serverUrl: "http://127.0.0.1:38886",
       startedAt: new Date().toISOString(),
@@ -1003,7 +1003,7 @@ describe("hasLiveBbAppLauncher", () => {
 
   it("is false without a runtime file", async () => {
     await expect(
-      hasLiveBbAppLauncher({ dataDir: await createTempDir() }),
+      hasLiveCcAppLauncher({ dataDir: await createTempDir() }),
     ).resolves.toBe(false);
   });
 
@@ -1011,9 +1011,9 @@ describe("hasLiveBbAppLauncher", () => {
     const dataDir = await createTempDir();
     await writeRuntimeFile(dataDir, process.pid);
 
-    await expect(hasLiveBbAppLauncher({ dataDir })).resolves.toBe(true);
+    await expect(hasLiveCcAppLauncher({ dataDir })).resolves.toBe(true);
     await expect(
-      hasLiveBbAppLauncher({ dataDir, isRunning: () => false }),
+      hasLiveCcAppLauncher({ dataDir, isRunning: () => false }),
     ).resolves.toBe(false);
   });
 });
@@ -1026,8 +1026,8 @@ describe("readServerMovedConnectCredential", () => {
   it("reads the machine credential the move wrote for this computer", async () => {
     const dataDir = await createTempDir();
     await writeConfig(dataDir, {
-      serverHeaders: { "x-bb-connect-machine": "bbcm_laptop" },
-      serverUrl: "https://laptop.getbb.app/",
+      serverHeaders: { "x-cc-connect-machine": "bbcm_laptop" },
+      serverUrl: "https://laptop.cc.example.invalid/",
     });
 
     await expect(
@@ -1035,20 +1035,20 @@ describe("readServerMovedConnectCredential", () => {
         dataDir,
         logWarning: vi.fn(),
         move: CONNECT_MOVE,
-        remoteServerUrl: "https://laptop.getbb.app",
+        remoteServerUrl: "https://laptop.cc.example.invalid",
       }),
     ).resolves.toEqual({
       credential: "bbcm_laptop",
       handle: "laptop",
-      serverUrl: "https://laptop.getbb.app",
+      serverUrl: "https://laptop.cc.example.invalid",
     });
   });
 
   it("does not use the credential for a different server", async () => {
     const dataDir = await createTempDir();
     await writeConfig(dataDir, {
-      serverHeaders: { "x-bb-connect-machine": "bbcm_laptop" },
-      serverUrl: "https://laptop.getbb.app",
+      serverHeaders: { "x-cc-connect-machine": "bbcm_laptop" },
+      serverUrl: "https://laptop.cc.example.invalid",
     });
 
     await expect(
@@ -1056,7 +1056,7 @@ describe("readServerMovedConnectCredential", () => {
         dataDir,
         logWarning: vi.fn(),
         move: CONNECT_MOVE,
-        remoteServerUrl: "https://work.getbb.app",
+        remoteServerUrl: "https://work.cc.example.invalid",
       }),
     ).resolves.toBeNull();
   });
@@ -1064,7 +1064,7 @@ describe("readServerMovedConnectCredential", () => {
   it("does not use a credential that config.json pins to another address", async () => {
     const dataDir = await createTempDir();
     await writeConfig(dataDir, {
-      serverHeaders: { "x-bb-connect-machine": "bbcm_old" },
+      serverHeaders: { "x-cc-connect-machine": "bbcm_old" },
       serverUrl: "http://127.0.0.1:38886",
     });
 
@@ -1073,21 +1073,21 @@ describe("readServerMovedConnectCredential", () => {
         dataDir,
         logWarning: vi.fn(),
         move: CONNECT_MOVE,
-        remoteServerUrl: "https://laptop.getbb.app",
+        remoteServerUrl: "https://laptop.cc.example.invalid",
       }),
     ).resolves.toBeNull();
   });
 
   it("returns null for direct moves and missing headers", async () => {
     const dataDir = await createTempDir();
-    await writeConfig(dataDir, { serverUrl: "https://laptop.getbb.app" });
+    await writeConfig(dataDir, { serverUrl: "https://laptop.cc.example.invalid" });
 
     await expect(
       readServerMovedConnectCredential({
         dataDir,
         logWarning: vi.fn(),
         move: CONNECT_MOVE,
-        remoteServerUrl: "https://laptop.getbb.app",
+        remoteServerUrl: "https://laptop.cc.example.invalid",
       }),
     ).resolves.toBeNull();
     await expect(
@@ -1107,7 +1107,7 @@ describe("readServerMovedConnectCredential", () => {
       dataDir,
       logWarning,
       move: CONNECT_MOVE,
-      remoteServerUrl: "https://laptop.getbb.app",
+      remoteServerUrl: "https://laptop.cc.example.invalid",
     };
 
     await expect(readServerMovedConnectCredential(args)).resolves.toBeNull();

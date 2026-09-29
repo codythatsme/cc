@@ -3,14 +3,14 @@
 - `pnpm dev` prints the active frontend URL, server API URL, host daemon port, data dir, and logs dir. Do not assume fixed dev ports.
 - `pnpm start:worktree` builds production artifacts and serves the optimized app bundle from the checkout-specific dev server URL, while keeping the same dev data directory and deterministic server/host-daemon ports. It has no Vite dev server or hot reload.
 - `pnpm start:worktree-remote` is the trusted-network variant of `pnpm start:worktree`; it binds that server to all IPv4 interfaces.
-- `pnpm desktop` packages the Electron app and launches it against the installed data directory, ports and Electron user-data directory, the same targets a released build uses. It therefore shares the single-instance lock with an installed bb: quit that first, or the launch focuses it instead of starting your build.
-- `pnpm desktop:worktree` packages and launches it against this checkout's data directory and deterministic ports, the same instance `pnpm start:worktree` uses, so a packaged build never touches `~/.bb` or port 38886. It also points Electron's own user-data directory at `$BB_DATA_DIR/desktop` — window state, storage and the single-instance lock all live there. Without that the build would share `~/Library/Application Support/bb` with an installed bb, fail to take the lock, and quit while the installed app focuses itself, which reads as a successful launch of code that never ran. Override it with `BB_DESKTOP_USER_DATA_DIR`. It refuses to start when the server or host-daemon port is busy, because a stale server there would answer for the build you meant to test. DevTools stay closed unless you set `BB_DESKTOP_OPEN_DEVTOOLS=1`, matching a released build. Both commands always repackage first; Turbo caches everything except electron-builder itself. Signing is left to electron-builder's keychain auto-discovery, so machines without a Developer ID identity produce unsigned artifacts and macOS shows the usual first-launch warning.
-- The packaged app defaults to server/frontend `:38886`, host daemon `:38887`, data dir `~/.bb/`, and logs under `~/.bb/logs/`.
-- `bb-app` (including `pnpm start`), `bb-server`, and `bb-host-daemon` capture service stdout and stderr directly in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts and are separate from rotating application logs. Use `tail -F` on these files for console output and early startup errors; service output is no longer forwarded to the launcher's terminal.
-- Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/bb.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
+- `pnpm desktop` packages the Electron app and launches it against the installed data directory, ports and Electron user-data directory, the same targets a released build uses. It therefore shares the single-instance lock with an installed cc: quit that first, or the launch focuses it instead of starting your build.
+- `pnpm desktop:worktree` packages and launches it against this checkout's data directory and deterministic ports, the same instance `pnpm start:worktree` uses, so a packaged build never touches `~/.cc` or port 38886. It also points Electron's own user-data directory at `$CC_DATA_DIR/desktop` — window state, storage and the single-instance lock all live there. Without that the build would share `~/Library/Application Support/cc` with an installed cc, fail to take the lock, and quit while the installed app focuses itself, which reads as a successful launch of code that never ran. Override it with `CC_DESKTOP_USER_DATA_DIR`. It refuses to start when the server or host-daemon port is busy, because a stale server there would answer for the build you meant to test. DevTools stay closed unless you set `CC_DESKTOP_OPEN_DEVTOOLS=1`, matching a released build. Both commands always repackage first; Turbo caches everything except electron-builder itself. Signing is left to electron-builder's keychain auto-discovery, so machines without a Developer ID identity produce unsigned artifacts and macOS shows the usual first-launch warning.
+- The packaged app defaults to server/frontend `:38886`, host daemon `:38887`, data dir `~/.cc/`, and logs under `~/.cc/logs/`.
+- `cc-app` (including `pnpm start`), `cc-server`, and `cc-host-daemon` capture service stdout and stderr directly in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts and are separate from rotating application logs. Use `tail -F` on these files for console output and early startup errors; service output is no longer forwarded to the launcher's terminal.
+- Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/cc.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
 - API routes are under `/api/v1/`, for example `GET /api/v1/threads/:id`.
 - Use `curl` against the server API to isolate frontend issues from server behavior.
-- Use the CLI to inspect state: `pnpm bb thread show <id>`, `pnpm bb project list`, `pnpm bb status`. From source, use `pnpm bb:dev`.
+- Use the CLI to inspect state: `pnpm cc thread show <id>`, `pnpm cc project list`, `pnpm cc status`. From source, use `pnpm cc:dev`.
 
 ## Native Draft Rollback
 
@@ -98,17 +98,17 @@ awaited by this admission repair, and startup does not scan for abandoned claims
 Run `pnpm dev` from this checkout and keep it running in a terminal. It prints
 the checkout-specific URLs, data directory, and logs directory. Stop it with
 Ctrl-C. For desktop-only changes, start
-`pnpm exec turbo run dev --filter=@bb/desktop` in a second terminal.
+`pnpm exec turbo run dev --filter=@cc/desktop` in a second terminal.
 
 Use the Node version in `.nvmrc` (22.19.0). Desktop development requires
 Node 22.19 or newer in the Node 22 release line.
 
-A bb connect shared-port URL is a different browser origin from localhost. If
+A cc connect shared-port URL is a different browser origin from localhost. If
 QA through that URL needs the browser-local host daemon, restart the dev app
 with the share origin configured after exposing its app port:
 
 ```bash
-BB_APP_URL=https://<handle>--<app-port>.getbb.app pnpm dev
+CC_APP_URL=https://<handle>--<app-port>.cc.example.invalid pnpm dev
 ```
 
 The port remains stable for the checkout, so the existing share continues to
@@ -116,15 +116,15 @@ work after the restart. The host daemon intentionally rejects remote origins
 that are not configured; otherwise any webpage could drive its local editor
 API.
 
-For CLI QA, `pnpm bb:dev` derives this checkout's server and daemon endpoints.
+For CLI QA, `pnpm cc:dev` derives this checkout's server and daemon endpoints.
 In the test shell, clear inherited endpoint and thread context overrides first
 so commands target the dev instance. Keep these changes inside that shell.
 
 Test agents with:
 
 ```bash
-unset BB_SERVER_URL BB_HOST_DAEMON_PORT BB_THREAD_ID BB_ENVIRONMENT_ID BB_THREAD_STORAGE BB_PROJECT_ID BB_CLI BB_CLI_REEXEC
-pnpm bb:dev thread spawn --project proj_personal --provider codex --permission-mode accept-edits --title "Smoke test" --prompt "Reply only with ok." --json
+unset CC_SERVER_URL CC_HOST_DAEMON_PORT CC_THREAD_ID CC_ENVIRONMENT_ID CC_THREAD_STORAGE CC_PROJECT_ID CC_CLI CC_CLI_REEXEC
+pnpm cc:dev thread spawn --project proj_personal --provider codex --permission-mode accept-edits --title "Smoke test" --prompt "Reply only with ok." --json
 ```
 
 ## Desktop Browser CDP Prototype
@@ -132,7 +132,7 @@ pnpm bb:dev thread spawn --project proj_personal --provider codex --permission-m
 Run the isolated Electron compatibility fixture through Turbo:
 
 ```bash
-pnpm exec turbo run smoke:browser-cdp --filter=@bb/desktop > /tmp/browser-cdp-smoke.log 2>&1
+pnpm exec turbo run smoke:browser-cdp --filter=@cc/desktop > /tmp/browser-cdp-smoke.log 2>&1
 ```
 
 The harness currently requires Linux x64, `xvfb-run`, and network access to
@@ -140,12 +140,12 @@ GitHub releases. It downloads checksum-pinned DevBrowser 1.0.0-rc.2 and
 agent-browser 0.36.0 into a fresh temporary directory, bundles the fixture,
 and drives real `WebContentsView` tabs through the production CDP bridge and
 native adapter. It uses a local fixture website and a separate Electron
-profile, without starting a BB core or reading an existing BB store.
+profile, without starting a CC core or reading an existing CC store.
 
 The command prints its artifact directory, including screenshots, protocol
 method traces, and the result summary. Connection credentials are redacted
 from the diagnostic output. Desktop startup now registers the native broker;
-`bb browser` and `bb.sdk.experimental_desktopBrowsers` expose its public API.
+`cc browser` and `cc.sdk.experimental_desktopBrowsers` expose its public API.
 This fixture also exercises service-created hidden automation tabs and leases.
 The fixture verifies simultaneous control of a hidden thread and another
 thread, in addition to both clients’ main-page workflows. It verifies trusted
@@ -159,7 +159,7 @@ ref support. Popup control remains untested.
 To validate a modified DevBrowser build, run:
 
 ```bash
-pnpm exec turbo run smoke:browser-cdp --filter=@bb/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-cdp-local-smoke.log 2>&1
+pnpm exec turbo run smoke:browser-cdp --filter=@cc/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-cdp-local-smoke.log 2>&1
 ```
 
 The `--dev-browser` option copies that binary into the artifact directory,
@@ -193,7 +193,7 @@ that flag proves the listed browser checks, not graceful Electron shutdown.
 ## Desktop Browser Broker Integration
 
 ```bash
-pnpm exec turbo run smoke:browser-broker --filter=@bb/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-broker-smoke.log 2>&1
+pnpm exec turbo run smoke:browser-broker --filter=@cc/desktop -- --dev-browser /absolute/path/to/dev-browser > /tmp/browser-broker-smoke.log 2>&1
 ```
 
 This isolated fixture uses an in-memory migrated test server, the actual SDK
@@ -203,23 +203,23 @@ it does not start a full enrolled daemon or prove remote-machine transport.
 It verifies private connection-file permissions, ownership, browser input,
 capture, revocation, and connection generations. The default downloads the
 checksum-pinned release; the optional binary path records local provenance.
-No existing BB store or browser profile is used.
+No existing CC store or browser profile is used.
 
 ## Record Provider Bridge Traffic
 
-Export `BB_PROVIDER_BRIDGE_RECORD_DIR` before you start the dev app and every
+Export `CC_PROVIDER_BRIDGE_RECORD_DIR` before you start the dev app and every
 provider bridge records its runtime and provider wires as NDJSON:
 
 ```bash
-BB_PROVIDER_BRIDGE_RECORD_DIR=$HOME/.bb/provider-recordings/raw pnpm dev
+CC_PROVIDER_BRIDGE_RECORD_DIR=$HOME/.cc/provider-recordings/raw pnpm dev
 ```
 
 In a second terminal, run:
 
 ```bash
-unset BB_SERVER_URL BB_HOST_DAEMON_PORT BB_THREAD_ID BB_ENVIRONMENT_ID BB_THREAD_STORAGE BB_PROJECT_ID BB_CLI BB_CLI_REEXEC
-pnpm bb:dev thread spawn --project proj_personal --provider codex --prompt "Run git status." --json
-ls ~/.bb/provider-recordings/raw/codex/
+unset CC_SERVER_URL CC_HOST_DAEMON_PORT CC_THREAD_ID CC_ENVIRONMENT_ID CC_THREAD_STORAGE CC_PROJECT_ID CC_CLI CC_CLI_REEXEC
+pnpm cc:dev thread spawn --project proj_personal --provider codex --prompt "Run git status." --json
+ls ~/.cc/provider-recordings/raw/codex/
 ```
 
 The layout is `<dir>/<providerId>/<threadId>/<direction>.ndjson`, plus a
@@ -245,7 +245,7 @@ payloads. Use it to reproduce performance problems that only appear at scale.
 - Start the dev app once first (`pnpm dev`), then stop it and
   seed. The fixture then attaches to the real local host, so agents still run.
 - By default the command seeds this checkout's dev data dir. Pass
-  `--data-dir <path>` for another target. The command refuses to touch `~/.bb`.
+  `--data-dir <path>` for another target. The command refuses to touch `~/.cc`.
 - Scale flags: `--projects`, `--threads`, `--events`, `--seed`. `--reset`
   deletes the database file first. Without `--reset` the fixture appends.
 - Example: `pnpm seed:perf -- --reset --events 400000`.
@@ -253,19 +253,19 @@ payloads. Use it to reproduce performance problems that only appear at scale.
 ## Provider Corpus
 
 The provider corpus is a private set of real production threads (307 threads,
-330,626 event rows, extracted from a personal `~/.bb/bb.db`). It is the
+330,626 event rows, extracted from a personal `~/.cc/cc.db`). It is the
 regression oracle for the provider-plugin migration: every layer must project
 the same rows and build timelines at the same speed. The corpus contains real
 prompts, code, and paths, so it is **never committed**; `.gitignore` blocks
 every `provider-corpus/` directory except the in-repo harness and scripts.
 
-- Location: `~/.bb/provider-corpus/` by default. Tests read it through
-  `BB_PROVIDER_CORPUS_DIR` and skip when the variable is unset or the directory
+- Location: `~/.cc/provider-corpus/` by default. Tests read it through
+  `CC_PROVIDER_CORPUS_DIR` and skip when the variable is unset or the directory
   has no `manifest.json`, so CI and fresh checkouts stay green.
 - Layout: `manifest.json` (thread selection and reasons), `profile.json`,
   `threads/<provider>/<threadId>/{meta.json,events.ndjson}`, and the generated
   `snapshots/` directory described below.
-- Reader: `@bb/test-helpers` exports `corpusAvailable()`,
+- Reader: `@cc/test-helpers` exports `corpusAvailable()`,
   `listCorpusThreads({ provider?, reasons? })`, and `loadCorpusThread(id)`.
   Event rows decode through the same `parseStoredThreadEvent` the server uses.
 
@@ -294,8 +294,8 @@ scripts/provider-corpus/snapshot-rows.sh compare   # default mode, fails on diff
 scripts/provider-corpus/snapshot-rows.sh write     # refresh the baseline
 ```
 
-The script wraps `pnpm exec turbo run test:provider-corpus --filter=@bb/server`
-with `BB_PROVIDER_CORPUS_SNAPSHOT=write|compare`. Turbo strips undeclared
+The script wraps `pnpm exec turbo run test:provider-corpus --filter=@cc/server`
+with `CC_PROVIDER_CORPUS_SNAPSHOT=write|compare`. Turbo strips undeclared
 variables, so use that task (not the package `test` task) when you set the
 corpus variables. Each run writes `snapshots/rows-last-run.json` and
 `snapshots/perf-last-run.md` with totals and the perf table.
@@ -330,8 +330,8 @@ workstream, so never run `write` against it from a feature branch. A PR that
 intentionally changes rows carries its own allowlist in the repository
 (`apps/server/test/provider-corpus/allowlists/<ws>.json`, same schema, merged
 after the shared file) and compares with
-`BB_PROVIDER_CORPUS_ALLOWLIST=<that file>`. A snapshot of the branch's own
-rows goes to a shadow directory: `BB_PROVIDER_CORPUS_SNAPSHOT_DIR=<dir>`
+`CC_PROVIDER_CORPUS_ALLOWLIST=<that file>`. A snapshot of the branch's own
+rows goes to a shadow directory: `CC_PROVIDER_CORPUS_SNAPSHOT_DIR=<dir>`
 redirects both `write` and `compare`. Re-mint `snapshots/rows` from `main`
 after such a PR merges and delete the allowlist file it carried.
 
@@ -339,7 +339,7 @@ A pointer allowlist cannot describe a change that adds or removes rows: every
 later sibling shifts and the diff reports the whole turn. For such a change,
 carry a row-class file instead
 (`apps/server/test/provider-corpus/allowlists/<ws>-row-classes.json`) and set
-`BB_PROVIDER_CORPUS_ROW_CLASSES=<that file>` on the compare run. The gate then
+`CC_PROVIDER_CORPUS_ROW_CLASSES=<that file>` on the compare run. The gate then
 matches rows by identity (`callId`, `itemId`, `interactionId`, turn id, or row
 id), buckets every change into the first class whose matcher fits, and fails
 on a change no class claims or an entry that claims nothing (judged per
@@ -356,7 +356,7 @@ two directories offline:
 
 ```bash
 pnpm exec tsx scripts/provider-corpus/classify-row-diff.ts \
-  ~/.bb/provider-corpus/snapshots/rows ~/.bb/provider-corpus/snapshots/rows.<ws> \
+  ~/.cc/provider-corpus/snapshots/rows ~/.cc/provider-corpus/snapshots/rows.<ws> \
   --classes apps/server/test/provider-corpus/allowlists/<ws>-row-classes.json --verbose
 ```
 
@@ -385,15 +385,15 @@ pnpm cloud:dev
 
 The command applies migrations and prints the dashboard URL. Create a local
 email/password account, claim a handle, create a pairing code, and run the
-displayed `bb connect` command against a bb started with `pnpm dev`. The same
-worktree-specific local origin serves the dashboard at `bb.localhost` and
-routes `<handle>.bb.localhost` through the Connect worker. Email/password auth
+displayed `cc connect` command against a cc started with `pnpm dev`. The same
+worktree-specific local origin serves the dashboard at `cc.localhost` and
+routes `<handle>.cc.localhost` through the Connect worker. Email/password auth
 is enabled only for this loopback workflow; production remains GitHub-only.
-`pnpm dev` automatically sets `BB_DEV_CONNECT_BASE_URL` to that worktree's
-local Cloud origin. While the bb is unpaired, Settings → Installed plugins → Connect
+`pnpm dev` automatically sets `CC_DEV_CONNECT_BASE_URL` to that worktree's
+local Cloud origin. While the cc is unpaired, Settings → Installed plugins → Connect
 therefore opens the local dashboard and a pasted code redeems locally. An
-explicit `bb connect --server ...` or `--base-url ...` still wins, so the dev bb
-can still pair with getbb.app.
+explicit `cc connect --server ...` or `--base-url ...` still wins, so the dev cc
+can still pair with cc.example.invalid.
 Local machine enrollment follows the same origin: local `http:` server URLs
 produce `ws:` machine tunnels and `http:` share URLs, while non-local machine
 enrollment remains HTTPS-only.
@@ -428,7 +428,7 @@ survives closing the GUI.
 `pnpm start` and `pnpm start:worktree` always run Turbo-backed preparation before
 launching. Turbo decides which tasks need rebuilding and restores unchanged
 artifacts from cache. Native modules are checked and repaired when necessary.
-Worktree startup retains stable checkout-specific data, ports, telemetry, and
+Worktree startup retains stable checkout-specific data, ports, and
 runtime policy.
 
 Use `pnpm start --dryrun` or `pnpm start:worktree --dryrun` ahead of startup.
@@ -455,15 +455,15 @@ checkout, normal startup restores its artifacts through Turbo cache hits. Moving
 the serving checkout changes the default instance data and ports; do not move it as a restart shortcut.
 
 The repo-level programmatic entry point is `prepareRuntime()` in
-`scripts/start-bb.mjs`. This is a source-maintenance helper, not a new
-installed `bb` command or public plugin SDK API. The source launcher accepts `--dryrun` for preparation and configuration preview.
+`scripts/start-cc.mjs`. This is a source-maintenance helper, not a new
+installed `cc` command or public plugin SDK API. The source launcher accepts `--dryrun` for preparation and configuration preview.
 `pnpm start` keeps its existing production dotenv and packaged runtime policy.
 
 Turbo output ownership is separate: server `build` owns `apps/server/dist`,
-`@bb/bundled-plugins#build` assembles `packages/bundled-plugins/dist` from 33 independently
+`@cc/bundled-plugins#build` assembles `packages/bundled-plugins/dist` from 33 independently
 cached `<plugin-package>#prepare:bundled` tasks. Each plugin declares
-`@bb/plugin-build` as a workspace dev dependency and runs
-`bb-plugin-build prepare-bundled` from its own directory. Turbo builds the shared
+`@cc/plugin-build` as a workspace dev dependency and runs
+`cc-plugin-build prepare-bundled` from its own directory. Turbo builds the shared
 executable through `^build` before preparation. The executable bundles the plugin
 without importing server policy or requiring a TypeScript loader. Each plugin
 task owns only its
@@ -477,12 +477,12 @@ package script and workspace dependency, checked against the runtime registry
 by the startup test suite. Shared sources are hashed through workspace `topo`
 dependencies rather than repository-wide source globs.
 Bundled preparation uses temporary source copies and never writes the regular
-plugin `dist` directories. `bb-app#build` depends on and
+plugin `dist` directories. `cc-app#build` depends on and
 copies prepared plugins into its own package output. The plugin task hashes
 plugin sources, manifests, branding, skills, staging scripts/entries, lockfile,
 patches, workspace configuration, SDK/build-tool sources and versions, and theme;
 generated modules and SDK artifacts arrive through explicit dependency edges.
-The source preparation runner supplies `BB_BUILD_TOOLCHAIN` with Node, OS, and
+The source preparation runner supplies `CC_BUILD_TOOLCHAIN` with Node, OS, and
 architecture to partition Turbo cache entries; callers should use the runner
 rather than set this internal build identity themselves.
 

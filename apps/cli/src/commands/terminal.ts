@@ -1,14 +1,14 @@
 import { Buffer } from "node:buffer";
 import { Command, Option } from "commander";
-import { TERMINAL_DATA_MAX_BYTES } from "@bb/domain";
-import type { TerminalCreateScope, TerminalListScope } from "@bb/sdk";
-import { createNodeWebsocketFactory } from "@bb/sdk/node-websocket";
+import { TERMINAL_DATA_MAX_BYTES } from "@cc/domain";
+import type { TerminalCreateScope, TerminalListScope } from "@cc/sdk";
+import { createNodeWebsocketFactory } from "@cc/sdk/node-websocket";
 import {
   terminalServerMessageSchema,
   type TerminalSession,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { action, CliExitError, CliUsageError } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliCcSdk } from "../client.js";
 import { terminalScopeHint } from "../context-hints.js";
 import { durationHelp, parseDurationMs } from "../duration.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
@@ -94,7 +94,7 @@ export function registerTerminalCommands(
       .option("--json", "Print machine-readable JSON output"),
   ).action(
     action(async (opts: TerminalListOptions) => {
-      const sdk = createCliBbSdk(getUrl());
+      const sdk = createCliCcSdk(getUrl());
       const result = await sdk.terminals.list({
         scope: await resolveTerminalListScope(opts, getUrl()),
       });
@@ -119,7 +119,7 @@ export function registerTerminalCommands(
       .option("--json", "Print machine-readable JSON output"),
   ).action(
     action(async (commandParts: string[], opts: TerminalStartOptions) => {
-      const sdk = createCliBbSdk(getUrl());
+      const sdk = createCliCcSdk(getUrl());
       const resolvedStart = resolveTerminalStart({
         commandOption: opts.command,
         commandParts,
@@ -151,7 +151,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalJsonOptions) => {
-        const session = await createCliBbSdk(getUrl()).terminals.get({
+        const session = await createCliCcSdk(getUrl()).terminals.get({
           terminalId,
         });
         if (outputJson(opts, session)) return;
@@ -166,7 +166,7 @@ export function registerTerminalCommands(
     .action(
       action(async (terminalId: string, opts: TerminalJsonOptions) => {
         if (opts.json) {
-          const session = await createCliBbSdk(getUrl()).terminals.get({
+          const session = await createCliCcSdk(getUrl()).terminals.get({
             terminalId,
           });
           outputJson(opts, session);
@@ -189,7 +189,7 @@ export function registerTerminalCommands(
     .action(
       action(async (terminalId: string, opts: TerminalSendOptions) => {
         const data = await resolveSendData(opts);
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         let session: TerminalSession | null = null;
         for (const chunk of chunkTerminalInput(data)) {
           session = await sdk.terminals.input({
@@ -213,7 +213,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalResizeOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const session = await sdk.terminals.resize({
           terminalId,
           cols: parseRequiredPositiveInteger(opts.cols, "--cols"),
@@ -236,7 +236,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalOutputOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const output = await sdk.terminals.output({
           terminalId,
           ...terminalOutputQuery(opts),
@@ -295,7 +295,7 @@ export function registerTerminalCommands(
           title: string,
           opts: TerminalJsonOptions,
         ) => {
-          const session = await createCliBbSdk(getUrl()).terminals.rename({
+          const session = await createCliCcSdk(getUrl()).terminals.rename({
             terminalId,
             title,
           });
@@ -311,7 +311,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalJsonOptions) => {
-        const session = await createCliBbSdk(getUrl()).terminals.restart({
+        const session = await createCliCcSdk(getUrl()).terminals.restart({
           terminalId,
         });
         if (outputJson(opts, session)) return;
@@ -327,7 +327,7 @@ export function registerTerminalCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalCloseOptions) => {
-        const session = await createCliBbSdk(getUrl()).terminals.close({
+        const session = await createCliCcSdk(getUrl()).terminals.close({
           terminalId,
           mode: opts.ifClean ? "if-clean" : "force",
         });
@@ -716,11 +716,11 @@ async function waitForTerminal(args: {
   if ([hasContains, hasRegex, hasExit].filter(Boolean).length !== 1) {
     throw new CliUsageError({
       code: "missing_required",
-      hint: `For example: bb terminal wait ${args.terminalId} --exit, or --contains "ready".`,
+      hint: `For example: cc terminal wait ${args.terminalId} --exit, or --contains "ready".`,
       message: "Provide exactly one of --contains, --regex, or --exit",
     });
   }
-  const sdk = createCliBbSdk(args.baseUrl);
+  const sdk = createCliCcSdk(args.baseUrl);
   const timeoutMs = parseDurationMs({
     allowZero: false,
     defaultUnit: "s",
@@ -750,7 +750,7 @@ async function waitForTerminal(args: {
         TERMINAL_WAIT_TIMEOUT_EXIT_CODE,
         {
           code: "terminal_exited",
-          hint: `Match its existing output with --from-start, or read it with \`bb terminal output ${args.terminalId}\`.`,
+          hint: `Match its existing output with --from-start, or read it with \`cc terminal output ${args.terminalId}\`.`,
         },
       );
     }
@@ -809,7 +809,7 @@ async function waitForTerminal(args: {
           code: "terminal_exited",
           hint:
             tail.length === 0
-              ? `It printed nothing after this wait started. Read everything with \`bb terminal output ${args.terminalId}\`.`
+              ? `It printed nothing after this wait started. Read everything with \`cc terminal output ${args.terminalId}\`.`
               : `Last output:\n${tail}`,
         },
       );
@@ -821,7 +821,7 @@ async function waitForTerminal(args: {
     TERMINAL_WAIT_TIMEOUT_EXIT_CODE,
     {
       code: "timeout",
-      hint: `Read what it has printed so far with \`bb terminal output ${args.terminalId} --tail-bytes 4000\`.`,
+      hint: `Read what it has printed so far with \`cc terminal output ${args.terminalId} --tail-bytes 4000\`.`,
     },
   );
 }

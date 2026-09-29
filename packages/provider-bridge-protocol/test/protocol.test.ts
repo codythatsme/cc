@@ -1,4 +1,4 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@cc/domain";
 import { describe, expect, it } from "vitest";
 import {
   checkItemOpensBeforeDelta,
@@ -215,17 +215,17 @@ describe("conformance presentation/icon-namespaced-declared", () => {
     ).toBe("fail");
   });
 
-  it("does not inspect a bb-injected tool row, whose glyph the server checks against the tool's plugin", () => {
+  it("does not inspect a cc-injected tool row, whose glyph the server checks against the tool's plugin", () => {
     expect(
       checkPresentationIconsDeclared(
-        [completed("item_1", "tool-plugin/stamp", "bb")],
+        [completed("item_1", "tool-plugin/stamp", "cc")],
         icons,
       ).status,
     ).toBe("skipped");
     expect(
       checkPresentationIconsDeclared(
         [
-          completed("item_1", "tool-plugin/stamp", "bb"),
+          completed("item_1", "tool-plugin/stamp", "cc"),
           completed("item_2", "echo-provider/receipt"),
         ],
         icons,

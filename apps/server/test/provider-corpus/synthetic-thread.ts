@@ -7,15 +7,15 @@ import {
   migrate,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import type { DbConnection } from "@bb/db";
+} from "@cc/db";
+import type { DbConnection } from "@cc/db";
 import {
   encodeClientTurnRequestIdNumber,
   parseStoredThreadEvent,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { Thread, ThreadEventScope, ThreadEventType } from "@bb/domain";
+} from "@cc/domain";
+import type { Thread, ThreadEventScope, ThreadEventType } from "@cc/domain";
 
 type InsertEventInput = Parameters<typeof insertEvents>[2][number];
 
@@ -256,7 +256,7 @@ function pushSyntheticTurn(
       item: {
         type: "toolCall",
         id: id("tool"),
-        tool: turn % 2 === 0 ? "Read" : "mcp__bb-bridge__bb_thread_list",
+        tool: turn % 2 === 0 ? "Read" : "mcp__cc-bridge__cc_thread_list",
         arguments: { path: `/workspace/project/src/module-${turn % 7}.ts` },
         status: "pending",
       },
@@ -274,7 +274,7 @@ function pushSyntheticTurn(
       item: {
         type: "toolCall",
         id: id("tool"),
-        tool: turn % 2 === 0 ? "Read" : "mcp__bb-bridge__bb_thread_list",
+        tool: turn % 2 === 0 ? "Read" : "mcp__cc-bridge__cc_thread_list",
         arguments: { path: `/workspace/project/src/module-${turn % 7}.ts` },
         status: "completed",
         result: { ok: true, lines: 120 + turn },

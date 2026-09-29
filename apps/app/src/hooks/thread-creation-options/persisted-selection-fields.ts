@@ -2,20 +2,20 @@ import { atom, useAtom, useStore } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { atomFamily } from "jotai-family";
 import { useCallback } from "react";
-import type { PermissionMode, ReasoningLevel, ServiceTier } from "@bb/domain";
+import type { PermissionMode, ReasoningLevel, ServiceTier } from "@cc/domain";
 import {
   createTabScopedStorage,
   withLocalStorage,
 } from "@/lib/browser-storage";
 import { getProjectScopedStorageKey } from "@/lib/project-scoped-storage";
 
-const MODEL_STORAGE_KEY = "bb.promptbox.model";
-const SERVICE_TIER_STORAGE_KEY = "bb.promptbox.service-tier";
-const REASONING_STORAGE_KEY = "bb.promptbox.reasoning";
-const PERMISSION_MODE_STORAGE_KEY = "bb.promptbox.permission-mode";
-const ENVIRONMENT_STORAGE_KEY = "bb.promptbox.environment";
-const MACHINE_STORAGE_KEY = "bb.promptbox.machine";
-const PROVIDER_STORAGE_KEY = "bb.promptbox.provider";
+const MODEL_STORAGE_KEY = "cc.promptbox.model";
+const SERVICE_TIER_STORAGE_KEY = "cc.promptbox.service-tier";
+const REASONING_STORAGE_KEY = "cc.promptbox.reasoning";
+const PERMISSION_MODE_STORAGE_KEY = "cc.promptbox.permission-mode";
+const ENVIRONMENT_STORAGE_KEY = "cc.promptbox.environment";
+const MACHINE_STORAGE_KEY = "cc.promptbox.machine";
+const PROVIDER_STORAGE_KEY = "cc.promptbox.provider";
 const PROVIDER_SELECTION_STORAGE_VERSION = "1";
 
 export type StoredServiceTier = "" | ServiceTier;

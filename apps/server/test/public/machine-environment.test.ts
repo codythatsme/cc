@@ -1,8 +1,8 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { projects, environmentVariables, upsertHost, updateHost } from "@bb/db";
-import { createBbSdk } from "@bb/sdk/core";
-import { createHttpTransport } from "@bb/sdk/node";
+import { projects, environmentVariables, upsertHost, updateHost } from "@cc/db";
+import { createCcSdk } from "@cc/sdk/core";
+import { createHttpTransport } from "@cc/sdk/node";
 import { describe, expect, it, vi } from "vitest";
 import { withTestHarness } from "../helpers/test-app.js";
 import { seedPrimaryHost } from "../helpers/seed.js";
@@ -23,7 +23,7 @@ describe("machine environment settings", () => {
       ]);
     try {
       await withTestHarness(async (harness) => {
-        const sdk = createBbSdk({
+        const sdk = createCcSdk({
           transport: createHttpTransport({
             baseUrl: "http://localhost",
             runtime: "node",
@@ -146,7 +146,7 @@ describe("machine environment settings", () => {
 
 it("isolates projects on a shared machine and restores global values after removal", async () => {
   await withTestHarness(async (harness) => {
-    const sdk = createBbSdk({
+    const sdk = createCcSdk({
       transport: createHttpTransport({
         baseUrl: "http://localhost",
         runtime: "node",

@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { registerProviderRetryCli } from "./src/cli.js";
 import { DEFAULT_MAXIMUM_WAIT_MS, decideRetry } from "./src/retry-policy.js";
 
@@ -19,8 +19,8 @@ function maximumWaitMs(value: string): number | null {
   }
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  const settings = bb.settings.define({
+export default async function plugin(cc: CcPluginApi) {
+  const settings = cc.settings.define({
     maximumWait: {
       type: "select",
       label: "Maximum automatic wait",
@@ -36,7 +36,7 @@ export default async function plugin(bb: BbPluginApi) {
     maximumWait = maximumWaitMs(next.maximumWait);
   });
 
-  bb.events.on("turn.failed", async (event) => {
+  cc.events.on("turn.failed", async (event) => {
     const decision = decideRetry({
       failure: event,
       maximumWaitMs: maximumWait,
@@ -46,7 +46,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (decision.kind === "decline") {
       return;
     }
-    await bb.sdk.threads.retry({
+    await cc.sdk.threads.retry({
       threadId: event.threadId,
       turnRequestId: event.requestId,
       sendAt: decision.sendAt,
@@ -54,5 +54,5 @@ export default async function plugin(bb: BbPluginApi) {
     });
   });
 
-  registerProviderRetryCli(bb);
+  registerProviderRetryCli(cc);
 }

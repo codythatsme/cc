@@ -1,4 +1,4 @@
-import { setAiServiceSelection } from "@bb/db";
+import { setAiServiceSelection } from "@cc/db";
 import { describe, expect, it } from "vitest";
 import { createAiServiceRegistry } from "../../src/services/ai/ai-service-registry.js";
 import {
@@ -14,8 +14,8 @@ describe("AI task routing", () => {
   it("walks the builtin Automatic chain in order and takes the first answer", async () => {
     await withTestHarness({}, async (harness) => {
       const cloud = registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "cc",
+        pluginId: "cc-ai",
         builtin: true,
         complete: async () => "Cloud title",
       });
@@ -47,8 +47,8 @@ describe("AI task routing", () => {
         status: async () => ({ ready: false, message: "Sign in to Codex" }),
       });
       registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "cc",
+        pluginId: "cc-ai",
         builtin: true,
         complete: async () => {
           throw new Error("upstream down");
@@ -339,8 +339,8 @@ describe("AI task routing", () => {
         status: async () => ({ ready: true }),
       });
       registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "cc",
+        pluginId: "cc-ai",
         builtin: true,
         complete: null,
         transcribe: async () => "hello",
@@ -353,15 +353,15 @@ describe("AI task routing", () => {
         serviceId: "codex",
       });
       await harness.deps.aiServices.status({
-        pluginId: "bb-ai",
-        serviceId: "bb",
+        pluginId: "cc-ai",
+        serviceId: "cc",
       });
       expect(isAiTaskAvailable(harness.deps, "voice")).toBe(true);
 
       setAiServiceSelection(harness.deps.db, "voice", {
         mode: "service",
-        pluginId: "bb-ai",
-        serviceId: "bb",
+        pluginId: "cc-ai",
+        serviceId: "cc",
       });
       expect(isAiTaskAvailable(harness.deps, "voice")).toBe(false);
     });

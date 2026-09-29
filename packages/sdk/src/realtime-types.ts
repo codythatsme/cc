@@ -1,8 +1,8 @@
-import type { ChangedMessage } from "@bb/domain";
+import type { ChangedMessage } from "@cc/domain";
 
-export type BbRealtimeUnsubscribe = () => void;
+export type CcRealtimeUnsubscribe = () => void;
 
-export type BbRealtimeEventName =
+export type CcRealtimeEventName =
   | "thread:changed"
   | "project:changed"
   | "environment:changed"
@@ -23,71 +23,71 @@ export type EnvironmentRealtimeEvent = Extract<
 export type HostRealtimeEvent = Extract<ChangedMessage, { entity: "host" }>;
 export type SystemRealtimeEvent = Extract<ChangedMessage, { entity: "system" }>;
 
-export type BbRealtimeConnectionState =
+export type CcRealtimeConnectionState =
   | "connecting"
   | "connected"
   | "disconnected";
 
-export interface BbRealtimeConnectionEvent {
+export interface CcRealtimeConnectionEvent {
   reconnectDelayMs: number | null;
   reconnected: boolean;
-  state: BbRealtimeConnectionState;
+  state: CcRealtimeConnectionState;
 }
 
-export interface BbRealtimeEventMap {
+export interface CcRealtimeEventMap {
   "thread:changed": ThreadRealtimeEvent;
   "project:changed": ProjectRealtimeEvent;
   "environment:changed": EnvironmentRealtimeEvent;
   "host:changed": HostRealtimeEvent;
   "system:changed": SystemRealtimeEvent;
   "system:config-changed": SystemRealtimeEvent;
-  "realtime:connection": BbRealtimeConnectionEvent;
+  "realtime:connection": CcRealtimeConnectionEvent;
 }
 
-export type BbRealtimeCallback<TEventName extends BbRealtimeEventName> = (
-  event: BbRealtimeEventMap[TEventName],
+export type CcRealtimeCallback<TEventName extends CcRealtimeEventName> = (
+  event: CcRealtimeEventMap[TEventName],
 ) => void;
 
 export interface ThreadRealtimeSubscribeArgs {
-  callback: BbRealtimeCallback<"thread:changed">;
+  callback: CcRealtimeCallback<"thread:changed">;
   event: "thread:changed";
   threadId?: string;
 }
 
 export interface ProjectRealtimeSubscribeArgs {
-  callback: BbRealtimeCallback<"project:changed">;
+  callback: CcRealtimeCallback<"project:changed">;
   event: "project:changed";
   projectId?: string;
 }
 
 export interface EnvironmentRealtimeSubscribeArgs {
-  callback: BbRealtimeCallback<"environment:changed">;
+  callback: CcRealtimeCallback<"environment:changed">;
   environmentId?: string;
   event: "environment:changed";
 }
 
 export interface HostRealtimeSubscribeArgs {
-  callback: BbRealtimeCallback<"host:changed">;
+  callback: CcRealtimeCallback<"host:changed">;
   event: "host:changed";
   hostId?: string;
 }
 
 export interface SystemRealtimeSubscribeArgs {
-  callback: BbRealtimeCallback<"system:changed">;
+  callback: CcRealtimeCallback<"system:changed">;
   event: "system:changed";
 }
 
 export interface SystemConfigRealtimeSubscribeArgs {
-  callback: BbRealtimeCallback<"system:config-changed">;
+  callback: CcRealtimeCallback<"system:config-changed">;
   event: "system:config-changed";
 }
 
 export interface RealtimeConnectionSubscribeArgs {
-  callback: BbRealtimeCallback<"realtime:connection">;
+  callback: CcRealtimeCallback<"realtime:connection">;
   event: "realtime:connection";
 }
 
-export type BbRealtimeSubscribeArgsUnion =
+export type CcRealtimeSubscribeArgsUnion =
   | ThreadRealtimeSubscribeArgs
   | ProjectRealtimeSubscribeArgs
   | EnvironmentRealtimeSubscribeArgs
@@ -96,12 +96,12 @@ export type BbRealtimeSubscribeArgsUnion =
   | SystemConfigRealtimeSubscribeArgs
   | RealtimeConnectionSubscribeArgs;
 
-export type BbRealtimeSubscribeArgs<
-  TEventName extends BbRealtimeEventName = BbRealtimeEventName,
-> = Extract<BbRealtimeSubscribeArgsUnion, { event: TEventName }>;
+export type CcRealtimeSubscribeArgs<
+  TEventName extends CcRealtimeEventName = CcRealtimeEventName,
+> = Extract<CcRealtimeSubscribeArgsUnion, { event: TEventName }>;
 
-export interface BbRealtime {
-  subscribe<TEventName extends BbRealtimeEventName>(
-    args: BbRealtimeSubscribeArgs<TEventName>,
-  ): BbRealtimeUnsubscribe;
+export interface CcRealtime {
+  subscribe<TEventName extends CcRealtimeEventName>(
+    args: CcRealtimeSubscribeArgs<TEventName>,
+  ): CcRealtimeUnsubscribe;
 }

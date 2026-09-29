@@ -3,19 +3,19 @@ import { installSessionCookie, sessionCookieSpec } from "./cookie-store";
 
 const session = {
   cookie: {
-    name: "__Secure-bb-connect.desktop_session",
+    name: "__Secure-cc-connect.desktop_session",
     value: "abc.def",
-    domain: ".getbb.app",
+    domain: ".cc.example.invalid",
     expiresAt: Date.UTC(2026, 7, 18, 11),
   },
 };
 
 describe("sessionCookieSpec", () => {
   it("marks the cookie Secure only for https servers", () => {
-    expect(sessionCookieSpec(session, "https://bee.getbb.app")).toEqual({
-      name: "__Secure-bb-connect.desktop_session",
+    expect(sessionCookieSpec(session, "https://bee.cc.example.invalid")).toEqual({
+      name: "__Secure-cc-connect.desktop_session",
       value: "abc.def",
-      domain: ".getbb.app",
+      domain: ".cc.example.invalid",
       path: "/",
       secure: true,
       httpOnly: true,
@@ -30,38 +30,38 @@ describe("sessionCookieSpec", () => {
   });
 
   it("rejects a cookie domain the server host does not domain-match", () => {
-    const rogue = "https://bee.getbb.app.evil.example";
-    for (const domain of ["bee.getbb.app", ".getbb.app", "getbb.app"]) {
+    const rogue = "https://bee.cc.example.invalid.evil.example";
+    for (const domain of ["bee.cc.example.invalid", ".cc.example.invalid", "cc.example.invalid"]) {
       expect(() =>
         sessionCookieSpec({ cookie: { ...session.cookie, domain } }, rogue),
-      ).toThrow(/does not match bee\.getbb\.app\.evil\.example/u);
+      ).toThrow(/does not match bee\.cc\.example\.invalid\.evil\.example/u);
     }
     expect(() =>
       sessionCookieSpec(
-        { cookie: { ...session.cookie, domain: "ant.getbb.app" } },
-        "https://bee.getbb.app",
+        { cookie: { ...session.cookie, domain: "ant.cc.example.invalid" } },
+        "https://bee.cc.example.invalid",
       ),
     ).toThrow(/does not match/u);
     expect(() =>
       sessionCookieSpec(
-        { cookie: { ...session.cookie, domain: "ee.getbb.app" } },
-        "https://bee.getbb.app",
+        { cookie: { ...session.cookie, domain: "ee.cc.example.invalid" } },
+        "https://bee.cc.example.invalid",
       ),
     ).toThrow(/does not match/u);
   });
 
   it("accepts the host itself and any parent domain", () => {
     for (const domain of [
-      "bee.getbb.app",
-      ".bee.getbb.app",
-      ".getbb.app",
-      "getbb.app",
-      "GetBB.app",
+      "bee.cc.example.invalid",
+      ".bee.cc.example.invalid",
+      ".cc.example.invalid",
+      "cc.example.invalid",
+      "GetCC.app",
     ]) {
       expect(
         sessionCookieSpec(
           { cookie: { ...session.cookie, domain } },
-          "https://bee.getbb.app",
+          "https://bee.cc.example.invalid",
         ),
       ).toMatchObject({ domain });
     }
@@ -75,12 +75,12 @@ describe("sessionCookieSpec", () => {
           calls.push({ url, secure: cookie.secure, useWebKit });
         },
       },
-      "https://bee.getbb.app",
+      "https://bee.cc.example.invalid",
       session,
     );
     expect(calls).toEqual([
-      { url: "https://bee.getbb.app", secure: true, useWebKit: false },
-      { url: "https://bee.getbb.app", secure: true, useWebKit: true },
+      { url: "https://bee.cc.example.invalid", secure: true, useWebKit: false },
+      { url: "https://bee.cc.example.invalid", secure: true, useWebKit: true },
     ]);
   });
 });

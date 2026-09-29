@@ -4,7 +4,7 @@ import {
   type AvailableModel,
   type ModelReasoningEffort,
   type ReasoningLevel,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 import { z } from "zod";
 
 const DEFAULT_REASONING_EFFORTS: readonly ModelReasoningEffort[] =
@@ -17,7 +17,7 @@ const codexModelIdentitySchema = z
   })
   .passthrough();
 
-export function mapCodexReasoningLevelToBb(
+export function mapCodexReasoningLevelToCc(
   value: unknown,
 ): ReasoningLevel | null {
   if (typeof value !== "string") {
@@ -27,7 +27,7 @@ export function mapCodexReasoningLevelToBb(
   return parsed.success ? parsed.data : null;
 }
 
-export function mapBbReasoningLevelToCodex(
+export function mapCcReasoningLevelToCodex(
   level: ReasoningLevel,
 ): string | null {
   switch (level) {
@@ -53,7 +53,7 @@ function parseReasoningEffortOption(raw: unknown): ModelReasoningEffort | null {
     return null;
   }
   const record = raw as Record<string, unknown>;
-  const level = mapCodexReasoningLevelToBb(record.reasoningEffort);
+  const level = mapCodexReasoningLevelToCc(record.reasoningEffort);
   if (!level) {
     return null;
   }
@@ -90,7 +90,7 @@ function toAvailableModel(
   raw: z.infer<typeof codexModelIdentitySchema>,
 ): AvailableModel {
   const efforts = parseSupportedReasoningEfforts(raw.supportedReasoningEfforts);
-  const mappedDefault = mapCodexReasoningLevelToBb(raw.defaultReasoningEffort);
+  const mappedDefault = mapCodexReasoningLevelToCc(raw.defaultReasoningEffort);
   const defaultReasoningEffort =
     mappedDefault &&
     efforts.some((effort) => effort.reasoningEffort === mappedDefault)

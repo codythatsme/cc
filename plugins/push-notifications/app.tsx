@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
   definePluginApp,
-  useBbNavigate,
+  useCcNavigate,
   useRealtime,
   useRpc,
   useSettings,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import {
   CLIENT_NOTIFICATION_CHANNEL,
   type pushNotificationsRpcContract,
@@ -17,7 +17,7 @@ import {
 } from "./client.js";
 
 function NotificationDelivery() {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const { values } = useSettings();
   const delivery = useRef<ReturnType<typeof createClientDelivery> | null>(null);
   useEffect(() => {
@@ -130,7 +130,7 @@ function NotificationSettings() {
         </p>
       ) : null}
       <p className="text-xs text-muted-foreground">
-        Channel settings apply to this bb server. Each browser needs permission.
+        Channel settings apply to this cc server. Each browser needs permission.
         Click a notification to open its thread.
       </p>
     </div>

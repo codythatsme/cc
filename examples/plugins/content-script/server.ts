@@ -1,5 +1,5 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 
-export default function contentScriptExample(bb: BbPluginApi) {
-  bb.log.info("Content script example loaded");
+export default function contentScriptExample(cc: CcPluginApi) {
+  cc.log.info("Content script example loaded");
 }

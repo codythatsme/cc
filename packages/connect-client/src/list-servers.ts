@@ -44,7 +44,7 @@ async function fetchAccountServers(
   try {
     res = await fetchImpl(url, {
       method: "GET",
-      headers: { "x-bb-connect-machine": credential.credential },
+      headers: { "x-cc-connect-machine": credential.credential },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

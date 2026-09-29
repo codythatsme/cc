@@ -6,15 +6,15 @@ import {
   markThreadDeleted,
   setExperiments,
   setThreadExecutionOverride,
-} from "@bb/db";
+} from "@cc/db";
 import {
   defaultExperiments,
   encodeClientTurnRequestIdNumber,
-} from "@bb/domain";
-import { validatePluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
-import type { PluginAgentConfigurationContext } from "@get-bb/plugin-sdk";
+} from "@cc/domain";
+import { validatePluginProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
+import type { PluginAgentConfigurationContext } from "@codythatsme/plugin-sdk";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
-import type { DiscoveredSkill } from "@bb/host-daemon-contract";
+import type { DiscoveredSkill } from "@cc/host-daemon-contract";
 import { setPluginAgentContributions } from "../../src/services/plugins/plugin-agent-contributions.js";
 import { readSkillTreeManifest } from "../../src/services/skills/injected-skills.js";
 import type { PluginAgentToolContribution } from "../../src/services/plugins/plugin-service.js";
@@ -87,9 +87,9 @@ async function writeDataDirAgentInstructions(
 async function writeWorkspaceAgentInstructions(
   args: WriteWorkspaceAgentInstructionsArgs,
 ): Promise<void> {
-  const bbDir = path.join(args.workspacePath, ".bb");
-  await mkdir(bbDir, { recursive: true });
-  await writeFile(path.join(bbDir, "AGENTS.md"), args.content, "utf8");
+  const ccDir = path.join(args.workspacePath, ".cc");
+  await mkdir(ccDir, { recursive: true });
+  await writeFile(path.join(ccDir, "AGENTS.md"), args.content, "utf8");
 }
 
 function registerRemoteRuntimeFileResponder(
@@ -783,7 +783,7 @@ describe("thread runtime config", () => {
         rootPath: path.join(harness.config.dataDir, "skills"),
       });
       await writeRuntimeSkill({
-        name: "bb-cli",
+        name: "cc-cli",
         rootPath: harness.config.builtinSkillsRootPath,
       });
       const workspacePath = path.join(
@@ -792,7 +792,7 @@ describe("thread runtime config", () => {
       );
       const projectSourceRootPath = await writeRuntimeSkill({
         name: "project-helper",
-        rootPath: path.join(workspacePath, ".bb", "skills"),
+        rootPath: path.join(workspacePath, ".cc", "skills"),
       });
       const { host } = seedHostSession(harness.deps, {
         id: "host-runtime-injected-skills",
@@ -1200,7 +1200,7 @@ describe("thread runtime config", () => {
 
       expect(runtimeConfig.workspacePath).toBe("/tmp/runtime-project-root");
       expect(runtimeConfig.threadStoragePath).toBe(
-        `/tmp/bb-host-data/${hostId}/thread-storage/${thread.id}`,
+        `/tmp/cc-host-data/${hostId}/thread-storage/${thread.id}`,
       );
       expect(runtimeConfig.dynamicTools).toEqual([
         expect.objectContaining({
@@ -1211,10 +1211,10 @@ describe("thread runtime config", () => {
         }),
       ]);
       expect(runtimeConfig.instructions).not.toContain(
-        "You are working inside bb, an agentic IDE",
+        "You are working inside cc, an agentic IDE",
       );
-      expect(runtimeConfig.instructions).not.toContain("bb status");
-      expect(runtimeConfig.instructions).not.toContain("bb guide");
+      expect(runtimeConfig.instructions).not.toContain("cc status");
+      expect(runtimeConfig.instructions).not.toContain("cc guide");
       expect(runtimeConfig.instructions).not.toContain("Markdown links");
       expect(runtimeConfig.instructions).toContain(
         "update_environment_directory",
@@ -1225,7 +1225,7 @@ describe("thread runtime config", () => {
     });
   });
 
-  it("keeps local-host workspace .bb/AGENTS.md instructions unchanged", async () => {
+  it("keeps local-host workspace .cc/AGENTS.md instructions unchanged", async () => {
     await withTestHarness(async (harness) => {
       const hostId = "host-runtime-agents-md";
       seedHostSession(harness.deps, { id: hostId });
@@ -1270,10 +1270,10 @@ describe("thread runtime config", () => {
 
       expect(runtimeConfig.instructionMode).toBe("append");
       expect(runtimeConfig.instructions).not.toContain(
-        "You are working inside bb, an agentic IDE",
+        "You are working inside cc, an agentic IDE",
       );
       expect(runtimeConfig.instructions).toContain(
-        "The following workspace instructions come from .bb/AGENTS.md:",
+        "The following workspace instructions come from .cc/AGENTS.md:",
       );
       expect(runtimeConfig.instructions).toContain(
         "Always run the smoke test before pushing.",
@@ -1281,7 +1281,7 @@ describe("thread runtime config", () => {
     });
   });
 
-  it("reads workspace .bb/AGENTS.md from a non-primary host", async () => {
+  it("reads workspace .cc/AGENTS.md from a non-primary host", async () => {
     await withTestHarness(async (harness) => {
       const { host: primary } = seedHostSession(harness.deps, {
         id: "host-runtime-agents-primary",
@@ -1296,7 +1296,7 @@ describe("thread runtime config", () => {
       const workspacePath = "/remote/runtime-agents-workspace";
       const agentInstructionsPath = path.join(
         workspacePath,
-        ".bb",
+        ".cc",
         "AGENTS.md",
       );
       const responder = registerRemoteRuntimeFileResponder(harness, {
@@ -1349,7 +1349,7 @@ describe("thread runtime config", () => {
     });
   });
 
-  it("treats a missing remote workspace .bb/AGENTS.md as null", async () => {
+  it("treats a missing remote workspace .cc/AGENTS.md as null", async () => {
     await withTestHarness(async (harness) => {
       const { host: primary } = seedHostSession(harness.deps, {
         id: "host-runtime-missing-agents-primary",
@@ -1387,7 +1387,7 @@ describe("thread runtime config", () => {
       );
 
       expect(runtimeConfig.instructions).not.toContain(
-        "The following workspace instructions come from .bb/AGENTS.md:",
+        "The following workspace instructions come from .cc/AGENTS.md:",
       );
     });
   });
@@ -1407,7 +1407,7 @@ describe("thread runtime config", () => {
       const workspacePath = "/remote/runtime-skills-workspace";
       const skillRootPath = path.join(
         workspacePath,
-        ".bb",
+        ".cc",
         "skills",
         "remote-review",
       );
@@ -1461,7 +1461,7 @@ describe("thread runtime config", () => {
           expect.objectContaining({
             command: expect.objectContaining({
               type: "host.list_files",
-              path: path.join(workspacePath, ".bb", "skills"),
+              path: path.join(workspacePath, ".cc", "skills"),
             }),
           }),
           expect.objectContaining({
@@ -1592,7 +1592,7 @@ describe("thread runtime config", () => {
       const userSource =
         "The following user instructions come from <dataDir>/AGENTS.md:";
       const workspaceSource =
-        "The following workspace instructions come from .bb/AGENTS.md:";
+        "The following workspace instructions come from .cc/AGENTS.md:";
       expect(runtimeConfig.instructions).toContain(userSource);
       expect(runtimeConfig.instructions).toContain(
         "Prefer concise progress updates.",
@@ -1701,9 +1701,9 @@ describe("thread runtime config", () => {
         );
 
         const toolHeader =
-          'The following instructions come from the BB plugin "tooldemo" for its tool "demo_lookup":';
+          'The following instructions come from the CC plugin "tooldemo" for its tool "demo_lookup":';
         const pluginHeader =
-          'The following instructions come from the BB plugin "connect":';
+          'The following instructions come from the CC plugin "connect":';
         const dataDirHeader =
           "The following user instructions come from <dataDir>/AGENTS.md:";
         const instructions = runtimeConfig.instructions;
@@ -1785,19 +1785,19 @@ describe("thread runtime config", () => {
 
         const instructions = runtimeConfig.instructions;
         expect(instructions).not.toContain(
-          'The following instructions come from the BB plugin "nuller":',
+          'The following instructions come from the CC plugin "nuller":',
         );
         expect(instructions).not.toContain(
-          'The following instructions come from the BB plugin "blank":',
+          'The following instructions come from the CC plugin "blank":',
         );
         expect(instructions).not.toContain(
-          'The following instructions come from the BB plugin "boom":',
+          'The following instructions come from the CC plugin "boom":',
         );
         expect(instructions).toContain(
-          'The following instructions come from the BB plugin "verbose":',
+          'The following instructions come from the CC plugin "verbose":',
         );
         expect(instructions).toContain(
-          'The following instructions come from the BB plugin "ok":',
+          'The following instructions come from the CC plugin "ok":',
         );
         expect(instructions).toContain("still contributes");
         expect(instructions).not.toContain(longBody);

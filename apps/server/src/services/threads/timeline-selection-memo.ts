@@ -1,5 +1,5 @@
-import { THREAD_TIMELINE_EXCLUDED_EVENT_TYPES } from "@bb/thread-view";
-import type { ThreadEventType } from "@bb/domain";
+import { THREAD_TIMELINE_EXCLUDED_EVENT_TYPES } from "@cc/thread-view";
+import type { ThreadEventType } from "@cc/domain";
 import {
   findTimelineWindowBudgetFloorSequence,
   getDatabaseDataVersion,
@@ -9,7 +9,7 @@ import {
   type DbConnection,
   type TimelineWindowHint,
   type StoredEventRow,
-} from "@bb/db";
+} from "@cc/db";
 import type {
   ThreadTimelinePageKind,
   ThreadTimelinePageRequest,

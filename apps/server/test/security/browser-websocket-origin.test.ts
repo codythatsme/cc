@@ -1,5 +1,5 @@
-import { createNodeBbSdk } from "@bb/sdk/node";
-import { createNodeWebsocketFactory } from "@bb/sdk/node-websocket";
+import { createNodeCcSdk } from "@cc/sdk/node";
+import { createNodeWebsocketFactory } from "@cc/sdk/node-websocket";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import {
@@ -90,7 +90,7 @@ describe("browser WebSocket origin boundary", () => {
 
   it("accepts trusted browser origins for both browser-facing sockets", async () => {
     server = await startTestServer({
-      appUrl: "https://bb.example.test",
+      appUrl: "https://cc.example.test",
       devAppPort: 5173,
     });
     const realtimeUrl = websocketUrl(server.baseUrl, "/ws");
@@ -104,7 +104,7 @@ describe("browser WebSocket origin boundary", () => {
 
     const configuredApp = await openWebSocket(
       realtimeUrl,
-      "https://bb.example.test",
+      "https://cc.example.test",
     );
     await closeSocket(configuredApp);
 
@@ -119,7 +119,7 @@ describe("browser WebSocket origin boundary", () => {
 
   it("keeps absent-Origin Node SDK realtime and CLI terminal sockets working", async () => {
     server = await startTestServer();
-    const sdk = createNodeBbSdk({ baseUrl: server.baseUrl });
+    const sdk = createNodeCcSdk({ baseUrl: server.baseUrl });
 
     let stopTarget = (): void => {};
     let stopConnection = (): void => {};

@@ -3,10 +3,10 @@
   "name": "switch",
   "type": "registry:ui",
   "title": "switch",
-  "description": "BB ui \"switch\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"switch\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/motion",
-    "@bb/utils"
+    "@cc/motion",
+    "@cc/utils"
   ],
   "files": [
     {

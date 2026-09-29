@@ -5,13 +5,13 @@ import type {
   ThreadCreateOrigin,
   ThreadOriginKind,
   ThreadVisibility,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   CreateThreadEnvironmentArgs,
   CreateThreadRequest,
   EnvironmentArgs,
   ProviderEnvironmentArgs,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 
 export interface ThreadCreateServiceRequestInput {
   environment: CreateThreadEnvironmentArgs;

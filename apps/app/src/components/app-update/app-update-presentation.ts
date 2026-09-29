@@ -4,7 +4,7 @@ import type {
   SystemAppUpdateResult,
   SystemAppUpdateRevision,
   SystemAppUpdateStatus,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { asHttpError } from "@/lib/http-error";
 
 export interface AppUpdateResultPresentation {
@@ -37,7 +37,7 @@ export function describeAppUpdateResult(
     case "updated":
       return {
         description: null,
-        title: `Updated bb to ${target}`,
+        title: `Updated cc to ${target}`,
         tone: "success",
       };
     case "failed":
@@ -102,7 +102,7 @@ export function runningThreadCountFromError(error: unknown): number | null {
 }
 
 export function runningThreadsWarning(count: number): string {
-  return `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts bb and interrupts ${
+  return `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts cc and interrupts ${
     count === 1 ? "it" : "them"
   }.`;
 }

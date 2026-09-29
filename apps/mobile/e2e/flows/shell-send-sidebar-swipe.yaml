@@ -1,4 +1,4 @@
-appId: app.getbb.mobile
+appId: io.github.codythatsme.cc.mobile
 env:
   METRO_URL: "http://127.0.0.1:8082"
   SERVER_URL: "http://127.0.0.1:41999"
@@ -6,9 +6,9 @@ env:
 - runFlow: ../subflows/launch-app.yaml
 - runFlow: ../subflows/pair-direct-server.yaml
 - runFlow:
-    file: ../subflows/open-bb-link.yaml
+    file: ../subflows/open-cc-link.yaml
     env:
-      LINK: "bb://"
+      LINK: "cc://"
 - extendedWaitUntil:
     visible: ".*Idle thread.*"
     timeout: 60000

@@ -3,7 +3,7 @@ import {
   pluginCatalogCategoryIdSchema,
   pluginMarketplaceCollectionIdSchema,
   pluginMarketplaceCollectionPluginIdSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import { z } from "zod";
 
 export const pluginRuntimeStatusSchema = z.enum([
@@ -82,8 +82,8 @@ export const pluginSourceDetailSchema = z.object({
   integrity: z.string().optional(),
   registry: z.string().optional(),
   engines: z.object({
-    bb: z.string().optional(),
-    bbPluginSdk: z.string().optional(),
+    cc: z.string().optional(),
+    ccPluginSdk: z.string().optional(),
   }),
   installedAt: z.number().optional(),
   history: z.array(pluginSourceHistoryEntrySchema),
@@ -192,14 +192,14 @@ export const installedPluginSchema = z.object({
   logoDarkUrl: z.string().nullable(),
   providerIds: z.array(z.string()),
   /**
-   * The plugin's declared icons (`bb.branding.experimental_icons`): declared
+   * The plugin's declared icons (`cc.branding.experimental_icons`): declared
    * name → hashed asset URL (`/api/v1/plugins/<id>/assets/icons/<name>.svg?h=…`).
    * A timeline row or provider whose glyph is `"<pluginId>/<name>"` resolves
    * here; a name that is absent (the plugin changed its map, or is gone)
    * renders the per-kind fallback glyph. Identity-backed like `iconUrl`, so a
    * disabled plugin's icons still resolve. Empty for a plugin that declares
    * none; the server fills it for every plugin, with the same response-side
-   * tolerance as `providerIds` in @bb/sdk for servers older than the field.
+   * tolerance as `providerIds` in @cc/sdk for servers older than the field.
    */
   icons: z.record(z.string(), z.string()),
 });
@@ -234,7 +234,7 @@ export const pluginInstallRequestSchema = z
 
 export const PLUGIN_MARKETPLACE_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
 
-export const CURATED_PLUGIN_MARKETPLACE_NAME = "bb-community";
+export const CURATED_PLUGIN_MARKETPLACE_NAME = "cc-community";
 
 export const pluginMarketplaceNameSchema = z
   .string()

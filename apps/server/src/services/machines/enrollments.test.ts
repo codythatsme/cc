@@ -2,12 +2,12 @@ import { eq } from "drizzle-orm";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createConnection, migrate, hosts } from "@bb/db";
+import { createConnection, migrate, hosts } from "@cc/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMachineAuthService } from "../machine-auth.js";
 import { createMachineEnrollmentService } from "./enrollments.js";
 import { setPluginMachineProviderBridge } from "../plugins/plugin-machine-provider-registry.js";
-import { validatePluginMachineProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+import { validatePluginMachineProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
 
 const cleanup: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 async function harness() {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-enrollments-test-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-enrollments-test-"));
   const db = createConnection(":memory:");
   migrate(db);
   cleanup.push(async () => {

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@cc/domain";
 import { StoryCard, StoryRow } from "../../.ladle/story-card";
 import {
   PROJECT_IDS,
@@ -40,7 +40,7 @@ function makeRecentThread({
   overrides = {},
 }: MakeRecentThreadArgs = {}): ThreadListEntry {
   return makeThreadListEntry({
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.cc,
     ...overrides,
   });
 }
@@ -136,7 +136,7 @@ const metadataThreads: ThreadListEntry[] = [
       title: "Anchor the mobile prompt box",
       titleFallback: "Anchor the mobile prompt box",
       environmentName: "mobile-home",
-      environmentBranchName: "bb/mobile-home",
+      environmentBranchName: "cc/mobile-home",
       environmentProviderId: "git-worktree",
       createdAt: 700,
       latestAttentionAt: 700,
@@ -160,7 +160,7 @@ const metadataThreads: ThreadListEntry[] = [
       title:
         "A deliberately long thread title that has to truncate on a narrow mobile row",
       titleFallback: "A deliberately long thread title",
-      environmentBranchName: "bb/very-long-branch-name-for-truncation",
+      environmentBranchName: "cc/very-long-branch-name-for-truncation",
       environmentProviderId: "git-worktree",
       createdAt: 600,
       latestAttentionAt: 600,
@@ -227,7 +227,7 @@ const hierarchyThreads: ThreadListEntry[] = [
 ];
 
 const projectNamesById = new Map<string, string>([
-  [PROJECT_IDS.bb, PROJECT_NAMES.bb],
+  [PROJECT_IDS.cc, PROJECT_NAMES.cc],
   [PROJECT_IDS.pierre, PROJECT_NAMES.pierre],
 ]);
 

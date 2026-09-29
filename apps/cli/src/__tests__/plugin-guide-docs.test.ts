@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Command } from "commander";
-import { renderTemplate } from "@bb/templates";
+import { renderTemplate } from "@cc/templates";
 import { registerMarketplaceCommands } from "../commands/marketplace.js";
 import { registerPluginCommands } from "../commands/plugin.js";
 
@@ -19,24 +19,24 @@ function buildPluginCommand(): Command {
 }
 
 describe("plugins guide chapter", () => {
-  it("mentions every bb plugin subcommand", () => {
+  it("mentions every cc plugin subcommand", () => {
     const plugin = buildPluginCommand();
     const names = plugin.commands.map((command) => command.name());
     expect(names.length).toBeGreaterThan(0);
 
-    const guide = renderTemplate("bbGuidePlugins", {});
+    const guide = renderTemplate("ccGuidePlugins", {});
     for (const name of names) {
-      const pattern = new RegExp(`bb plugin (?:[a-z-]+\\|)*${name}\\b`);
+      const pattern = new RegExp(`cc plugin (?:[a-z-]+\\|)*${name}\\b`);
       expect(
         guide,
-        `"bb plugin ${name}" is not documented in bb-guide-plugins.md`,
+        `"cc plugin ${name}" is not documented in cc-guide-plugins.md`,
       ).toMatch(pattern);
     }
   });
 
-  it("mentions every declared bb plugin option flag", () => {
+  it("mentions every declared cc plugin option flag", () => {
     const plugin = buildPluginCommand();
-    const guide = renderTemplate("bbGuidePlugins", {});
+    const guide = renderTemplate("ccGuidePlugins", {});
     let optionCount = 0;
     for (const command of plugin.commands) {
       for (const option of command.options) {
@@ -47,24 +47,24 @@ describe("plugins guide chapter", () => {
         expect(forms.length).toBeGreaterThan(0);
         expect(
           forms.some((form) => guide.includes(form)),
-          `"bb plugin ${command.name()}" flag "${option.flags}" is not documented in bb-guide-plugins.md`,
+          `"cc plugin ${command.name()}" flag "${option.flags}" is not documented in cc-guide-plugins.md`,
         ).toBe(true);
       }
     }
     expect(optionCount).toBeGreaterThan(0);
   });
 
-  it("mentions every bb marketplace subcommand", () => {
+  it("mentions every cc marketplace subcommand", () => {
     const marketplace = buildGroupCommand("marketplace");
     const names = marketplace.commands.map((command) => command.name());
     expect(names.length).toBeGreaterThan(0);
 
-    const guide = renderTemplate("bbGuidePlugins", {});
+    const guide = renderTemplate("ccGuidePlugins", {});
     for (const name of names) {
       expect(
         guide,
-        `"bb marketplace ${name}" is not documented in bb-guide-plugins.md`,
-      ).toMatch(new RegExp(`bb marketplace ${name}\\b`));
+        `"cc marketplace ${name}" is not documented in cc-guide-plugins.md`,
+      ).toMatch(new RegExp(`cc marketplace ${name}\\b`));
     }
   });
 });

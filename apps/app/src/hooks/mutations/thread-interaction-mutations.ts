@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { PendingInteraction } from "@bb/domain";
-import type { ResolvePendingInteractionRequest } from "@bb/server-contract";
+import type { PendingInteraction } from "@cc/domain";
+import type { ResolvePendingInteractionRequest } from "@cc/server-contract";
 import { sdk } from "@/lib/sdk";
 import { isHostDisconnectedError } from "@/lib/lifecycle-errors";
 import { useEnvironment } from "../queries/environment-queries";

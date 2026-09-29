@@ -1,12 +1,12 @@
 import { useState } from "react";
-import type { Host, LastServerMove } from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
+import type { Host, LastServerMove } from "@cc/domain";
+import { Button } from "@cc/shared-ui/button";
 import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
+} from "@cc/shared-ui/dialog";
 import { ConfirmDeleteDialog } from "@/components/dialogs/ConfirmDeleteDialog";
 import { appToast } from "@/components/ui/app-toast";
 import {
@@ -32,7 +32,7 @@ export function oldServerCopyDescription(
   host: Host,
   lastMove: LastServerMove,
 ): string {
-  const base = `The server moved from ${host.name} to ${lastMove.toHostName}. The old server data is still on ${host.name}, locked so bb won't start a server from it. Keep it as a backup, or delete it once the new server works.`;
+  const base = `The server moved from ${host.name} to ${lastMove.toHostName}. The old server data is still on ${host.name}, locked so cc won't start a server from it. Keep it as a backup, or delete it once the new server works.`;
   return host.status === "connected"
     ? base
     : `${base} ${host.name} has to be online to delete it.`;

@@ -1,10 +1,10 @@
-import { getAiServiceSelections, setAiServiceSelection } from "@bb/db";
-import { promptInputSchema, type AiTextTask } from "@bb/domain";
+import { getAiServiceSelections, setAiServiceSelection } from "@cc/db";
+import { promptInputSchema, type AiTextTask } from "@cc/domain";
 import type {
   SetAiServiceSelectionRequest,
   SystemAiServicesResponse,
   TestAiServiceResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import { buildThreadTitlePrompt } from "../threads/title-generation.js";

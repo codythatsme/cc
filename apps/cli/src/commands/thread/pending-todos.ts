@@ -2,11 +2,11 @@ import type {
   ThreadTimelinePendingTodos,
   ThreadTimelinePendingTodoItem,
   ThreadTimelinePendingTodoItemStatus,
-} from "@bb/domain";
-import type { BbSdk } from "@bb/sdk";
+} from "@cc/domain";
+import type { CcSdk } from "@cc/sdk";
 
 interface FetchThreadPendingTodosArgs {
-  sdk: Pick<BbSdk, "threads">;
+  sdk: Pick<CcSdk, "threads">;
   threadId: string;
 }
 

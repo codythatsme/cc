@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFakeSocketFactory } from "../realtime/fake-socket";
-import { MOBILE_APP_SURFACE_HEADER } from "./app-surface";
 import { createProfileClientRegistry } from "./client-registry";
 import { createMobileFetch, type ServerMovedResponse } from "./mobile-fetch";
 
 const MOVED_BODY = {
   code: "server_moved",
-  message: "This bb server moved to studio",
+  message: "This cc server moved to studio",
   details: {
     serverUrl: "https://studio.tailnet.ts.net/",
     toHostName: "studio",
@@ -108,21 +107,19 @@ describe("createMobileFetch", () => {
     expect(result.bodyUsed).toBe(false);
   });
 
-  it("still reports auth failures and tags the app surface", async () => {
+  it("still reports auth failures without app attribution headers", async () => {
     const { baseFetch, mobileFetch, onAuthFailure, onServerMoved } = setup(() =>
       jsonResponse({ code: "unauthorized" }, 401),
     );
 
-    await mobileFetch("https://bee.getbb.app/api/v1/x", {
+    await mobileFetch("https://bee.cc.example.invalid/api/v1/x", {
       headers: { accept: "application/json" },
     });
 
     expect(onAuthFailure).toHaveBeenCalledExactlyOnceWith(401);
     expect(onServerMoved).not.toHaveBeenCalled();
     const headers = new Headers(baseFetch.mock.calls[0]?.[1]?.headers);
-    expect(headers.get(MOBILE_APP_SURFACE_HEADER.name)).toBe(
-      MOBILE_APP_SURFACE_HEADER.value,
-    );
+    expect(headers.has("x-cc-app-surface")).toBe(false);
     expect(headers.get("accept")).toBe("application/json");
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp } from "@codythatsme/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 const { loadPluginReferences } = await import("./app");

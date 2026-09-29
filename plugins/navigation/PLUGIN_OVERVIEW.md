@@ -8,4 +8,4 @@ The sidebar navigation, as a plugin.
 
 ## How it works
 
-The plugin draws rows from bb's navigation model. Order and visibility are bb settings (`sidebar.pluginPanelOrder` and `sidebar.visiblePluginPanels`), so they carry over when you switch to another navigation plugin under Settings → Appearance, and **Customize sidebar** opens bb's own editor.
+The plugin draws rows from cc's navigation model. Order and visibility are cc settings (`sidebar.pluginPanelOrder` and `sidebar.visiblePluginPanels`), so they carry over when you switch to another navigation plugin under Settings → Appearance, and **Customize sidebar** opens cc's own editor.

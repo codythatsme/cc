@@ -1,4 +1,4 @@
-import { setAppIcons } from "@bb/shared-ui/icon-registry";
+import { setAppIcons } from "@cc/shared-ui/icon-registry";
 import { useSyncExternalStore } from "react";
 import type {
   ComposerCustomization,
@@ -24,7 +24,7 @@ import type {
   PluginThreadListRegistration,
   PluginThreadPanelActionRegistration,
   PluginTimelineRendererRegistration,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   type CollectedPluginCommandRegistration,
   adaptSidebarFooterAction,
@@ -33,7 +33,7 @@ import {
   type CollectedExperimentalSidebarFooterItem,
   type CollectedManagedSidebarFooterItem,
   type CollectedSidebarFooterItem,
-} from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+} from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
 
 export interface PluginRegistrationSet {
   homepageSections: readonly PluginHomepageSectionRegistration[];

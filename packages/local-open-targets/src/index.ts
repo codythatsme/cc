@@ -9,11 +9,11 @@ import {
   type WorkspaceOpenTarget,
   type WorkspaceOpenTargetIcon,
   type WorkspaceOpenTargetId,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import {
   pathExists,
   sanitizeInheritedChildProcessEnv,
-} from "@bb/process-utils";
+} from "@cc/process-utils";
 import {
   BASIC_FILE_OPEN_CAPABILITIES,
   FILE_MANAGER_OPEN_CAPABILITIES,
@@ -599,7 +599,7 @@ async function resolveMacApplicationIconDataUrl(
     path.extname(iconFile) === "" ? `${iconFile}.icns` : iconFile;
   const iconPath = path.join(appPath, "Contents", "Resources", iconFileName);
   const tempDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "bb-open-target-icon-"),
+    path.join(os.tmpdir(), "cc-open-target-icon-"),
   );
   const pngPath = path.join(tempDir, `${path.basename(iconPath)}.png`);
   try {

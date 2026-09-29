@@ -3,11 +3,11 @@
   "name": "textarea",
   "type": "registry:ui",
   "title": "textarea",
-  "description": "BB ui \"textarea\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"textarea\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/motion",
-    "@bb/utils"
+    "@cc/coarse-pointer-sizing",
+    "@cc/motion",
+    "@cc/utils"
   ],
   "files": [
     {

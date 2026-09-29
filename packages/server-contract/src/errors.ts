@@ -4,7 +4,7 @@ import {
   hostStatusSchema,
   pluginIdSchema,
   threadStatusSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 
 export const apiErrorSchema = z.object({
   code: z.string().min(1),

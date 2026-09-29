@@ -9,12 +9,12 @@ import {
   attachmentUnavailable,
   type DbConnection,
   type ProjectAttachmentRow,
-} from "@bb/db";
+} from "@cc/db";
 import {
   canonicalProjectAttachmentPath,
   pathLooksRuntimeReadable,
   PROMPT_ATTACHMENT_MAX_BYTES,
-} from "@bb/domain";
+} from "@cc/domain";
 // oxlint-disable-next-line no-restricted-imports
 import {
   mkdir,
@@ -25,9 +25,9 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { resolveContainedPath } from "@bb/process-utils";
-import type { PromptInput } from "@bb/domain";
-import type { UploadedPromptAttachment } from "@bb/server-contract";
+import { resolveContainedPath } from "@cc/process-utils";
+import type { PromptInput } from "@cc/domain";
+import type { UploadedPromptAttachment } from "@cc/server-contract";
 import mimeTypes from "mime-types";
 import { ApiError } from "../../errors.js";
 

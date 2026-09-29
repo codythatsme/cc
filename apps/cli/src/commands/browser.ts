@@ -4,13 +4,13 @@ import type {
   ExperimentalDesktopBrowserImportOutcome,
   ExperimentalDesktopBrowserImportSources,
   ExperimentalDesktopBrowserScope,
-} from "@bb/sdk";
+} from "@cc/sdk";
 import {
   DESKTOP_BROWSER_IMPORT_FAILURE_COPY,
   desktopBrowserImportSourceIdSchema,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliCcSdk } from "../client.js";
 
 interface ScopeOptions {
   json?: boolean;
@@ -103,7 +103,7 @@ export function registerBrowserCommands(
   const browser = program
     .command("browser")
     .description("Experimental built-in desktop browser control");
-  const api = () => createCliBbSdk(getUrl()).experimental_desktopBrowsers;
+  const api = () => createCliCcSdk(getUrl()).experimental_desktopBrowsers;
   browser
     .command("instances")
     .description("List connected desktop windows on a host")
@@ -311,16 +311,16 @@ export function registerBrowserCommands(
     browser
       .command("import-cookies")
       .description(
-        "Copy signed-in cookies from an installed browser into the BB browser",
+        "Copy signed-in cookies from an installed browser into the CC browser",
       ),
   )
     .requiredOption(
       "--from <source>",
-      "Source browser ID from `bb browser import-sources`",
+      "Source browser ID from `cc browser import-sources`",
     )
     .requiredOption(
       "--profile <directory>",
-      "Source profile directory as printed by `bb browser import-sources`",
+      "Source profile directory as printed by `cc browser import-sources`",
     )
     .option(
       "--into <target>",

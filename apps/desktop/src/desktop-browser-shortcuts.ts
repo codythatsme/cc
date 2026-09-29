@@ -6,7 +6,7 @@ import {
   type AppCommandId,
   type AppKeybindings,
   type AppShortcutInput,
-} from "@bb/domain";
+} from "@cc/domain";
 
 interface ResolveDesktopBrowserAppCommandArgs {
   input: AppShortcutInput;

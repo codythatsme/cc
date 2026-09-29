@@ -7,27 +7,27 @@ import {
 describe("desktop update feed url", () => {
   it("gives each platform its own feed file inside one release tag", () => {
     expect(createDesktopUpdateFeedUrl("macos")).toBe(
-      "https://github.com/get-bb/bb/releases/download/desktop-latest/desktop-version.json",
+      "https://github.com/codythatsme/cc/releases/download/desktop-latest/desktop-version.json",
     );
     expect(createDesktopUpdateFeedUrl("linux")).toBe(
-      "https://github.com/get-bb/bb/releases/download/desktop-latest/desktop-version-linux.json",
+      "https://github.com/codythatsme/cc/releases/download/desktop-latest/desktop-version-linux.json",
     );
   });
 });
 
-const APP_IMAGE_PATH = "/home/user/Apps/bb-0.37.0-x86_64.AppImage";
+const APP_IMAGE_PATH = "/home/user/Apps/cc-0.37.0-x86_64.AppImage";
 const alwaysReplaceable = () => true;
 const neverReplaceable = () => false;
 
 describe("desktop update support", () => {
-  it("enables both update paths on macOS", () => {
+  it("checks versions without self-updating the unsigned macOS app", () => {
     expect(
       resolveDesktopUpdateSupport({
         canReplaceAppImage: neverReplaceable,
         env: {},
         platform: "macos",
       }),
-    ).toEqual({ autoUpdate: true, versionCheck: true });
+    ).toEqual({ autoUpdate: false, versionCheck: true });
   });
 
   it("installs updates on Linux only inside an AppImage", () => {

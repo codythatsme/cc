@@ -1,14 +1,14 @@
 import { replaceMachineEnvironment } from "../../src/services/machines/environment-settings.js";
 import * as gitCredentials from "../../src/services/machines/git-credentials.js";
-import { updateHost } from "@bb/db";
+import { updateHost } from "@cc/db";
 import {
   countProjectSources,
   getAppSettings,
   getProject,
   setAppSettings,
   setExperiments,
-} from "@bb/db";
-import { defaultExperiments } from "@bb/domain";
+} from "@cc/db";
+import { defaultExperiments } from "@cc/domain";
 import { describe, expect, it, vi } from "vitest";
 import {
   listQueuedCommands,

@@ -28,8 +28,8 @@ Every script stores `execution.workingDirectory` as one of these policies:
   `<data dir>/plugins/automations/scripts/`. Every automation on this policy
   shares it; each automation's stored script lives in a subdirectory of it,
   not in the working directory itself.
-- `{"type":"project"}` uses the project's source on the bb server host.
-- `{"type":"path","path":"/absolute/path"}` uses that directory on the bb
+- `{"type":"project"}` uses the project's source on the cc server host.
+- `{"type":"path","path":"/absolute/path"}` uses that directory on the cc
   server host.
 
 New standard-project scripts default to `project` when that project has a
@@ -63,20 +63,20 @@ available unchanged in run output.
 The plugin injects these variables:
 
 ```text
-BB_SERVER_URL          The BB server API base URL
-BB_PROJECT_ID          The automation project
-BB_AUTOMATION_ID       The automation ID
-BB_AUTOMATION_RUN_ID   The run ID
-BB_CLI                 The absolute BB CLI path, when available
+CC_SERVER_URL          The CC server API base URL
+CC_PROJECT_ID          The automation project
+CC_AUTOMATION_ID       The automation ID
+CC_AUTOMATION_RUN_ID   The run ID
+CC_CLI                 The absolute CC CLI path, when available
 ```
 
-The plugin does not inject `BB_ENVIRONMENT_ID` or `BB_HOST_DAEMON_PORT`.
+The plugin does not inject `CC_ENVIRONMENT_ID` or `CC_HOST_DAEMON_PORT`.
 
-The plugin resolves `bb` from `BB_CLI`, `BB_CLI_DIR`, `PATH`, and common macOS
+The plugin resolves `cc` from `CC_CLI`, `CC_CLI_DIR`, `PATH`, and common macOS
 install paths. It adds the selected directory to `PATH`.
 
-If the plugin cannot find `bb`, the script still starts. Its output starts with
-a `[bb] warning:` line. A later `bb` call then fails normally.
+If the plugin cannot find `cc`, the script still starts. Its output starts with
+a `[cc] warning:` line. A later `cc` call then fails normally.
 
 ## Execution safety
 

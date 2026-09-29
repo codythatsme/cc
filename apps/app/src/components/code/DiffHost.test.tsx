@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ExperimentalDiffFullFileContents,
   PluginDiffRendererProps,
-} from "@get-bb/plugin-sdk";
-import { defaultResolvedCodeTheme } from "@bb/domain";
+} from "@codythatsme/plugin-sdk";
+import { defaultResolvedCodeTheme } from "@cc/domain";
 import { applyResolvedCodeTheme } from "@/lib/code-theme";
 import {
   resetPluginSlotStoreForTest,
@@ -25,21 +25,21 @@ import { diffRendererProviderAtom } from "./codeRendererProvider";
 import { DiffHost } from "./DiffHost";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 
-const bbDiff = vi.hoisted(() => ({
+const ccDiff = vi.hoisted(() => ({
   loaded: false,
   lastProps: null as Record<string, unknown> | null,
 }));
 
-vi.mock("./BbDiff", async () => {
+vi.mock("./CcDiff", async () => {
   const React = await import("react");
-  bbDiff.loaded = true;
+  ccDiff.loaded = true;
   return {
     default: (props: Record<string, unknown>) => {
-      bbDiff.lastProps = props;
+      ccDiff.lastProps = props;
       return React.createElement(
         "div",
-        { "data-testid": "bb-diff" },
-        `bb diff ${String(props.view)}/${String(props.overflow)}`,
+        { "data-testid": "cc-diff" },
+        `cc diff ${String(props.view)}/${String(props.overflow)}`,
       );
     },
   };
@@ -100,8 +100,8 @@ function registerDiffRenderer(
 }
 
 beforeEach(() => {
-  bbDiff.loaded = false;
-  bbDiff.lastProps = null;
+  ccDiff.loaded = false;
+  ccDiff.lastProps = null;
   receivedProps.length = 0;
   resetPluginSlotStoreForTest();
   resetDeprecatedAliasWarningsForTests();
@@ -116,7 +116,7 @@ afterEach(() => {
 });
 
 describe("DiffHost", () => {
-  it("skips BB's renderer and full-file enrichment when a replacement never delegates", async () => {
+  it("skips CC's renderer and full-file enrichment when a replacement never delegates", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -135,13 +135,13 @@ describe("DiffHost", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(bbDiff.loaded).toBe(false);
+    expect(ccDiff.loaded).toBe(false);
     expect(receivedProps.at(-1)?.experimental_fullFileContents).toBe(
       FULL_FILE_CONTENTS,
     );
   });
 
-  it("hands the replacement resolved semantic props, not BB's host-only inputs", async () => {
+  it("hands the replacement resolved semantic props, not CC's host-only inputs", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -191,7 +191,7 @@ describe("DiffHost", () => {
     expect(reparsed?.hunks).toHaveLength(1);
   });
 
-  it("loads BB's renderer only when the replacement delegates", async () => {
+  it("loads CC's renderer only when the replacement delegates", async () => {
     registerDiffRenderer(({ path, Original }) =>
       path.endsWith(".ts") ? <Original /> : <div>plugin diff</div>,
     );
@@ -204,12 +204,12 @@ describe("DiffHost", () => {
       />,
     );
 
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
-    expect(bbDiff.loaded).toBe(true);
-    expect(bbDiff.lastProps?.file).toBeDefined();
+    expect(await screen.findByTestId("cc-diff")).toBeDefined();
+    expect(ccDiff.loaded).toBe(true);
+    expect(ccDiff.lastProps?.file).toBeDefined();
   });
 
-  it("honours a pin to BB's renderer without disabling the plugin", async () => {
+  it("honours a pin to CC's renderer without disabling the plugin", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -227,7 +227,7 @@ describe("DiffHost", () => {
       </JotaiProvider>,
     );
 
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
+    expect(await screen.findByTestId("cc-diff")).toBeDefined();
     expect(receivedProps).toHaveLength(0);
   });
 
@@ -268,7 +268,7 @@ describe("DiffHost", () => {
     expect(screen.queryByTestId("aardvark-diff")).toBeNull();
   });
 
-  it("falls back to BB's renderer when the replacement crashes", async () => {
+  it("falls back to CC's renderer when the replacement crashes", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     registerDiffRenderer(() => {
@@ -283,21 +283,21 @@ describe("DiffHost", () => {
       />,
     );
 
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
+    expect(await screen.findByTestId("cc-diff")).toBeDefined();
   });
 
-  it("uses BB's renderer with resolved presentation defaults when nothing is registered", async () => {
+  it("uses CC's renderer with resolved presentation defaults when nothing is registered", async () => {
     render(<DiffHost file={parseFixture()} fullFileContents={null} />);
 
-    await screen.findByTestId("bb-diff");
-    expect(bbDiff.lastProps?.view).toBe("unified");
-    expect(bbDiff.lastProps?.overflow).toBe("scroll");
-    expect(bbDiff.lastProps?.showLineNumbers).toBe(true);
+    await screen.findByTestId("cc-diff");
+    expect(ccDiff.lastProps?.view).toBe("unified");
+    expect(ccDiff.lastProps?.overflow).toBe("scroll");
+    expect(ccDiff.lastProps?.showLineNumbers).toBe(true);
   });
 });
 
 describe("experimental_Diff", () => {
-  it("shares the replacement with BB's own surfaces", async () => {
+  it("shares the replacement with CC's own surfaces", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
       return <div data-testid="plugin-diff">plugin diff</div>;
@@ -308,7 +308,7 @@ describe("experimental_Diff", () => {
     await screen.findByTestId("plugin-diff");
     expect(receivedProps.at(-1)?.path).toBe("src/app.ts");
     expect(receivedProps.at(-1)?.experimental_fullFileContents).toBeNull();
-    expect(bbDiff.loaded).toBe(false);
+    expect(ccDiff.loaded).toBe(false);
   });
 
   it("completes a header-less patch before handing it to a replacement", async () => {
@@ -332,7 +332,7 @@ describe("experimental_Diff", () => {
     expect(patch).not.toContain("\r");
   });
 
-  it("defers complete-file enrichment to BB's lazy renderer", async () => {
+  it("defers complete-file enrichment to CC's lazy renderer", async () => {
     render(
       <PluginDiff
         patch={PATCH}
@@ -341,27 +341,27 @@ describe("experimental_Diff", () => {
       />,
     );
 
-    await screen.findByTestId("bb-diff");
-    const file = bbDiff.lastProps?.file as ReturnType<
+    await screen.findByTestId("cc-diff");
+    const file = ccDiff.lastProps?.file as ReturnType<
       typeof parseFixture
     > | null;
     expect(file?.isPartial).toBe(true);
-    expect(bbDiff.lastProps?.patchText).toBe(PATCH);
-    expect(bbDiff.lastProps?.fullFileContents).toBe(FULL_FILE_CONTENTS);
-    expect(bbDiff.lastProps).not.toHaveProperty("expansionLineCount");
+    expect(ccDiff.lastProps?.patchText).toBe(PATCH);
+    expect(ccDiff.lastProps?.fullFileContents).toBe(FULL_FILE_CONTENTS);
+    expect(ccDiff.lastProps).not.toHaveProperty("expansionLineCount");
   });
 
   it("degrades to plain text instead of an empty diff when the patch will not parse", () => {
     render(<PluginDiff patch="not a patch at all" path="notes.txt" />);
 
     expect(screen.getByText("not a patch at all")).toBeDefined();
-    expect(screen.queryByTestId("bb-diff")).toBeNull();
-    expect(bbDiff.loaded).toBe(false);
+    expect(screen.queryByTestId("cc-diff")).toBeNull();
+    expect(ccDiff.loaded).toBe(false);
   });
 });
 
 describe("DiffHost experimental_Original alias", () => {
-  it("delegates to BB's renderer through the alias and warns once across renders", async () => {
+  it("delegates to CC's renderer through the alias and warns once across renders", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     let renders = 0;
     registerDiffRenderer(({ experimental_Original: LegacyOriginal }) => {
@@ -380,8 +380,8 @@ describe("DiffHost experimental_Original alias", () => {
         fullFileContents={null}
       />,
     );
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
-    expect(bbDiff.lastProps?.view).toBe("unified");
+    expect(await screen.findByTestId("cc-diff")).toBeDefined();
+    expect(ccDiff.lastProps?.view).toBe("unified");
 
     rerender(
       <DiffHost
@@ -391,11 +391,11 @@ describe("DiffHost experimental_Original alias", () => {
         view="split"
       />,
     );
-    expect(await screen.findByText("bb diff split/scroll")).toBeDefined();
+    expect(await screen.findByText("cc diff split/scroll")).toBeDefined();
     expect(renders).toBe(2);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      "experimental_Original is deprecated; use Original. Removed in bb 0.42",
+      "experimental_Original is deprecated; use Original. Removed in cc 0.42",
     );
   });
 
@@ -411,7 +411,7 @@ describe("DiffHost experimental_Original alias", () => {
       />,
     );
 
-    expect(await screen.findByTestId("bb-diff")).toBeDefined();
+    expect(await screen.findByTestId("cc-diff")).toBeDefined();
     expect(warn).not.toHaveBeenCalled();
   });
 });

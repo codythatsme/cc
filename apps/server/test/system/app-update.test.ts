@@ -5,8 +5,8 @@ import type {
   LauncherAppUpdateStatus,
   ServerToLauncherMessage,
   SourceUpdateCheck,
-} from "@bb/config/app-update";
-import type { SystemVersionResponse } from "@bb/server-contract";
+} from "@cc/config/app-update";
+import type { SystemVersionResponse } from "@cc/server-contract";
 import { ApiError } from "../../src/errors.js";
 import { createAppUpdateService } from "../../src/services/system/app-update.js";
 import type { AppVersionService } from "../../src/services/system/app-version.js";
@@ -30,7 +30,7 @@ function appVersion(
         latestVersion: "1.1.0",
         source: "npm",
         updateAvailable: true,
-        upgradeCommand: "npx bb-app@latest",
+        upgradeCommand: "npx cc-app@latest",
         ...response,
       };
     },
@@ -192,7 +192,7 @@ describe("app update service", () => {
     ]);
   });
 
-  it("rejects an update when bb is already current", async () => {
+  it("rejects an update when cc is already current", async () => {
     const { service } = createService({
       version: { latestVersion: "1.0.0", updateAvailable: false },
     });
@@ -210,7 +210,7 @@ describe("app update service", () => {
         output: [],
         phase: "preparing",
         startedAt: "2026-09-23T00:00:00.000Z",
-        step: "Downloading bb-app 1.1.0",
+        step: "Downloading cc-app 1.1.0",
         target: { kind: "npm", version: "1.1.0" },
         targetVersion: "1.1.0",
       },
@@ -224,7 +224,7 @@ describe("app update service", () => {
   it("surfaces launcher rejections as conflicts", async () => {
     const launcher = new FakeLauncher();
     launcher.respond = async () => {
-      throw new Error("This bb updates through npm, not source.");
+      throw new Error("This cc updates through npm, not source.");
     };
     const { service } = createService({ launcher });
 
@@ -387,7 +387,7 @@ describe("app update service", () => {
     expect(launcher.requests.slice(1)).toEqual([
       {
         message:
-          "1 thread started while bb was downloading the update. Update again to restart.",
+          "1 thread started while cc was downloading the update. Update again to restart.",
         type: "cancel",
       },
     ]);
@@ -421,7 +421,7 @@ describe("app update service", () => {
   it("reports a launcher that rejects an acknowledgement as a conflict", async () => {
     const launcher = new FakeLauncher();
     launcher.respond = async () => {
-      throw new Error("The bb-app launcher did not respond.");
+      throw new Error("The cc-app launcher did not respond.");
     };
     const { service } = createService({ launcher });
 
@@ -502,26 +502,26 @@ describe("launcher channel", () => {
   it("says hello, unrefs the channel, and pairs responses with requests", async () => {
     const port = new FakeProcessPort();
     const channel = createLauncherChannel(port);
-    expect(port.sent).toEqual([{ channel: "bb-app-update/hello" }]);
+    expect(port.sent).toEqual([{ channel: "cc-app-update/hello" }]);
     expect(port.channel.unref).toHaveBeenCalled();
 
     const first = channel?.request({ type: "check-source" });
     const second = channel?.request({ id: "r", type: "acknowledge-result" });
     const [, firstRequest, secondRequest] = port.sent;
     if (
-      firstRequest?.channel !== "bb-app-update/request" ||
-      secondRequest?.channel !== "bb-app-update/request"
+      firstRequest?.channel !== "cc-app-update/request" ||
+      secondRequest?.channel !== "cc-app-update/request"
     ) {
       throw new Error("expected two requests");
     }
     port.emit("message", {
-      channel: "bb-app-update/response",
+      channel: "cc-app-update/response",
       error: "boom",
       requestId: secondRequest.requestId,
       result: null,
     });
     port.emit("message", {
-      channel: "bb-app-update/response",
+      channel: "cc-app-update/response",
       error: null,
       requestId: firstRequest.requestId,
       result: { ok: true },
@@ -538,12 +538,12 @@ describe("launcher channel", () => {
     channel?.onStatus((status) => statuses.push(status));
 
     port.emit("message", {
-      channel: "bb-app-update/status",
+      channel: "cc-app-update/status",
       status: { bad: true },
     });
     port.emit("message", "not an object");
     port.emit("message", {
-      channel: "bb-app-update/status",
+      channel: "cc-app-update/status",
       status: {
         activity: { phase: "idle" },
         current: { kind: "npm", packageRoot: "/pkg", version: "1.0.0" },

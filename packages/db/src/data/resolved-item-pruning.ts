@@ -2,7 +2,7 @@ import { isBeforeLatestThreadEvent } from "./event-pruning-guards.js";
 import { threadPruningCursors } from "../schema.js";
 import { and, eq, sql } from "drizzle-orm";
 import type { DbQueryConnection } from "../connection.js";
-import type { ThreadEventType } from "@bb/domain";
+import type { ThreadEventType } from "@cc/domain";
 
 export interface ResolvedItemPruningProbe {
   probeEventId: string | null;

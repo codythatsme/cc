@@ -20,7 +20,7 @@ import {
   BRIDGE_JSON_RPC_ERRORS,
   type JsonValue,
   type RuntimePermissionPolicy,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 
 const { forkSessionMock, queryMock } = vi.hoisted(() => ({
   forkSessionMock: vi.fn(),
@@ -47,11 +47,11 @@ import { listClaudeCodeBridgeModels } from "../model-list.js";
 import {
   experimental_assembleCapturedThreadEvents as assembleCapturedThreadEvents,
   experimental_createBridgeJsonRpcTestHarness as createBridgeJsonRpcTestHarness,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@codythatsme/plugin-sdk/provider-bridge/testing";
 import type {
   BridgeJsonRpcOutputMessage,
   ThreadEvent,
-} from "@get-bb/plugin-sdk/provider-bridge/testing";
+} from "@codythatsme/plugin-sdk/provider-bridge/testing";
 
 type BridgeSessionOptions = ReturnType<typeof buildSessionOptions>;
 type BridgeSessionHooks = NonNullable<BridgeSessionOptions["hooks"]>;
@@ -479,7 +479,7 @@ function createAssistantToolUseMessage(
 }
 
 function createTempClaudeExecutable(): TempClaudeExecutable {
-  const binDir = mkdtempSync(join(tmpdir(), "bb-claude-path-"));
+  const binDir = mkdtempSync(join(tmpdir(), "cc-claude-path-"));
   tempDirs.push(binDir);
   const executablePath = join(binDir, "claude");
   writeFileSync(executablePath, "#!/bin/sh\nexit 0\n");
@@ -1097,13 +1097,13 @@ describe("bridge", () => {
         instructionMode: "append",
         permissionMode: "default",
         permissionScope: "workspace",
-        plugins: [{ type: "local", path: "/tmp/bb-skills" }],
+        plugins: [{ type: "local", path: "/tmp/cc-skills" }],
       },
       {},
     );
 
     expect(options.plugins).toEqual([
-      { type: "local", path: "/tmp/bb-skills" },
+      { type: "local", path: "/tmp/cc-skills" },
     ]);
     expect(options).not.toHaveProperty("skills");
   });
@@ -1146,7 +1146,7 @@ describe("bridge", () => {
   });
 
   it("falls back to well-known install locations when PATH discovery fails", () => {
-    const homeDir = mkdtempSync(join(tmpdir(), "bb-claude-home-"));
+    const homeDir = mkdtempSync(join(tmpdir(), "cc-claude-home-"));
     tempDirs.push(homeDir);
     const localBinDir = join(homeDir, ".local", "bin");
     mkdirSync(localBinDir, { recursive: true });
@@ -1165,7 +1165,7 @@ describe("bridge", () => {
         permissionMode: "default",
         permissionScope: "workspace",
       },
-      { HOME: homeDir, PATH: "/nonexistent-bb-test-dir" },
+      { HOME: homeDir, PATH: "/nonexistent-cc-test-dir" },
     );
 
     expect(options.pathToClaudeCodeExecutable).toBe(executablePath);
@@ -1185,7 +1185,7 @@ describe("bridge", () => {
         permissionScope: "workspace",
       },
       {
-        BB_CLAUDE_CODE_EXECUTABLE: executablePath,
+        CC_CLAUDE_CODE_EXECUTABLE: executablePath,
         PATH: "/usr/bin",
       },
     );
@@ -1207,7 +1207,7 @@ describe("bridge", () => {
         permissionScope: "workspace",
       },
       {
-        BB_CLAUDE_CODE_EXECUTABLE: `  ${executablePath}  `,
+        CC_CLAUDE_CODE_EXECUTABLE: `  ${executablePath}  `,
         PATH: "/usr/bin",
       },
     );
@@ -1216,7 +1216,7 @@ describe("bridge", () => {
   });
 
   it("rejects explicit Claude executable overrides that are not executable", () => {
-    const binDir = mkdtempSync(join(tmpdir(), "bb-claude-path-"));
+    const binDir = mkdtempSync(join(tmpdir(), "cc-claude-path-"));
     tempDirs.push(binDir);
     const executablePath = join(binDir, "claude");
 
@@ -1233,11 +1233,11 @@ describe("bridge", () => {
           permissionScope: "workspace",
         },
         {
-          BB_CLAUDE_CODE_EXECUTABLE: executablePath,
+          CC_CLAUDE_CODE_EXECUTABLE: executablePath,
           PATH: "/usr/bin",
         },
       ),
-    ).toThrow("BB_CLAUDE_CODE_EXECUTABLE must point to an executable");
+    ).toThrow("CC_CLAUDE_CODE_EXECUTABLE must point to an executable");
   });
 
   it("configures acceptEdits and auto sessions with the same Claude sandbox", () => {
@@ -1334,7 +1334,7 @@ describe("bridge", () => {
         },
         expected: {
           behavior: "deny",
-          messageIncludes: "bb's workspace sandbox allows work inside",
+          messageIncludes: "cc's workspace sandbox allows work inside",
         },
       },
       {
@@ -1350,7 +1350,7 @@ describe("bridge", () => {
         },
         expected: {
           behavior: "deny",
-          messageIncludes: "bb's workspace sandbox allows work inside",
+          messageIncludes: "cc's workspace sandbox allows work inside",
         },
       },
       {
@@ -1446,7 +1446,7 @@ describe("bridge", () => {
     });
   });
 
-  it("forwards unresolved high-risk auto-mode asks to bb", async () => {
+  it("forwards unresolved high-risk auto-mode asks to cc", async () => {
     const bridge = createBridgeJsonRpcTestHarness(handleLine);
     const queries: ControlledClaudeQuery[] = [];
     queryMock.mockImplementation(() => {
@@ -2172,7 +2172,7 @@ describe("bridge", () => {
     }
   });
 
-  it("dispatches an inbound request whose id collides with a pending bb request", async () => {
+  it("dispatches an inbound request whose id collides with a pending cc request", async () => {
     const bridge = createBridgeJsonRpcTestHarness(handleLine);
     const queries: ControlledClaudeQuery[] = [];
     queryMock.mockImplementation(() => {
@@ -2267,7 +2267,7 @@ describe("bridge", () => {
     }
   });
 
-  it("denies invalid AskUserQuestion input before forwarding to bb", async () => {
+  it("denies invalid AskUserQuestion input before forwarding to cc", async () => {
     const bridge = createBridgeJsonRpcTestHarness(handleLine);
     const queries: ControlledClaudeQuery[] = [];
     queryMock.mockImplementation(() => {
@@ -2305,7 +2305,7 @@ describe("bridge", () => {
     }
   });
 
-  it("denies AskUserQuestion when bb returns an interactive request error", async () => {
+  it("denies AskUserQuestion when cc returns an interactive request error", async () => {
     const bridge = createBridgeJsonRpcTestHarness(handleLine);
     const queries: ControlledClaudeQuery[] = [];
     queryMock.mockImplementation(() => {
@@ -2346,7 +2346,7 @@ describe("bridge", () => {
     }
   });
 
-  it("denies AskUserQuestion when bb returns an invalid response payload", async () => {
+  it("denies AskUserQuestion when cc returns an invalid response payload", async () => {
     const bridge = createBridgeJsonRpcTestHarness(handleLine);
     const queries: ControlledClaudeQuery[] = [];
     queryMock.mockImplementation(() => {
@@ -2384,7 +2384,7 @@ describe("bridge", () => {
     }
   });
 
-  it("denies AskUserQuestion when bb returns a mismatched response kind", async () => {
+  it("denies AskUserQuestion when cc returns a mismatched response kind", async () => {
     const bridge = createBridgeJsonRpcTestHarness(handleLine);
     const queries: ControlledClaudeQuery[] = [];
     queryMock.mockImplementation(() => {
@@ -2480,6 +2480,12 @@ describe("bridge", () => {
       }),
     });
     const probeOptions = queryMock.mock.calls.at(-1)?.[0]?.options;
+    expect(probeOptions?.env).toMatchObject({
+      DISABLE_TELEMETRY: "1",
+      DISABLE_ERROR_REPORTING: "1",
+      CLAUDE_CODE_ENABLE_TELEMETRY: "0",
+      OTEL_SDK_DISABLED: "true",
+    });
     expect(probeOptions).not.toHaveProperty("allowDangerouslySkipPermissions");
     expect(probeOptions).not.toHaveProperty("permissionMode");
     expect(close).toHaveBeenCalledOnce();
@@ -2523,7 +2529,7 @@ describe("bridge", () => {
     });
 
     const originalHome = process.env.HOME;
-    process.env.HOME = "/Users/test-bb";
+    process.env.HOME = "/Users/test-cc";
     try {
       bridge.sendRequest(1, "thread/start", {
         threadId: "thread-home-config",
@@ -2543,8 +2549,14 @@ describe("bridge", () => {
       await bridge.waitForResponse(1);
 
       const queryOptions = getLatestQueryOptions();
-      expect(queryOptions.env?.HOME).toBe("/Users/test-bb");
+      expect(queryOptions.env?.HOME).toBe("/Users/test-cc");
       expect(queryOptions.env?.CLAUDE_CODE_ENTRYPOINT).toBe("cli");
+      expect(queryOptions.env).toMatchObject({
+        DISABLE_TELEMETRY: "1",
+        DISABLE_ERROR_REPORTING: "1",
+        CLAUDE_CODE_ENABLE_TELEMETRY: "0",
+        OTEL_SDK_DISABLED: "true",
+      });
       expect(queryOptions.env?.CLAUDE_AGENT_SDK_CLIENT_APP).toBeUndefined();
       expect(queryOptions.settingSources).toEqual(["user", "project", "local"]);
 
@@ -4605,7 +4617,7 @@ describe("canonical skills/configure", () => {
       queries.push(query);
       return query;
     });
-    const stagedRoot = mkdtempSync(join(tmpdir(), "bb-claude-skill-roots-"));
+    const stagedRoot = mkdtempSync(join(tmpdir(), "cc-claude-skill-roots-"));
     const rootA = join(stagedRoot, "a", "skills");
     const rootB = join(stagedRoot, "b", "skills");
     for (const root of [rootA, rootB]) {

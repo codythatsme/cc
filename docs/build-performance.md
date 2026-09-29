@@ -10,7 +10,7 @@ original transform and are replaced. Results with unknown fields or absolute
 worktree paths, including JSON-escaped paths, are not stored.
 
 The intermediate cache lives at
-`<git-common-dir>/bb-cache/react-compiler`, allowing isolated worktrees for one
+`<git-common-dir>/cc-cache/react-compiler`, allowing isolated worktrees for one
 repository to reuse transforms without sharing dependency links or build
 outputs. A non-Git checkout falls back to Vite's cache directory. Turbo still
 owns the complete `dist/**` and `bundle-stats.json` outputs; a forced task runs
@@ -27,13 +27,13 @@ dependency contents, actual Node version, platform, architecture, Node options
 and execution flags, Vite mode and production status, and Babel/Node
 environment. Dependency and plugin versions are represented by the lockfile.
 This actual runtime identity is used even when a direct Turbo invocation omits
-`BB_BUILD_TOOLCHAIN`.
+`CC_BUILD_TOOLCHAIN`.
 
 Development serves continue through the original uncached transform.
 `BABEL_SHOW_CONFIG_FOR` and `ENABLE_REACT_COMPILER_TIMINGS=1` also bypass the
 disk cache so diagnostic behavior is preserved. Turbo hashes Node options,
 Babel settings, compiler timing mode, Vite settings, dotenv files, and the
-existing root `BB_BUILD_TOOLCHAIN` input.
+existing root `CC_BUILD_TOOLCHAIN` input.
 
 ## Verification method
 

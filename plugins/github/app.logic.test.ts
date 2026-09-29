@@ -30,7 +30,7 @@ describe("github panel routes", () => {
       { view: "pulls" },
       { view: "new" },
       { view: "issue", repo: "acme/widgets", number: 7 },
-      { view: "pull", repo: "get-bb/bb", number: 42 },
+      { view: "pull", repo: "codythatsme/cc", number: 42 },
     ];
 
     for (const route of routes) {

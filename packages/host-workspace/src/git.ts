@@ -7,13 +7,13 @@ import type {
   DefaultBranchRelation,
   GitCheckoutRef,
   WorkspaceGitOperation,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   killProcessGroup,
   pathExists,
   sanitizeInheritedChildProcessEnv,
   supportsProcessGroups,
-} from "@bb/process-utils";
+} from "@cc/process-utils";
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_BUFFER_BYTES = 16 * 1024 * 1024;

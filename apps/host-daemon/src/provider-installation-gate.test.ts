@@ -1,6 +1,6 @@
-import type { HostDaemonBridgeLaunch } from "@bb/host-daemon-contract";
-import type { ProviderInstallationStatus } from "@bb/provider-bridge-protocol";
-import { createDeferredPromise } from "@bb/test-helpers";
+import type { HostDaemonBridgeLaunch } from "@cc/host-daemon-contract";
+import type { ProviderInstallationStatus } from "@cc/provider-bridge-protocol";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import {
   createProviderInstallationGate,

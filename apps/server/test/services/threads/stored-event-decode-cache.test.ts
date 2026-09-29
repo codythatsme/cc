@@ -3,7 +3,7 @@ import {
   THREAD_CONTEXT_CLEAR_OPERATION,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   createConnection,
   createProject,
@@ -15,7 +15,7 @@ import {
   upsertHost,
   type DbConnection,
   type StoredEventRow,
-} from "@bb/db";
+} from "@cc/db";
 import {
   clearStoredEventDecodeCache,
   decodeStoredEventRowCached,

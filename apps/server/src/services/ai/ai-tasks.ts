@@ -1,11 +1,11 @@
-import { getAiServiceSelections } from "@bb/db";
+import { getAiServiceSelections } from "@cc/db";
 import type {
   AiServiceSelection,
   AiServiceStatus,
   AiTask,
   AiTextTask,
   JsonObject,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { runtimeErrorLogFields } from "../lib/error-log-fields.js";
 import { AUTOMATIC_AI_SERVICE_PLUGIN_IDS } from "../plugins/builtin-registry.js";

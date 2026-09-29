@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { SystemAppUpdateResult } from "@bb/server-contract";
+import type { SystemAppUpdateResult } from "@cc/server-contract";
 import {
   describeAppUpdateResult,
   formatAppUpdateRevision,
@@ -55,10 +55,10 @@ describe("app update presentation", () => {
 
   it("warns in the singular and plural", () => {
     expect(runningThreadsWarning(1)).toBe(
-      "1 thread is running. Updating restarts bb and interrupts it.",
+      "1 thread is running. Updating restarts cc and interrupts it.",
     );
     expect(runningThreadsWarning(3)).toBe(
-      "3 threads are running. Updating restarts bb and interrupts them.",
+      "3 threads are running. Updating restarts cc and interrupts them.",
     );
   });
 });

@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { InstalledPlugin } from "@bb/server-contract";
+import type { InstalledPlugin } from "@cc/server-contract";
 import { appToast } from "@/components/ui/app-toast";
 import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -15,9 +15,9 @@ const GUIDE: InstalledPlugin = {
   rootDir: "/plugins/plugin-api-docs",
   version: "1.0.0",
   provenance: "builtin",
-  publisherLabel: "BB Official",
+  publisherLabel: "CC Official",
   isOrphanedBuiltin: false,
-  sourceDisplay: "Included with BB",
+  sourceDisplay: "Included with CC",
   updateState: {},
   enabled: false,
   description: "Explore the plugin API",
@@ -47,12 +47,12 @@ const GUIDE_ENTRY: PluginCatalogSearchEntry = {
   displayName: "Plugin Guide",
   description: "Explore the plugin API",
   source: GUIDE.source,
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "cc-official",
+  marketplaceDisplayName: "CC Official",
+  publisherKey: "cc-official",
+  publisherLabel: "CC Official",
   official: true,
-  author: { name: "BB", github: "get-bb", url: "https://github.com/get-bb" },
+  author: { name: "CC", github: "get-cc", url: "https://github.com/get-cc" },
   icon: null,
   iconUrl: null,
   iconTinted: false,
@@ -224,7 +224,7 @@ describe("OpenPluginGuideButton", () => {
     expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toEqual({
       entryId: "plugin-api-docs",
-      marketplace: "bb-official",
+      marketplace: "cc-official",
     });
     expect(screen.getByTestId("location").textContent).toBe("/plugins");
     finishInstall(

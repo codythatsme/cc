@@ -1,9 +1,9 @@
 import { Toaster, type ToasterProps } from "sonner";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { usePreferredTheme } from "@/hooks/useTheme";
 
 const COMPACT_TOAST_OFFSET: NonNullable<ToasterProps["offset"]> = {
-  top: "calc(env(safe-area-inset-top) + var(--bb-app-chrome-row-height) + 16px)",
+  top: "calc(env(safe-area-inset-top) + var(--cc-app-chrome-row-height) + 16px)",
 };
 const COMPACT_TOAST_SWIPE_DIRECTIONS: NonNullable<
   ToasterProps["swipeDirections"]

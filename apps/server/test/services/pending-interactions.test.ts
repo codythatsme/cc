@@ -5,8 +5,8 @@ import {
   events as eventTable,
   listPendingInteractionsByThread,
   pendingInteractions as pendingInteractionTable,
-} from "@bb/db";
-import type { PendingInteractionCreate } from "@bb/domain";
+} from "@cc/db";
+import type { PendingInteractionCreate } from "@cc/domain";
 import { handleHostSessionOpened } from "../../src/internal/session-owner-side-effects.js";
 import { toPendingInteraction } from "../../src/services/interactions/pending-interaction-serialization.js";
 import { PendingInteractionLifecycle } from "../../src/services/interactions/pending-interactions.js";
@@ -527,7 +527,6 @@ describe("pending interaction lifecycle", () => {
         aiServices: harness.deps.aiServices,
         pluginHostArtifacts: harness.deps.pluginHostArtifacts,
         skillTreeRegistry: harness.deps.skillTreeRegistry,
-        telemetry: harness.deps.telemetry,
         terminalSessions: harness.deps.terminalSessions,
       });
       const { host } = seedHostSession(harness.deps, {
@@ -1807,7 +1806,7 @@ describe("pending interaction lifecycle", () => {
     });
   });
 
-  it("allows command session approvals when no BB session grant was requested", async () => {
+  it("allows command session approvals when no CC session grant was requested", async () => {
     await withTestHarness(async (harness) => {
       const { host } = seedHostSession(harness.deps, {
         id: "host-pending-interaction-command-opaque-session",
@@ -2222,7 +2221,6 @@ describe("pending interaction lifecycle", () => {
         aiServices: harness.deps.aiServices,
         pluginHostArtifacts: harness.deps.pluginHostArtifacts,
         skillTreeRegistry: harness.deps.skillTreeRegistry,
-        telemetry: harness.deps.telemetry,
         terminalSessions: harness.deps.terminalSessions,
       });
       const { host } = seedHostSession(harness.deps, {

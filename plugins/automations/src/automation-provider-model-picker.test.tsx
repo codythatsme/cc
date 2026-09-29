@@ -7,13 +7,13 @@ import type {
   ExperimentalPermissionModePickerProps,
   ExperimentalProviderIconProps,
   ExperimentalProviderModelPickerProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import type {
   AgentExecutionUpdate,
   AutomationDetailResponse,
 } from "./rpc-types.js";
 
-vi.mock("@get-bb/plugin-sdk/app", () => ({
+vi.mock("@codythatsme/plugin-sdk/app", () => ({
   experimental_Icon: ({ name }: ExperimentalIconProps) => (
     <span data-icon={name} />
   ),

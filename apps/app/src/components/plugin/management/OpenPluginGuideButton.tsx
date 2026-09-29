@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Icon } from "@bb/shared-ui/icon";
-import { Button } from "@bb/shared-ui/button";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Icon } from "@cc/shared-ui/icon";
+import { Button } from "@cc/shared-ui/button";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { appToast } from "@/components/ui/app-toast";
 import { invalidatePluginList } from "@/hooks/cache-owners/plugin-cache-owner";

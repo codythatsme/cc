@@ -3,8 +3,8 @@ import type {
   ProviderCapabilities,
   ProviderFork,
   ThreadEvent,
-} from "@bb/domain";
-import { PROVIDER_FORK_VALUES } from "@bb/domain";
+} from "@cc/domain";
+import { PROVIDER_FORK_VALUES } from "@cc/domain";
 import {
   BRIDGE_INBOUND_REQUEST_METHODS,
   BRIDGE_NOTIFICATION_METHODS,
@@ -21,11 +21,11 @@ import {
   threadDeltaNotificationParamsSchema,
   threadIdentityNotificationSchema,
   type BridgeCapabilities,
-} from "@bb/provider-bridge-protocol";
+} from "@cc/provider-bridge-protocol";
 import {
   ASSEMBLER_GRAMMAR_VERSIONS,
   createDeltaAssembler,
-} from "@bb/provider-bridge-protocol/assembler";
+} from "@cc/provider-bridge-protocol/assembler";
 import { z } from "zod";
 import type {
   AdapterCommand,
@@ -40,8 +40,8 @@ import type {
   ProviderPostInitializeRequest,
   ProviderRuntimeEvent,
   BuildInteractiveResponseArgs,
-} from "@bb/provider-bridge-protocol/bridge-kit";
-import { decodeNormalizedProviderToolCallRequest } from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@cc/provider-bridge-protocol/bridge-kit";
+import { decodeNormalizedProviderToolCallRequest } from "@cc/provider-bridge-protocol/bridge-kit";
 import { parseAvailableModelList } from "./shared/available-models.js";
 import type { AgentRuntimeProviderRecoveryHint } from "./types.js";
 
@@ -421,7 +421,7 @@ export function createBridgeProtocolAdapter(
             method: BRIDGE_REQUEST_METHODS.initialize,
             params: {
               protocolVersion: PROVIDER_BRIDGE_PROTOCOL_VERSION,
-              client: { name: "bb", version: "1.0.0" },
+              client: { name: "cc", version: "1.0.0" },
               grammarVersions: ASSEMBLER_GRAMMAR_VERSIONS,
             },
           },
@@ -452,7 +452,7 @@ export function createBridgeProtocolAdapter(
                 parsed.data.capabilities.grammarVersions;
               const [runtimeMin, runtimeMax] = ASSEMBLER_GRAMMAR_VERSIONS;
               throw new Error(
-                `Provider bridge "${options.id}" speaks thread/delta grammar versions ${bridgeMin}-${bridgeMax}, but this runtime assembles versions ${runtimeMin}-${runtimeMax}. Update the "${options.id}" provider plugin or bb so the two ranges overlap.`,
+                `Provider bridge "${options.id}" speaks thread/delta grammar versions ${bridgeMin}-${bridgeMax}, but this runtime assembles versions ${runtimeMin}-${runtimeMax}. Update the "${options.id}" provider plugin or cc so the two ranges overlap.`,
               );
             }
             handshake = parsed.data.capabilities;
@@ -597,10 +597,10 @@ export function createBridgeProtocolAdapter(
         turnId:
           decoded.turnId === null
             ? null
-            : (deltaAssembler.getBbTurnId(decoded.threadId, decoded.turnId) ??
+            : (deltaAssembler.getCcTurnId(decoded.threadId, decoded.turnId) ??
               decoded.turnId),
         callId:
-          deltaAssembler.getBbItemId(decoded.threadId, decoded.callId) ??
+          deltaAssembler.getCcItemId(decoded.threadId, decoded.callId) ??
           decoded.callId,
       };
     },
@@ -625,14 +625,14 @@ export function createBridgeProtocolAdapter(
         turnId =
           turnId === null
             ? null
-            : (deltaAssembler.getBbTurnId(threadId, turnId) ?? turnId);
+            : (deltaAssembler.getCcTurnId(threadId, turnId) ?? turnId);
         if (payload.kind === "approval") {
           payload = {
             ...payload,
             subject: {
               ...payload.subject,
               itemId:
-                deltaAssembler.getBbItemId(threadId, payload.subject.itemId) ??
+                deltaAssembler.getCcItemId(threadId, payload.subject.itemId) ??
                 payload.subject.itemId,
             },
           };

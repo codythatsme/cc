@@ -4,8 +4,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import type { PendingInteraction, PluginPendingInteraction } from "@bb/domain";
-import type { PluginPendingInteractionProps } from "@get-bb/plugin-sdk";
+import type { PendingInteraction, PluginPendingInteraction } from "@cc/domain";
+import type { PluginPendingInteractionProps } from "@codythatsme/plugin-sdk";
 import {
   resetPluginSlotStoreForTest,
   setPluginSlotRegistrations,
@@ -98,7 +98,7 @@ const toolUseApproval: PendingInteraction = {
       presentation: {
         label: { pending: "Creating issue", completed: "Created issue" },
         icon: { glyph: "Globe" },
-        title: "get-bb/bb#42",
+        title: "codythatsme/cc#42",
         detail: "Opens a **bug** issue",
         tint: { light: "#123456", dark: "#abcdef" },
       },
@@ -199,7 +199,7 @@ describe("ThreadPendingInteractionBanner tool-use approval", () => {
     expect(screen.getAllByText("Creating issue").length).toBeGreaterThan(0);
     expandBanner();
     const ask = screen.getByTestId("tool-use-ask");
-    expect(ask.textContent).toContain("get-bb/bb#42");
+    expect(ask.textContent).toContain("codythatsme/cc#42");
     expect(ask.textContent).toContain("Tool: mcp__github__create_issue");
     expect(ask.querySelector("strong")?.textContent).toBe("bug");
     expect(ask.querySelector("svg")?.getAttribute("style")).toMatch(

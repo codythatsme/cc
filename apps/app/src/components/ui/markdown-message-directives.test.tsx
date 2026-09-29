@@ -11,8 +11,8 @@ import {
   vi,
   type Mock,
 } from "vitest";
-import type { PluginMessageDirectiveProps } from "@get-bb/plugin-sdk";
-import { useBbNavigate } from "@/lib/plugin-sdk-hooks";
+import type { PluginMessageDirectiveProps } from "@codythatsme/plugin-sdk";
+import { useCcNavigate } from "@/lib/plugin-sdk-hooks";
 import { MarkdownPreview } from "./markdown-preview";
 import {
   buildMessageDirectiveRegistry,
@@ -75,7 +75,7 @@ function WorkspaceFileVis(props: PluginMessageDirectiveProps) {
 }
 
 function ThreadPanelVis(_props: PluginMessageDirectiveProps) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   return (
     <button
       type="button"

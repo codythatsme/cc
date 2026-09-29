@@ -2,26 +2,26 @@ import { clearTimelineOrderingContextCache } from "../../src/services/threads/ti
 import fs from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { describe, expect, it } from "vitest";
-import { corpusAvailable, loadCorpusThread } from "@bb/test-helpers";
+import { corpusAvailable, loadCorpusThread } from "@cc/test-helpers";
 import {
   getLatestThreadSequence,
   listStoredTimelineWindowEventRows,
-} from "@bb/db";
+} from "@cc/db";
 import {
   buildThreadTimelineFromEvents,
   compactThreadTimelineSummaryEvents,
   THREAD_TIMELINE_EXCLUDED_EVENT_TYPES,
-} from "@bb/thread-view";
+} from "@cc/thread-view";
 import {
   threadTimelineResponseSchema,
   type TimelineRow,
-} from "@bb/server-contract";
-import { prependOlderTimelineRows } from "@bb/client-core";
+} from "@cc/server-contract";
+import { prependOlderTimelineRows } from "@cc/client-core";
 import {
   prepareCompletedEventOutputData,
   insertPreparedRetainedEventOutput,
   RETAINED_EVENT_OUTPUT_TARGETS,
-} from "@bb/db";
+} from "@cc/db";
 import { createTestAppHarness } from "../helpers/test-app.js";
 import { loadCorpusThreadIntoDb } from "./corpus-harness.js";
 import {
@@ -46,8 +46,8 @@ describe.skipIf(!corpusAvailable())(
       const results = [];
       for (const threadId of threadIds.filter(
         (id) =>
-          !process.env.BB_TIMELINE_PAGINATION_THREAD ||
-          id === process.env.BB_TIMELINE_PAGINATION_THREAD,
+          !process.env.CC_TIMELINE_PAGINATION_THREAD ||
+          id === process.env.CC_TIMELINE_PAGINATION_THREAD,
       )) {
         const harness = await createTestAppHarness();
         try {
@@ -157,7 +157,7 @@ describe.skipIf(!corpusAvailable())(
               index,
           );
           const same = isDeepStrictEqual(rows, expected);
-          if (process.env.BB_TIMELINE_PAGINATION_REPORT)
+          if (process.env.CC_TIMELINE_PAGINATION_REPORT)
             fs.writeFileSync(
               `/tmp/timeline-diff-${threadId}.json`,
               JSON.stringify({ expected, rows }, null, 2),
@@ -197,7 +197,7 @@ describe.skipIf(!corpusAvailable())(
           await harness.cleanup();
         }
       }
-      const output = process.env.BB_TIMELINE_PAGINATION_REPORT;
+      const output = process.env.CC_TIMELINE_PAGINATION_REPORT;
       if (output) fs.writeFileSync(output, JSON.stringify(results, null, 2));
       expect(results.filter((result) => !result.same)).toEqual([]);
     }, 300_000);

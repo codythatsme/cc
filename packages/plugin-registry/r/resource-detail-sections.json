@@ -3,9 +3,9 @@
   "name": "resource-detail-sections",
   "type": "registry:ui",
   "title": "resource-detail-sections",
-  "description": "BB ui \"resource-detail-sections\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"resource-detail-sections\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/utils"
+    "@cc/utils"
   ],
   "files": [
     {

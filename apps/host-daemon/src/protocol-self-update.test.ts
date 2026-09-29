@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostDaemonLogger } from "./logger.js";
 import {
@@ -32,7 +32,7 @@ async function createFixture(
     useDefaultInstaller?: boolean;
   } = {},
 ) {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-self-update-test-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-self-update-test-"));
   roots.push(dataDir);
   const installTarball = vi.fn(async () => {
     if (args.installFailure) throw args.installFailure;
@@ -47,7 +47,7 @@ async function createFixture(
           args.protocolVersion ?? HOST_DAEMON_PROTOCOL_VERSION + 1,
       });
     }
-    if (url.endsWith("/install/bb-app.tgz")) {
+    if (url.endsWith("/install/cc-app.tgz")) {
       return new Response("tarball");
     }
     throw new Error(`Unexpected URL: ${url}`);
@@ -101,7 +101,7 @@ describe("protocol self-update", () => {
         });
       }
       return new Response(bytes, {
-        headers: { "x-bb-artifact-sha256": digest },
+        headers: { "x-cc-artifact-sha256": digest },
       });
     });
 
@@ -124,7 +124,7 @@ describe("protocol self-update", () => {
         });
       }
       return new Response("tampered", {
-        headers: { "x-bb-artifact-sha256": "a".repeat(64) },
+        headers: { "x-cc-artifact-sha256": "a".repeat(64) },
       });
     });
 
@@ -152,7 +152,7 @@ describe("protocol self-update", () => {
           "if-none-match": `"sha256-${digest}"`,
         });
         return new Response(null, {
-          headers: { "x-bb-artifact-sha256": digest },
+          headers: { "x-cc-artifact-sha256": digest },
           status: 304,
         });
       },
@@ -183,7 +183,7 @@ describe("protocol self-update", () => {
         "install",
         "-g",
         "--allow-scripts=better-sqlite3,node-pty,@parcel/watcher",
-        expect.stringContaining("bb-app-update-"),
+        expect.stringContaining("cc-app-update-"),
       ],
       {
         env: expect.objectContaining({
@@ -193,8 +193,8 @@ describe("protocol self-update", () => {
     );
   });
 
-  it("updates an installer-managed bb-app inside its machine-specific prefix", async () => {
-    vi.stubEnv("BB_APP_NPM_PREFIX", "/machine-data/npm");
+  it("updates an installer-managed cc-app inside its machine-specific prefix", async () => {
+    vi.stubEnv("CC_APP_NPM_PREFIX", "/machine-data/npm");
     const test = await createFixture({ useDefaultInstaller: true });
 
     await expect(test.updater.handleProtocolMismatch()).resolves.toBe(
@@ -209,14 +209,14 @@ describe("protocol self-update", () => {
         "--allow-scripts=better-sqlite3,node-pty,@parcel/watcher",
         "--prefix",
         "/machine-data/npm",
-        expect.stringContaining("bb-app-update-"),
+        expect.stringContaining("cc-app-update-"),
       ],
       expect.any(Object),
     );
   });
 
   it("keeps legacy global updates when the installer prefix is blank", async () => {
-    vi.stubEnv("BB_APP_NPM_PREFIX", " ");
+    vi.stubEnv("CC_APP_NPM_PREFIX", " ");
     const test = await createFixture({ useDefaultInstaller: true });
 
     await expect(test.updater.handleProtocolMismatch()).resolves.toBe(
@@ -229,7 +229,7 @@ describe("protocol self-update", () => {
         "install",
         "-g",
         "--allow-scripts=better-sqlite3,node-pty,@parcel/watcher",
-        expect.stringContaining("bb-app-update-"),
+        expect.stringContaining("cc-app-update-"),
       ],
       expect.any(Object),
     );

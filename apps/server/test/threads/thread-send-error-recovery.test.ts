@@ -1,4 +1,4 @@
-import { getThread } from "@bb/db";
+import { getThread } from "@cc/db";
 import { describe, expect, it } from "vitest";
 import { sendThreadMessage } from "../../src/services/threads/thread-send.js";
 import { waitForQueuedCommand } from "../helpers/commands.js";

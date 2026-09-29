@@ -1,12 +1,11 @@
-import { createBrowserBbSdk } from "@bb/sdk/browser";
-import { fetchWithAppSurface } from "./app-surface";
+import { createBrowserCcSdk } from "@cc/sdk/browser";
 
 const BASE_URL =
   typeof window === "undefined" ? "http://localhost" : window.location.origin;
 
-export const sdk = createBrowserBbSdk({
+export const sdk = createBrowserCcSdk({
   baseUrl: BASE_URL,
-  fetch: fetchWithAppSurface,
+  fetch: (input, init) => globalThis.fetch(input, init),
 });
 
-export { BbHttpError } from "@bb/sdk/browser";
+export { CcHttpError } from "@cc/sdk/browser";

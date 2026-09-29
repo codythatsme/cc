@@ -8,7 +8,7 @@ export default defineWorkspaceTestConfig({
     },
   },
   test: {
-    name: "bb-plugin-connect",
+    name: "cc-plugin-connect",
     environment: "node",
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],

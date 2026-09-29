@@ -1,4 +1,4 @@
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import { describe, expect, it } from "vitest";
 import plugin, { migrateFromUiPreferences } from "./server.js";
 import { defaultPreferences } from "./shared/preferences.js";
@@ -26,8 +26,8 @@ function setup(options: {
 
 describe("thread-list preferences rpc", () => {
   it("lists defaults on a fresh install and round-trips a valid write", async () => {
-    const { bb, harness } = setup();
-    await plugin(bb);
+    const { cc, harness } = setup();
+    await plugin(cc);
     await expect(harness.behavior.callRpc("listPreferences", null)).resolves.toEqual({
       preferences: defaultPreferences(),
     });
@@ -39,7 +39,7 @@ describe("thread-list preferences rpc", () => {
         value: "machine",
       }),
     ).resolves.toEqual({ key: "organizationMode", value: "machine" });
-    await expect(bb.storage.kv.get("preference:organizationMode")).resolves.toBe(
+    await expect(cc.storage.kv.get("preference:organizationMode")).resolves.toBe(
       "machine",
     );
     const listed = (await harness.behavior.callRpc("listPreferences", null)) as {
@@ -52,15 +52,15 @@ describe("thread-list preferences rpc", () => {
   });
 
   it("rejects a value that fails the preference's schema and leaves storage alone", async () => {
-    const { bb, harness } = setup();
-    await plugin(bb);
+    const { cc, harness } = setup();
+    await plugin(cc);
     await expect(
       harness.behavior.callRpc("setPreference", {
         key: "organizationMode",
         value: "sideways",
       }),
     ).rejects.toThrow(/Invalid value for organizationMode/);
-    await expect(bb.storage.kv.get("preference:organizationMode")).resolves.toBeUndefined();
+    await expect(cc.storage.kv.get("preference:organizationMode")).resolves.toBeUndefined();
     await expect(
       harness.behavior.callRpc("setPreference", {
         key: "hiddenGroups",
@@ -76,8 +76,8 @@ describe("thread-list preferences rpc", () => {
   });
 
   it("dedupes hidden groups and resets to the default", async () => {
-    const { bb, harness } = setup();
-    await plugin(bb);
+    const { cc, harness } = setup();
+    await plugin(cc);
     await expect(
       harness.behavior.callRpc("setPreference", {
         key: "hiddenGroups",
@@ -90,12 +90,12 @@ describe("thread-list preferences rpc", () => {
     await expect(
       harness.behavior.callRpc("resetPreference", { key: "hiddenGroups" }),
     ).resolves.toEqual({ key: "hiddenGroups", value: [] });
-    await expect(bb.storage.kv.get("preference:hiddenGroups")).resolves.toBeUndefined();
+    await expect(cc.storage.kv.get("preference:hiddenGroups")).resolves.toBeUndefined();
   });
 
   it("defaults row actions to archive, dedupes them, and rejects unknown or too many actions", async () => {
-    const { bb, harness } = setup();
-    await plugin(bb);
+    const { cc, harness } = setup();
+    await plugin(cc);
     const listed = (await harness.behavior.callRpc("listPreferences", null)) as {
       preferences: { rowActions: string[] };
     };
@@ -127,9 +127,9 @@ describe("thread-list preferences rpc", () => {
   });
 
   it("drops unknown stored row actions instead of resetting the rest", async () => {
-    const { bb, harness } = setup();
-    await bb.storage.kv.set("preference:rowActions", ["pin", "futureAction", "archive"]);
-    await plugin(bb);
+    const { cc, harness } = setup();
+    await cc.storage.kv.set("preference:rowActions", ["pin", "futureAction", "archive"]);
+    await plugin(cc);
     const listed = (await harness.behavior.callRpc("listPreferences", null)) as {
       preferences: { rowActions: string[] };
     };
@@ -137,9 +137,9 @@ describe("thread-list preferences rpc", () => {
   });
 
   it("falls back to the default when a stored value no longer parses", async () => {
-    const { bb, harness } = setup();
-    await bb.storage.kv.set("preference:chronologicalSort", "by-vibes");
-    await plugin(bb);
+    const { cc, harness } = setup();
+    await cc.storage.kv.set("preference:chronologicalSort", "by-vibes");
+    await plugin(cc);
     const listed = (await harness.behavior.callRpc("listPreferences", null)) as {
       preferences: { chronologicalSort: string };
     };
@@ -147,9 +147,9 @@ describe("thread-list preferences rpc", () => {
   });
 });
 
-describe("migration from bb's sidebar preferences", () => {
+describe("migration from cc's sidebar preferences", () => {
   it("copies non-default values once and never overwrites a value the plugin already has", async () => {
-    const { bb } = setup({
+    const { cc } = setup({
       uiPreferences: {
         "sidebar.organizationMode": { revision: 3, value: "machine" },
         "sidebar.collapsedProjects": { revision: 1, value: ["proj_a"] },
@@ -157,47 +157,47 @@ describe("migration from bb's sidebar preferences", () => {
         "sidebar.hiddenGroups": { revision: 2, value: ["not-a-group"] },
       },
     });
-    await bb.storage.kv.set("preference:collapsedProjects", ["proj_mine"]);
-    const first = await migrateFromUiPreferences(bb);
+    await cc.storage.kv.set("preference:collapsedProjects", ["proj_mine"]);
+    const first = await migrateFromUiPreferences(cc);
     expect(first.migrated).toEqual(["organizationMode"]);
-    await expect(bb.storage.kv.get("preference:organizationMode")).resolves.toBe(
+    await expect(cc.storage.kv.get("preference:organizationMode")).resolves.toBe(
       "machine",
     );
-    await expect(bb.storage.kv.get("preference:collapsedProjects")).resolves.toEqual([
+    await expect(cc.storage.kv.get("preference:collapsedProjects")).resolves.toEqual([
       "proj_mine",
     ]);
-    await expect(bb.storage.kv.get("preference:chronologicalSort")).resolves.toBeUndefined();
-    await expect(bb.storage.kv.get("preference:hiddenGroups")).resolves.toBeUndefined();
+    await expect(cc.storage.kv.get("preference:chronologicalSort")).resolves.toBeUndefined();
+    await expect(cc.storage.kv.get("preference:hiddenGroups")).resolves.toBeUndefined();
 
-    await bb.storage.kv.delete("preference:organizationMode");
-    const second = await migrateFromUiPreferences(bb);
+    await cc.storage.kv.delete("preference:organizationMode");
+    const second = await migrateFromUiPreferences(cc);
     expect(second.migrated).toEqual([]);
-    await expect(bb.storage.kv.get("preference:organizationMode")).resolves.toBeUndefined();
+    await expect(cc.storage.kv.get("preference:organizationMode")).resolves.toBeUndefined();
   });
 
-  it("skips the migration without marking it done when bb cannot be read", async () => {
-    const { bb } = setup({ uiPreferencesFail: true });
-    expect((await migrateFromUiPreferences(bb)).migrated).toEqual([]);
-    await expect(bb.storage.kv.get("migration:ui-preferences:v1")).resolves.toBeUndefined();
+  it("skips the migration without marking it done when cc cannot be read", async () => {
+    const { cc } = setup({ uiPreferencesFail: true });
+    expect((await migrateFromUiPreferences(cc)).migrated).toEqual([]);
+    await expect(cc.storage.kv.get("migration:ui-preferences:v1")).resolves.toBeUndefined();
   });
 });
 
-describe("bb thread-list prefs", () => {
+describe("cc thread-list prefs", () => {
   it("names the CLI after the plugin id", async () => {
     const builtIn = setup();
-    await plugin(builtIn.bb);
+    await plugin(builtIn.cc);
     expect(builtIn.harness.inspection.registrations.cli?.name).toBe(
       "thread-list",
     );
 
     const copy = createFakePluginHost({ pluginId: "my-sidebar" });
-    await plugin(copy.bb);
+    await plugin(copy.cc);
     expect(copy.harness.inspection.registrations.cli?.name).toBe("my-sidebar");
   });
 
   it("lists, gets, sets, and resets through the CLI", async () => {
-    const { bb, harness } = setup();
-    await plugin(bb);
+    const { cc, harness } = setup();
+    await plugin(cc);
 
     const listed = await harness.behavior.runCli(["prefs", "list", "--json"]);
     expect(listed.exitCode).toBe(0);
@@ -223,7 +223,7 @@ describe("bb thread-list prefs", () => {
     ]);
     expect(iconsOn.exitCode).toBe(0);
     expect(iconsOn.stdout).toBe("showProviderIcons = true");
-    await expect(bb.storage.kv.get("preference:showProviderIcons")).resolves.toBe(true);
+    await expect(cc.storage.kv.get("preference:showProviderIcons")).resolves.toBe(true);
     const resetIcons = await harness.behavior.runCli([
       "prefs", "reset", "showProviderIcons", "--json",
     ]);
@@ -249,14 +249,14 @@ describe("bb thread-list prefs", () => {
 });
 
 it("validates lifecycle selection through CLI and RPC and broadcasts it", async () => {
-  const { bb, harness } = setup();
-  await plugin(bb);
+  const { cc, harness } = setup();
+  await plugin(cc);
   expect((await harness.behavior.runCli(["prefs", "set", "threadLifecycles", '["archived"]'])).exitCode).toBe(0);
-  await expect(bb.storage.kv.get("preference:threadLifecycles")).resolves.toEqual(["archived"]);
+  await expect(cc.storage.kv.get("preference:threadLifecycles")).resolves.toEqual(["archived"]);
   for (const value of [[], ["archived", "archived"], ["deleted"]]) {
     await expect(harness.behavior.callRpc("setPreference", { key: "threadLifecycles", value })).rejects.toThrow(/Invalid value/);
   }
-  await expect(bb.storage.kv.get("preference:threadLifecycles")).resolves.toEqual(["archived"]);
+  await expect(cc.storage.kv.get("preference:threadLifecycles")).resolves.toEqual(["archived"]);
   expect(harness.realtimeSignals).toContainEqual({
     channel: "preferences", payload: { key: "threadLifecycles", value: ["archived"] },
   });

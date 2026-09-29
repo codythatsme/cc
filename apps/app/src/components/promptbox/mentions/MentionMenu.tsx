@@ -9,17 +9,17 @@ import {
 import {
   providerCommandSection,
   type ProviderCommandSection,
-} from "@bb/server-contract";
-import { directoryFromPath } from "@bb/thread-view";
+} from "@cc/server-contract";
+import { directoryFromPath } from "@cc/thread-view";
 import { promptMentionResourceFromSuggestion } from "@/components/promptbox/editor/prompt-editor-serialization";
 import { promptCommandIconName } from "@/components/promptbox/mentions/prompt-mention-display";
 import { PromptMentionIcon } from "@/components/promptbox/mentions/PromptMentionIcon";
 import { shouldLoadMoreCommandResults } from "@/components/promptbox/mentions/mention-menu-scroll";
 import { PluginIcon } from "@/components/plugin/PluginIcon";
-import { Icon } from "@bb/shared-ui/icon";
-import { Pill } from "@bb/shared-ui/pill";
+import { Icon } from "@cc/shared-ui/icon";
+import { Pill } from "@cc/shared-ui/pill";
 import { TruncateStart } from "@/components/ui/truncate-start.js";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   ThreadTitle,
   useThreadTitleDisplayText,
@@ -31,7 +31,7 @@ import {
   type ProviderCommandSuggestion,
   type ThreadMentionRelation,
   type TypeaheadMenuState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 export type TypeaheadSuggestion =
   | PromptMentionSuggestion

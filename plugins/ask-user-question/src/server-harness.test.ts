@@ -4,7 +4,7 @@ import {
   createFakePluginHost,
   type FakePluginHost,
   makePluginAgentConfigurationContext,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import plugin, { TOOL_NAME } from "./server.js";
 import { TOO_FEW_OPTIONS_MESSAGE } from "./tool-definition.js";
 import {
@@ -16,7 +16,7 @@ import {
 
 function createHost(): FakePluginHost {
   const host = createFakePluginHost({ pluginId: "ask-user-question" });
-  plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+  plugin(host.cc as unknown as Parameters<typeof plugin>[0]);
   return host;
 }
 
@@ -288,11 +288,11 @@ describe("asking a question", () => {
 
   it("explains the collision when a second question races the first", async () => {
     const host = createFakePluginHost({ pluginId: "ask-user-question" });
-    host.bb.ui.requestInput = () =>
+    host.cc.ui.requestInput = () =>
       Promise.reject(
         new Error("Thread thr-test is already awaiting user interaction"),
       );
-    plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+    plugin(host.cc as unknown as Parameters<typeof plugin>[0]);
 
     const result = await host.harness.callAgentTool(TOOL_NAME, { questions });
 

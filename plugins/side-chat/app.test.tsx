@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
 const { parsePanelParams } = await import("./app");
@@ -195,19 +195,19 @@ describe("SideChatPanel", () => {
       { rpc: {} },
     );
 
-    const chat = slot.getByTestId("bb-thread-chat");
+    const chat = slot.getByTestId("cc-thread-chat");
     expect(chat.getAttribute("data-thread-id")).toBe("thr_fork");
     expect(chat.getAttribute("data-variant")).toBe("compact");
     expect(chat.getAttribute("data-layout")).toBe("contained");
     expect(chat.getAttribute("data-permission-policy")).toBe("editable");
     expect(chat.getAttribute("data-message-actions")).toBe("send-to-main");
 
-    const leading = slot.getByTestId("bb-thread-chat-leading-content");
+    const leading = slot.getByTestId("cc-thread-chat-leading-content");
     expect(leading.textContent).toContain("Replying to");
-    const markdown = leading.querySelector("[data-testid='bb-markdown']");
+    const markdown = leading.querySelector("[data-testid='cc-markdown']");
     expect(markdown?.textContent).toContain("**anchor**");
 
-    const action = slot.getByTestId("bb-thread-chat-action-send-to-main");
+    const action = slot.getByTestId("cc-thread-chat-action-send-to-main");
     expect(action.getAttribute("data-roles")).toBe("assistant");
   });
 
@@ -219,7 +219,7 @@ describe("SideChatPanel", () => {
       { rpc: {}, sdk: { threads: { queuedMessages: { create } } } },
     );
 
-    fireEvent.click(slot.getByTestId("bb-thread-chat-action-send-to-main"));
+    fireEvent.click(slot.getByTestId("cc-thread-chat-action-send-to-main"));
 
     await waitFor(() => {
       expect(create).toHaveBeenCalledWith({

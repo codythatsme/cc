@@ -1,5 +1,5 @@
 import { availableParallelism } from "node:os";
-import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
+import { experimental_defineHostEntry } from "@codythatsme/plugin-sdk/host";
 import { concurrencyLimitHostContract } from "./contract.js";
 
 interface HostCapacityDependencies {

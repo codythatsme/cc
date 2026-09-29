@@ -1,4 +1,4 @@
-import { templateDefinitions, type TemplateId } from "@bb/templates/generated";
+import { templateDefinitions, type TemplateId } from "@cc/templates/generated";
 
 export interface GuideRenderArgs {
   chapter?: string;
@@ -14,18 +14,18 @@ export interface GuideArea {
 }
 
 const guideChapters: Record<string, TemplateId> = {
-  threads: "bbGuideThreads",
-  environments: "bbGuideEnvironments",
-  "agent-configuration": "bbGuideAgentConfiguration",
-  providers: "bbGuideProviders",
-  projects: "bbGuideProjects",
-  machines: "bbGuideMachines",
-  terminals: "bbGuideTerminals",
-  browser: "bbGuideBrowser",
-  customization: "bbGuideCustomization",
-  plugins: "bbGuidePlugins",
-  automations: "bbGuideAutomations",
-  json: "bbGuideJson",
+  threads: "ccGuideThreads",
+  environments: "ccGuideEnvironments",
+  "agent-configuration": "ccGuideAgentConfiguration",
+  providers: "ccGuideProviders",
+  projects: "ccGuideProjects",
+  machines: "ccGuideMachines",
+  terminals: "ccGuideTerminals",
+  browser: "ccGuideBrowser",
+  customization: "ccGuideCustomization",
+  plugins: "ccGuidePlugins",
+  automations: "ccGuideAutomations",
+  json: "ccGuideJson",
 };
 
 const guideChapterAliases: Record<string, string> = {
@@ -85,14 +85,14 @@ export function createGuideArea(): GuideArea {
   return {
     render(input = {}) {
       if (!input.chapter) {
-        return { content: renderStaticTemplate("bbGuideOverview") };
+        return { content: renderStaticTemplate("ccGuideOverview") };
       }
       const chapter = resolveGuideChapter(input.chapter);
       const templateId = guideChapters[chapter];
       if (!templateId) {
         const available = Object.keys(guideChapters).join(", ");
         throw new Error(
-          `Unknown guide chapter '${input.chapter}'. Available: ${available}. Commands contributed by plugins document themselves: run \`bb <command> --help\`.`,
+          `Unknown guide chapter '${input.chapter}'. Available: ${available}. Commands contributed by plugins document themselves: run \`cc <command> --help\`.`,
         );
       }
       return {

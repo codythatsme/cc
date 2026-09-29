@@ -4,7 +4,7 @@ import {
   type BaseWindow,
   type MenuItemConstructorOptions,
 } from "electron";
-import type { BbDesktopZoomCommand } from "@bb/desktop-contract";
+import type { CcDesktopZoomCommand } from "@cc/desktop-contract";
 import type { ApplicationMenuAccelerators } from "./desktop-menu-shortcuts.js";
 import type { ConnectServerSyncSkipReason } from "./connect-server-sync.js";
 import { BUILTIN_SERVER_NAME } from "./server-target.js";
@@ -22,8 +22,8 @@ const RELOAD_ACCELERATOR = "CommandOrControl+R";
 const FORCE_RELOAD_ACCELERATOR = "CommandOrControl+Shift+R";
 const DESKTOP_SETTINGS_MENU_LABEL = "Desktop Settings";
 const SERVER_MENU_LABEL = "Server";
-const DESKTOP_SETTINGS_SERVER_MENU_ITEM_ID = "bb-desktop-settings-server-menu";
-const WINDOW_SERVER_MENU_ITEM_ID = "bb-server-menu";
+const DESKTOP_SETTINGS_SERVER_MENU_ITEM_ID = "cc-desktop-settings-server-menu";
+const WINDOW_SERVER_MENU_ITEM_ID = "cc-server-menu";
 const SERVER_MENU_ITEM_IDS = [
   DESKTOP_SETTINGS_SERVER_MENU_ITEM_ID,
   WINDOW_SERVER_MENU_ITEM_ID,
@@ -33,11 +33,11 @@ export const CONNECT_SERVERS_SKIPPED_MENU_LABELS: Record<
   ConnectServerSyncSkipReason,
   string
 > = {
-  "no-credential": "No Connect servers — sign in to bb Connect",
+  "no-credential": "No Connect servers — sign in to cc Connect",
   "not-paired": `No Connect servers — Connect not paired on ${BUILTIN_SERVER_NAME}`,
   "plugin-disabled": "No Connect servers — Connect plugin disabled",
-  unauthorized: "No Connect servers — sign in to bb Connect again",
-  unavailable: "No Connect servers — could not reach bb Connect",
+  unauthorized: "No Connect servers — sign in to cc Connect again",
+  unavailable: "No Connect servers — could not reach cc Connect",
 };
 
 interface ApplicationMenuServerItem {
@@ -58,7 +58,7 @@ export interface InstallApplicationMenuArgs {
     browserWindow: BaseWindow | undefined,
     ignoreCache: boolean,
   ): void;
-  zoomFocusedPage(command: BbDesktopZoomCommand): void;
+  zoomFocusedPage(command: CcDesktopZoomCommand): void;
   closeWindowOrSideTab(browserWindow: BaseWindow | undefined): void;
   createNewWindow(): void;
   openServerDaemonLogs(): void;

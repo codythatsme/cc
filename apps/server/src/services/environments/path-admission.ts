@@ -6,7 +6,7 @@ import {
   getPreparingEnvironment,
   getThread,
   type EnvironmentRow,
-} from "@bb/db";
+} from "@cc/db";
 import { eq } from "drizzle-orm";
 import type { WorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";

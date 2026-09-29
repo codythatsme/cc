@@ -401,11 +401,11 @@ export const LAUNCH_ADAPTERS: LaunchAdapter[] = [
     icon: { kind: "builtin", name: "bbedit" },
     id: "bbedit",
     kind: "editor",
-    label: "BBEdit",
+    label: "CCEdit",
     fileOpenBehavior: "direct",
     macos: {
       openMode: "application",
-      appName: "BBEdit",
+      appName: "CCEdit",
       bundleIds: ["com.barebones.bbedit"],
       builtIn: false,
     },

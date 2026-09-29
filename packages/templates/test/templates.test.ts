@@ -6,20 +6,20 @@ import {
 } from "../src/index.js";
 import { templateDefinitions } from "../src/generated/templates.generated.js";
 
-describe("@bb/templates", () => {
+describe("@cc/templates", () => {
   it("documents project creation machine routing", () => {
-    const guide = renderTemplate("bbGuideProjects", {});
+    const guide = renderTemplate("ccGuideProjects", {});
 
-    expect(guide).toContain("bb project create --name");
+    expect(guide).toContain("cc project create --name");
     expect(guide).toContain("--machine <id-or-name>");
     expect(guide).toContain("--host <id-or-name>");
     expect(guide).toContain("local CLI machine fallback");
   });
 
   it("documents complete and partial automation execution updates", () => {
-    const guide = renderTemplate("bbGuideAutomations", {});
+    const guide = renderTemplate("ccGuideAutomations", {});
 
-    expect(guide).toContain("bb automation update <automationId>");
+    expect(guide).toContain("cc automation update <automationId>");
     expect(guide).toContain("Partial updates to an existing");
     expect(guide).toContain("--env-json");
     expect(guide).toContain("--reasoning <none|low|medium|high");
@@ -29,7 +29,7 @@ describe("@bb/templates", () => {
   });
 
   it("documents project-aware thread references", () => {
-    const guide = renderTemplate("bbGuideThreads", {});
+    const guide = renderTemplate("ccGuideThreads", {});
 
     expect(guide).toContain("@thread:thr_abc123");
     expect(guide).toContain("do not construct thread URLs manually");
@@ -43,7 +43,7 @@ describe("@bb/templates", () => {
 
     expect(rendered).toBe(
       [
-        "[bb message from thread:thr_sender]",
+        "[cc message from thread:thr_sender]",
         "",
         "Please check the failing test.",
       ].join("\n"),
@@ -61,7 +61,7 @@ describe("@bb/templates", () => {
 
     expect(rendered).toBe(
       [
-        "[bb system]",
+        "[cc system]",
         "",
         "@thread:thr_child needs help.",
         "Blocked on command approval:",
@@ -79,7 +79,7 @@ describe("@bb/templates", () => {
       }),
     ).toBe(
       [
-        "[bb system]",
+        "[cc system]",
         "",
         "@thread:thr_child is now a child of this thread.",
       ].join("\n"),
@@ -90,7 +90,7 @@ describe("@bb/templates", () => {
       }),
     ).toBe(
       [
-        "[bb system]",
+        "[cc system]",
         "",
         "@thread:thr_child is no longer a child of this thread.",
       ].join("\n"),

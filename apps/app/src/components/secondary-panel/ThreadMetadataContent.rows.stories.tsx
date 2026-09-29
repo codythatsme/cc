@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { EnvironmentDisplayHostContext } from "@bb/core-ui";
-import type { WorkspaceMergeBase, WorkspaceWorkingTree } from "@bb/domain";
+import type { EnvironmentDisplayHostContext } from "@cc/core-ui";
+import type { WorkspaceMergeBase, WorkspaceWorkingTree } from "@cc/domain";
 import {
   ParentSelectorRow,
   EnvironmentRow,
@@ -248,7 +248,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/Users/michael/.bb-dev/worktrees/env_demo/bb",
+              path: "/Users/michael/.cc-dev/worktrees/env_demo/cc",
             })}
           />
         </RowStage>
@@ -257,7 +257,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/Users/michael/.bb-dev/worktrees/env_7m3cieyz6q/bb/apps/app/src/components/right-panel",
+              path: "/Users/michael/.cc-dev/worktrees/env_7m3cieyz6q/cc/apps/app/src/components/right-panel",
             })}
           />
         </RowStage>
@@ -266,7 +266,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/srv/repos/bb-linked-worktree",
+              path: "/srv/repos/cc-linked-worktree",
             })}
           />
         </RowStage>
@@ -275,7 +275,7 @@ export function WorkspacePath() {
         <RowStage>
           <WorkspacePathRow
             environment={makeEnvironment({
-              path: "/Users/michael/Projects/bb",
+              path: "/Users/michael/Projects/cc",
             })}
           />
         </RowStage>

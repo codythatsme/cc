@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { getSessionById, hostDaemonSessions } from "@bb/db";
-import type { DbConnection, HostDaemonSessionRow } from "@bb/db";
+import { getSessionById, hostDaemonSessions } from "@cc/db";
+import type { DbConnection, HostDaemonSessionRow } from "@cc/db";
 import { ApiError } from "../errors.js";
 import { getAuthenticatedDaemon } from "./auth.js";
 

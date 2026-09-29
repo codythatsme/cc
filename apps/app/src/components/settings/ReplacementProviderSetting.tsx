@@ -51,7 +51,7 @@ export function ReplacementProviderSetting({
       ? null
       : {
           key: BUILT_IN_REPLACEMENT_PROVIDER,
-          title: "bb (built-in)",
+          title: "cc (built-in)",
           description: builtInDescription,
         };
   const pluginOptions = slots.map((slot) => {
@@ -60,7 +60,7 @@ export function ReplacementProviderSetting({
       key: replacementProviderKey(slot),
       title: bundled ? `${slot.title} (built-in)` : slot.title,
       description: bundled
-        ? `BB default. ${slot.description ?? ""}`.trim()
+        ? `CC default. ${slot.description ?? ""}`.trim()
         : slot.description === undefined
           ? `From the ${slot.pluginId} plugin.`
           : `${slot.pluginId} plugin. ${slot.description}`,

@@ -29,7 +29,7 @@ import {
   useComposerView,
   type ComposerView,
   type PluginComposerScope,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import {
   DEFAULT_SCHEDULE_PRESET_ID,
   MAX_SCHEDULE_AHEAD_MS,

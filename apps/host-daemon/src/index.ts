@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadHostDaemonStartConfig } from "@bb/config/host-daemon";
-import { loadHostDaemonEntrypointConfig } from "@bb/config/host-daemon-entrypoint";
+import { loadHostDaemonStartConfig } from "@cc/config/host-daemon";
+import { loadHostDaemonEntrypointConfig } from "@cc/config/host-daemon-entrypoint";
 import {
   installSafeProcessDiagnostics,
   writeSafeProcessDiagnosticReport,
-} from "@bb/process-utils";
+} from "@cc/process-utils";
 import { hasMachineSuspensionMarker } from "./suspension-marker.js";
 
 interface ReportStartupFailureArgs {
@@ -19,7 +19,7 @@ type MainFailureHandler = (error: unknown) => void;
 const entrypointDir = dirname(fileURLToPath(import.meta.url));
 
 function resolveEntrypointBridgeBundleDir(): string | undefined {
-  return existsSync(join(entrypointDir, "bb-provider-bridge-worker.mjs"))
+  return existsSync(join(entrypointDir, "cc-provider-bridge-worker.mjs"))
     ? entrypointDir
     : undefined;
 }
@@ -55,15 +55,15 @@ async function runHostDaemonEntrypoint(): Promise<void> {
   }
   const hostDaemonModule = await import("./start-host-daemon.js");
   const daemon = await hostDaemonModule.startHostDaemon({
-    bbExecutableDirectory: hostDaemonEntrypointConfig.BB_CLI_DIR,
+    ccExecutableDirectory: hostDaemonEntrypointConfig.CC_CLI_DIR,
     bridgeBundleDir:
-      hostDaemonEntrypointConfig.BB_BRIDGE_DIR ??
+      hostDaemonEntrypointConfig.CC_BRIDGE_DIR ??
       resolveEntrypointBridgeBundleDir(),
-    serverHeaders: hostDaemonEntrypointConfig.BB_SERVER_HEADERS,
-    autoUpdate: hostDaemonEntrypointConfig.BB_HOST_DAEMON_AUTO_UPDATE,
-    enrollKey: hostDaemonEntrypointConfig.BB_HOST_ENROLL_KEY,
-    hostId: hostDaemonEntrypointConfig.BB_HOST_ID,
-    hostName: hostDaemonEntrypointConfig.BB_HOST_NAME,
+    serverHeaders: hostDaemonEntrypointConfig.CC_SERVER_HEADERS,
+    autoUpdate: hostDaemonEntrypointConfig.CC_HOST_DAEMON_AUTO_UPDATE,
+    enrollKey: hostDaemonEntrypointConfig.CC_HOST_ENROLL_KEY,
+    hostId: hostDaemonEntrypointConfig.CC_HOST_ID,
+    hostName: hostDaemonEntrypointConfig.CC_HOST_NAME,
   });
   await daemon.waitUntilStopped();
 }

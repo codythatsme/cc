@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
-} from "@bb/shared-ui/context-menu";
+} from "@cc/shared-ui/context-menu";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@bb/shared-ui/dropdown-menu";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/dropdown-menu";
+import { cn } from "@cc/shared-ui/lib/utils";
 
 type ActionMenuSurface = "context" | "dropdown";
 

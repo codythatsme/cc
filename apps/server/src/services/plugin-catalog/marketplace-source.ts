@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { PluginMarketplaceSourceKind } from "@bb/db";
+import type { PluginMarketplaceSourceKind } from "@cc/db";
 import {
   parsePluginSource,
   realPathInside,
@@ -206,7 +206,7 @@ async function materializeHttps(
     if (cachedCatalog?.schemaVersion === 2 && cached !== null) {
       await response.body?.cancel();
       warn?.(
-        "the marketplace v2 manifest returned HTTP 404; BB kept the stored v2 catalog and did not request v1",
+        "the marketplace v2 manifest returned HTTP 404; CC kept the stored v2 catalog and did not request v1",
       );
       const iconBase = {
         kind: "url",

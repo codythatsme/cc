@@ -9,7 +9,7 @@ describe("bundled plugin artifact resolution", () => {
   let root: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "bb-builtin-resolution-"));
+    root = await mkdtemp(join(tmpdir(), "cc-builtin-resolution-"));
   });
 
   afterEach(async () => {
@@ -35,7 +35,7 @@ describe("bundled plugin artifact resolution", () => {
   });
 
   it("loads the bundled artifacts shipped inside an installed package", async () => {
-    const moduleDir = join(root, "node_modules/bb-app/server/dist");
+    const moduleDir = join(root, "node_modules/cc-app/server/dist");
     const packaged = join(moduleDir, "builtin-plugins");
     await writeBundle(packaged);
 
@@ -48,7 +48,7 @@ describe("bundled plugin artifact resolution", () => {
   it("retains source development plugin and generated catalog resolution", async () => {
     const moduleDir = join(root, "apps/server/src/services/plugins");
     const plugin = join(root, "plugins/connect");
-    const catalog = join(root, "apps/server/src/generated/bb-official-marketplace");
+    const catalog = join(root, "apps/server/src/generated/cc-official-marketplace");
     await mkdir(plugin, { recursive: true });
     await mkdir(catalog, { recursive: true });
     await writeFile(join(catalog, "marketplace.json"), "{}");

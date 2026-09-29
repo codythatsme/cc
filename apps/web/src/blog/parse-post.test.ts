@@ -5,29 +5,29 @@ import { parsePost, stripMarkdown } from "./parse-post";
 const SAMPLE = `---
 title: An Agentic IDE That Builds Itself
 date: 2026-08-05
-lede: I'm excited to show **bb**.
+lede: I'm excited to show **cc**.
 sourceLabel: This post first appeared as an X Article
-sourceHref: https://x.com/sawyerhood/status/2085039905529597982
+sourceHref: https://x.com/example_author/status/1234567891
 ---
 
 This started as a passion project.
 
-tweet:https://x.com/brian_lovin/status/2084345751266857079
+tweet:https://x.com/example_author/status/1234567890
 
 ## No Two Installs Look Alike
 
 ### The First Open
 
-Here is **bb** the first time you open it:
+Here is **cc** the first time you open it:
 
-![bb the first time you open it](/blog/first-open.jpg)
+![cc the first time you open it](/blog/first-open.jpg)
 *Threads on the left!*
 
 - **A task system.** Agents can read issues.
 - **A DAW.** Music inside the IDE
   with Strudel.
 
-[![A DAW](/blog/daw.jpg)](https://x.com/sawyerhood/status/2085039905529597982)
+[![A DAW](/blog/daw.jpg)](https://x.com/example_author/status/1234567891)
 
 video:/blog/drag.mp4|/blog/drag.jpg|Just drag it!
 `;
@@ -39,29 +39,29 @@ describe("parsePost", () => {
     expect(post.title).toBe("An Agentic IDE That Builds Itself");
     expect(post.dateIso).toBe("2026-08-05");
     expect(post.date).toBe("August 5, 2026");
-    expect(post.lede).toBe("I'm excited to show **bb**.");
-    expect(post.sourceHref).toContain("x.com/sawyerhood");
+    expect(post.lede).toBe("I'm excited to show **cc**.");
+    expect(post.sourceHref).toContain("x.com/example_author");
     expect(post.cover).toEqual({
       src: "/blog/first-open.jpg",
-      alt: "bb the first time you open it",
+      alt: "cc the first time you open it",
     });
     expect(post.blocks).toEqual([
       { kind: "paragraph", text: "This started as a passion project." },
       {
         kind: "tweet",
-        href: "https://x.com/brian_lovin/status/2084345751266857079",
-        id: "2084345751266857079",
+        href: "https://x.com/example_author/status/1234567890",
+        id: "1234567890",
       },
       { kind: "heading", text: "No Two Installs Look Alike" },
       { kind: "subheading", text: "The First Open" },
       {
         kind: "paragraph",
-        text: "Here is **bb** the first time you open it:",
+        text: "Here is **cc** the first time you open it:",
       },
       {
         kind: "image",
         src: "/blog/first-open.jpg",
-        alt: "bb the first time you open it",
+        alt: "cc the first time you open it",
         caption: "Threads on the left!",
       },
       {
@@ -75,7 +75,7 @@ describe("parsePost", () => {
         kind: "image",
         src: "/blog/daw.jpg",
         alt: "A DAW",
-        href: "https://x.com/sawyerhood/status/2085039905529597982",
+        href: "https://x.com/example_author/status/1234567891",
       },
       {
         kind: "video",
@@ -123,8 +123,8 @@ lede: Hi
 
 describe("stripMarkdown", () => {
   it("drops markers so the lede can go in a meta tag", () => {
-    expect(stripMarkdown("I'm excited to show **bb**, an [IDE](/).")).toBe(
-      "I'm excited to show bb, an IDE.",
+    expect(stripMarkdown("I'm excited to show **cc**, an [IDE](/).")).toBe(
+      "I'm excited to show cc, an IDE.",
     );
   });
 });

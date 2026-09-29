@@ -1,4 +1,4 @@
-import type { ProviderComposerCommand } from "@bb/domain";
+import type { ProviderComposerCommand } from "@cc/domain";
 import type { ProviderRegistryService } from "./provider-registry.js";
 
 export function resolveProviderPlanCommand(

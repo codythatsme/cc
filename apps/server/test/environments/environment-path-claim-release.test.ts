@@ -4,14 +4,14 @@ import {
   getEnvironment,
   getPreparingEnvironment,
   getThread,
-} from "@bb/db";
-import { validatePluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@cc/db";
+import { validatePluginEnvironmentProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
 import type {
   PluginEnvironmentProviderCreateContext,
   PluginEnvironmentProviderCreateResult,
   PluginEnvironmentProviderRemoveResult,
-} from "@get-bb/plugin-sdk/environment-provider";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@codythatsme/plugin-sdk/environment-provider";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../src/errors.js";

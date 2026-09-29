@@ -29,21 +29,21 @@ export function resolveDesktopBridgePath(
       return join(
         `${args.paths.appPath}.unpacked`,
         "dist",
-        "bb-app-bridge.mjs",
+        "cc-app-bridge.mjs",
       );
     }
 
-    return join(args.paths.resourcesPath, "app", "dist", "bb-app-bridge.mjs");
+    return join(args.paths.resourcesPath, "app", "dist", "cc-app-bridge.mjs");
   }
 
-  return join(args.paths.appPath, "dist", "bb-app-bridge.mjs");
+  return join(args.paths.appPath, "dist", "cc-app-bridge.mjs");
 }
 
 export function resolveDesktopMachineInstallerPath(bridgePath: string): string {
   return join(
     dirname(dirname(bridgePath)),
     "node_modules",
-    "bb-app",
+    "cc-app",
     "server",
     "dist",
     "assets",

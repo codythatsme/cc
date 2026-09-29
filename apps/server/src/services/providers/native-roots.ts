@@ -4,12 +4,12 @@ import {
   providerResolvedNativeRootsSchema,
   type ProviderNativeRootSet,
   type ProviderResolvedNativeRoots,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   HostDaemonOnlineRpcResultForCommand,
   HostDaemonRetryableOnlineRpcCommand,
-} from "@bb/host-daemon-contract";
-import { experimental_nativeRootsHostContract } from "@get-bb/plugin-sdk/host";
+} from "@cc/host-daemon-contract";
+import { experimental_nativeRootsHostContract } from "@codythatsme/plugin-sdk/host";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { AppDeps, WorkSessionDeps } from "../../types.js";
 import {
@@ -153,7 +153,7 @@ async function callResolveNativeRoots(
   if (artifact === undefined) {
     deps.logger.warn(
       fields,
-      `Plugin "${pluginId}" resolves native roots for provider "${providerId}" but has no live bb.host artifact; listing its declared roots only`,
+      `Plugin "${pluginId}" resolves native roots for provider "${providerId}" but has no live cc.host artifact; listing its declared roots only`,
     );
     return EMPTY_PROVIDER_RESOLVED_NATIVE_ROOTS;
   }

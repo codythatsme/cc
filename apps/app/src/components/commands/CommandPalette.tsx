@@ -12,12 +12,12 @@ import {
   pluginCommandId,
   pluginCommandIdSchema,
   type KeyboardCommandId,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogTitle } from "@bb/shared-ui/dialog";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { Dialog, DialogContent, DialogTitle } from "@cc/shared-ui/dialog";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   useAppCommandHandler,
   useIndexedAppCommandHandlers,

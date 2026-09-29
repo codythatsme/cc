@@ -3,18 +3,18 @@ import { basename, join } from "node:path";
 import type {
   HostPlatform,
   ServerMoveServiceManager,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import {
   canonicalPath,
   isFileNotFoundError,
   writeFileAtomically,
 } from "./fs.js";
 
-export const SERVER_MOVE_SERVICE_MANAGER_ENV = "BB_SERVER_MOVE_SERVICE_MANAGER";
+export const SERVER_MOVE_SERVICE_MANAGER_ENV = "CC_SERVER_MOVE_SERVICE_MANAGER";
 
-const LAUNCHD_PLIST_PREFIX = "app.getbb.host-daemon.";
+const LAUNCHD_PLIST_PREFIX = "io.github.codythatsme.cc.host-daemon.";
 const LAUNCHD_PLIST_SUFFIX = ".plist";
-const SYSTEMD_USER_UNIT_PREFIX = "bb-host-daemon-";
+const SYSTEMD_USER_UNIT_PREFIX = "cc-host-daemon-";
 const SYSTEMD_UNIT_SUFFIX = ".service";
 const SERVER_URL_FLAGS = ["--server-url", "--server"] as const;
 const LAUNCHER_SUBCOMMANDS = ["host-daemon", "start"] as const;
@@ -141,7 +141,7 @@ export async function findServiceDefinition(
       candidate.manager === "launchd"
         ? parseLaunchdPlist(content)
         : parseSystemdUnit(content, basename(candidate.path));
-    const definitionDataDir = parsed?.environment.BB_DATA_DIR;
+    const definitionDataDir = parsed?.environment.CC_DATA_DIR;
     if (
       parsed === null ||
       definitionDataDir === undefined ||
@@ -427,7 +427,7 @@ export function buildServerStartArguments(
   const subcommand = launcherSubcommandIndex(programArguments);
   if (subcommand === null) {
     throw new Error(
-      "The service definition does not run bb-app host-daemon or bb-app start",
+      "The service definition does not run cc-app host-daemon or cc-app start",
     );
   }
   return [

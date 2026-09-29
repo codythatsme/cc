@@ -11,7 +11,7 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
-import type { PluginCliRegistration } from "@get-bb/plugin-sdk";
+import type { PluginCliRegistration } from "@codythatsme/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
 import {
   claimAutomationScheduledRun,
@@ -38,7 +38,7 @@ import {
   validateOnceDefinition,
 } from "./schedule-helpers.js";
 import {
-  bbBinaryCandidates,
+  ccBinaryCandidates,
   executeStoredScript,
   isWakeAgentSuppressed,
   mapScriptResultToRun,
@@ -162,7 +162,7 @@ function legacyAutomationRow(
   };
 }
 
-function createAutomationServiceBb() {
+function createAutomationServiceCc() {
   return {
     sdk: {
       system: {
@@ -341,12 +341,12 @@ describe("data migrations", () => {
 });
 
 describe("startup reconciliation", () => {
-  function reconcileBb(threads: {
+  function reconcileCc(threads: {
     get: (args: { threadId: string }) => Promise<unknown>;
   }) {
     const published: unknown[] = [];
     return {
-      bb: {
+      cc: {
         sdk: {
           threads: {
             get: threads.get,
@@ -399,12 +399,12 @@ describe("startup reconciliation", () => {
       runMode: "agent",
       now: 1000,
     }).run;
-    const { bb, published } = reconcileBb({
+    const { cc, published } = reconcileCc({
       get: async () => {
         throw new Error("no thread should be asked about");
       },
     });
-    await reconcileRunningAutomationRuns(bb, db);
+    await reconcileRunningAutomationRuns(cc, db);
     for (const run of [scriptRun, agentRun]) {
       const settled = listAutomationRuns(db, {
         automationId: run.automationId,
@@ -466,7 +466,7 @@ describe("startup reconciliation", () => {
       setAutomationRunThread(db, { runId: run.id, threadId });
       threads.set(threadId, testCase.thread);
     }
-    const { bb } = reconcileBb({
+    const { cc } = reconcileCc({
       get: async ({ threadId }) => {
         const value = threads.get(threadId);
         if (value === null) {
@@ -476,7 +476,7 @@ describe("startup reconciliation", () => {
         return value;
       },
     });
-    await reconcileRunningAutomationRuns(bb, db);
+    await reconcileRunningAutomationRuns(cc, db);
     for (const testCase of cases) {
       const run = listAutomationRuns(db, {
         automationId: testCase.id,
@@ -849,7 +849,7 @@ describe("automation data access", () => {
   it("does not claim due agent automations when no host is connected", async () => {
     const db = createTestDb();
     const automation = createScheduledAutomation(db, 1000);
-    const bb = {
+    const cc = {
       sdk: {
         hosts: {
           list: async () => [
@@ -894,7 +894,7 @@ describe("automation data access", () => {
       },
     };
 
-    await sweepDueAutomations(bb, db, {
+    await sweepDueAutomations(cc, db, {
       pluginDataDir: "/tmp",
       serverUrl: "http://127.0.0.1:38886",
       serverHostId: "host_server",
@@ -1040,9 +1040,9 @@ describe("automation data access", () => {
 describe("automation service", () => {
   it("chooses runnable defaults for new scripts and preserves the automation-storage directory on replacement", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-service-"));
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1155,12 +1155,12 @@ describe("automation service", () => {
 
   it("reads the server host identity after a co-located daemon initializes", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
-    const bb = createAutomationServiceBb();
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-service-"));
+    const cc = createAutomationServiceCc();
     let serverHostId: string | null = null;
-    bb.sdk.system.config = async () => ({ primaryHostId: serverHostId });
+    cc.sdk.system.config = async () => ({ primaryHostId: serverHostId });
     const service = createAutomationService({
-      bb,
+      cc,
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1189,9 +1189,9 @@ describe("automation service", () => {
 
   it("updates only a script working-directory policy", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-service-"));
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1252,7 +1252,7 @@ describe("automation service", () => {
             workingDirectory: { type: "path", path: "relative/path" },
           },
         }),
-      ).rejects.toThrow("absolute path on the bb server host");
+      ).rejects.toThrow("absolute path on the cc server host");
       await expect(
         service.update({
           projectId: "proj_test",
@@ -1290,7 +1290,7 @@ describe("automation service", () => {
 
   it("validates project availability before creating an automation", async () => {
     const db = createTestDb();
-    const bb = {
+    const cc = {
       sdk: {
         system: { config: async () => ({ primaryHostId: null }) },
         projects: {
@@ -1326,7 +1326,7 @@ describe("automation service", () => {
       },
     };
     const service = createAutomationService({
-      bb,
+      cc,
       db,
       pluginDataDir: "/tmp",
       serverUrl: "http://127.0.0.1:38886",
@@ -1355,7 +1355,7 @@ describe("automation service", () => {
 
   it("removes a stored script directory after switching to agent execution", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-service-"));
     const automation = createAutomation(db, {
       id: "auto_script_to_agent",
       projectId: "proj_test",
@@ -1377,7 +1377,7 @@ describe("automation service", () => {
     await mkdir(scriptDir, { recursive: true });
     await writeFile(join(scriptDir, "old.sh"), "echo old\n");
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1406,7 +1406,7 @@ describe("automation service", () => {
 
   it("removes only a superseded stored script file after a filename change", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-service-"));
     const automation = createAutomation(db, {
       id: "auto_script_rename",
       projectId: "proj_test",
@@ -1429,7 +1429,7 @@ describe("automation service", () => {
     await writeFile(join(scriptDir, "old.sh"), "echo old\n");
     await writeFile(join(scriptDir, "keep.txt"), "keep\n");
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1461,7 +1461,7 @@ describe("automation service", () => {
 
   it("removes a newly staged filename when the database update fails", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-service-"));
     const automation = createAutomation(db, {
       id: "auto_script_rollback",
       projectId: "proj_test",
@@ -1488,7 +1488,7 @@ describe("automation service", () => {
         SELECT RAISE(ABORT, 'update rejected');
       END`);
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1518,7 +1518,7 @@ describe("automation service", () => {
 
   it("does not overwrite the active filename when the database update fails", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-service-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-service-"));
     const automation = createAutomation(db, {
       id: "auto_script_same_name_rollback",
       projectId: "proj_test",
@@ -1545,7 +1545,7 @@ describe("automation service", () => {
         SELECT RAISE(ABORT, 'update rejected');
       END`);
     const service = createAutomationService({
-      bb: createAutomationServiceBb(),
+      cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:38886",
@@ -1579,18 +1579,18 @@ describe("automation CLI --script-file", () => {
 
   async function setup() {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-1649-data-"));
-    const srcDir = await mkdtemp(join(tmpdir(), "bb-1649-src-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-1649-data-"));
+    const srcDir = await mkdtemp(join(tmpdir(), "cc-1649-src-"));
     const reads: FileReadCall[] = [];
-    const serviceBb = createAutomationServiceBb();
+    const serviceCc = createAutomationServiceCc();
     const service = createAutomationService({
-      bb: serviceBb,
+      cc: serviceCc,
       db,
       pluginDataDir,
       serverUrl: "http://127.0.0.1:1",
     });
     const sdk = {
-      ...serviceBb.sdk,
+      ...serviceCc.sdk,
       hosts: {
         list: async () => [
           { id: "host_server", name: "server" },
@@ -1598,7 +1598,7 @@ describe("automation CLI --script-file", () => {
         ],
       },
       threads: {
-        ...serviceBb.sdk.threads,
+        ...serviceCc.sdk.threads,
         get: async ({ threadId }: { threadId: string }) =>
           threadId === "thr_env"
             ? { id: threadId, environment: { hostId: "host_laptop" } }
@@ -1620,7 +1620,7 @@ describe("automation CLI --script-file", () => {
     };
     let cli: PluginCliRegistration | undefined;
     registerAutomationCli({
-      bb: {
+      cc: {
         sdk: sdk as never,
         cli: {
           register: (registration) => {
@@ -1680,7 +1680,7 @@ describe("automation CLI --script-file", () => {
       expect(created.stdout).toContain(`Copied ${sourcePath}`);
       expect(created.stdout).toContain(`to ${storedPath}`);
       expect(created.stdout).toContain(
-        `bb automation update ${automationId} --project proj_test --script-file ${sourcePath} --interpreter bash --working-directory project --timeout 120000`,
+        `cc automation update ${automationId} --project proj_test --script-file ${sourcePath} --interpreter bash --working-directory project --timeout 120000`,
       );
       expect(created.stdout).toContain("Working dir: /server/project");
 
@@ -1897,7 +1897,7 @@ describe("automation CLI --script-file", () => {
       expect(created.exitCode).toBe(0);
       const automationId = idFrom(created.stdout);
       expect(created.stdout).toContain(
-        `bb automation update ${automationId} --project proj_test --script-file '${sourcePath}' --interpreter python3 --working-directory project --timeout 5000 --env-json '{"CHANNEL":"qa","MSG":"it'\\''s"}'`,
+        `cc automation update ${automationId} --project proj_test --script-file '${sourcePath}' --interpreter python3 --working-directory project --timeout 5000 --env-json '{"CHANNEL":"qa","MSG":"it'\\''s"}'`,
       );
     } finally {
       await t.cleanup();
@@ -2039,53 +2039,53 @@ describe("automation CLI --script-file", () => {
   });
 });
 
-describe("bb CLI injection for script runs", () => {
+describe("cc CLI injection for script runs", () => {
   it("prefers the env pointers over PATH and macOS install locations", () => {
     expect(
-      bbBinaryCandidates({
-        BB_CLI: "/daemon/bundle/bb",
-        BB_CLI_DIR: "/other/dir",
+      ccBinaryCandidates({
+        CC_CLI: "/daemon/bundle/cc",
+        CC_CLI_DIR: "/other/dir",
       })[0],
-    ).toBe("/daemon/bundle/bb");
-    expect(bbBinaryCandidates({ BB_CLI_DIR: "/daemon/bundle" })[0]).toBe(
-      "/daemon/bundle/bb",
+    ).toBe("/daemon/bundle/cc");
+    expect(ccBinaryCandidates({ CC_CLI_DIR: "/daemon/bundle" })[0]).toBe(
+      "/daemon/bundle/cc",
     );
   });
 
   it("expands PATH itself so every candidate is absolute", () => {
-    expect(bbBinaryCandidates({ PATH: "/usr/bin:/opt/tools" })).toEqual([
-      "/usr/bin/bb",
-      "/opt/tools/bb",
-      "/opt/homebrew/bin/bb",
-      "/usr/local/bin/bb",
+    expect(ccBinaryCandidates({ PATH: "/usr/bin:/opt/tools" })).toEqual([
+      "/usr/bin/cc",
+      "/opt/tools/cc",
+      "/opt/homebrew/bin/cc",
+      "/usr/local/bin/cc",
     ]);
     expect(
-      bbBinaryCandidates({ PATH: "/usr/bin" }).every((c) => c.startsWith("/")),
+      ccBinaryCandidates({ PATH: "/usr/bin" }).every((c) => c.startsWith("/")),
     ).toBe(true);
   });
 
   it("drops entries that would resolve against the wrong directory", () => {
-    expect(bbBinaryCandidates({ PATH: "/usr/bin::/bin" })).toEqual([
-      "/usr/bin/bb",
-      "/bin/bb",
-      "/opt/homebrew/bin/bb",
-      "/usr/local/bin/bb",
+    expect(ccBinaryCandidates({ PATH: "/usr/bin::/bin" })).toEqual([
+      "/usr/bin/cc",
+      "/bin/cc",
+      "/opt/homebrew/bin/cc",
+      "/usr/local/bin/cc",
     ]);
     expect(
-      bbBinaryCandidates({ BB_CLI: "  ", BB_CLI_DIR: "", PATH: "" }),
-    ).toEqual(["/opt/homebrew/bin/bb", "/usr/local/bin/bb"]);
+      ccBinaryCandidates({ CC_CLI: "  ", CC_CLI_DIR: "", PATH: "" }),
+    ).toEqual(["/opt/homebrew/bin/cc", "/usr/local/bin/cc"]);
     expect(
-      bbBinaryCandidates({ BB_CLI: "./bb", BB_CLI_DIR: "rel/dir", PATH: "" }),
-    ).toEqual(["/opt/homebrew/bin/bb", "/usr/local/bin/bb"]);
+      ccBinaryCandidates({ CC_CLI: "./cc", CC_CLI_DIR: "rel/dir", PATH: "" }),
+    ).toEqual(["/opt/homebrew/bin/cc", "/usr/local/bin/cc"]);
   });
 
-  it("prepends bb's directory to PATH only when it is absolute", () => {
-    expect(scriptPathEnv("/daemon/bundle/bb", "/usr/bin:/bin")).toBe(
+  it("prepends cc's directory to PATH only when it is absolute", () => {
+    expect(scriptPathEnv("/daemon/bundle/cc", "/usr/bin:/bin")).toBe(
       "/daemon/bundle:/usr/bin:/bin",
     );
-    expect(scriptPathEnv("bb", "/usr/bin:/bin")).toBe("/usr/bin:/bin");
+    expect(scriptPathEnv("cc", "/usr/bin:/bin")).toBe("/usr/bin:/bin");
     expect(scriptPathEnv(null, "/usr/bin:/bin")).toBe("/usr/bin:/bin");
-    expect(scriptPathEnv("/daemon/bundle/bb", undefined)).toBe(
+    expect(scriptPathEnv("/daemon/bundle/cc", undefined)).toBe(
       "/daemon/bundle",
     );
   });
@@ -2115,7 +2115,7 @@ async function isProcessRunning(pid: number): Promise<boolean> {
 describe("script process containment", () => {
   it("terminates descendant processes when a script times out", async () => {
     const pluginDataDir = await mkdtemp(
-      join(tmpdir(), "bb-auto-process-group-"),
+      join(tmpdir(), "cc-auto-process-group-"),
     );
     const scriptDir = automationScriptDir(pluginDataDir, "auto_timeout");
     await mkdir(scriptDir, { recursive: true });
@@ -2155,11 +2155,11 @@ describe("script process containment", () => {
 });
 
 describe("script project context", () => {
-  function withoutMissingBbCliWarning(
+  function withoutMissingCcCliWarning(
     output: string | null | undefined,
   ): string | null | undefined {
     return output?.replace(
-      /^\[bb\] warning: could not locate the bb CLI, so `bb` is not on PATH for this script\.\n/u,
+      /^\[cc\] warning: could not locate the cc CLI, so `cc` is not on PATH for this script\.\n/u,
       "",
     );
   }
@@ -2200,7 +2200,7 @@ describe("script project context", () => {
       | { type: "path"; path: string };
   }) {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-context-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-context-"));
     const scriptDir = automationScriptDir(pluginDataDir, "auto_context");
     await mkdir(scriptDir, { recursive: true });
     await writeFile(join(scriptDir, "script.sh"), args.script);
@@ -2229,7 +2229,7 @@ describe("script project context", () => {
       now: 2_000,
     });
     const warnings: string[] = [];
-    const bb = {
+    const cc = {
       sdk: {
         projects: {
           get: async () => ({
@@ -2252,7 +2252,7 @@ describe("script project context", () => {
       },
     };
     try {
-      await executeScriptRun(bb, db, {
+      await executeScriptRun(cc, db, {
         pluginDataDir,
         automation,
         run,
@@ -2267,7 +2267,7 @@ describe("script project context", () => {
         },
         serverUrl: "http://127.0.0.1:38886",
         resolveWorkingDirectory: createScriptWorkingDirectoryResolver({
-          sdk: bb.sdk,
+          sdk: cc.sdk,
           pluginDataDir,
           serverHostId:
             args.serverHostId === undefined ? "host_server" : args.serverHostId,
@@ -2278,10 +2278,10 @@ describe("script project context", () => {
         limit: 1,
       });
       const service = createAutomationService({
-        bb: {
-          ...bb,
+        cc: {
+          ...cc,
           sdk: {
-            ...bb.sdk,
+            ...cc.sdk,
             system: {
               config: async () => ({
                 primaryHostId:
@@ -2290,7 +2290,7 @@ describe("script project context", () => {
                     : args.serverHostId,
               }),
             },
-            projects: { ...bb.sdk.projects, list: async () => [] },
+            projects: { ...cc.sdk.projects, list: async () => [] },
             providers: { list: async () => [] as never },
           },
         } as never,
@@ -2318,8 +2318,8 @@ describe("script project context", () => {
   }
 
   it("runs in the actual server-host source instead of a remote primary source", async () => {
-    const serverProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-server-"));
-    const remoteProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-remote-"));
+    const serverProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-server-"));
+    const remoteProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-remote-"));
     await mkdir(join(serverProjectDir, "bin"));
     await writeFile(
       join(serverProjectDir, "bin", "build-views.txt"),
@@ -2346,7 +2346,7 @@ describe("script project context", () => {
         status: "succeeded",
         exitCode: 0,
       });
-      expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+      expect(withoutMissingCcCliWarning(result.closed?.output)).toBe(
         `${await realpath(serverProjectDir)}\nproject-relative file found\n`,
       );
     } finally {
@@ -2356,7 +2356,7 @@ describe("script project context", () => {
   });
 
   it("keeps fieldless automations in shared script storage", async () => {
-    const serverProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-server-"));
+    const serverProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-server-"));
     try {
       const result = await runScriptAutomation({
         script: "pwd -P\n",
@@ -2369,7 +2369,7 @@ describe("script project context", () => {
           }),
         ],
       });
-      expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+      expect(withoutMissingCcCliWarning(result.closed?.output)).toBe(
         `${result.scriptsDir}\n`,
       );
     } finally {
@@ -2378,8 +2378,8 @@ describe("script project context", () => {
   });
 
   it("reports a resolved directory equal to the process working directory", async () => {
-    const serverProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-server-"));
-    const explicitDir = await mkdtemp(join(tmpdir(), "bb-auto-explicit-"));
+    const serverProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-server-"));
+    const explicitDir = await mkdtemp(join(tmpdir(), "cc-auto-explicit-"));
     const sources = [
       projectSource({
         hostId: "host_server",
@@ -2399,7 +2399,7 @@ describe("script project context", () => {
           sources,
         });
         expect(result.displayedWorkingDirectory).not.toBeNull();
-        expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+        expect(withoutMissingCcCliWarning(result.closed?.output)).toBe(
           `${result.displayedWorkingDirectory}\n`,
         );
       }
@@ -2410,7 +2410,7 @@ describe("script project context", () => {
   });
 
   it("fails project policy instead of using another host's source", async () => {
-    const remoteProjectDir = await mkdtemp(join(tmpdir(), "bb-auto-remote-"));
+    const remoteProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-remote-"));
     try {
       const result = await runScriptAutomation({
         script: "pwd -P\n",
@@ -2425,7 +2425,7 @@ describe("script project context", () => {
       });
       expect(result.closed).toMatchObject({
         status: "failed",
-        error: "Project proj_test has no source on the bb server host",
+        error: "Project proj_test has no source on the cc server host",
       });
     } finally {
       await rm(remoteProjectDir, { recursive: true, force: true });
@@ -2441,7 +2441,7 @@ describe("script project context", () => {
     });
     expect(result.closed).toMatchObject({
       status: "failed",
-      error: "Project proj_test has no source on the bb server host",
+      error: "Project proj_test has no source on the cc server host",
     });
   });
 
@@ -2478,7 +2478,7 @@ describe("script project context", () => {
       sources: [
         projectSource({
           hostId: "host_server",
-          path: join(tmpdir(), "bb-auto-missing-project-source"),
+          path: join(tmpdir(), "cc-auto-missing-project-source"),
           isDefault: true,
         }),
       ],
@@ -2490,7 +2490,7 @@ describe("script project context", () => {
   });
 
   it("runs in an explicit absolute server-host directory", async () => {
-    const selectedDir = await mkdtemp(join(tmpdir(), "bb-auto-selected-"));
+    const selectedDir = await mkdtemp(join(tmpdir(), "cc-auto-selected-"));
     await writeFile(join(selectedDir, "selected.txt"), "selected directory\n");
     try {
       const result = await runScriptAutomation({
@@ -2502,7 +2502,7 @@ describe("script project context", () => {
         status: "succeeded",
         exitCode: 0,
       });
-      expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+      expect(withoutMissingCcCliWarning(result.closed?.output)).toBe(
         `${await realpath(selectedDir)}\nselected directory\n`,
       );
     } finally {
@@ -2522,7 +2522,7 @@ describe("script project context", () => {
       exitCode: 2,
       error: "Script exited with code 2: missing project file",
     });
-    expect(withoutMissingBbCliWarning(result.closed?.output)).toBe(
+    expect(withoutMissingCcCliWarning(result.closed?.output)).toBe(
       "stdout kept\n\n  missing project file  \nlater detail\n",
     );
   });
@@ -2607,7 +2607,7 @@ describe("script wake gate", () => {
 describe("legacy import", () => {
   it("ingests legacy rows, moves environment into agent execution, and imports scripts once", async () => {
     const db = createTestDb();
-    const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-plugin-"));
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-plugin-"));
     await mkdir(join(pluginDataDir, "import"), { recursive: true });
     await writeFile(
       join(pluginDataDir, "import", "legacy-automations.json"),
@@ -2637,7 +2637,7 @@ describe("legacy import", () => {
       }),
     );
     const kv = new Map<string, unknown>();
-    const bb = {
+    const cc = {
       storage: {
         kv: {
           get: async <T>(key: string) => kv.get(key) as T | undefined,
@@ -2649,8 +2649,8 @@ describe("legacy import", () => {
       log: { info: () => undefined },
     };
 
-    await ingestLegacyImport({ bb, db, pluginDataDir });
-    await ingestLegacyImport({ bb, db, pluginDataDir });
+    await ingestLegacyImport({ cc, db, pluginDataDir });
+    await ingestLegacyImport({ cc, db, pluginDataDir });
 
     const imported = getAutomation(db, "auto_legacy");
     expect(imported).not.toBeNull();
@@ -2689,7 +2689,7 @@ describe("legacy import", () => {
 
     for (const testCase of cases) {
       const db = createTestDb();
-      const pluginDataDir = await mkdtemp(join(tmpdir(), "bb-auto-plugin-"));
+      const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-plugin-"));
       try {
         await mkdir(join(pluginDataDir, "import"), { recursive: true });
         await writeFile(
@@ -2701,7 +2701,7 @@ describe("legacy import", () => {
           }),
         );
         const kv = new Map<string, unknown>();
-        const bb = {
+        const cc = {
           storage: {
             kv: {
               get: async <T>(key: string) => kv.get(key) as T | undefined,
@@ -2714,7 +2714,7 @@ describe("legacy import", () => {
         };
 
         await expect(
-          ingestLegacyImport({ bb, db, pluginDataDir }),
+          ingestLegacyImport({ cc, db, pluginDataDir }),
           testCase.name,
         ).rejects.toThrow(/does not match/u);
       } finally {

@@ -24,7 +24,7 @@ import {
 const roots: string[] = [];
 
 async function createRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "bb-service-definition-test-"));
+  const root = await mkdtemp(join(tmpdir(), "cc-service-definition-test-"));
   roots.push(root);
   return root;
 }
@@ -37,14 +37,14 @@ afterEach(async () => {
 
 function systemdUnit(args: { dataDir: string; serverUrl: string }): string {
   return `[Unit]
-Description=bb host daemon for old-server.local
+Description=cc host daemon for old-server.local
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart="/opt/node 22/bin/node" "/home/me/.bb-machines/npm/bin/bb-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "${args.serverUrl}"
-Environment="BB_APP_NPM_PREFIX=/home/me/.bb-machines/npm"
-Environment="BB_DATA_DIR=${args.dataDir}"
+ExecStart="/opt/node 22/bin/node" "/home/me/.cc-machines/npm/bin/cc-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "${args.serverUrl}"
+Environment="CC_APP_NPM_PREFIX=/home/me/.cc-machines/npm"
+Environment="CC_DATA_DIR=${args.dataDir}"
 Restart=always
 RestartSec=2
 
@@ -58,11 +58,11 @@ function launchdPlist(args: { dataDir: string; serverUrl: string }): string {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>app.getbb.host-daemon.old-server-me</string>
+  <key>Label</key><string>io.github.codythatsme.cc.host-daemon.old-server-me</string>
   <key>ProgramArguments</key>
   <array>
     <string>/usr/local/bin/node</string>
-    <string>/Users/me/.bb-machines/npm/bin/bb-app</string>
+    <string>/Users/me/.cc-machines/npm/bin/cc-app</string>
     <string>host-daemon</string>
     <string>--auto-update</string>
     <string>--host-daemon-port</string>
@@ -72,8 +72,8 @@ function launchdPlist(args: { dataDir: string; serverUrl: string }): string {
   </array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>BB_APP_NPM_PREFIX</key><string>/Users/me/.bb-machines/npm</string>
-    <key>BB_DATA_DIR</key><string>${args.dataDir}</string>
+    <key>CC_APP_NPM_PREFIX</key><string>/Users/me/.cc-machines/npm</string>
+    <key>CC_DATA_DIR</key><string>${args.dataDir}</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -85,20 +85,20 @@ function launchdPlist(args: { dataDir: string; serverUrl: string }): string {
 }
 
 describe("findServiceDefinition", () => {
-  it("finds the systemd user unit whose BB_DATA_DIR is this daemon's data dir", async () => {
+  it("finds the systemd user unit whose CC_DATA_DIR is this daemon's data dir", async () => {
     const homeDir = await createRoot();
-    const dataDir = join(homeDir, ".bb-machines", "old-server");
-    const otherDataDir = join(homeDir, ".bb-machines", "other-server");
+    const dataDir = join(homeDir, ".cc-machines", "old-server");
+    const otherDataDir = join(homeDir, ".cc-machines", "other-server");
     await mkdir(dataDir, { recursive: true });
     await mkdir(otherDataDir, { recursive: true });
     const unitDir = join(homeDir, ".config", "systemd", "user");
     await mkdir(unitDir, { recursive: true });
     await writeFile(
-      join(unitDir, "bb-host-daemon-another-me.service"),
+      join(unitDir, "cc-host-daemon-another-me.service"),
       systemdUnit({ dataDir: otherDataDir, serverUrl: "http://other:38886" }),
     );
     await writeFile(
-      join(unitDir, "bb-host-daemon-old-server-me.service"),
+      join(unitDir, "cc-host-daemon-old-server-me.service"),
       systemdUnit({ dataDir, serverUrl: "http://old-server.local:38886" }),
     );
     await writeFile(
@@ -115,11 +115,11 @@ describe("findServiceDefinition", () => {
 
     expect(definition).toMatchObject({
       manager: "systemd-user",
-      path: join(unitDir, "bb-host-daemon-old-server-me.service"),
-      unitName: "bb-host-daemon-old-server-me.service",
+      path: join(unitDir, "cc-host-daemon-old-server-me.service"),
+      unitName: "cc-host-daemon-old-server-me.service",
       programArguments: [
         "/opt/node 22/bin/node",
-        "/home/me/.bb-machines/npm/bin/bb-app",
+        "/home/me/.cc-machines/npm/bin/cc-app",
         "host-daemon",
         "--auto-update",
         "--host-daemon-port",
@@ -128,8 +128,8 @@ describe("findServiceDefinition", () => {
         "http://old-server.local:38886",
       ],
       environment: {
-        BB_APP_NPM_PREFIX: "/home/me/.bb-machines/npm",
-        BB_DATA_DIR: dataDir,
+        CC_APP_NPM_PREFIX: "/home/me/.cc-machines/npm",
+        CC_DATA_DIR: dataDir,
       },
     });
   });
@@ -139,7 +139,7 @@ describe("findServiceDefinition", () => {
     const dataDir = join(homeDir, "data");
     await mkdir(join(dataDir, "systemd"), { recursive: true });
     await writeFile(
-      join(dataDir, "systemd", "bb-host-daemon-root.service"),
+      join(dataDir, "systemd", "cc-host-daemon-root.service"),
       systemdUnit({ dataDir, serverUrl: "http://old:38886" }),
     );
 
@@ -151,17 +151,17 @@ describe("findServiceDefinition", () => {
     });
 
     expect(definition?.manager).toBe("systemd-system");
-    expect(definition?.unitName).toBe("bb-host-daemon-root.service");
+    expect(definition?.unitName).toBe("cc-host-daemon-root.service");
   });
 
   it("finds the launch agent on macOS and decodes XML escapes", async () => {
     const homeDir = await createRoot();
-    const dataDir = join(homeDir, "bb & data");
+    const dataDir = join(homeDir, "cc & data");
     await mkdir(dataDir, { recursive: true });
     const agentsDir = join(homeDir, "Library", "LaunchAgents");
     await mkdir(agentsDir, { recursive: true });
     await writeFile(
-      join(agentsDir, "app.getbb.host-daemon.old-server-me.plist"),
+      join(agentsDir, "io.github.codythatsme.cc.host-daemon.old-server-me.plist"),
       launchdPlist({
         dataDir: dataDir.replace("&", "&amp;"),
         serverUrl: "https://old.example.test/?a=1&amp;b=2",
@@ -177,22 +177,22 @@ describe("findServiceDefinition", () => {
 
     expect(definition).toMatchObject({
       manager: "launchd",
-      unitName: "app.getbb.host-daemon.old-server-me",
-      environment: { BB_DATA_DIR: dataDir },
+      unitName: "io.github.codythatsme.cc.host-daemon.old-server-me",
+      environment: { CC_DATA_DIR: dataDir },
     });
     expect(definition?.programArguments.at(-1)).toBe(
       "https://old.example.test/?a=1&b=2",
     );
   });
 
-  it("reports no definition when BB_SERVER_MOVE_SERVICE_MANAGER=none", async () => {
+  it("reports no definition when CC_SERVER_MOVE_SERVICE_MANAGER=none", async () => {
     const homeDir = await createRoot();
     const dataDir = join(homeDir, "data");
     const unitDir = join(homeDir, ".config", "systemd", "user");
     await mkdir(unitDir, { recursive: true });
     await mkdir(dataDir, { recursive: true });
     await writeFile(
-      join(unitDir, "bb-host-daemon-x.service"),
+      join(unitDir, "cc-host-daemon-x.service"),
       systemdUnit({ dataDir, serverUrl: "http://old:38886" }),
     );
 
@@ -201,7 +201,7 @@ describe("findServiceDefinition", () => {
         dataDir,
         homeDir,
         platform: "linux",
-        env: { BB_SERVER_MOVE_SERVICE_MANAGER: "none" },
+        env: { CC_SERVER_MOVE_SERVICE_MANAGER: "none" },
       }),
     ).resolves.toBeNull();
   });
@@ -214,7 +214,7 @@ describe("service definition rewrites", () => {
     await mkdir(dataDir, { recursive: true });
     const unitDir = join(homeDir, ".config", "systemd", "user");
     await mkdir(unitDir, { recursive: true });
-    const unitPath = join(unitDir, "bb-host-daemon-x.service");
+    const unitPath = join(unitDir, "cc-host-daemon-x.service");
     await writeFile(
       unitPath,
       systemdUnit({
@@ -243,20 +243,20 @@ describe("service definition rewrites", () => {
 
     const content = await readFile(unitPath, "utf8");
     expect(content).toContain(
-      'ExecStart="/opt/node 22/bin/node" "/home/me/.bb-machines/npm/bin/bb-app" "host-daemon" "--auto-update" "--host-daemon-port" "38887" "--server-url" "https://new.example.test"',
+      'ExecStart="/opt/node 22/bin/node" "/home/me/.cc-machines/npm/bin/cc-app" "host-daemon" "--auto-update" "--host-daemon-port" "38887" "--server-url" "https://new.example.test"',
     );
     expect(content).toContain(
-      `Environment="BB_DATA_DIR=${dataDir.replace("%", "%%")}"`,
+      `Environment="CC_DATA_DIR=${dataDir.replace("%", "%%")}"`,
     );
     expect(content).toContain("Restart=always");
     expect(content).toContain("WantedBy=default.target");
     expect((await stat(unitPath)).mode & 0o777).toBe(0o644);
-    const reparsed = parseSystemdUnit(content, "bb-host-daemon-x.service");
+    const reparsed = parseSystemdUnit(content, "cc-host-daemon-x.service");
     expect(reparsed?.programArguments.at(-1)).toBe("https://new.example.test");
-    expect(reparsed?.environment.BB_DATA_DIR).toBe(dataDir);
+    expect(reparsed?.environment.CC_DATA_DIR).toBe(dataDir);
   });
 
-  it("swaps a launch agent to bb-app start with the same label and environment", async () => {
+  it("swaps a launch agent to cc-app start with the same label and environment", async () => {
     const homeDir = await createRoot();
     const dataDir = join(homeDir, "data");
     await mkdir(dataDir, { recursive: true });
@@ -264,7 +264,7 @@ describe("service definition rewrites", () => {
     await mkdir(agentsDir, { recursive: true });
     const plistPath = join(
       agentsDir,
-      "app.getbb.host-daemon.old-server-me.plist",
+      "io.github.codythatsme.cc.host-daemon.old-server-me.plist",
     );
     await writeFile(
       plistPath,
@@ -295,10 +295,10 @@ describe("service definition rewrites", () => {
 
     const reparsed = parseLaunchdPlist(await readFile(plistPath, "utf8"));
     expect(reparsed).toEqual({
-      unitName: "app.getbb.host-daemon.old-server-me",
+      unitName: "io.github.codythatsme.cc.host-daemon.old-server-me",
       programArguments: [
         "/usr/local/bin/node",
-        "/Users/me/.bb-machines/npm/bin/bb-app",
+        "/Users/me/.cc-machines/npm/bin/cc-app",
         "start",
         "--data-dir",
         dataDir,
@@ -310,8 +310,8 @@ describe("service definition rewrites", () => {
         "0.0.0.0",
       ],
       environment: {
-        BB_APP_NPM_PREFIX: "/Users/me/.bb-machines/npm",
-        BB_DATA_DIR: dataDir,
+        CC_APP_NPM_PREFIX: "/Users/me/.cc-machines/npm",
+        CC_DATA_DIR: dataDir,
       },
     });
     expect(isServerStartDefinition(updated)).toBe(true);
@@ -328,7 +328,7 @@ describe("service definition rewrites", () => {
     await mkdir(agentsDir, { recursive: true });
     const plistPath = join(
       agentsDir,
-      "app.getbb.host-daemon.old-server-me.plist",
+      "io.github.codythatsme.cc.host-daemon.old-server-me.plist",
     );
     await writeFile(
       plistPath,
@@ -358,7 +358,7 @@ describe("service definition rewrites", () => {
     );
     expect(parseLaunchdPlist(content)?.programArguments).toEqual([
       "/usr/local/bin/node",
-      "/Users/me/.bb-machines/npm/bin/bb-app",
+      "/Users/me/.cc-machines/npm/bin/cc-app",
       "host-daemon",
       "--auto-update",
       "--host-daemon-port",
@@ -367,16 +367,16 @@ describe("service definition rewrites", () => {
       "https://new.example.test/?a=1&b=2",
     ]);
     expect(content).toContain(
-      `<key>BB_DATA_DIR</key><string>${dataDir}</string>`,
+      `<key>CC_DATA_DIR</key><string>${dataDir}</string>`,
     );
   });
 
-  it("builds bb-app start arguments without a bind host", () => {
+  it("builds cc-app start arguments without a bind host", () => {
     expect(
       buildServerStartArguments(
         [
           "node",
-          "/prefix/bin/bb-app",
+          "/prefix/bin/cc-app",
           "host-daemon",
           "--server-url",
           "http://old",
@@ -390,7 +390,7 @@ describe("service definition rewrites", () => {
       ),
     ).toEqual([
       "node",
-      "/prefix/bin/bb-app",
+      "/prefix/bin/cc-app",
       "start",
       "--data-dir",
       "/data",
@@ -405,7 +405,7 @@ describe("service definition rewrites", () => {
     expect(
       replaceServerUrlArgument(
         [
-          "bb-app",
+          "cc-app",
           "host-daemon",
           "--server=http://old",
           "--server-url",
@@ -414,7 +414,7 @@ describe("service definition rewrites", () => {
         "http://new",
       ),
     ).toEqual([
-      "bb-app",
+      "cc-app",
       "host-daemon",
       "--server=http://new",
       "--server-url",
@@ -425,12 +425,12 @@ describe("service definition rewrites", () => {
   it("escapes $ for systemd and refuses arguments with line breaks", () => {
     const unit = [
       "[Service]",
-      'ExecStart="/usr/bin/node" "/opt/npm/bin/bb-app" host-daemon',
+      'ExecStart="/usr/bin/node" "/opt/npm/bin/cc-app" host-daemon',
       "",
     ].join("\n");
     const formatted = formatSystemdUnit(unit, [
       "/usr/bin/node",
-      "/opt/npm/bin/bb-app",
+      "/opt/npm/bin/cc-app",
       "host-daemon",
       "--server-url",
       "https://gate.example.test/$HOME%",

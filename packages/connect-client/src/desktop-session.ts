@@ -22,7 +22,7 @@ export async function fetchDesktopSession(
   try {
     response = await fetchImpl(url, {
       method: "POST",
-      headers: { "x-bb-connect-machine": credential.credential },
+      headers: { "x-cc-connect-machine": credential.credential },
     });
   } catch (error) {
     throw new ConnectListError(

@@ -2,21 +2,21 @@ import {
   EMPTY_PROVIDER_NATIVE_ROOTS,
   isNamespacedGlyph,
   isPluginOwnedIconPath,
-} from "@bb/domain";
-import type { NormalizedPluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@cc/domain";
+import type { NormalizedPluginProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
 import type {
   AvailableModel,
   ProviderComposerAction,
   ProviderExtensionKinds,
   ProviderInfo,
   ProviderOptionDescriptor,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   PluginProviderDeclaration,
   PluginProviderOptionDescriptor,
   PluginProviderOptionsContext,
-} from "@get-bb/plugin-sdk";
-import { deriveValidatedProviderOptions } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk";
+import { deriveValidatedProviderOptions } from "@codythatsme/plugin-sdk/internal/host-policy";
 import type {
   ProviderRegistration,
   ProviderServerCapabilities,

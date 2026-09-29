@@ -1,0 +1,10 @@
+appId: io.github.codythatsme.cc.mobile
+---
+- openLink: "${LINK}"
+- runFlow:
+    when:
+      platform: iOS
+      visible: "Open in.*cc.*"
+    commands:
+      - tapOn: "Open"
+- assertNotVisible: "Open in.*cc.*"

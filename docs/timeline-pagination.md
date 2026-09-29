@@ -88,10 +88,10 @@ revision is stored or checked. Other edits do not automatically reject a cursor.
 half-open leaf interval `[start, end)` within `total` leaves. Ancestor summaries
 retain their full IDs, source bounds, counts, and status. Their child arrays
 can contain only part of the group. Prepend older pages with
-`prependOlderTimelineRows` from `@bb/client-core`: it joins turn children and
+`prependOlderTimelineRows` from `@cc/client-core`: it joins turn children and
 delegation children recursively by ID while preserving order. Do not flatten
 responses by concatenation or replace an entire summary solely because its ID
-was already seen. `bb thread log --all --format verbose` uses this merge.
+was already seen. `cc thread log --all --format verbose` uses this merge.
 
 Client merges retain summary objects when merging children leaves their row
 references unchanged. Rows already shared with the loaded state, including

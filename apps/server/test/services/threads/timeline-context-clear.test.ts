@@ -5,7 +5,7 @@ import {
   threadScope,
   turnScope,
   type Thread,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   createConnection,
   createProject,
@@ -16,7 +16,7 @@ import {
   noopNotifier,
   upsertHost,
   type DbConnection,
-} from "@bb/db";
+} from "@cc/db";
 import {
   buildThreadConversationOutline,
   buildThreadTimelineWithProfile,

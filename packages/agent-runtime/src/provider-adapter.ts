@@ -8,7 +8,7 @@ import type {
   ReasoningLevel,
   RuntimePermissionPolicy,
   ServiceTier,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   AgentRuntimeBridgeLaunch,
   AgentRuntimeSkillRoot,

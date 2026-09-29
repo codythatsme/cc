@@ -1,7 +1,7 @@
 import {
   createFakePluginHost,
   makePluginAgentConfigurationContext,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import plugin from "./server.js";
 
@@ -14,7 +14,7 @@ describe("workflows CLI argument validation", () => {
       agentSkillIds: ["workflows"],
     });
     harness = host.harness;
-    await plugin(host.bb);
+    await plugin(host.cc);
   });
 
   afterEach(async () => {
@@ -100,7 +100,7 @@ describe("workflows CLI argument validation", () => {
   it("parses inline option values instead of rejecting them", async () => {
     await expect(harness.runCli(["list", "--limit=2"])).resolves.toMatchObject({
       exitCode: 1,
-      stderr: "This command must run inside a BB project thread\n",
+      stderr: "This command must run inside a CC project thread\n",
     });
   });
 
@@ -112,11 +112,11 @@ describe("workflows CLI argument validation", () => {
       ok: false,
       error: {
         code: "command_failed",
-        message: "This command must run inside a BB project thread",
+        message: "This command must run inside a CC project thread",
       },
     });
     expect(result.stderr).toBe(
-      "This command must run inside a BB project thread\n",
+      "This command must run inside a CC project thread\n",
     );
   });
 
@@ -126,24 +126,24 @@ describe("workflows CLI argument validation", () => {
       const result = await harness.runCli(argv);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("bb workflows history");
+      expect(result.stdout).toContain("cc workflows history");
       expect(result.stderr).toBe("");
     },
   );
 
   it("keeps one author tool and the shared Claude workflow language", async () => {
     expect(harness.registrations.agentTools.map((tool) => tool.name)).toEqual([
-      "bb_workflow_run",
-      "bb_workflow_result",
+      "cc_workflow_run",
+      "cc_workflow_result",
     ]);
     expect(
       harness.registrations.cli?.commands.map((command) => command.name),
     ).toEqual(["run", "validate", "status", "history", "list", "stop"]);
     const run = harness.registrations.agentTools.find(
-      (tool) => tool.name === "bb_workflow_run",
+      (tool) => tool.name === "cc_workflow_run",
     );
     expect(run?.description).toBe(
-      "Execute a workflow script that orchestrates multiple subagents deterministically. Workflows run in the background — this tool returns immediately with a run ID and a `previewDirective`. After a successful call, emit that directive exactly once on its own line (not in a code fence) so BB renders live progress in chat. A completion notification is sent to the origin thread. Use `bb workflows status <run-id>` for a compact summary. For detailed history, redirect a bounded JSONL page from `bb workflows history <run-id> --cursor <call-index> --limit <1-100>` into `$BB_THREAD_STORAGE`, then inspect the file with normal filesystem tools.",
+      "Execute a workflow script that orchestrates multiple subagents deterministically. Workflows run in the background — this tool returns immediately with a run ID and a `previewDirective`. After a successful call, emit that directive exactly once on its own line (not in a code fence) so CC renders live progress in chat. A completion notification is sent to the origin thread. Use `cc workflows status <run-id>` for a compact summary. For detailed history, redirect a bounded JSONL page from `cc workflows history <run-id> --cursor <call-index> --limit <1-100>` into `$CC_THREAD_STORAGE`, then inspect the file with normal filesystem tools.",
     );
     expect(run?.inputSchema).toMatchObject({
       type: "object",
@@ -160,7 +160,7 @@ describe("workflows CLI argument validation", () => {
     });
 
     const result = harness.registrations.agentTools.find(
-      (tool) => tool.name === "bb_workflow_result",
+      (tool) => tool.name === "cc_workflow_result",
     );
     expect(result?.description).toBe(
       'Use this tool to return your final response in the requested structured format. You MUST call this tool exactly once at the end of your response with {"value": ...} to provide the structured output.',
@@ -169,21 +169,21 @@ describe("workflows CLI argument validation", () => {
     const author = await harness.resolveAgentConfiguration(
       makePluginAgentConfigurationContext(),
     );
-    expect(author.tools.map((tool) => tool.name)).toEqual(["bb_workflow_run"]);
+    expect(author.tools.map((tool) => tool.name)).toEqual(["cc_workflow_run"]);
     expect(author.skills).toEqual(["workflows"]);
   });
 });
 
 describe("workflows agent-tool boundary schemas", () => {
   it.each([
-    ["bb_workflow_run", { script: "return null", extra: true }],
-    ["bb_workflow_result", { value: null, extra: true }],
+    ["cc_workflow_run", { script: "return null", extra: true }],
+    ["cc_workflow_result", { value: null, extra: true }],
   ])("rejects extra fields for %s", async (tool, input) => {
-    const { bb, harness } = createFakePluginHost({
+    const { cc, harness } = createFakePluginHost({
       pluginId: "workflows",
       agentSkillIds: ["workflows"],
     });
-    await plugin(bb);
+    await plugin(cc);
     await expect(harness.callAgentTool(tool, input)).rejects.toThrow(
       `tool "${tool}" arguments are invalid`,
     );

@@ -9,7 +9,7 @@ import { loadPluginBrandingAssets } from "../../../src/services/plugins/app-bund
 
 const BASE = "http://127.0.0.1:3334";
 
-const SERVER_SOURCE = `export default function plugin(bb: any) { bb.log.info("loaded"); }`;
+const SERVER_SOURCE = `export default function plugin(cc: any) { cc.log.info("loaded"); }`;
 const SVG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg"><rect width="4" height="4"/></svg>`;
 const DARK_SVG_LOGO = `<svg xmlns="http://www.w3.org/2000/svg"><rect fill="#fff" width="4" height="4"/></svg>`;
 const PNG_STUB = Buffer.from("89504e470d0a1a0a", "hex");
@@ -70,7 +70,7 @@ async function writeLogoPluginFixture(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: options.pluginName ?? "Logo fixture",
         description: "Plugin branding fixture.",
         branding: {
@@ -115,9 +115,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves a path-shaped branding.icon as a hashed compact SVG asset", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-mark");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-mark");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-mark",
+      name: "cc-plugin-mark",
       brandingIcon: "./assets/icon.svg",
       files: { "assets/icon.svg": SVG_LOGO },
     });
@@ -154,7 +154,7 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
       loadPluginBrandingAssets("mutable", {
         branding: { compactIconPath: iconPath, icons: new Map() },
       }),
-    ).rejects.toThrow(/bb\.branding\.icon must have an <svg> root element/);
+    ).rejects.toThrow(/cc\.branding\.icon must have an <svg> root element/);
 
     const logoPath = join(harness.config.dataDir, "mutable-logo.svg");
     const scripted = `<svg xmlns="http://www.w3.org/2000/svg"><script>1</script></svg>`;
@@ -170,10 +170,10 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-logotool",
+      "cc-plugin-logotool",
     );
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logotool",
+      name: "cc-plugin-logotool",
       logoLight: "./logo.svg",
       logoDark: "./logo-dark.svg",
       files: { "logo.svg": ILLUSTRATOR_LOGO, "logo-dark.svg": INKSCAPE_LOGO },
@@ -196,7 +196,7 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-logoraw",
+      "cc-plugin-logoraw",
     );
     const scripted = `<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(2)</script><a href="javascript:alert(3)"><rect width="4" height="4"/></a></svg>`;
     const latin1 = Buffer.from(
@@ -204,7 +204,7 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
       "latin1",
     );
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logoraw",
+      name: "cc-plugin-logoraw",
       logoLight: "./logo.svg",
       logoDark: "./logo-dark.svg",
       files: { "logo.svg": scripted, "logo-dark.svg": latin1 },
@@ -230,9 +230,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves an explicit light SVG hash-cached as image/svg+xml", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-logoa");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-logoa");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logoa",
+      name: "cc-plugin-logoa",
       logoLight: "./logo.svg",
       files: { "logo.svg": SVG_LOGO, "logo.png": PNG_STUB },
     });
@@ -261,9 +261,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves an explicit PNG as image/png", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-logob");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-logob");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logob",
+      name: "cc-plugin-logob",
       logoLight: "./logo.png",
       files: { "logo.png": PNG_STUB },
     });
@@ -274,10 +274,10 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     expectUntrustedImageHeaders(logo);
   });
 
-  it("honors a relocated bb.branding.logo.light webp", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-logoc");
+  it("honors a relocated cc.branding.logo.light webp", async () => {
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-logoc");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logoc",
+      name: "cc-plugin-logoc",
       logoLight: "./assets/mark.webp",
       files: {
         "logo.svg": SVG_LOGO,
@@ -292,22 +292,22 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("rejects a light logo that escapes the plugin directory", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-logod");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-logod");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logod",
+      name: "cc-plugin-logod",
       logoLight: "../outside.svg",
     });
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /bb\.branding\.logo\.light escapes the plugin directory/,
+      /cc\.branding\.logo\.light escapes the plugin directory/,
     );
   });
 
   it("does not auto-detect an undeclared root logo", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-logof");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-logof");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logof",
+      name: "cc-plugin-logof",
       files: { "logo.svg": SVG_LOGO },
     });
     const entry = await harness.pluginService.installPath(rootDir);
@@ -320,9 +320,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("keeps advertising and serving both logos when the plugin is disabled", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-logog");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-logog");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logog",
+      name: "cc-plugin-logog",
       logoLight: "./logo.svg",
       logoDark: "./logo-dark.svg",
       files: { "logo.svg": SVG_LOGO, "logo-dark.svg": DARK_SVG_LOGO },
@@ -350,9 +350,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("keeps a disabled plugin's manifest name and icon in the inventory", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-ident");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-ident");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-ident",
+      name: "cc-plugin-ident",
       pluginName: "Identity Demo",
       brandingIcon: "Brain",
     });
@@ -369,9 +369,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("drops a removed plugin's identity (logo 404s after uninstall)", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-gone");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-gone");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-gone",
+      name: "cc-plugin-gone",
       logoLight: "./logo.svg",
       files: { "logo.svg": SVG_LOGO },
     });
@@ -385,9 +385,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves immutable snapshot bytes until reload refreshes the hash", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-logoh");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-logoh");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-logoh",
+      name: "cc-plugin-logoh",
       logoLight: "./logo.svg",
       files: { "logo.svg": SVG_LOGO },
     });
@@ -422,9 +422,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("serves an explicit dark SVG as image/svg+xml", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-darka");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-darka");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-darka",
+      name: "cc-plugin-darka",
       logoLight: "./logo.svg",
       logoDark: "./logo-dark.svg",
       files: {
@@ -459,9 +459,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("rejects a dark logo that escapes the plugin directory", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-darkd");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-darkd");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-darkd",
+      name: "cc-plugin-darkd",
       logoLight: "./logo.svg",
       logoDark: "../outside-dark.svg",
       files: { "logo.svg": SVG_LOGO },
@@ -469,14 +469,14 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /bb\.branding\.logo\.dark escapes the plugin directory/,
+      /cc\.branding\.logo\.dark escapes the plugin directory/,
     );
   });
 
   it("rejects a dark logo with an unsupported extension", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-darke");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-darke");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-darke",
+      name: "cc-plugin-darke",
       logoLight: "./logo.svg",
       logoDark: "./logo-dark.gif",
       files: { "logo.svg": SVG_LOGO, "logo-dark.gif": PNG_STUB },
@@ -484,14 +484,14 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /bb\.branding\.logo\.dark must point at a \.svg, \.png, or \.webp file/,
+      /cc\.branding\.logo\.dark must point at a \.svg, \.png, or \.webp file/,
     );
   });
 
   it("reports logoDarkUrl null and 404s the dark asset when only a light logo ships", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-darkf");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-darkf");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-darkf",
+      name: "cc-plugin-darkf",
       logoLight: "./logo.svg",
       files: { "logo.svg": SVG_LOGO },
     });
@@ -506,9 +506,9 @@ describe("plugin branding assets (manifest, asset route, inventory)", () => {
   });
 
   it("refreshes the dark logo hash on reload after the file changes", async () => {
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-darkg");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-darkg");
     await writeLogoPluginFixture(rootDir, {
-      name: "bb-plugin-darkg",
+      name: "cc-plugin-darkg",
       logoLight: "./logo.svg",
       logoDark: "./logo-dark.svg",
       files: { "logo.svg": SVG_LOGO, "logo-dark.svg": DARK_SVG_LOGO },

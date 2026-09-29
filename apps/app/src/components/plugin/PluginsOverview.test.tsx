@@ -66,8 +66,8 @@ const AUTOMATIONS_PLUGIN = {
   logoDarkUrl: null,
   hasSettings: false,
   provenance: "builtin",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  publisherKey: "cc-official",
+  publisherLabel: "CC Official",
   isOrphanedBuiltin: false,
   sourceDisplay: "builtin · automations",
   updateState: {},
@@ -82,16 +82,16 @@ const GITHUB_CATALOG_ENTRY = {
   entryId: "github",
   pluginId: "github",
   displayName: "GitHub",
-  description: "Browse GitHub issues and pull requests in BB.",
+  description: "Browse GitHub issues and pull requests in CC.",
   icon: "Github",
   iconUrl: null,
   categoryId: "code-and-reviews",
   category: "Developer tools",
   source: "builtin:github",
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "cc-official",
+  marketplaceDisplayName: "CC Official",
+  publisherKey: "cc-official",
+  publisherLabel: "CC Official",
   official: true,
   author: null,
   installed: false,
@@ -176,10 +176,10 @@ function installFetch(plugins: readonly unknown[] = [AUTOMATIONS_PLUGIN]) {
             description: GITHUB_CATALOG_ENTRY.description,
             icon: GITHUB_CATALOG_ENTRY.icon,
             provenance: "catalog",
-            publisherKey: "bb-official",
-            publisherLabel: "BB Official",
+            publisherKey: "cc-official",
+            publisherLabel: "CC Official",
             catalogEntryId: GITHUB_CATALOG_ENTRY.entryId,
-            sourceDisplay: "BB Official · GitHub",
+            sourceDisplay: "CC Official · GitHub",
           },
         });
       }
@@ -252,7 +252,7 @@ describe("PluginsOverview", () => {
     render(
       <MemoryRouter
         initialEntries={[
-          "/plugins?view=installed&source=publisher%3ABB%20Official&query=Automations&category=tasks-and-workflows&sort=name&direction=desc",
+          "/plugins?view=installed&source=publisher%3ACC%20Official&query=Automations&category=tasks-and-workflows&sort=name&direction=desc",
         ]}
       >
         <QueryClientWrapper>
@@ -374,8 +374,8 @@ describe("PluginsOverview", () => {
         description: DOCS_CATALOG_ENTRY.description,
         icon: DOCS_CATALOG_ENTRY.icon,
         provenance: "catalog",
-        publisherKey: "bb-official",
-        publisherLabel: "BB Official",
+        publisherKey: "cc-official",
+        publisherLabel: "CC Official",
         catalogEntryId: "docs",
       },
     ]);
@@ -515,7 +515,7 @@ describe("PluginsOverview", () => {
     expect(toolbar.contains(sort)).toBe(true);
     const heroHeading = screen.getByRole("heading", {
       level: 2,
-      name: /^Turn bb into/,
+      name: /^Turn cc into/,
     });
     expect(
       heroHeading.compareDocumentPosition(toolbar) &
@@ -719,8 +719,8 @@ describe("PluginsOverview", () => {
         enabled: false,
         status: "disabled",
         provenance: "catalog",
-        publisherKey: "bb-community",
-        publisherLabel: "BB Community",
+        publisherKey: "cc-community",
+        publisherLabel: "CC Community",
         catalogEntryId: "inactive-official",
       },
       {
@@ -770,9 +770,9 @@ describe("PluginsOverview", () => {
       "plugin-row-enabled-local-alpha",
       "plugin-row-inactive-local",
     ]);
-    const officialPills = screen.getAllByText("BB Official");
+    const officialPills = screen.getAllByText("CC Official");
     expect(officialPills).toHaveLength(2);
-    expect(screen.getAllByText("BB Community")).toHaveLength(1);
+    expect(screen.getAllByText("CC Community")).toHaveLength(1);
 
     const sortTrigger = screen.getByRole("button", { name: "Sort: Default" });
     fireEvent.pointerDown(sortTrigger);
@@ -901,8 +901,8 @@ describe("PluginsOverview", () => {
         enabled: false,
         status: "disabled",
         provenance: "catalog",
-        publisherKey: "bb-community",
-        publisherLabel: "BB Community",
+        publisherKey: "cc-community",
+        publisherLabel: "CC Community",
         catalogEntryId: "inactive-catalog",
       },
       {
@@ -949,11 +949,11 @@ describe("PluginsOverview", () => {
         name: "GitHub",
         source: GITHUB_CATALOG_ENTRY.source,
         provenance: "catalog",
-        publisherKey: "bb-community",
-        publisherLabel: "BB Community",
+        publisherKey: "cc-community",
+        publisherLabel: "CC Community",
         catalogEntryId: GITHUB_CATALOG_ENTRY.entryId,
-        catalogMarketplaceName: "bb-community",
-        sourceDisplay: "BB Official · GitHub",
+        catalogMarketplaceName: "cc-community",
+        sourceDisplay: "CC Official · GitHub",
       },
     ]);
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
@@ -967,9 +967,9 @@ describe("PluginsOverview", () => {
       </MemoryRouter>,
     );
 
-    const official = await screen.findAllByText("BB Official");
+    const official = await screen.findAllByText("CC Official");
     expect(official).toHaveLength(1);
-    const community = screen.getAllByText("BB Community");
+    const community = screen.getAllByText("CC Community");
     expect(community).toHaveLength(1);
     expect(official[0]?.parentElement?.className).toBe(
       community[0]?.parentElement?.className,

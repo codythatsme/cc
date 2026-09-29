@@ -1,10 +1,10 @@
 import fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { listOpenFilePids, readPositivePidFile } from "@bb/test-helpers";
+import { listOpenFilePids, readPositivePidFile } from "@cc/test-helpers";
 import { isNodeError, removePathWithRetry } from "./helpers/remove-path.js";
 
-const INTEGRATION_TMP_PREFIX = "bb-integration-";
+const INTEGRATION_TMP_PREFIX = "cc-integration-";
 const STALE_TMP_ROOT_AGE_MS = 60 * 60_000;
 
 function isProcessAlive(pid: number): boolean {

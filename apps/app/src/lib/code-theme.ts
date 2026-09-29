@@ -3,10 +3,10 @@ import {
   defaultResolvedCodeTheme,
   type JsonObject,
   type ResolvedCodeTheme,
-} from "@bb/domain";
+} from "@cc/domain";
 
-const CODE_THEME_DARK_DATASET = "bbCodeThemeDark";
-const CODE_THEME_LIGHT_DATASET = "bbCodeThemeLight";
+const CODE_THEME_DARK_DATASET = "ccCodeThemeDark";
+const CODE_THEME_LIGHT_DATASET = "ccCodeThemeLight";
 
 let currentResolvedCodeTheme: ResolvedCodeTheme = defaultResolvedCodeTheme;
 const subscribers = new Set<() => void>();

@@ -3,13 +3,13 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createStore } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError } from "@bb/sdk/browser";
+import { CcHttpError } from "@cc/sdk/browser";
 import {
   defaultUiPreferences,
   type UiPreferenceKey,
   type UiPreferenceValue,
-} from "@bb/domain";
-import type { UiPreferencesResponse } from "@bb/server-contract";
+} from "@cc/domain";
+import type { UiPreferencesResponse } from "@cc/server-contract";
 import {
   getCachedUiPreferences,
   setCachedUiPreferences,
@@ -30,9 +30,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/sdk", async () => {
-  const actual = await import("@bb/sdk/browser");
+  const actual = await import("@cc/sdk/browser");
   return {
-    BbHttpError: actual.BbHttpError,
+    CcHttpError: actual.CcHttpError,
     sdk: {
       system: {
         uiPreferences: {
@@ -65,8 +65,8 @@ function serverResponse(
   return { preferences: { ...preferences, ...overrides } };
 }
 
-function conflict(currentRevision: number): BbHttpError {
-  return new BbHttpError({
+function conflict(currentRevision: number): CcHttpError {
+  return new CcHttpError({
     body: { code: "ui_preference_conflict", details: { currentRevision } },
     code: "ui_preference_conflict",
     message: "UI preference changed on another client",
@@ -194,7 +194,7 @@ describe("ui preferences sync", () => {
     "persists legacy %s organization even when it matches the default",
     async (value) => {
       window.localStorage.setItem(
-        "bb.sidebar.organizationMode",
+        "cc.sidebar.organizationMode",
         JSON.stringify(value),
       );
       const { modeAtom, queryClient, store } = createHarness();
@@ -218,7 +218,7 @@ describe("ui preferences sync", () => {
       ).toEqual({ revision: 1, value });
       expect(store.get(modeAtom)).toBe(value);
       expect(
-        window.localStorage.getItem("bb.sidebar.organizationMode"),
+        window.localStorage.getItem("cc.sidebar.organizationMode"),
       ).toBeNull();
 
       reconcileUiPreferences(serverResponse());
@@ -501,7 +501,7 @@ describe("ui preferences sync", () => {
   });
 
   it("never retries a migration against a newer revision", async () => {
-    window.localStorage.setItem("bb.sidebar.organizationMode", '"project"');
+    window.localStorage.setItem("cc.sidebar.organizationMode", '"project"');
     const { modeAtom, queryClient, store } = createHarness();
     startUiPreferencesSync({ queryClient, store });
     const response = serverResponse();

@@ -4,7 +4,7 @@ import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@cc/server-contract";
 import {
   commandRow,
   conversationRow,

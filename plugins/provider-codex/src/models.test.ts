@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
-  mapBbReasoningLevelToCodex,
-  mapCodexReasoningLevelToBb,
+  mapCcReasoningLevelToCodex,
+  mapCodexReasoningLevelToCc,
   parseModelsResponse,
 } from "./models.js";
 
-describe("mapCodexReasoningLevelToBb", () => {
+describe("mapCodexReasoningLevelToCc", () => {
   it("returns null for unknown values", () => {
-    expect(mapCodexReasoningLevelToBb("ludicrous")).toBeNull();
-    expect(mapCodexReasoningLevelToBb(42)).toBeNull();
-    expect(mapCodexReasoningLevelToBb(undefined)).toBeNull();
+    expect(mapCodexReasoningLevelToCc("ludicrous")).toBeNull();
+    expect(mapCodexReasoningLevelToCc(42)).toBeNull();
+    expect(mapCodexReasoningLevelToCc(undefined)).toBeNull();
   });
 });
 
-describe("mapBbReasoningLevelToCodex", () => {
+describe("mapCcReasoningLevelToCodex", () => {
   it("returns null for none and ultracode", () => {
-    expect(mapBbReasoningLevelToCodex("none")).toBeNull();
-    expect(mapBbReasoningLevelToCodex("ultracode")).toBeNull();
+    expect(mapCcReasoningLevelToCodex("none")).toBeNull();
+    expect(mapCcReasoningLevelToCodex("ultracode")).toBeNull();
   });
 });
 

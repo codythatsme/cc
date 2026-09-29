@@ -5,14 +5,14 @@ import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type HostDaemonOnlineRpcRequestMessage,
   type HostDaemonRpcCommand,
-} from "@bb/host-daemon-contract";
-import { openSession, upsertHost } from "@bb/db";
+} from "@cc/host-daemon-contract";
+import { openSession, upsertHost } from "@cc/db";
 import {
   listServerOwnedEntries,
   readServerMovedFile,
-} from "@bb/server-archive";
-import type { ServerMoveStatus } from "@bb/server-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@cc/server-archive";
+import type { ServerMoveStatus } from "@cc/server-contract";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { createServerMoveCoordinator } from "../../src/services/server-move/coordinator.js";
 import {
@@ -165,11 +165,11 @@ describe("server move coordinator", () => {
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const config = await writeConfig(harness, {
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { CC_LOG_LEVEL: "debug" },
         machineCredential: "stale-credential",
         serverHeaders: { "x-stale": "1" },
       });
-      await writeFile(join(harness.config.dataDir, "bb.db"), "");
+      await writeFile(join(harness.config.dataDir, "cc.db"), "");
       const { environment, events, plugins } =
         createTestServerMoveEnvironment(harness);
       const coordinator = createServerMoveCoordinator(environment);
@@ -214,7 +214,7 @@ describe("server move coordinator", () => {
               type: "server_move.progress",
               moveId: request.command.moveId,
               step: "update-target",
-              message: "Installing bb",
+              message: "Installing cc",
             });
             progressSnapshots.push(coordinator.getStatus());
             coordinator.handleProgress(NEW, {
@@ -278,7 +278,7 @@ describe("server move coordinator", () => {
         ["verify-address", "pending"],
         ["switch", "pending"],
       ]);
-      expect(progressSnapshots[1]?.steps[1]?.message).toBe("Installing bb");
+      expect(progressSnapshots[1]?.steps[1]?.message).toBe("Installing cc");
       expect(progressSnapshots[2]?.steps.slice(3, 5)).toEqual([
         { id: "transfer", status: "done", message: "Downloading the export" },
         {
@@ -329,7 +329,7 @@ describe("server move coordinator", () => {
           downloadPath: `/internal/server-move/${started.moveId}/archive`,
           sha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
         },
-        bbApp: null,
+        ccApp: null,
         serverPort: 39_101,
         bindHost: null,
         sourceDataDir: harness.config.dataDir,
@@ -373,9 +373,9 @@ describe("server move coordinator", () => {
         mode: "direct",
         connectHandle: null,
       });
-      expect(moved?.oldCopyEntries).toEqual(["auth-secret", "bb.db"]);
+      expect(moved?.oldCopyEntries).toEqual(["auth-secret", "cc.db"]);
       expect(JSON.parse(await readFile(config.path, "utf8"))).toEqual({
-        config: { BB_LOG_LEVEL: "debug" },
+        config: { CC_LOG_LEVEL: "debug" },
         serverUrl: DIRECT_URL,
       });
       expect(old.movedMessages).toEqual([
@@ -422,7 +422,7 @@ describe("server move coordinator", () => {
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const config = await writeConfig(harness, {
-        config: { BB_LOG_LEVEL: "info" },
+        config: { CC_LOG_LEVEL: "info" },
       });
       const { environment, events } = createTestServerMoveEnvironment(harness);
       const coordinator = createServerMoveCoordinator(environment);
@@ -550,12 +550,12 @@ describe("server move coordinator", () => {
       await expect.poll(() => events.includes("retire")).toBe(true);
     }));
 
-  it("moves a bb connect server with the old server's own grant and no address probe", () =>
+  it("moves a cc connect server with the old server's own grant and no address probe", () =>
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const base = createTestServerMoveEnvironment(harness);
       const { events } = base;
-      const grantHeaders = { "x-bb-connect-machine": "bbcm_laptop" };
+      const grantHeaders = { "x-cc-connect-machine": "bbcm_laptop" };
       const coordinator = createServerMoveCoordinator({
         ...base.environment,
         resolveMode: async () => ({
@@ -694,7 +694,7 @@ describe("server move coordinator", () => {
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const config = await writeConfig(harness, {
-        config: { BB_LOG_LEVEL: "info" },
+        config: { CC_LOG_LEVEL: "info" },
       });
       const { environment, events, plugins } =
         createTestServerMoveEnvironment(harness);
@@ -956,7 +956,7 @@ describe("server move coordinator", () => {
         hostId: NEW,
         instanceId: "instance-new",
         hostName: "Desktop",
-        dataDir: "/home/me/.bb-machines/laptop",
+        dataDir: "/home/me/.cc-machines/laptop",
         protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
         heartbeatIntervalMs: 5_000,
         leaseTimeoutMs: 30_000,
@@ -1099,7 +1099,7 @@ describe("server move coordinator", () => {
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const config = await writeConfig(harness, {
-        config: { BB_LOG_LEVEL: "info" },
+        config: { CC_LOG_LEVEL: "info" },
       });
       const { environment, events, plugins } = createTestServerMoveEnvironment(
         harness,
@@ -1195,14 +1195,14 @@ describe("server move coordinator", () => {
       }
     }));
 
-  it("keeps a bb connect move in recovery_required with the tunnel up and retries activation when the target reconnects", () =>
+  it("keeps a cc connect move in recovery_required with the tunnel up and retries activation when the target reconnects", () =>
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const base = createTestServerMoveEnvironment(harness, {
         timings: RECOVERY_TIMINGS,
       });
       const { events, plugins } = base;
-      const grantHeaders = { "x-bb-connect-machine": "bbcm_laptop" };
+      const grantHeaders = { "x-cc-connect-machine": "bbcm_laptop" };
       const coordinator = createServerMoveCoordinator({
         ...base.environment,
         resolveMode: async () => ({
@@ -1291,7 +1291,7 @@ describe("server move coordinator", () => {
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const config = await writeConfig(harness, {
-        config: { BB_LOG_LEVEL: "info" },
+        config: { CC_LOG_LEVEL: "info" },
       });
       const { environment, events, plugins } = createTestServerMoveEnvironment(
         harness,
@@ -1373,7 +1373,7 @@ describe("server move coordinator", () => {
     withTestHarness(async (harness) => {
       seedTopology(harness);
       const config = await writeConfig(harness, {
-        config: { BB_LOG_LEVEL: "info" },
+        config: { CC_LOG_LEVEL: "info" },
       });
       const { environment, events, plugins } = createTestServerMoveEnvironment(
         harness,
@@ -1655,7 +1655,7 @@ describe("server move coordinator", () => {
             ? ok(
                 inspectResult({
                   existingServerData: {
-                    path: "/home/me/.bb",
+                    path: "/home/me/.cc",
                     sizeBytes: 1_024,
                   },
                 }),

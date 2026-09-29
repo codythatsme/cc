@@ -9,7 +9,7 @@ import {
   environmentVariables,
   createConnection,
   migrate,
-} from "@bb/db";
+} from "@cc/db";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import {
   setMachineEnvironmentVariable,
@@ -24,7 +24,7 @@ let dataDir: string;
 beforeEach(async () => {
   db = createConnection(":memory:");
   migrate(db);
-  dataDir = await mkdtemp(join(tmpdir(), "bb-env-encryption-"));
+  dataDir = await mkdtemp(join(tmpdir(), "cc-env-encryption-"));
 });
 afterEach(async () => {
   db.$client.close();

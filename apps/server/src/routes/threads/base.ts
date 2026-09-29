@@ -17,8 +17,8 @@ import {
   updateThread,
   type ThreadSearchResultGroup as DbThreadSearchResultGroup,
   type UpdateThreadInput,
-} from "@bb/db";
-import type { Environment, Thread, ThreadListEntry } from "@bb/domain";
+} from "@cc/db";
+import type { Environment, Thread, ThreadListEntry } from "@cc/domain";
 import { toEnvironmentResponse } from "../../services/environments/environment-response.js";
 import {
   threadIncludeOptionSchema,
@@ -34,7 +34,7 @@ import {
   type ThreadWithIncludesResponse,
   type PublicApiSchema,
   type ResolveThreadMentionsResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { Hono } from "hono";
 import type { AppDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";

@@ -2,16 +2,16 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDeferredPromise } from "@bb/test-helpers";
+import { createDeferredPromise } from "@cc/test-helpers";
 import {
   ProcessLocalQueuedLockTimeoutError,
   withGitRefMutationLock,
-} from "bb-environment-provider-host/process-local-lock";
+} from "cc-environment-provider-host/process-local-lock";
 
 const tempDirs: string[] = [];
 
 async function makeTempDir(name: string): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), `bb-${name}-`));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), `cc-${name}-`));
   tempDirs.push(dir);
   return dir;
 }
@@ -117,8 +117,8 @@ describe("git ref mutation lock", () => {
 
 describe("withGitRefMutationLock across processes", () => {
   it("waits for a lock directory another process holds and takes over a stale one", async () => {
-    const commonDir = await fs.mkdtemp(path.join(os.tmpdir(), "bb-ref-lock-"));
-    const lockPath = path.join(commonDir, "bb-ref-mutation.lock");
+    const commonDir = await fs.mkdtemp(path.join(os.tmpdir(), "cc-ref-lock-"));
+    const lockPath = path.join(commonDir, "cc-ref-mutation.lock");
     await fs.mkdir(lockPath);
     let entered = false;
     const run = withGitRefMutationLock(commonDir, async () => {

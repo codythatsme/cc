@@ -3,10 +3,10 @@
   "name": "option-display",
   "type": "registry:ui",
   "title": "option-display",
-  "description": "BB ui \"option-display\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"option-display\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/tooltip",
-    "@bb/utils"
+    "@cc/tooltip",
+    "@cc/utils"
   ],
   "files": [
     {

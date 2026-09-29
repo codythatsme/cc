@@ -1,7 +1,7 @@
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   MoveServerDialogView,
   type MoveServerDialogViewProps,
@@ -52,7 +52,7 @@ function checkResult(
     mode: "connect",
     serverUrl: null,
     requiresServerUrl: false,
-    targetDataDir: "/home/michael/.bb-machines/macbook-pro",
+    targetDataDir: "/home/michael/.cc-machines/macbook-pro",
     existingTargetServerData: null,
     items: [RUNNING_TURNS, SCHEDULES, TIMEZONE],
     canMove: true,
@@ -95,7 +95,7 @@ export function Checklist() {
         <Stage result={null} checking startAllowed={false} />
       </StoryRow>
       <StoryRow
-        label="bb connect, ready"
+        label="cc connect, ready"
         hint="machines keep using the same connect address, so there is no address step; warnings never block"
       >
         <Stage />
@@ -208,20 +208,20 @@ export function ExistingData() {
     <StoryCard labelWidth="220px">
       <StoryRow
         label="needs confirmation"
-        hint="desk already has its own bb server data; it is archived, never merged, and only after the user says so"
+        hint="desk already has its own cc server data; it is archived, never merged, and only after the user says so"
       >
         <Stage
           startAllowed={false}
           result={checkResult({
             existingTargetServerData: {
-              path: "/Users/michael/.bb",
+              path: "/Users/michael/.cc",
               sizeBytes: 412 * 1024 * 1024,
             },
             items: [
               {
                 id: "existing-server-data",
                 severity: "warning",
-                title: "desk already has bb server data",
+                title: "desk already has cc server data",
                 detail: null,
               },
               RUNNING_TURNS,
@@ -234,14 +234,14 @@ export function ExistingData() {
           archiveConfirmed
           result={checkResult({
             existingTargetServerData: {
-              path: "/Users/michael/.bb",
+              path: "/Users/michael/.cc",
               sizeBytes: 412 * 1024 * 1024,
             },
             items: [
               {
                 id: "existing-server-data",
                 severity: "warning",
-                title: "desk already has bb server data",
+                title: "desk already has cc server data",
                 detail: null,
               },
             ],

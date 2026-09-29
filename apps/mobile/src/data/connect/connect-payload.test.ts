@@ -10,15 +10,15 @@ describe("parseConnectPairingPayload", () => {
       parseConnectPairingPayload(
         JSON.stringify({
           code: " abcd-efgh ",
-          serverUrl: "https://bee.getbb.app/",
-          apex: "https://getbb.app",
+          serverUrl: "https://bee.cc.example.invalid/",
+          apex: "https://cc.example.invalid",
           expiresAt: "2026-08-19T10:00:00Z",
         }),
       ),
     ).toEqual({
       code: "ABCD-EFGH",
-      serverUrl: "https://bee.getbb.app",
-      apexUrl: "https://getbb.app",
+      serverUrl: "https://bee.cc.example.invalid",
+      apexUrl: "https://cc.example.invalid",
       expiresAt: Date.UTC(2026, 7, 19, 10),
     });
     expect(
@@ -40,11 +40,11 @@ describe("parseConnectPairingPayload", () => {
   it("reads a pairing URL and a bare code; rejects arbitrary QR contents", () => {
     expect(
       parseConnectPairingPayload(
-        "bb://connect?code=abcd-efgh&serverUrl=https%3A%2F%2Fbee.getbb.app",
+        "cc://connect?code=abcd-efgh&serverUrl=https%3A%2F%2Fbee.cc.example.invalid",
       ),
     ).toEqual({
       code: "ABCD-EFGH",
-      serverUrl: "https://bee.getbb.app",
+      serverUrl: "https://bee.cc.example.invalid",
       apexUrl: null,
       expiresAt: null,
     });
@@ -66,13 +66,13 @@ describe("resolveEnrollmentTarget", () => {
       resolveEnrollmentTarget({
         code: "abcd-efgh",
         server: "bee",
-        apexUrl: "",
+        apexUrl: "https://cc.example.invalid",
       }),
     ).toEqual({
       ok: true,
       code: "ABCD-EFGH",
-      apexUrl: "https://getbb.app",
-      serverUrl: "https://bee.getbb.app",
+      apexUrl: "https://cc.example.invalid",
+      serverUrl: "https://bee.cc.example.invalid",
     });
     expect(
       resolveEnrollmentTarget({
@@ -100,12 +100,14 @@ describe("resolveEnrollmentTarget", () => {
     });
     expect(
       resolveEnrollmentTarget({ code: "ABCD-EFGH", server: "", apexUrl: "" }),
-    ).toEqual({
-      ok: true,
-      code: "ABCD-EFGH",
-      apexUrl: "https://getbb.app",
-      serverUrl: null,
-    });
+    ).toMatchObject({ ok: false, field: "apexUrl" });
+    expect(
+      resolveEnrollmentTarget({
+        code: "ABCD-EFGH",
+        server: "bee",
+        apexUrl: "",
+      }),
+    ).toMatchObject({ ok: false, field: "apexUrl" });
   });
 
   it("reports the offending field", () => {
@@ -133,7 +135,7 @@ describe("resolveEnrollmentTarget", () => {
       resolveEnrollmentTarget({
         code: "ABCD-EFGH",
         server: "bee",
-        apexUrl: "getbb.app",
+        apexUrl: "cc.example.invalid",
       }),
     ).toMatchObject({ ok: false, field: "apexUrl" });
   });

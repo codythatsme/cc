@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { formatBbAppConfigPath } from "@bb/config/bb-app-managed-config";
+import { formatCcAppConfigPath } from "@cc/config/cc-app-managed-config";
 import { describe, expect, it } from "vitest";
 import { getAvailableModels } from "../../helpers/api.js";
 import { waitForHostConnected } from "../../helpers/assertions.js";
@@ -12,7 +12,7 @@ describe.sequential("custom provider models integration", () => {
       await waitForHostConnected(harness.api, DEFAULT_TIMEOUT_MS);
 
       await fs.writeFile(
-        formatBbAppConfigPath(harness.server.config.dataDir),
+        formatCcAppConfigPath(harness.server.config.dataDir),
         `${JSON.stringify({
           customModels: [
             {
@@ -51,7 +51,7 @@ describe.sequential("custom provider models integration", () => {
       await waitForHostConnected(harness.api, DEFAULT_TIMEOUT_MS);
 
       await fs.writeFile(
-        formatBbAppConfigPath(harness.server.config.dataDir),
+        formatCcAppConfigPath(harness.server.config.dataDir),
         `${JSON.stringify({
           customModels: [
             { providerId: "not-a-provider", model: "typo-model" },

@@ -5,15 +5,15 @@ import {
   getStoredProviderModelCatalog,
   replaceStoredProviderModelCatalog,
   type ProviderModelCatalogRowKey,
-} from "@bb/db";
+} from "@cc/db";
 import {
   availableModelSchema,
   providerModelCatalogDependsOnWorkspace,
   type AvailableModel,
   type ProviderInfo,
-} from "@bb/domain";
-import type { HostDaemonBridgeLaunch } from "@bb/host-daemon-contract";
-import type { SystemExecutionOptionsModelLoadErrorCode } from "@bb/server-contract";
+} from "@cc/domain";
+import type { HostDaemonBridgeLaunch } from "@cc/host-daemon-contract";
+import type { SystemExecutionOptionsModelLoadErrorCode } from "@cc/server-contract";
 import { z } from "zod";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import { ApiError } from "../../errors.js";

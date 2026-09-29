@@ -16,7 +16,7 @@ import { startHostDaemonHealthMonitor } from "./host-daemon-health-monitor.js";
 import { startLocalApiServer, type LocalApiServer } from "./local-api.js";
 import type { HostDaemonLocalApiConfig } from "./local-api-config.js";
 import type { HostDaemonLogger } from "./logger.js";
-import type { HostDaemonDaemonWsMessage } from "@bb/host-daemon-contract";
+import type { HostDaemonDaemonWsMessage } from "@cc/host-daemon-contract";
 import {
   RuntimeManager,
   type RuntimeManagerReapIdleProviderSessionsArgs,
@@ -44,12 +44,12 @@ import {
 import { runtimeErrorLogFields, summarizeError } from "./error-utils.js";
 import { ensureThreadStorageRoot } from "./thread-storage-root.js";
 import { createRuntimeShellEnvCache } from "./runtime-shell-env-cache.js";
-import type { AgentRuntime, AgentRuntimeOptions } from "@bb/agent-runtime";
+import type { AgentRuntime, AgentRuntimeOptions } from "@cc/agent-runtime";
 import { createProtocolSelfUpdater } from "./protocol-self-update.js";
 import {
   disposeParcelWatcherBackend,
   type HostWatcher,
-} from "@bb/host-watcher";
+} from "@cc/host-watcher";
 import { PluginHostManager } from "./plugin-host-manager.js";
 import { writeMachineSuspensionMarker } from "./suspension-marker.js";
 import {
@@ -454,7 +454,7 @@ export async function createHostDaemonApp(
   const connectTunnel = new ConnectTunnelClient({
     serverUrl: options.serverUrl,
     hostName: options.hostName,
-    machineCredential: options.serverHeaders?.["x-bb-connect-machine"],
+    machineCredential: options.serverHeaders?.["x-cc-connect-machine"],
     fetchFn: options.fetchFn,
     logger: options.logger,
     onIdentity: (identity) => {

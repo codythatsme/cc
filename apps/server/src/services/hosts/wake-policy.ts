@@ -1,4 +1,4 @@
-import { type HostDaemonRpcCommand } from "@bb/host-daemon-contract";
+import { type HostDaemonRpcCommand } from "@cc/host-daemon-contract";
 
 const hostCommandWakePolicy = {
   "server_move.abort": "never",

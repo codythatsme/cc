@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import {
   resolveWorkflowSource,
   type ResolvedWorkflowSource,
@@ -15,17 +15,17 @@ interface PreparedWorkflowSource extends ResolvedWorkflowSource {
 }
 
 export async function prepareWorkflowSource(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   context: WorkflowSourceContext,
   input: WorkflowSourceInput,
 ): Promise<PreparedWorkflowSource> {
   const resolved = await resolveWorkflowSource(input, context, {
     async getThreadEnvironmentId(threadId) {
-      const thread = await bb.sdk.threads.get({ threadId });
+      const thread = await cc.sdk.threads.get({ threadId });
       return thread.environmentId;
     },
     async getEnvironment(environmentId) {
-      const environment = await bb.sdk.environments.get({ environmentId });
+      const environment = await cc.sdk.environments.get({ environmentId });
       return {
         id: environment.id,
         projectId: environment.projectId,
@@ -34,7 +34,7 @@ export async function prepareWorkflowSource(
       };
     },
     readFile(input) {
-      return bb.sdk.files.read(input);
+      return cc.sdk.files.read(input);
     },
   });
   const validation = await validateWorkflowSource(
@@ -42,10 +42,10 @@ export async function prepareWorkflowSource(
     resolved.environmentId,
     {
       listProviders(environmentId) {
-        return bb.sdk.providers.list({ environmentId });
+        return cc.sdk.providers.list({ environmentId });
       },
       loadModels(environmentId, providerId) {
-        return bb.sdk.providers.models({ environmentId, providerId });
+        return cc.sdk.providers.models({ environmentId, providerId });
       },
     },
   );

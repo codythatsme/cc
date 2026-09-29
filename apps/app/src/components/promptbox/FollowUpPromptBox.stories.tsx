@@ -7,17 +7,17 @@ import type {
   PromptTextMention,
   ThreadQueuedMessage,
   WorkspaceStatus,
-} from "@bb/domain";
-import { makeThreadQueuedMessage } from "@bb/test-helpers/domain-fixtures";
+} from "@cc/domain";
+import { makeThreadQueuedMessage } from "@cc/test-helpers/domain-fixtures";
 import {
   formatEnvironmentDisplay,
   type EnvironmentDisplayHostContext,
-} from "@bb/core-ui";
-import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@bb/client-core";
+} from "@cc/core-ui";
+import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@cc/client-core";
 import type {
   SystemExecutionOptionsModelLoadError,
   ThreadContextWindowUsage,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   FollowUpPromptBox,
   type FollowUpSubmitMode,
@@ -68,15 +68,15 @@ import type {
   ExecutionPermissionConfig,
 } from "@/components/promptbox/ExecutionControls";
 import { PageShell } from "@/components/ui/page-shell.js";
-import { promptDraftToInput, type PromptDraftState } from "@bb/client-core";
-import { queuedInputToDraft } from "@bb/client-core";
+import { promptDraftToInput, type PromptDraftState } from "@cc/client-core";
+import { queuedInputToDraft } from "@cc/client-core";
 
 export default {
   title: "promptbox/Follow Up Prompt Box",
 };
 
 const noop = () => {};
-const STORY_BRANCH_NAME = "bb/design-system-polish";
+const STORY_BRANCH_NAME = "cc/design-system-polish";
 
 const baseExecution = makeExecutionControlsProps({
   provider: {
@@ -134,7 +134,7 @@ interface EnvironmentSummaryArgs {
 function makeEnvironmentSummary({
   environment,
   host,
-  projectName = PROJECT_NAMES.bb,
+  projectName = PROJECT_NAMES.cc,
   machineName,
   hasMultipleMachines = false,
   hostType = "persistent",

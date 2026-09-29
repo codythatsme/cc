@@ -1,22 +1,22 @@
 import type {
-  BbPluginApi,
+  CcPluginApi,
   MessageDispatchHookContext,
   PluginDispatchAttemptKind,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   createFakePluginHost,
   makeHostResponse,
   makeMessageDispatchHookContext,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import plugin from "./server.js";
 
 type RunningThread = Awaited<
-  ReturnType<BbPluginApi["sdk"]["threads"]["listRunning"]>
+  ReturnType<CcPluginApi["sdk"]["threads"]["listRunning"]>
 >[number];
 type HostResponse = ReturnType<typeof makeHostResponse>;
-type SdkSubscription = Parameters<BbPluginApi["sdk"]["subscribe"]>[0];
+type SdkSubscription = Parameters<CcPluginApi["sdk"]["subscribe"]>[0];
 type HostChangedSubscription = Extract<
   SdkSubscription,
   { event: "host:changed" }
@@ -73,11 +73,11 @@ interface SetupOptions {
   hosts?: HostResponse[] | (() => HostResponse[]);
   running?: RunningThread[];
   detectedParallelism?: number;
-  subscribe?: BbPluginApi["sdk"]["subscribe"];
+  subscribe?: CcPluginApi["sdk"]["subscribe"];
 }
 
 async function setup(options: SetupOptions = {}) {
-  const subscribe: BbPluginApi["sdk"]["subscribe"] = () => () => {};
+  const subscribe: CcPluginApi["sdk"]["subscribe"] = () => () => {};
   const fake = createFakePluginHost({
     pluginId: PLUGIN_ID,
     sdk: {
@@ -95,12 +95,12 @@ async function setup(options: SetupOptions = {}) {
     }),
   });
   if (options.configuration !== undefined) {
-    await fake.bb.storage.kv.set("configuration", options.configuration);
+    await fake.cc.storage.kv.set("configuration", options.configuration);
   }
   if (options.capacities !== undefined) {
-    await fake.bb.storage.kv.set("host-capacities", options.capacities);
+    await fake.cc.storage.kv.set("host-capacities", options.capacities);
   }
-  await plugin(fake.bb);
+  await plugin(fake.cc);
   const hook = fake.harness.registrations.hooks["message.dispatch"];
   if (hook === null) throw new Error("message.dispatch was not registered");
   return { ...fake, hook };
@@ -111,7 +111,7 @@ function hostChanges(): {
     hostId: string,
     changes: Parameters<HostChangedSubscription["callback"]>[0]["changes"],
   ): void;
-  subscribe: BbPluginApi["sdk"]["subscribe"];
+  subscribe: CcPluginApi["sdk"]["subscribe"];
 } {
   let callback: HostChangedSubscription["callback"] | null = null;
   return {
@@ -209,14 +209,14 @@ describe("configuration", () => {
   });
 
   it("persists validated configuration and rechecks waiting dispatches", async () => {
-    const { bb, harness } = await setup({ hosts: [hostRecord("host-a")] });
+    const { cc, harness } = await setup({ hosts: [hostRecord("host-a")] });
 
     await harness.behavior.callRpc("setConfiguration", {
       globalLimit: 3,
       hostOverrides: [{ hostId: "host-a", limit: 0 }],
     });
 
-    await expect(bb.storage.kv.get("configuration")).resolves.toEqual({
+    await expect(cc.storage.kv.get("configuration")).resolves.toEqual({
       globalLimit: 3,
       hostOverrides: [{ hostId: "host-a", limit: 0 }],
     });
@@ -224,7 +224,7 @@ describe("configuration", () => {
   });
 
   it("detects connected host capacity in the background", async () => {
-    const { bb, harness } = await setup({
+    const { cc, harness } = await setup({
       hosts: [hostRecord("host-a")],
       detectedParallelism: 12,
     });
@@ -233,7 +233,7 @@ describe("configuration", () => {
     await vi.waitFor(() => {
       expect(harness.experimental_hostRpcCalls).toHaveLength(1);
     });
-    await expect(bb.storage.kv.get("host-capacities")).resolves.toEqual([
+    await expect(cc.storage.kv.get("host-capacities")).resolves.toEqual([
       { hostId: "host-a", availableParallelism: 12 },
     ]);
     await expect(
@@ -340,7 +340,7 @@ describe("configuration", () => {
     });
 
     const help = (await harness.behavior.runCli(["host", "--help"])).stdout;
-    expect(help).toContain("bb concurrency-limit host");
+    expect(help).toContain("cc concurrency-limit host");
     expect(help).toContain("0 to 10000");
 
     const envelope = await harness.behavior.runCli([
@@ -354,7 +354,7 @@ describe("configuration", () => {
       error: {
         code: "unknown_host",
         message: "Unknown host: host-b",
-        hint: "Run `bb machine list` for the enrolled host ids.",
+        hint: "Run `cc machine list` for the enrolled host ids.",
       },
     });
     expect(envelope.stderr).toContain("Unknown host: host-b");

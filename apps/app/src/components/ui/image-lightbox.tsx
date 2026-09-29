@@ -7,11 +7,11 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "@bb/shared-ui/button";
-import { usePersistentOverlayFocus } from "@bb/shared-ui/responsive-overlay";
-import { usePortalScopeProps } from "@bb/shared-ui/lib/portal-scope";
+import { Button } from "@cc/shared-ui/button";
+import { usePersistentOverlayFocus } from "@cc/shared-ui/responsive-overlay";
+import { usePortalScopeProps } from "@cc/shared-ui/lib/portal-scope";
 import { useBrowserDimmingOverlay } from "@/hooks/useBrowserDimmingModal";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@cc/shared-ui/icon";
 
 type ImageLightboxKeyAction = "close" | "next" | "previous";
 

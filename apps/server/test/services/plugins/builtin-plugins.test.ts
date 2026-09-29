@@ -22,9 +22,9 @@ import {
   setPluginSettingsValues,
   upsertPluginSchedule,
   type DbConnection,
-} from "@bb/db";
-import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@bb/domain";
-import type { Logger } from "@bb/logger";
+} from "@cc/db";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@cc/domain";
+import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -38,9 +38,8 @@ import {
   OFFICIAL_PLUGINS,
   resolveBuiltinPluginRootPath,
 } from "../../../src/services/plugins/builtin-registry.js";
-import { copyPluginRuntime } from "@bb/plugin-build";
+import { copyPluginRuntime } from "@cc/plugin-build";
 import { testLogger } from "../../helpers/test-app.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs/promises")>();
@@ -55,7 +54,7 @@ const fixtureRoot = resolve(
   "..",
   "fixtures",
   "plugins",
-  "bb-plugin-builtin-fixture",
+  "cc-plugin-builtin-fixture",
 );
 const globals = globalThis as Record<string, unknown>;
 
@@ -85,10 +84,10 @@ async function writePackagedBuiltinSource(
       join(sourceRoot, "package.json"),
       JSON.stringify(
         {
-          name: `bb-plugin-${name}`,
+          name: `cc-plugin-${name}`,
           version: "0.1.0",
           type: "module",
-          bb: {
+          cc: {
             name,
             description: `${name} builtin plugin fixture.`,
             branding: {
@@ -185,7 +184,6 @@ function createService(args: {
 }): PluginService {
   return createPluginService({
     aiServices: createAiServiceRegistry(),
-    telemetry: createNoopTelemetryService(),
     db: args.db,
     hub: {
       getDaemonSessionIdForHost: () => null,
@@ -260,7 +258,7 @@ describe("builtin plugin reconciliation", () => {
     delete globals.__hotBuiltinServerVersion;
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-builtin-plugins-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-builtin-plugins-"));
   });
 
   it("keeps official plugins bundled but out of the auto-install builtins", () => {
@@ -280,14 +278,14 @@ describe("builtin plugin reconciliation", () => {
     expect(OFFICIAL_PLUGINS.every((plugin) => !plugin.autoInstall)).toBe(true);
   });
 
-  it("enables the account pooler only when a parent bb server pool is present", () => {
+  it("enables the account pooler only when a parent cc server pool is present", () => {
     expect(accountPoolDefaultEnabled({})).toBe(false);
-    expect(accountPoolDefaultEnabled({ BB_ACCOUNT_POOL_PARENT_URL: "" })).toBe(
+    expect(accountPoolDefaultEnabled({ CC_ACCOUNT_POOL_PARENT_URL: "" })).toBe(
       false,
     );
     expect(
       accountPoolDefaultEnabled({
-        BB_ACCOUNT_POOL_PARENT_URL:
+        CC_ACCOUNT_POOL_PARENT_URL:
           "http://127.0.0.1:38886/api/v1/plugins/account-pool/http",
       }),
     ).toBe(true);
@@ -329,7 +327,7 @@ describe("builtin plugin reconciliation", () => {
     );
   });
 
-  it("removes a builtin and its data once bb no longer bundles it", async () => {
+  it("removes a builtin and its data once cc no longer bundles it", async () => {
     const dataDir = join(workDir, "data");
     const secretsDir = join(dataDir, "plugins", "builtin-fixture", "secrets");
     service = createService({ db, dataDir });
@@ -412,8 +410,8 @@ describe("builtin plugin reconciliation", () => {
     const legacyRows = [
       ["legacy-path", `path:${fixtureRoot}`, 1, 101],
       ["legacy-builtin", "builtin:fixture", 0, 102],
-      ["legacy-npm", "npm:bb-plugin-legacy@1.2.3", 1, 103],
-      ["legacy-git", `git:github.com/acme/bb-plugin-legacy@${sha}`, 0, 104],
+      ["legacy-npm", "npm:cc-plugin-legacy@1.2.3", 1, 103],
+      ["legacy-git", `git:github.com/acme/cc-plugin-legacy@${sha}`, 0, 104],
     ] as const;
     const insert = db.$client.prepare(
       `INSERT INTO plugins
@@ -446,7 +444,7 @@ describe("builtin plugin reconciliation", () => {
       enabled: true,
       removedAt: 103,
       sourceKind: "npm",
-      sourceNpmPackage: "bb-plugin-legacy",
+      sourceNpmPackage: "cc-plugin-legacy",
       sourceNpmRequestedSpec: "1.2.3",
       npmResolvedVersion: "1.2.3",
     });
@@ -454,7 +452,7 @@ describe("builtin plugin reconciliation", () => {
       enabled: false,
       removedAt: 104,
       sourceKind: "git",
-      sourceGitUrl: "https://github.com/acme/bb-plugin-legacy",
+      sourceGitUrl: "https://github.com/acme/cc-plugin-legacy",
       sourceGitRequestedRef: sha,
       gitResolvedCommit: sha,
     });
@@ -657,7 +655,7 @@ describe("builtin plugin reconciliation", () => {
   });
 
   it("refreshes the builtin row when the bundled package version changes", async () => {
-    const mutableRoot = join(workDir, "bb-plugin-builtin-fixture");
+    const mutableRoot = join(workDir, "cc-plugin-builtin-fixture");
     await cp(fixtureRoot, mutableRoot, { recursive: true });
     service = createService({
       db,
@@ -670,10 +668,10 @@ describe("builtin plugin reconciliation", () => {
     await writeFile(
       join(mutableRoot, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-builtin-fixture",
+        name: "cc-plugin-builtin-fixture",
         version: "0.2.0",
         type: "module",
-        bb: {
+        cc: {
           name: "Builtin fixture",
           description: "Builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -722,15 +720,15 @@ describe("builtin plugin reconciliation", () => {
   });
 
   it("hot-reloads a source-layout builtin server instead of a compatible dist artifact", async () => {
-    const mutableRoot = join(workDir, "bb-plugin-hot-server-builtin");
+    const mutableRoot = join(workDir, "cc-plugin-hot-server-builtin");
     await mkdir(join(mutableRoot, "dist"), { recursive: true });
     await writeFile(
       join(mutableRoot, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-hot-server-builtin",
+        name: "cc-plugin-hot-server-builtin",
         version: "0.1.0",
         type: "module",
-        bb: {
+        cc: {
           name: "Hot server builtin",
           description: "Hot server builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -778,15 +776,15 @@ describe("builtin plugin reconciliation", () => {
   }, 50_000);
 
   it("rebuilds a source-layout builtin app changed while the server was stopped", async () => {
-    const mutableRoot = join(workDir, "bb-plugin-stale-app-builtin");
+    const mutableRoot = join(workDir, "cc-plugin-stale-app-builtin");
     await mkdir(mutableRoot, { recursive: true });
     await writeFile(
       join(mutableRoot, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-stale-app-builtin",
+        name: "cc-plugin-stale-app-builtin",
         version: "0.1.0",
         type: "module",
-        bb: {
+        cc: {
           name: "Stale app builtin",
           description: "Stale app builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -843,15 +841,15 @@ describe("builtin plugin reconciliation", () => {
   }, 30_000);
 
   it("surfaces builtin app build failures in status until the next successful build", async () => {
-    const mutableRoot = join(workDir, "bb-plugin-hot-app-builtin");
+    const mutableRoot = join(workDir, "cc-plugin-hot-app-builtin");
     await mkdir(mutableRoot, { recursive: true });
     await writeFile(
       join(mutableRoot, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-hot-app-builtin",
+        name: "cc-plugin-hot-app-builtin",
         version: "0.1.0",
         type: "module",
-        bb: {
+        cc: {
           name: "Hot app builtin",
           description: "Hot app builtin plugin fixture.",
           branding: { icon: "Zap" },
@@ -987,7 +985,7 @@ describe("builtin plugin reconciliation", () => {
         version: "0.1.0",
         enabled: true,
         status: "incompatible",
-        statusDetail: `server artifact for plugin "automations" was built for SDK major ${incompatibleMajor}, running SDK major is ${PLUGIN_SDK_MAJOR}; rebuild the server artifact with this bb version`,
+        statusDetail: `server artifact for plugin "automations" was built for SDK major ${incompatibleMajor}, running SDK major is ${PLUGIN_SDK_MAJOR}; rebuild the server artifact with this cc version`,
       },
     ]);
     expect(packagedLoadCount()).toBe(before);
@@ -1022,7 +1020,7 @@ describe("builtin plugin packaging", () => {
   let workDir: string;
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-builtin-plugin-copy-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-builtin-plugin-copy-"));
   });
 
   afterEach(async () => {
@@ -1041,7 +1039,7 @@ describe("builtin plugin packaging", () => {
       await readFile(join(copiedRoot, "package.json"), "utf8"),
     );
     expect(packageJson).toMatchObject({
-      bb: {
+      cc: {
         server: "./dist/server.js",
         app: "./dist/app.js",
         skills: ["skills"],

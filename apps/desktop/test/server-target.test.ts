@@ -208,14 +208,14 @@ describe("server target store", () => {
     await store.setConnectServer({
       handle: "laptop",
       name: "Laptop",
-      url: "https://laptop.getbb.app",
+      url: "https://laptop.cc.example.invalid",
     });
     expect(store.getTarget()).toEqual({
       kind: "connect",
       server: {
         handle: "laptop",
         name: "Laptop",
-        url: "https://laptop.getbb.app",
+        url: "https://laptop.cc.example.invalid",
       },
     });
 
@@ -224,14 +224,14 @@ describe("server target store", () => {
       await store.refreshConnectServer({
         handle: "laptop",
         name: "Laptop Renamed",
-        url: "https://laptop-new.getbb.app",
+        url: "https://laptop-new.cc.example.invalid",
       }),
     ).toBe(true);
     expect(
       await store.refreshConnectServer({
         handle: "unknown",
         name: "Nope",
-        url: "https://nope.getbb.app",
+        url: "https://nope.cc.example.invalid",
       }),
     ).toBe(false);
     expect(store.getTarget()).toEqual({ kind: "builtin" });
@@ -246,7 +246,7 @@ describe("server target store", () => {
     expect(reloaded.getConnectServer()).toEqual({
       handle: "laptop",
       name: "Laptop Renamed",
-      url: "https://laptop-new.getbb.app",
+      url: "https://laptop-new.cc.example.invalid",
     });
   });
 
@@ -258,7 +258,7 @@ describe("server target store", () => {
     await store.setConnectServer({
       handle: "laptop",
       name: "Laptop",
-      url: "https://laptop.getbb.app",
+      url: "https://laptop.cc.example.invalid",
     });
     await store.setCustomServerUrl(null);
     expect(store.getTarget().kind).toBe("connect");

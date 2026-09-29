@@ -13,18 +13,18 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import type { PromptTextMention } from "@bb/domain";
-import { createThreadEnvironmentArgsSchema } from "@bb/server-contract";
+import type { PromptTextMention } from "@cc/domain";
+import { createThreadEnvironmentArgsSchema } from "@cc/server-contract";
 import type {
-  BbContext,
-  BbNavigate,
+  CcContext,
+  CcNavigate,
   ComposerView,
   PluginComposerApi,
   PluginComposerMention,
   PluginRealtimeConnectionState,
   PluginRpcContract,
   PluginRpcClient,
-  PluginBrowserBbSdk,
+  PluginBrowserCcSdk,
   PluginEnvironmentProvider,
   PluginEnvironmentProvidersState,
   PluginProvidersState,
@@ -35,13 +35,13 @@ import type {
   ExperimentalFixedTabTargetState,
   ExperimentalPluginFixedTabReference,
   JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   jsonValueSchema,
   permissionModeSchema,
   reasoningLevelSchema,
   serviceTierSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   PluginSlotOwnershipContext,
   usePluginId,
@@ -66,7 +66,7 @@ import {
 import {
   appendQuoteAndAttachmentsToDraft,
   isPromptDraftEmpty,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   AUTOMATIONS_PLUGIN_ID,
   getPluginPanelRoutePath,
@@ -291,7 +291,7 @@ export function useProviders(): PluginProvidersState {
   );
 }
 
-export function useSdk(): PluginBrowserBbSdk {
+export function useSdk(): PluginBrowserCcSdk {
   const pluginId = usePluginId();
   const queryClient = useQueryClient();
   return getPluginBoundSdk(sdk, pluginId, queryClient);
@@ -321,7 +321,7 @@ export function useEnvironmentProviders(): PluginEnvironmentProvidersState {
   );
 }
 
-export function useBbContext(): BbContext {
+export function useCcContext(): CcContext {
   const { projectId, threadId } = useRouteState();
   return useMemo(
     () => ({ projectId: projectId ?? null, threadId: threadId ?? null }),
@@ -329,11 +329,11 @@ export function useBbContext(): BbContext {
   );
 }
 
-interface BbNavigateWithDeprecatedAliases extends BbNavigate {
-  experimental_openUrl: BbNavigate["openUrl"];
+interface CcNavigateWithDeprecatedAliases extends CcNavigate {
+  experimental_openUrl: CcNavigate["openUrl"];
 }
 
-export function useBbNavigate(): BbNavigate {
+export function useCcNavigate(): CcNavigate {
   const pluginId = usePluginId();
   const location = useLocation();
   const openThreadPanelHandler = usePluginThreadPanelOpenHandler();
@@ -387,16 +387,16 @@ export function useBbNavigate(): BbNavigate {
     },
     [location.pathname, navigate, pluginId],
   );
-  const openThreadPanel = useCallback<BbNavigate["openThreadPanel"]>(
+  const openThreadPanel = useCallback<CcNavigate["openThreadPanel"]>(
     (options) => openThreadPanelHandler?.({ ...options, pluginId }) ?? false,
     [openThreadPanelHandler, pluginId],
   );
-  const openUrl = useCallback<BbNavigate["openUrl"]>(
+  const openUrl = useCallback<CcNavigate["openUrl"]>(
     (url) => appNavigation.openUrl({ url }),
     [appNavigation],
   );
   const experimental_openFilePreview = useCallback<
-    BbNavigate["experimental_openFilePreview"]
+    CcNavigate["experimental_openFilePreview"]
   >(
     (options) => {
       const normalized = normalizeExperimentalFileOpenOptions(options);
@@ -405,7 +405,7 @@ export function useBbNavigate(): BbNavigate {
     [appNavigation],
   );
   const experimental_openFileExternally = useCallback<
-    BbNavigate["experimental_openFileExternally"]
+    CcNavigate["experimental_openFileExternally"]
   >(
     (options) => {
       const normalized = normalizeExperimentalFileOpenOptions(options);
@@ -415,7 +415,7 @@ export function useBbNavigate(): BbNavigate {
     },
     [appNavigation],
   );
-  return useMemo<BbNavigateWithDeprecatedAliases>(
+  return useMemo<CcNavigateWithDeprecatedAliases>(
     () => ({
       toThread,
       toProject,

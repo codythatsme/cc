@@ -8,7 +8,7 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { withFileLock } from "@bb/config/file-lock";
+import { withFileLock } from "@cc/config/file-lock";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   extractServerArchive,
@@ -32,8 +32,8 @@ const lockAttempts = vi.hoisted(() => {
   };
 });
 
-vi.mock("@bb/config/file-lock", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@bb/config/file-lock")>();
+vi.mock("@cc/config/file-lock", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@cc/config/file-lock")>();
   return {
     ...actual,
     withFileLock<T>(args: {
@@ -50,7 +50,7 @@ vi.mock("@bb/config/file-lock", async (importOriginal) => {
 const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "bb-server-lock-"));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "cc-server-lock-"));
   tempDirs.push(tempDir);
   return tempDir;
 }
@@ -85,11 +85,11 @@ async function stageImport(): Promise<{
   manifest: ServerArchiveManifest;
 }> {
   const sourceDataDir = await makeTempDir();
-  await writeDataFile(sourceDataDir, "bb.db", "server database");
+  await writeDataFile(sourceDataDir, "cc.db", "server database");
   await writeDataFile(
     sourceDataDir,
     "config.json",
-    JSON.stringify({ config: { BB_LOG_LEVEL: "info" } }),
+    JSON.stringify({ config: { CC_LOG_LEVEL: "info" } }),
   );
   await writeDataFile(
     sourceDataDir,
@@ -110,7 +110,7 @@ async function stageImport(): Promise<{
       })),
     manifest: {
       createdAt: 1,
-      bbVersion: "0.43.1",
+      ccVersion: "0.43.1",
       protocolVersion: 209,
       migrationCount: 142,
       sourceDataDir,
@@ -150,13 +150,13 @@ async function holdLock(
 }
 
 describe("installImportedServerFiles managed file locks", () => {
-  it("waits for another bb command's config.json lock and merges what that command wrote", async () => {
+  it("waits for another cc command's config.json lock and merges what that command wrote", async () => {
     const { stagingDir, manifest } = await stageImport();
     const dataDir = await makeTempDir();
     await writeDataFile(
       dataDir,
       "config.json",
-      JSON.stringify({ config: { BB_APP_URL: "https://target.example" } }),
+      JSON.stringify({ config: { CC_APP_URL: "https://target.example" } }),
     );
     const lockPath = path.join(dataDir, ".config.json.lock");
     const lock = await holdLock(lockPath);
@@ -177,7 +177,7 @@ describe("installImportedServerFiles managed file locks", () => {
     await writeDataFile(
       dataDir,
       "config.json",
-      JSON.stringify({ config: { BB_APP_URL: "https://changed.example" } }),
+      JSON.stringify({ config: { CC_APP_URL: "https://changed.example" } }),
     );
     lock.release();
     await lock.released;
@@ -185,16 +185,16 @@ describe("installImportedServerFiles managed file locks", () => {
 
     expect(firstOutcome).toBe("waiting on the lock");
     expect(configWhileLocked).toEqual({
-      config: { BB_APP_URL: "https://target.example" },
+      config: { CC_APP_URL: "https://target.example" },
     });
-    expect(entriesWhileLocked).not.toContain("bb.db");
+    expect(entriesWhileLocked).not.toContain("cc.db");
     expect(await readDataJson(dataDir, "config.json")).toEqual({
-      config: { BB_APP_URL: "https://changed.example", BB_LOG_LEVEL: "info" },
+      config: { CC_APP_URL: "https://changed.example", CC_LOG_LEVEL: "info" },
     });
-    expect(await readdir(dataDir)).toContain("bb.db");
+    expect(await readdir(dataDir)).toContain("cc.db");
   });
 
-  it("waits for another bb command's env.json lock and merges what that command wrote", async () => {
+  it("waits for another cc command's env.json lock and merges what that command wrote", async () => {
     const { stagingDir, manifest } = await stageImport();
     const dataDir = await makeTempDir();
     await writeDataFile(
@@ -230,11 +230,11 @@ describe("installImportedServerFiles managed file locks", () => {
 
     expect(firstOutcome).toBe("waiting on the lock");
     expect(envWhileLocked).toEqual({ env: { TARGET_ONLY: "1" } });
-    expect(configWhileLocked).toEqual({ config: { BB_LOG_LEVEL: "info" } });
-    expect(entriesWhileLocked).not.toContain("bb.db");
+    expect(configWhileLocked).toEqual({ config: { CC_LOG_LEVEL: "info" } });
+    expect(entriesWhileLocked).not.toContain("cc.db");
     expect(await readDataJson(dataDir, "env.json")).toEqual({
       env: { SOURCE_ONLY: "1", TARGET_ONLY: "2" },
     });
-    expect(await readdir(dataDir)).toContain("bb.db");
+    expect(await readdir(dataDir)).toContain("cc.db");
   });
 });

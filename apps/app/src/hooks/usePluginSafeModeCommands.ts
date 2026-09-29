@@ -34,7 +34,7 @@ export function usePluginSafeModeCommands(): void {
               : "Plugin safe mode is off",
             {
               description: result.enabled
-                ? "Only plugins included with bb are running."
+                ? "Only plugins included with cc are running."
                 : "Your enabled plugins are running again.",
             },
           );

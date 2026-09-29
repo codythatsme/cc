@@ -1,4 +1,4 @@
-import { archiveThread, getThread, updateThread } from "@bb/db";
+import { archiveThread, getThread, updateThread } from "@cc/db";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { queueParentSystemMessage } from "../../src/services/threads/parent-system-messages.js";
 import { handleThreadOwnershipChange } from "../../src/services/threads/thread-ownership.js";

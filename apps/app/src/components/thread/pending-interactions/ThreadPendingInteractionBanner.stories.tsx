@@ -1,7 +1,7 @@
 import type {
   PendingInteraction,
   ProviderPendingInteraction,
-} from "@bb/domain";
+} from "@cc/domain";
 import { ThreadPendingInteractionBanner } from "@/components/thread/pending-interactions/ThreadPendingInteractionBanner";
 import { ThreadPromptContextBanner } from "@/components/promptbox/banner/ThreadPromptContextBanner";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
@@ -40,8 +40,8 @@ const commandApproval: PendingInteraction = {
     subject: {
       kind: "command",
       itemId: "item_cmd",
-      command: "git push origin bb/promptbox-stories",
-      cwd: "/workspace/bb",
+      command: "git push origin cc/promptbox-stories",
+      cwd: "/workspace/cc",
       actions: [],
       sessionGrant: null,
     },
@@ -60,8 +60,8 @@ const longCommandApproval: PendingInteraction = {
       kind: "command",
       itemId: "item_cmd_long",
       command:
-        "pnpm exec turbo run typecheck --filter=@bb/app --filter=@bb/server --filter=@bb/domain --filter=@bb/server-contract --force",
-      cwd: "/workspace/bb",
+        "pnpm exec turbo run typecheck --filter=@cc/app --filter=@cc/server --filter=@cc/domain --filter=@cc/server-contract --force",
+      cwd: "/workspace/cc",
       actions: [],
       sessionGrant: null,
     },
@@ -137,8 +137,8 @@ const permissionGrant: PendingInteraction = {
       permissions: {
         network: null,
         fileSystem: {
-          read: ["/workspace/bb/apps/app", "/workspace/bb/packages"],
-          write: ["/workspace/bb/apps/app/src/components/promptbox"],
+          read: ["/workspace/cc/apps/app", "/workspace/cc/packages"],
+          write: ["/workspace/cc/apps/app/src/components/promptbox"],
         },
       },
     },
@@ -161,7 +161,7 @@ const toolUse: PendingInteraction = {
       presentation: {
         label: { pending: "Creating issue", completed: "Created issue" },
         icon: { glyph: "Globe" },
-        title: "get-bb/bb · Banner clips long titles",
+        title: "codythatsme/cc · Banner clips long titles",
         detail: "Opens a **bug** issue with the repro steps from this thread.",
         tint: { light: "#2563eb", dark: "#93c5fd" },
       },

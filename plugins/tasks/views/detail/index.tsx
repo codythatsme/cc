@@ -4,7 +4,7 @@ import SmilePlusIcon from "@hugeicons/core-free-icons/SmilePlusIcon";
 import type { Task } from "../../shared/contract.js";
 import { errorMessage } from "../../shared/errors.js";
 import type { DelegationRpcContract } from "../../delegate/contract.js";
-import { useBbNavigate, useRpc } from "@get-bb/plugin-sdk/app";
+import { useCcNavigate, useRpc } from "@codythatsme/plugin-sdk/app";
 import {
   listAllTasks,
   useMentionItems,
@@ -345,7 +345,7 @@ function TaskDetail({ task }: { task: Task }) {
   };
 
   const mentionItems = useMentionItems();
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
 
   const descriptionValue =
     draft && draft.taskId === task.id ? draft.markdown : task.description;

@@ -28,7 +28,7 @@ export function marketplaceOgCard(
       }}
     >
       <div style={{ display: "flex", fontSize: 24, color: "#66685f" }}>
-        bb / Plugin Marketplace
+        cc / Plugin Marketplace
       </div>
       <div style={{ display: "flex", flex: 1, alignItems: "center", gap: 40 }}>
         <div
@@ -69,7 +69,7 @@ export function marketplaceOgCard(
         ) : null}
       </div>
       <div style={{ display: "flex", fontSize: 20, color: "#66685f" }}>
-        getbb.app/marketplace/{entry.id}
+        cc.example.invalid/marketplace/{entry.id}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import {
   claimAutomationScheduledRun,
@@ -52,7 +52,7 @@ function buildScheduleFailureHandler(
 }
 
 async function processDueAutomation(
-  bb: SweepApi,
+  cc: SweepApi,
   db: Db,
   args: {
     pluginDataDir: string;
@@ -79,7 +79,7 @@ async function processDueAutomation(
             timezone: trigger.timezone,
           });
   } catch (error) {
-    bb.log.error(
+    cc.log.error(
       `Skipping due automation ${args.automation.id} with invalid stored configuration: ${errorMessage(error)}`,
     );
     return;
@@ -96,7 +96,7 @@ async function processDueAutomation(
     now: args.now,
   });
   if (!claim.advanced) return;
-  publishAutomationChange(bb, args.automation.projectId, [
+  publishAutomationChange(cc, args.automation.projectId, [
     "automations-changed",
     "automation-runs-changed",
   ]);
@@ -104,14 +104,14 @@ async function processDueAutomation(
     run: claim.run,
   });
   if (execution.mode === "agent") {
-    await executeAgentRun(bb, db, {
+    await executeAgentRun(cc, db, {
       automation: args.automation,
       run: claim.run,
       execution,
       onFailure,
     });
   } else {
-    void executeScriptRun(bb, db, {
+    void executeScriptRun(cc, db, {
       pluginDataDir: args.pluginDataDir,
       automation: args.automation,
       run: claim.run,
@@ -120,7 +120,7 @@ async function processDueAutomation(
       serverUrl: args.serverUrl,
       resolveWorkingDirectory: args.resolveWorkingDirectory,
     }).catch((error: unknown) => {
-      bb.log.error(
+      cc.log.error(
         `Detached script automation ${args.automation.id} failed unexpectedly: ${errorMessage(error)}`,
       );
     });
@@ -128,16 +128,16 @@ async function processDueAutomation(
 }
 
 async function hasConnectedHost(
-  bb: Pick<BbPluginApi, "log"> & {
+  cc: Pick<CcPluginApi, "log"> & {
     sdk: { hosts: { list(): Promise<unknown> } };
   },
 ): Promise<boolean> {
   try {
     return hostListSchema
-      .parse(await bb.sdk.hosts.list())
+      .parse(await cc.sdk.hosts.list())
       .some((host) => host.status === "connected");
   } catch (error) {
-    bb.log.warn(
+    cc.log.warn(
       `Failed to list hosts for automation sweep: ${errorMessage(error)}`,
     );
     return false;
@@ -145,7 +145,7 @@ async function hasConnectedHost(
 }
 
 export async function sweepDueAutomations(
-  bb: SweepApi,
+  cc: SweepApi,
   db: Db,
   args: {
     pluginDataDir: string;
@@ -156,15 +156,15 @@ export async function sweepDueAutomations(
 ): Promise<void> {
   const now = args.now ?? Date.now();
   const due = listDueAutomations(db, { now, limit: DUE_AUTOMATION_BATCH_SIZE });
-  const agentHostsAvailable = await hasConnectedHost(bb);
+  const agentHostsAvailable = await hasConnectedHost(cc);
   const resolveWorkingDirectory = createScriptWorkingDirectoryResolver({
-    sdk: bb.sdk,
+    sdk: cc.sdk,
     pluginDataDir: args.pluginDataDir,
     serverHostId: args.serverHostId,
   });
   for (const automation of due) {
     try {
-      await processDueAutomation(bb, db, {
+      await processDueAutomation(cc, db, {
         pluginDataDir: args.pluginDataDir,
         automation,
         now,
@@ -173,7 +173,7 @@ export async function sweepDueAutomations(
         resolveWorkingDirectory,
       });
     } catch (error) {
-      bb.log.error(
+      cc.log.error(
         `Failed to process due automation ${automation.id}: ${errorMessage(error)}`,
       );
     }

@@ -1,9 +1,9 @@
-import { getNonDestroyedHost, getSessionById, type DbConnection } from "@bb/db";
+import { getNonDestroyedHost, getSessionById, type DbConnection } from "@cc/db";
 import {
   hostDaemonConnectTunnelIdentitySchema,
   type HostDaemonConnectShares,
   type HostDaemonConnectTunnelIdentity,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { ApiError } from "../errors.js";
 import type { NotificationHub } from "./hub.js";
 
@@ -248,7 +248,7 @@ export class HostSharedPortCoordinator {
       throw new ApiError(
         409,
         "connect_host_unenrolled",
-        `cannot share ports from host "${host.name}" (${host.id}) because it has no bb connect machine credential; enroll it via Connect in Settings > Machines`,
+        `cannot share ports from host "${host.name}" (${host.id}) because it has no cc connect machine credential; enroll it via Connect in Settings > Machines`,
         false,
       );
     }
@@ -305,7 +305,7 @@ export class HostSharedPortCoordinator {
     throw new ApiError(
       409,
       "connect_host_unenrolled",
-      `cannot share ports from host "${host.name}" (${host.id}) because it has no bb connect machine credential; enroll it via Connect in Settings > Machines`,
+      `cannot share ports from host "${host.name}" (${host.id}) because it has no cc connect machine credential; enroll it via Connect in Settings > Machines`,
       false,
     );
   }

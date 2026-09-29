@@ -7,12 +7,12 @@ import {
   pluginMarketplaceCollectionSchema,
   type PluginMarketplaceCategory,
   type PluginMarketplaceCollection,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   pluginMarketplaceNameSchema,
   ROOT_PLUGIN_SOURCE_SELECTION,
   type PluginSourceSelection,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import semver from "semver";
 import { z } from "zod";
 import {
@@ -30,16 +30,16 @@ import { BUNDLED_MARKETPLACE_NAME } from "./bundled-marketplace-paths.js";
 export { BUNDLED_MARKETPLACE_NAME } from "./bundled-marketplace-paths.js";
 
 export const MARKETPLACE_V1_SCHEMA_URL =
-  "https://getbb.app/schemas/marketplace.schema.json";
+  "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace.schema.json";
 export const MARKETPLACE_V2_SCHEMA_URL =
-  "https://getbb.app/schemas/marketplace-v2.schema.json";
+  "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace-v2.schema.json";
 
 export const CURATED_MARKETPLACE_V1_URL =
-  "https://getbb.app/marketplace/v1/marketplace.json";
+  "https://cc.example.invalid/marketplace/v1/marketplace.json";
 export const CURATED_MARKETPLACE_V2_URL =
-  "https://getbb.app/marketplace/v2/marketplace.json";
+  "https://cc.example.invalid/marketplace/v2/marketplace.json";
 
-export const BUILTIN_PUBLISHER_LABEL = "BB Official";
+export const BUILTIN_PUBLISHER_LABEL = "CC Official";
 
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
 const TAG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -342,6 +342,7 @@ export function curatedMarketplaceManifestUrls(configuredUrl: string): {
   primary: string;
   fallback: string | null;
 } {
+  if (configuredUrl.trim() === "") return { primary: "", fallback: null };
   const url = new URL(configuredUrl);
   if (url.toString() === CURATED_MARKETPLACE_V1_URL) {
     return {

@@ -272,7 +272,7 @@ export function createModalSandboxBackend(
             timeoutMs: SANDBOX_LIFETIME_MS,
             cpu: selection.preset?.cpu ?? null,
             memoryMiB: selection.preset?.memoryMiB ?? null,
-            tags: { bbMachineKey: context.key },
+            tags: { ccMachineKey: context.key },
           })
         );
       }, context.signal);
@@ -369,7 +369,7 @@ export function createModalSandboxBackend(
           timeoutMs: SANDBOX_LIFETIME_MS,
           cpu: resource.cpu,
           memoryMiB: resource.memoryMiB,
-          tags: { bbMachineKey: resource.key },
+          tags: { ccMachineKey: resource.key },
         });
         context.report.log(
           `Restored Modal sandbox ${sandbox.sandboxId} from image ${snapshotImageId}\n`,

@@ -2,7 +2,7 @@ import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { PLUGIN_ICON_MAX_BYTES } from "@bb/domain";
+import { PLUGIN_ICON_MAX_BYTES } from "@cc/domain";
 import {
   createTestAppHarness,
   type TestAppHarness,
@@ -29,7 +29,7 @@ async function writeIconPluginFixture(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "Icons fixture",
         description: "Declares icons.",
         branding: {
@@ -61,8 +61,8 @@ async function writeIconPluginFixture(
 }
 
 const PROVIDER_SOURCE = (icon: string): string => `
-  export default function plugin(bb: any) {
-    bb.providers.register({
+  export default function plugin(cc: any) {
+    cc.providers.register({
       id: "marked-agent",
       displayName: "Marked Agent",
       icon: ${JSON.stringify(icon)},
@@ -98,10 +98,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-iconed",
+      "cc-plugin-iconed",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-iconed",
+      name: "cc-plugin-iconed",
       icons: { receipt: "./icons/receipt.svg", mark: "./icons/mark.svg" },
       files: { "icons/receipt.svg": SVG, "icons/mark.svg": OTHER_SVG },
     });
@@ -221,10 +221,10 @@ describe("plugin-declared icons", () => {
       const rootDir = join(
         harness.config.dataDir,
         "fixtures",
-        "bb-plugin-badicon",
+        "cc-plugin-badicon",
       );
       await writeIconPluginFixture(rootDir, {
-        name: "bb-plugin-badicon",
+        name: "cc-plugin-badicon",
         icons,
         files,
       });
@@ -234,14 +234,14 @@ describe("plugin-declared icons", () => {
     },
   );
 
-  it("fails the load when bb.branding.icon is a namespaced glyph, even the plugin's own", async () => {
+  it("fails the load when cc.branding.icon is a namespaced glyph, even the plugin's own", async () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-branded",
+      "cc-plugin-branded",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-branded",
+      name: "cc-plugin-branded",
       brandingIcon: "branded/logo",
       icons: { logo: "./icons/logo.svg" },
       files: { "icons/logo.svg": SVG },
@@ -249,22 +249,22 @@ describe("plugin-declared icons", () => {
     await expect(
       harness.pluginService.installPath(rootDir),
     ).rejects.toThrowError(
-      /\(bb\.branding\.icon\): "branded\/logo" is a namespaced glyph/,
+      /\(cc\.branding\.icon\): "branded\/logo" is a namespaced glyph/,
     );
     expect(harness.pluginService.getApi("branded")).toBeUndefined();
   });
 
   it("fails the load for an icon reached through a symlink outside the plugin", async () => {
-    const outside = join(tmpdir(), `bb-plugin-icon-outside-${Date.now()}`);
+    const outside = join(tmpdir(), `cc-plugin-icon-outside-${Date.now()}`);
     await mkdir(outside, { recursive: true });
     await writeFile(join(outside, "receipt.svg"), SVG);
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-linked",
+      "cc-plugin-linked",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-linked",
+      name: "cc-plugin-linked",
       icons: { receipt: "./icons/receipt.svg" },
     });
     await mkdir(join(rootDir, "icons"), { recursive: true });
@@ -283,10 +283,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-tooled",
+      "cc-plugin-tooled",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-tooled",
+      name: "cc-plugin-tooled",
       icons: { stamp: "./icons/stamp.svg" },
       files: { "icons/stamp.svg": SVG },
     });
@@ -335,10 +335,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-marked",
+      "cc-plugin-marked",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-marked",
+      name: "cc-plugin-marked",
       icons: { agent: "./icons/agent.svg" },
       files: { "icons/agent.svg": SVG },
       serverSource: PROVIDER_SOURCE("marked/agent"),
@@ -387,10 +387,10 @@ describe("plugin-declared icons", () => {
     const rootDir = join(
       harness.config.dataDir,
       "fixtures",
-      "bb-plugin-unmarked",
+      "cc-plugin-unmarked",
     );
     await writeIconPluginFixture(rootDir, {
-      name: "bb-plugin-unmarked",
+      name: "cc-plugin-unmarked",
       icons: { agent: "./icons/agent.svg" },
       files: { "icons/agent.svg": SVG },
       serverSource: PROVIDER_SOURCE("unmarked/badge"),

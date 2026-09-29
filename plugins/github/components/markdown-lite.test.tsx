@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 
 await loadPluginApp(() => import("../app"));
 const { Markdown } = await import("./markdown-lite");
@@ -65,7 +65,7 @@ After the table.`}
     const slot = renderSlot(
       {
         component: () => (
-          <Markdown content="[Open issue](https://github.com/get-bb/bb/issues/1)" />
+          <Markdown content="[Open issue](https://github.com/codythatsme/cc/issues/1)" />
         ),
       },
       {},
@@ -74,7 +74,7 @@ After the table.`}
 
     const link = slot.getByRole("link", { name: "Open issue" });
     expect(link.getAttribute("href")).toBe(
-      "https://github.com/get-bb/bb/issues/1",
+      "https://github.com/codythatsme/cc/issues/1",
     );
     expect(link.getAttribute("target")).toBe("_blank");
     link.click();

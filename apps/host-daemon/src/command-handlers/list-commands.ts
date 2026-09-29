@@ -6,9 +6,9 @@ import type {
   ProviderNativeRootSet,
   ProviderNativeRoots,
   ProviderResolvedNativeRoot,
-} from "@bb/domain";
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
-import { isPathWithinDirectory } from "@bb/process-utils";
+} from "@cc/domain";
+import type { HostDaemonOnlineRpcResult } from "@cc/host-daemon-contract";
+import { isPathWithinDirectory } from "@cc/process-utils";
 import {
   CommandDispatchError,
   type CommandOf,

@@ -19,19 +19,19 @@ import type {
   ThreadQueuedMessage,
   ThreadTurnInitiator,
   WorkspaceProvisionType,
-} from "@bb/domain";
-import type { ProviderFork } from "@bb/domain/provider-fork";
+} from "@cc/domain";
+import type { ProviderFork } from "@cc/domain/provider-fork";
 import type {
-  BbSdk,
+  CcSdk,
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadPluginMetadataResult,
-} from "@bb/sdk";
+} from "@cc/sdk";
 import type {
   ExecutionInputFieldSource,
   ThreadResponse,
   TerminalSession,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { JsonValue, ReadonlyJsonValue } from "./json-value.js";
 import type {
   PluginRpcContract,
@@ -44,14 +44,14 @@ import type {
 } from "./host-contract.js";
 
 /**
- * The backend plugin API contract — the `bb` object handed to a plugin's
- * `server.ts` factory (`export default function plugin(bb: BbPluginApi)`).
+ * The backend plugin API contract — the `cc` object handed to a plugin's
+ * `server.ts` factory (`export default function plugin(cc: CcPluginApi)`).
  *
- * Types only: the implementation lives in the BB server
+ * Types only: the implementation lives in the CC server
  * (apps/server/src/services/plugins/plugin-api.ts), which imports these
  * shapes so the contract and the implementation cannot drift. Plugin authors
- * import them type-only (`import type { BbPluginApi } from
- * "@get-bb/plugin-sdk"`); the import is erased when BB loads the file.
+ * import them type-only (`import type { CcPluginApi } from
+ * "@codythatsme/plugin-sdk"`); the import is erased when CC loads the file.
  *
  * Runtime classes stay host-side. NeedsConfigurationError in particular is
  * matched by NAME, so plugin code needs no runtime import:
@@ -177,7 +177,7 @@ export interface PluginKvStorage {
 }
 
 export interface PluginStorage {
-  /** Namespaced JSON key-value rows in bb.db; values ≤256KB each. */
+  /** Namespaced JSON key-value rows in cc.db; values ≤256KB each. */
   kv: PluginKvStorage;
   /**
    * The plugin's own SQLite database at <dataDir>/plugins/<id>/data.db — the
@@ -190,7 +190,7 @@ export interface PluginStorage {
   database(): Database.Database;
   /**
    * Ordered-statement migration helper: statement index = migration id in a
-   * `_bb_migrations` table; unapplied statements run in one transaction. The
+   * `_cc_migrations` table; unapplied statements run in one transaction. The
    * host records each statement hash and rejects changed or reused indexes.
    * Append-only — never reorder or edit shipped statements.
    */
@@ -207,8 +207,8 @@ export interface PluginStorage {
  *
  * Ids and failure facts only. There is no thread DTO and no copy of the
  * message that failed: a retry re-submits the turn BY REFERENCE
- * (`bb.sdk.threads.retry`), so the id is the whole of what a policy needs, and
- * anything else about the thread is one `bb.sdk.threads.get` away and fresher
+ * (`cc.sdk.threads.retry`), so the id is the whole of what a policy needs, and
+ * anything else about the thread is one `cc.sdk.threads.get` away and fresher
  * for being read when it is used.
  */
 export interface PluginTurnFailedEvent {
@@ -216,7 +216,7 @@ export interface PluginTurnFailedEvent {
   threadId: string;
   /**
    * The failed turn's `client/turn/requested` id — what
-   * `bb.sdk.threads.retry` takes as `turnRequestId`. On a retry's failure this
+   * `cc.sdk.threads.retry` takes as `turnRequestId`. On a retry's failure this
    * is the RETRY's id; core walks back to the request the chain started from
    * when it queues the next attempt.
    */
@@ -252,12 +252,12 @@ export interface PluginTurnFailedEvent {
 }
 
 /**
- * Lifecycle events a plugin can observe with `bb.events.on` (design §4.5).
+ * Lifecycle events a plugin can observe with `cc.events.on` (design §4.5).
  *
  * **Events are announcements core makes.** Something already happened; a
  * handler is told about it and whatever it returns is IGNORED. Handlers run
  * fire-and-forget after the change is applied and can never block or veto it.
- * The surface that *can* is `bb.experimental_hooks`, where core asks a
+ * The surface that *can* is `cc.experimental_hooks`, where core asks a
  * question and acts on the answer — the same split git draws between its
  * post-commit and pre-commit hooks.
  *
@@ -272,7 +272,7 @@ export interface PluginThreadEventPayloads {
   /**
    * Fired once after a machine is removed, whether a user removed it or its
    * machine provider finished tearing it down. `host` is the record as it was
-   * when it was removed; `bb.sdk.hosts.get` answers 404 for it from now on, so
+   * when it was removed; `cc.sdk.hosts.get` answers 404 for it from now on, so
    * this is the moment to drop anything the plugin keeps per host.
    */
   "experimental_host.deleted": { host: Host };
@@ -311,7 +311,7 @@ export interface PluginThreadEventPayloads {
    *
    * Every listener sees every queued row, not just the ones it is holding: an
    * observer that only wants its own filters on
-   * `entry.waitingOn?.kind === "plugin" && entry.waitingOn.pluginId === bb.pluginId`.
+   * `entry.waitingOn?.kind === "plugin" && entry.waitingOn.pluginId === cc.pluginId`.
    *
    * A re-queue fires this again with the new wait, because a row that moved
    * from one wait to another is news to whoever was waiting on the old one.
@@ -327,7 +327,7 @@ export interface PluginThreadEventPayloads {
    *
    * An announcement, not a question: the failure stands exactly as core
    * applied it, and a listener that wants another attempt asks for one with
-   * `bb.sdk.threads.retry({ threadId, turnRequestId, sendAt })`. That retry is
+   * `cc.sdk.threads.retry({ threadId, turnRequestId, sendAt })`. That retry is
    * an ordinary dispatch attempt, so it still passes the `message.dispatch`
    * hook — a retry coming back after a rate-limit window respects a limiter
    * that is at capacity instead of jumping the queue.
@@ -335,7 +335,7 @@ export interface PluginThreadEventPayloads {
   "turn.failed": PluginTurnFailedEvent;
   /**
    * Fired after a queued row is removed before it ever dispatched — the user
-   * deleted it from the queued card or `bb thread queue`. This is the only
+   * deleted it from the queued card or `cc thread queue`. This is the only
    * signal for that removal: a plugin holding external resources for a
    * waiting message (a sandbox mid-provision, a reserved slot) releases them
    * here. Rows that dispatch fire `message.dispatched` instead, and rows that
@@ -651,7 +651,7 @@ export interface MessageDispatchHookContext {
    * when none of them has a sender, or the literal `"mixed"` when the rows
    * disagree. A thread-start names its requesting thread; a message a human
    * typed and a core-driven retry have no sender. Null therefore still means
-   * "nobody sent this" rather than "bb could not tell", so a handler may key
+   * "nobody sent this" rather than "cc could not tell", so a handler may key
    * a human-versus-agent policy on it; `queuedMessages` names each row's own
    * sender. Thread ids are prefixed, so no id collides with `"mixed"`.
    */
@@ -724,7 +724,7 @@ export interface PluginHooks {
    *
    * **Hooks are questions core asks.** Core stops at a checkpoint, hands the
    * handler a context, and ACTS ON what it returns — the opposite of
-   * `bb.events`, whose handlers are told what already happened and whose
+   * `cc.events`, whose handlers are told what already happened and whose
    * return value is ignored. It is the same split git draws between its
    * pre-commit and post-commit hooks, and the reason the two live in separate
    * namespaces rather than behind one `on`.
@@ -827,10 +827,10 @@ export interface PluginHttp {
   /**
    * Register an HTTP route, mounted at
    * `/api/v1/plugins/<id>/http/<path>`. Auth modes (default "local"):
-   * - "local": Origin/Host must be a local BB app origin; non-GET requires
+   * - "local": Origin/Host must be a local CC app origin; non-GET requires
    *   content-type application/json (forces a CORS preflight).
-   * - "token": requires the per-plugin token (`bb plugin token <id>`) via
-   *   the x-bb-plugin-token header or ?token=.
+   * - "token": requires the per-plugin token (`cc plugin token <id>`) via
+   *   the x-cc-plugin-token header or ?token=.
    * - "none": no checks — only for signature-verified webhooks.
    */
   route(
@@ -905,7 +905,7 @@ export interface PluginBackground {
    * durable row keyed (pluginId, name) is upserted at load; the periodic
    * sweep claims due rows with a CAS on next_run_at, but only while this
    * plugin is loaded. Failures land in last_status/last_error, visible in
-   * `bb plugin list`.
+   * `cc plugin list`.
    */
   schedule(name: string, cron: string, fn: () => void | Promise<void>): void;
 }
@@ -944,7 +944,7 @@ export type PluginInteractionResult =
 
 /**
  * What a submitted form leaves in the thread timeline, chosen by the plugin.
- * bb never stores the form's payload or the submitted value; it stores only
+ * cc never stores the form's payload or the submitted value; it stores only
  * this description, so a plugin decides what the transcript keeps.
  */
 export interface PluginInteractionDescription {
@@ -969,13 +969,13 @@ export interface PluginInteractionRequest {
   timeoutMs?: number;
   /**
    * How the form reads as a timeline row while it waits and once it settles,
-   * in the same shape as a native tool's presentation. bb fills what is left
+   * in the same shape as a native tool's presentation. cc fills what is left
    * out: "Waiting for <title>" / "Submitted <title>" and the plugin's glyph.
    */
   presentation?: PluginRowPresentation;
   /**
    * Called once with the submitted value, before the waiting `requestInput`
-   * promise resolves; never for a cancellation, which bb titles itself. Its
+   * promise resolves; never for a cancellation, which cc titles itself. Its
    * return is persisted on the row. A throw or a slow return leaves the row
    * with its completed label and nothing more.
    */
@@ -1014,9 +1014,9 @@ export interface PluginCliExecutionResult {
 }
 
 export interface PluginCliRegistration {
-  /** Preferred top-level command name (`bb <name> …`): lowercase [a-z0-9-]+.
+  /** Preferred top-level command name (`cc <name> …`): lowercase [a-z0-9-]+.
    * A core collision logs an activation warning and remains available through
-   * `bb plugin run <plugin-id>`. */
+   * `cc plugin run <plugin-id>`. */
   name: string;
   summary: string;
   /** Subcommand metadata rendered in help and the plugin-commands skill
@@ -1024,7 +1024,7 @@ export interface PluginCliRegistration {
   commands?: PluginCliCommandInfo[];
   /**
    * Set when `run` answers `--help` / `-h` itself, at every level, without
-   * executing a command. The `bb` CLI then forwards help requests to the
+   * executing a command. The `cc` CLI then forwards help requests to the
    * plugin instead of printing the one-line `usage` from `commands`.
    * `defineCli` sets it. Leave it unset for a hand-written `run`:
    * the host cannot know that such a parser will not act on the other
@@ -1039,8 +1039,8 @@ export interface PluginCliRegistration {
 
 export interface PluginCli {
   /**
-   * Register this plugin's `bb` subcommand. One registration per factory
-   * execution; a repeated call is rejected. Core bb commands always win
+   * Register this plugin's `cc` subcommand. One registration per factory
+   * execution; a repeated call is rejected. Core cc commands always win
    * name collisions; the plugin is warned and remains explicitly callable by id.
    */
   register(registration: PluginCliRegistration): void;
@@ -1050,7 +1050,7 @@ export interface PluginCli {
 // Agent surfaces: per-turn context and native tools (design §4.4).
 // ---------------------------------------------------------------------------
 
-/** Per-turn context handed to bb.agents context providers (design §4.4). */
+/** Per-turn context handed to cc.agents context providers (design §4.4). */
 /** MCP-style content parts a native tool may return (design §4.4). */
 export type PluginAgentToolContentPart =
   | { type: "text"; text: string }
@@ -1066,7 +1066,7 @@ export interface PluginAgentToolContext {
   projectId: string;
   /**
    * Aborts when the tool-call request is cancelled, the thread is stopped or
-   * deleted, or this plugin is disposed. Opening a form with `bb.ui.requestInput`
+   * deleted, or this plugin is disposed. Opening a form with `cc.ui.requestInput`
    * detaches the call from its request: the agent receives a waiting notice,
    * and request cancellation no longer aborts this signal. The tool's eventual
    * result is delivered as a system message (success steers a running turn or
@@ -1089,7 +1089,7 @@ export interface PluginRowLabels {
 
 /**
  * How something a plugin owns reads as a timeline row (grammar v3): a native
- * tool's calls, or the row a `bb.ui.requestInput` form leaves behind. Every
+ * tool's calls, or the row a `cc.ui.requestInput` form leaves behind. Every
  * field is optional: the server fills what the plugin leaves out (a generic
  * label; the plugin's branding glyph, then `Toolbox`) and hands one complete
  * presentation to whatever renders the row.
@@ -1100,7 +1100,7 @@ export interface PluginRowPresentation {
   /**
    * A named host glyph (`{ glyph: "Workflow" }`), or one of this plugin's
    * own declared icons by its namespaced glyph (`{ glyph: "<pluginId>/<name>" }`,
-   * an entry of the manifest's `bb.branding.experimental_icons` map). A
+   * an entry of the manifest's `cc.branding.experimental_icons` map). A
    * namespaced glyph that names another plugin or an undeclared name rejects
    * the tool registration.
    */
@@ -1126,9 +1126,9 @@ export interface PluginAgentToolRegistrationBase {
   instructions?: string;
   /**
    * How calls to this tool read as a timeline row (grammar v3). When omitted,
-   * BB shows the standard tool name (`Running <name>` / `Ran <name>`) and the
+   * CC shows the standard tool name (`Running <name>` / `Ran <name>`) and the
    * plugin's branding glyph. Approval, error, and interruption states keep
-   * BB's standard rendering. See docs/api_to_audit.md.
+   * CC's standard rendering. See docs/api_to_audit.md.
    */
   presentation?: PluginRowPresentation;
 }
@@ -1176,7 +1176,7 @@ export interface PluginAgentConfigurationContext {
      */
     capabilities: {
       /**
-       * The provider ships its own user-question affordance and bb routes it
+       * The provider ships its own user-question affordance and cc routes it
        * into the pending-interaction path. A plugin offering the same thing
        * should withhold it here, or the model gets two ways to ask once.
        */
@@ -1224,7 +1224,7 @@ export interface PluginAgentConfiguration {
 // ---------------------------------------------------------------------------
 
 /**
- * Permission modes a provider can run a session in — BB's own permission
+ * Permission modes a provider can run a session in — CC's own permission
  * vocabulary, ordered least ("accept-edits") to most ("full") privileged.
  */
 export type PluginProviderPermissionMode = "accept-edits" | "auto" | "full";
@@ -1246,7 +1246,7 @@ export type PluginProviderReasoningLevel =
 
 /**
  * Composer actions a provider supports, by name only. The skills
- * slash-command typeahead is universal — BB injects skills into every
+ * slash-command typeahead is universal — CC injects skills into every
  * provider — so it is implicit and never declared, and the composer owns the
  * trigger syntax (`/plan `, `/goal `) rather than each declaration repeating
  * it.
@@ -1284,10 +1284,10 @@ export interface PluginProviderCapabilities {
   /** The provider accepts an explicit context-compaction request — gates the
    * compact affordance. */
   supportsManualCompaction: boolean;
-  /** The provider keeps its own thread archive, so BB mirrors archive and
-   * unarchive onto it instead of tracking the state only in bb's own rows. */
+  /** The provider keeps its own thread archive, so CC mirrors archive and
+   * unarchive onto it instead of tracking the state only in cc's own rows. */
   supportsThreadArchive: boolean;
-  /** The provider stores a thread name of its own, so BB forwards renames to
+  /** The provider stores a thread name of its own, so CC forwards renames to
    * it. */
   supportsThreadRename: boolean;
   /** Permission modes the provider can actually run in. Non-empty, no
@@ -1302,7 +1302,7 @@ export interface PluginProviderCapabilities {
  * Provider copy core surfaces render from per-provider tables today (usage
  * banners, sign-in hints, the mobile picker, the agent guide). Declared once
  * here so no core surface keys copy on a provider id. Mirrors
- * `ProviderStrings` in `@bb/domain`, which is the client projection.
+ * `ProviderStrings` in `@cc/domain`, which is the client projection.
  */
 export interface PluginProviderStrings {
   /** How to sign in on the host ("Run `claude` on the machine to sign in."). */
@@ -1355,17 +1355,17 @@ export interface PluginProviderOptionsContext {
   projectId: string;
   /** The resolved model id for this command. */
   model: string;
-  /** BB's permission mode for this command (already clamped to the host). */
+  /** CC's permission mode for this command (already clamped to the host). */
   permissionMode: PluginProviderPermissionMode;
   /**
    * `"plan"` when the prompt entered plan mode through this provider's
    * declared `plan` composer action. Absent for an ordinary prompt — plan
-   * mode is a BB prompt mode, so the bridge maps it onto whatever the agent
+   * mode is a CC prompt mode, so the bridge maps it onto whatever the agent
    * calls it natively.
    */
   promptMode?: "plan";
   /**
-   * This plugin's own settings values (`bb.settings.define`), read at call
+   * This plugin's own settings values (`cc.settings.define`), read at call
    * time. Secret settings are omitted — provider options ride the daemon
    * wire and are persisted with the session, so a secret must never be
    * derived into them.
@@ -1425,7 +1425,7 @@ export type PluginProviderNativeRootEntry = ProviderNativeRootInput;
 export type PluginProviderNativeRoots = ProviderNativeRootsInputLike;
 
 /**
- * One provider this plugin contributes to BB's provider registry.
+ * One provider this plugin contributes to CC's provider registry.
  *
  * Ids are stable public identifiers — thread rows and routes reference them —
  * and are collision-rejected: a declaration whose id matches another plugin's
@@ -1435,11 +1435,11 @@ export type PluginProviderNativeRoots = ProviderNativeRootsInputLike;
  *
  * A declaration owns the provider's static metadata and bridge options. The
  * executable implementation is the plugin's own provider bridge: the
- * `experimental_providerBridge` export of the `bb.host` artifact the manifest
+ * `experimental_providerBridge` export of the `cc.host` artifact the manifest
  * names (`PROVIDER_BRIDGE_EXPORT_NAME` in the bridge kit), built into the
- * artifact BB ships to hosts. Declaring a provider in a plugin with no
- * `bb.host` entry is refused, because the picker entry would exist and no
- * turn on it could ever run; a `bb.host` entry whose artifact failed to
+ * artifact CC ships to hosts. Declaring a provider in a plugin with no
+ * `cc.host` entry is refused, because the picker entry would exist and no
+ * turn on it could ever run; a `cc.host` entry whose artifact failed to
  * build still stages the declaration so the provider is listed as
  * unavailable.
  */
@@ -1459,9 +1459,9 @@ export interface PluginProviderDeclaration {
   /**
    * Optional picker icon: a named host glyph (`"Zap"`) or a plugin-relative
    * path starting with `"./"` (`"./icons/agent.svg"`) — the two forms
-   * `bb.branding.icon` takes — or, unlike `bb.branding.icon`, one of this
+   * `cc.branding.icon` takes — or, unlike `cc.branding.icon`, one of this
    * plugin's declared icons by its namespaced glyph (`"<pluginId>/<name>"`,
-   * an entry of the manifest's `bb.branding.experimental_icons` map; the
+   * an entry of the manifest's `cc.branding.experimental_icons` map; the
    * plugin id must be this plugin's and the name must be declared, else the
    * plugin fails to load). Paths follow the manifest entry-path escape rules
    * — no leading "/", no ".." segments, no backslashes.
@@ -1498,7 +1498,7 @@ export interface PluginProviderDeclaration {
    * every row of a finished turn visible, as it was while the turn ran. This
    * is only the provider's default: the user can choose either display for
    * each provider in Settings → Providers or with
-   * `bb settings completed-turns`, and that choice wins.
+   * `cc settings completed-turns`, and that choice wins.
    */
   completedTurnDisplay?: PluginProviderCompletedTurnDisplay;
   // -------------------------------------------------------------------------
@@ -1538,9 +1538,9 @@ export interface PluginProviderDeclaration {
     /**
      * How far one `model/list` answer travels. `"host"` means the catalog is
      * the same everywhere on a machine — the bridge answers from account or
-     * agent state and ignores the workspace path — so bb probes once per host
+     * agent state and ignores the workspace path — so cc probes once per host
      * and reuses the answer for every environment on it. `"workspace"` (the
-     * default) means project configuration can change the answer, so bb
+     * default) means project configuration can change the answer, so cc
      * probes per workspace and sends the path.
      *
      * Declaring `"host"` wrongly is a stale catalog in a workspace that
@@ -1551,7 +1551,7 @@ export interface PluginProviderDeclaration {
   };
   /**
    * Daemon environment variables this provider's bridge may read. Provider
-   * processes are spawned with every inherited `BB_*` variable stripped, so a
+   * processes are spawned with every inherited `CC_*` variable stripped, so a
    * bridge that honors an operator override (a CLI path, say) names it here
    * and the daemon forwards exactly those variables. Names are
    * `[A-Z_][A-Z0-9_]*`, at most 32.
@@ -1563,7 +1563,7 @@ export interface PluginProviderDeclaration {
    * Directories this provider's agent reads its own skills from, relative to
    * the target host's home directory (`user`) or to the workspace
    * (`project`). An agent with skills of its own — an ACP agent pointed at
-   * `.cursor/skills`, say — names them here so bb can list them beside its
+   * `.cursor/skills`, say — names them here so cc can list them beside its
    * own; core never guesses a provider's skill layout. Paths are relative
    * and may not contain dot segments; each side holds at most 32 roots. One
    * declaration is global, so a directory only one host can name (an agent's
@@ -1574,13 +1574,13 @@ export interface PluginProviderDeclaration {
   /**
    * Directories this provider's agent reads its own slash commands from —
    * flat directories of `*.md` prompt files (`.claude/commands`, say) — in
-   * the same two-sided shape as `experimental_nativeSkillRoots`. bb offers
+   * the same two-sided shape as `experimental_nativeSkillRoots`. cc offers
    * them in the composer beside the agent's skills.
    */
   experimental_nativeCommandRoots?: PluginProviderNativeRoots;
   /**
-   * This plugin's `bb.host` entry implements
-   * `experimental_nativeRootsHostContract` (`@get-bb/plugin-sdk/host`): core
+   * This plugin's `cc.host` entry implements
+   * `experimental_nativeRootsHostContract` (`@codythatsme/plugin-sdk/host`): core
    * calls `resolveNativeRoots({ cwd })` on the workspace host when it lists
    * commands or skills, and scans what comes back beside the declared roots.
    * This is where a provider's host-only knowledge goes — a config-moved
@@ -1618,7 +1618,7 @@ export interface PluginAgents {
    * an already-running session is not hot-mutated. Instructions follow the
    * same boundary: a live provider session keeps the instructions it was
    * constructed with, and a changed selection applies when the session is
-   * next constructed. Skill changes follow BB's environment runtime policy:
+   * next constructed. Skill changes follow CC's environment runtime policy:
    * a busy runtime keeps its current catalog until a safe relaunch. Side chats
    * are ordinary plugin-owned forks here — read `origin` to detect them — and
    * their returned tool, skill, and dynamic-instruction selections apply at the
@@ -1680,7 +1680,7 @@ export interface PluginAgents {
 
 /**
  * Provider registration (docs/provider-plugin-api.md §1). Owns only
- * registration; `bb.agents` keeps `configure`, `registerTool`, and
+ * registration; `cc.agents` keeps `configure`, `registerTool`, and
  * `contributeInstructions`.
  */
 export interface PluginProviders {
@@ -1762,7 +1762,7 @@ export interface PluginMentionItem {
   title: string;
   subtitle?: string;
   /**
-   * BB icon name: a built-in name, or a name the plugin's app bundle
+   * CC icon name: a built-in name, or a name the plugin's app bundle
    * registered with `app.experimental_icons.register()`. The row prefers the
    * plugin's own branding icon when it ships one; unknown names fall back to
    * the generic plugin icon.
@@ -1853,28 +1853,28 @@ export interface PluginEvents {
 
 export interface PluginServerApi {
   /**
-   * The operator-configured public app URL from `BB_APP_URL`, or `null` when
+   * The operator-configured public app URL from `CC_APP_URL`, or `null` when
    * the operator has not configured one. This value is not bind-gated.
    */
   readonly experimental_appUrl: string | null;
 
   /**
-   * This BB server's own loopback base URL (e.g. "http://127.0.0.1:38886"),
+   * This CC server's own loopback base URL (e.g. "http://127.0.0.1:38886"),
    * which serves the SPA + /api + /ws. For plugins that proxy or relay
    * traffic back to the server itself (e.g. a tunnel). Bind-gated like
-   * `bb.sdk`: reading it before the server is listening throws, so prefer
+   * `cc.sdk`: reading it before the server is listening throws, so prefer
    * reading it from handlers, services, and timers.
    */
   readonly loopbackBaseUrl: string;
 
   /**
-   * This server's data directory — the one holding `config.json`, `bb.db` and
+   * This server's data directory — the one holding `config.json`, `cc.db` and
    * `plugins/<id>/`. A plugin cannot compute it: a dev server derives it from
-   * its repo root and instance id, so a plugin that guesses `~/.bb` reads the
+   * its repo root and instance id, so a plugin that guesses `~/.cc` reads the
    * production file while the dev server reads another one.
    *
-   * For reading bb-managed files a plugin is migrating away from. A plugin's
-   * OWN storage is `bb.storage`, which is scoped for it; this is deliberately
+   * For reading cc-managed files a plugin is migrating away from. A plugin's
+   * OWN storage is `cc.storage`, which is scoped for it; this is deliberately
    * not a place to write.
    */
   readonly experimental_dataDir: string;
@@ -1887,7 +1887,7 @@ export interface PluginServerApi {
 /** Options for one `complete` call. */
 export interface PluginAiCompleteOptions {
   /**
-   * Aborted when bb stops waiting: the task timed out (5 seconds for titles
+   * Aborted when cc stops waiting: the task timed out (5 seconds for titles
    * and commit messages) or the request was cancelled. Pass it to `fetch`.
    */
   readonly signal: AbortSignal;
@@ -1895,7 +1895,7 @@ export interface PluginAiCompleteOptions {
 
 /** Options for one `transcribe` call. */
 export interface PluginAiTranscribeOptions {
-  /** Aborted when bb stops waiting (10 seconds) or the request was cancelled. */
+  /** Aborted when cc stops waiting (10 seconds) or the request was cancelled. */
   readonly signal: AbortSignal;
   /**
    * Vocabulary the speaker is likely to use (names, identifiers), for
@@ -1906,7 +1906,7 @@ export interface PluginAiTranscribeOptions {
 
 /**
  * Whether a service can answer right now. `message` is shown to the user
- * beside the service ("Sign in to your bb account") and should say how to
+ * beside the service ("Sign in to your cc account") and should say how to
  * make it ready.
  */
 export type PluginAiServiceStatus =
@@ -1914,21 +1914,21 @@ export type PluginAiServiceStatus =
   | { readonly ready: false; readonly message: string };
 
 /**
- * An AI service bb can use for its helper tasks: thread titles and commit
+ * An AI service cc can use for its helper tasks: thread titles and commit
  * messages (`complete`) and voice input (`transcribe`). The user picks a
  * service per task in Settings → AI services or with
- * `bb settings ai-services set`. The functions run in the plugin's server
+ * `cc settings ai-services set`. The functions run in the plugin's server
  * process; a plugin that needs host-local state (a login file, a local model)
- * reaches its own `bb.host` entry through `bb.hosts.experimental_client`.
+ * reaches its own `cc.host` entry through `cc.hosts.experimental_client`.
  *
- * bb owns the prompts and cleans up replies (think blocks, quotes, labels,
+ * cc owns the prompts and cleans up replies (think blocks, quotes, labels,
  * extra lines), so a service returns the model's text as-is. The plugin owns
  * everything behind the function: which model, which API, any retries.
  * Failure is a rejected promise.
  */
 export interface PluginAiServiceDeclaration {
   /**
-   * Stable, lowercase id, unique within this plugin. bb identifies a service
+   * Stable, lowercase id, unique within this plugin. cc identifies a service
    * by plugin id and service id, so another plugin may use the same id.
    * `automatic` and `off` are reserved.
    */
@@ -1949,7 +1949,7 @@ export interface PluginAiServiceDeclaration {
     options: PluginAiTranscribeOptions,
   ) => Promise<string>;
   /**
-   * Report whether the service can answer. bb calls it for the picker's
+   * Report whether the service can answer. cc calls it for the picker's
    * status line and to decide whether Automatic skips the service and
    * whether the microphone shows; results are cached for a few seconds.
    * Omit it when the service is always ready.
@@ -1973,12 +1973,12 @@ export interface PluginAiServices {
 export interface PluginSharedPortTunnelIdentity {
   /** Gate routing label assigned to this machine. */
   label: string;
-  /** Gate apex without a scheme, e.g. "getbb.app". */
+  /** Gate apex without a scheme, e.g. "cc.example.invalid". */
   baseDomain: string;
 }
 
 export interface PluginHosts {
-  /** Create the owning plugin's typed client for its singular `bb.host` entry. */
+  /** Create the owning plugin's typed client for its singular `cc.host` entry. */
   experimental_client<
     Contract extends PluginRpcContract,
     Signals extends ExperimentalHostSignals = {},
@@ -2015,16 +2015,16 @@ export interface PluginHosts {
 export interface PluginStatusApi {
   /**
    * Mark this plugin `needs-configuration` (with a message shown in
-   * `bb plugin list` and the UI) instead of failing — e.g. a factory or
+   * `cc plugin list` and the UI) instead of failing — e.g. a factory or
    * service that finds no API key configured. Cleared on the next load;
    * saving settings does not auto-reload in V1, so ask the user to
-   * `bb plugin reload <id>` after configuring.
+   * `cc plugin reload <id>` after configuring.
    */
   needsConfiguration(message: string): void;
 }
 
 /**
- * The BB SDK bound to one plugin (`bb.sdk`). `threads.getPluginMetadata` and
+ * The CC SDK bound to one plugin (`cc.sdk`). `threads.getPluginMetadata` and
  * `threads.updatePluginMetadata` default `pluginId` to that plugin's id. An
  * explicit `pluginId` must be a plugin id (lowercase letters, digits, and
  * dashes) or the request fails with HTTP 400. A `pluginMetadata` seed or a
@@ -2032,9 +2032,9 @@ export interface PluginStatusApi {
  * patch whose merged namespace would exceed 256 KiB fails with HTTP 413 and
  * leaves the namespace unchanged.
  */
-export type PluginBbSdk = Omit<BbSdk, "threads"> & {
+export type PluginCcSdk = Omit<CcSdk, "threads"> & {
   threads: Omit<
-    BbSdk["threads"],
+    CcSdk["threads"],
     "getPluginMetadata" | "updatePluginMetadata"
   > & {
     getPluginMetadata(
@@ -2050,10 +2050,10 @@ export type PluginBbSdk = Omit<BbSdk, "threads"> & {
 
 /**
  * The API object handed to a plugin's factory (design §4). Implemented by
- * the BB server; this contract is what plugin `server.ts` files compile
+ * the CC server; this contract is what plugin `server.ts` files compile
  * against.
  */
-export interface BbPluginApi {
+export interface CcPluginApi {
   /** The plugin's own id (namespaces storage, routes, commands). */
   readonly pluginId: string;
   /** Leveled, plugin-scoped logger. */
@@ -2070,7 +2070,7 @@ export interface BbPluginApi {
   readonly realtime: PluginRealtime;
   /** Long-lived services + cron schedules (design §4.8). */
   readonly background: PluginBackground;
-  /** Agent-facing `bb` CLI subcommand (design §4.4). */
+  /** Agent-facing `cc` CLI subcommand (design §4.4). */
   readonly cli: PluginCli;
   /** Per-turn agent context contributions (design §4.4). */
   readonly agents: PluginAgents;
@@ -2106,12 +2106,12 @@ export interface BbPluginApi {
   /** Server-to-daemon host control-plane declarations. */
   readonly hosts: PluginHosts;
   /**
-   * AI services this plugin offers for bb's helper tasks: thread titles,
+   * AI services this plugin offers for cc's helper tasks: thread titles,
    * commit messages, and voice input.
    */
   readonly experimental_aiServices: PluginAiServices;
   /**
-   * The full BB SDK, bound to this server over loopback (design §4.1).
+   * The full CC SDK, bound to this server over loopback (design §4.1).
    * Bind-gated: reading this before the host binds the SDK throws. The real
    * server binds it before loading plugins, so it is available from the
    * moment factories run there — but isolated harnesses may not, so prefer
@@ -2121,7 +2121,7 @@ export interface BbPluginApi {
    * Seeding `pluginMetadata` always attributes the new thread to this plugin,
    * overriding an explicit `origin` or `originPluginId`.
    */
-  readonly sdk: PluginBbSdk;
+  readonly sdk: PluginCcSdk;
   /**
    * Register cleanup to run on reload/disable/shutdown. Hooks run LIFO.
    * The sanctioned place to clear timers and close connections.
@@ -2130,8 +2130,8 @@ export interface BbPluginApi {
   /**
    * Run a handler once, right after this plugin is installed and its server
    * entry has loaded: for example to pick its own sidebar slots with
-   * `bb.sdk.system.uiPreferences`. It does not run on update, reload,
-   * enable, or server restart, nor for bb's bundled plugins; reinstalling
+   * `cc.sdk.system.uiPreferences`. It does not run on update, reload,
+   * enable, or server restart, nor for cc's bundled plugins; reinstalling
    * after removal runs it again. Register it while the entry loads. A
    * handler that throws is logged and the install still succeeds; the
    * install waits at most 30 seconds for handlers to finish.

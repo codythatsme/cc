@@ -3,10 +3,10 @@ import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import {
-  bbDesktopVersionFeedSchema,
-  createBbDesktopVersionFeedFileName,
-  type BbDesktopVersionFeed,
-} from "@bb/desktop-contract";
+  ccDesktopVersionFeedSchema,
+  createCcDesktopVersionFeedFileName,
+  type CcDesktopVersionFeed,
+} from "@cc/desktop-contract";
 import {
   createDesktopReleaseConfig,
   resolveDesktopBuildPlatform,
@@ -28,7 +28,7 @@ const updateMetadataPath = resolve(
 const desktopVersionFeedPath = resolve(
   packageRoot,
   "release",
-  createBbDesktopVersionFeedFileName(buildPlatform),
+  createCcDesktopVersionFeedFileName(buildPlatform),
 );
 
 const packageJsonSchema = z.object({
@@ -66,7 +66,7 @@ if (updateMetadata.version !== packageJson.version) {
   );
 }
 
-const desktopVersionFeed: BbDesktopVersionFeed = {
+const desktopVersionFeed: CcDesktopVersionFeed = {
   channel: releaseChannel,
   files: updateMetadata.files,
   minimumSystemVersion: null,
@@ -81,7 +81,7 @@ const desktopVersionFeed: BbDesktopVersionFeed = {
   version: packageJson.version,
 };
 
-const validatedFeed = bbDesktopVersionFeedSchema.parse(desktopVersionFeed);
+const validatedFeed = ccDesktopVersionFeedSchema.parse(desktopVersionFeed);
 await writeFile(
   desktopVersionFeedPath,
   `${JSON.stringify(validatedFeed, null, 2)}\n`,

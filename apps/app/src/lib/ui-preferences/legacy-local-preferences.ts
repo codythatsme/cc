@@ -2,19 +2,19 @@ import {
   parseUiPreferenceValue,
   type UiPreferenceKey,
   type UiPreferenceValue,
-} from "@bb/domain";
+} from "@cc/domain";
 import { withLocalStorage } from "@/lib/browser-storage";
 
 const RETIRED_LOCAL_STORAGE_KEYS: Partial<
   Record<UiPreferenceKey, readonly string[]>
 > = {
-  "sidebar.manualSectionOrder": ["bb.sidebar.folderSectionOrder"],
-  "sidebar.collapsedThreadSections": ["bb.sidebar.collapsedFolders"],
-  "sidebar.pluginPanelOrder": ["bb.sidebar.hiddenPluginPanels"],
+  "sidebar.manualSectionOrder": ["cc.sidebar.folderSectionOrder"],
+  "sidebar.collapsedThreadSections": ["cc.sidebar.collapsedFolders"],
+  "sidebar.pluginPanelOrder": ["cc.sidebar.hiddenPluginPanels"],
 };
 
 function legacyLocalStorageKey(key: UiPreferenceKey): string {
-  return `bb.${key}`;
+  return `cc.${key}`;
 }
 
 export function readLegacyLocalUiPreference<Key extends UiPreferenceKey>(

@@ -2,8 +2,8 @@
 
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
-import type { ComposerView, PluginComposerScope } from "@get-bb/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
+import type { ComposerView, PluginComposerScope } from "@codythatsme/plugin-sdk/app";
 
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};

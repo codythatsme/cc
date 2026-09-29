@@ -6,7 +6,7 @@ import {
   updateHost,
   upsertHost,
   type EnvironmentRow,
-} from "@bb/db";
+} from "@cc/db";
 import {
   resolveEnvironmentWorkspaceDisplayKind,
   toEnvironmentResponse,

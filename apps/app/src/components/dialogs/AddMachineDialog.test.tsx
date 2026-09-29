@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import { createDeferredPromise } from "@bb/test-helpers";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import type { ServerAccessStatus } from "@bb/server-contract";
+import { createDeferredPromise } from "@cc/test-helpers";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
+import type { ServerAccessStatus } from "@cc/server-contract";
 import {
   cleanup,
   fireEvent,
@@ -16,7 +16,7 @@ import { MemoryRouter } from "react-router-dom";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
-import { Dialog, DialogContent } from "@bb/shared-ui/dialog";
+import { Dialog, DialogContent } from "@cc/shared-ui/dialog";
 import { AddMachineContent, ManualMachineSetup } from "./AddMachineDialog";
 
 vi.mock("@/lib/sdk", () => ({
@@ -47,7 +47,7 @@ const READY_SERVER_ACCESS: ServerAccessStatus = {
     },
   ],
   defaultProviderId: "direct",
-  effectiveUrl: "https://bb.example.com",
+  effectiveUrl: "https://cc.example.com",
   urlSource: "setting",
 };
 
@@ -88,7 +88,7 @@ const reservedHost: Awaited<ReturnType<typeof sdk.hosts.experimental_create>> =
 function stubManualLaunch(configure?: () => void) {
   vi.mocked(sdk.hosts.experimental_create).mockResolvedValue(reservedHost);
   vi.mocked(sdk.hosts.experimental_getEnrollmentCommand).mockResolvedValue({
-    command: "bb machine enroll test",
+    command: "cc machine enroll test",
     expiresAt: Date.now() + 60_000,
   });
   vi.mocked(sdk.hosts.get).mockImplementation(() => new Promise(() => {}));
@@ -132,7 +132,7 @@ it("names the server machine a new machine depends on", async () => {
   const rendered = renderAddMachineContent("host_server");
   expect(
     await screen.findByText(
-      "The new machine will connect to the bb server on Mac mini. Keep that computer on so the new machine can keep working.",
+      "The new machine will connect to the cc server on Mac mini. Keep that computer on so the new machine can keep working.",
     ),
   ).toBeDefined();
   rendered.unmount();
@@ -141,10 +141,10 @@ it("names the server machine a new machine depends on", async () => {
 it("does not name a fallback machine when the server has no primary host", async () => {
   const rendered = renderAddMachineContent(null);
   await waitFor(() => expect(sdk.hosts.list).toHaveBeenCalled());
-  await screen.findByText("bb machine enroll test");
+  await screen.findByText("cc machine enroll test");
   expect(
     screen.getByText(
-      "The new machine will connect to your bb server. Keep the server machine on so the new machine can keep working.",
+      "The new machine will connect to your cc server. Keep the server machine on so the new machine can keep working.",
     ),
   ).toBeDefined();
   expect(screen.queryByText(/Mac mini|MacBook Pro/u)).toBeNull();
@@ -153,7 +153,7 @@ it("does not name a fallback machine when the server has no primary host", async
 
 it("cancels a creating manual launch when the dialog content closes", async () => {
   const rendered = setup();
-  await screen.findByText("bb machine enroll test");
+  await screen.findByText("cc machine enroll test");
   rendered.unmount();
 
   await waitFor(() => {

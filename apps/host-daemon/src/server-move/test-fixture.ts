@@ -18,8 +18,8 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import type { ServerMoveProgressMessage } from "@bb/host-daemon-contract";
-import { writeServerArchive, writeServerMovedFile } from "@bb/server-archive";
+import type { ServerMoveProgressMessage } from "@cc/host-daemon-contract";
+import { writeServerArchive, writeServerMovedFile } from "@cc/server-archive";
 import { afterEach, vi } from "vitest";
 import type { CommandOf } from "../command-dispatch-support.js";
 import type { PendingServerLaunchRequest } from "./pending-server.js";
@@ -37,7 +37,7 @@ export const MOVE_ID = "move-0001";
 export const ACTIVATION_TOKEN = "activation-token-0123456789";
 export const HOST_KEY = "host-key-target";
 export const PARENT_PID = 424_242;
-export const LAUNCHER_ENTRY_PATH = "/opt/npm/bin/bb-app";
+export const LAUNCHER_ENTRY_PATH = "/opt/npm/bin/cc-app";
 
 export const lastMove = {
   moveId: MOVE_ID,
@@ -62,7 +62,7 @@ const server = createServer((request, response) => {
     return;
   }
   if (request.url === "/internal/server-move/pending") {
-    response.end(JSON.stringify({ moveId: importFile.moveId, verified: existsSync(join(dataDir, "bb.db")), message: null }));
+    response.end(JSON.stringify({ moveId: importFile.moveId, verified: existsSync(join(dataDir, "cc.db")), message: null }));
     return;
   }
   response.statusCode = 404;
@@ -96,7 +96,7 @@ export function registerServerMoveFixtureCleanup(): void {
 }
 
 export async function createRoot(): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "bb-server-move-test-"));
+  const root = await mkdtemp(join(tmpdir(), "cc-server-move-test-"));
   roots.push(root);
   return root;
 }
@@ -147,21 +147,21 @@ export async function readJson(path: string): Promise<unknown> {
 interface SourceServer {
   archiveSha256: string;
   archiveSizeBytes: number;
-  bbAppSha256: string;
-  bbAppSizeBytes: number;
+  ccAppSha256: string;
+  ccAppSizeBytes: number;
   archiveRequests: IncomingMessage[];
   url: string;
 }
 
 async function createSourceServer(root: string): Promise<SourceServer> {
   const sourceDir = join(root, "source-data");
-  await writeFileWithDirs(join(sourceDir, "bb.db"), "sqlite database bytes");
+  await writeFileWithDirs(join(sourceDir, "cc.db"), "sqlite database bytes");
   await writeFileWithDirs(
     join(sourceDir, "config.json"),
     JSON.stringify({
-      config: { BB_LOG_LEVEL: "info" },
-      serverUrl: "https://bb.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_source" },
+      config: { CC_LOG_LEVEL: "info" },
+      serverUrl: "https://cc.example.test",
+      serverHeaders: { "x-cc-connect-machine": "bbcm_source" },
     }),
   );
   await writeFileWithDirs(
@@ -176,7 +176,7 @@ async function createSourceServer(root: string): Promise<SourceServer> {
   const archive = await writeServerArchive({
     outPath: archivePath,
     files: [
-      "bb.db",
+      "cc.db",
       "config.json",
       "attachments/project/a.txt",
       "plugins/tasks/data.db",
@@ -186,17 +186,17 @@ async function createSourceServer(root: string): Promise<SourceServer> {
     })),
     manifest: {
       createdAt: 1_700_000_000_000,
-      bbVersion: "1.0.0",
+      ccVersion: "1.0.0",
       protocolVersion: 209,
       migrationCount: 10,
-      sourceDataDir: "/Users/me/.bb",
+      sourceDataDir: "/Users/me/.cc",
       sourceServerHostId: "host-source",
       serverMoveExperiment: true,
     },
   });
-  const bbAppPath = join(root, "bb-app.tgz");
-  await writeFile(bbAppPath, "full bb-app package");
-  const bbAppBytes = await readFile(bbAppPath);
+  const ccAppPath = join(root, "cc-app.tgz");
+  await writeFile(ccAppPath, "full cc-app package");
+  const ccAppBytes = await readFile(ccAppPath);
   const archiveRequests: IncomingMessage[] = [];
   const { url } = await listen((request, response) => {
     if (request.headers.authorization !== `Bearer ${HOST_KEY}`) {
@@ -210,8 +210,8 @@ async function createSourceServer(root: string): Promise<SourceServer> {
       createReadStream(archivePath).pipe(response);
       return;
     }
-    if (request.url === `/internal/server-move/${MOVE_ID}/bb-app.tgz`) {
-      response.write(bbAppBytes);
+    if (request.url === `/internal/server-move/${MOVE_ID}/cc-app.tgz`) {
+      response.write(ccAppBytes);
       response.end();
       return;
     }
@@ -221,29 +221,29 @@ async function createSourceServer(root: string): Promise<SourceServer> {
   return {
     archiveSha256: archive.sha256,
     archiveSizeBytes: archive.sizeBytes,
-    bbAppSha256: createHash("sha256").update(bbAppBytes).digest("hex"),
-    bbAppSizeBytes: bbAppBytes.byteLength,
+    ccAppSha256: createHash("sha256").update(ccAppBytes).digest("hex"),
+    ccAppSizeBytes: ccAppBytes.byteLength,
     archiveRequests,
     url,
   };
 }
 
 async function createPackageRoot(root: string): Promise<string> {
-  const packageRoot = join(root, "npm", "lib", "node_modules", "bb-app");
+  const packageRoot = join(root, "npm", "lib", "node_modules", "cc-app");
   await writeFileWithDirs(
     join(packageRoot, "package.json"),
-    JSON.stringify({ name: "bb-app", version: "1.0.0" }),
+    JSON.stringify({ name: "cc-app", version: "1.0.0" }),
   );
   for (const file of [
     "host-daemon/dist/daemon-bundle.mjs",
-    "dist/bb-app.js",
-    "dist/bb-server.js",
+    "dist/cc-app.js",
+    "dist/cc-server.js",
     "server/dist/index.js",
     "app/dist/index.html",
   ]) {
     await writeFileWithDirs(join(packageRoot, ...file.split("/")), "");
   }
-  await writeFileWithDirs(join(root, "npm", "bin", "bb-app"), "");
+  await writeFileWithDirs(join(root, "npm", "bin", "cc-app"), "");
   return packageRoot;
 }
 
@@ -270,18 +270,18 @@ export async function writeLauncherMovedMode(args: {
     connectHandle: null,
     oldCopyEntries: args.oldCopyEntries ?? [],
   });
-  await writeBbAppRuntime({
+  await writeCcAppRuntime({
     dataDir: args.dataDir,
     serverPort: args.serverPort,
   });
 }
 
-export async function writeBbAppRuntime(args: {
+export async function writeCcAppRuntime(args: {
   dataDir: string;
   serverPort: number;
 }): Promise<void> {
   await writeFileWithDirs(
-    join(args.dataDir, "bb-app-runtime.json"),
+    join(args.dataDir, "cc-app-runtime.json"),
     JSON.stringify({
       entryPath: LAUNCHER_ENTRY_PATH,
       pid: process.pid,
@@ -303,15 +303,15 @@ export async function writeSystemdUnit(args: {
     ".config",
     "systemd",
     "user",
-    "bb-host-daemon-old-server-studio.service",
+    "cc-host-daemon-old-server-studio.service",
   );
   await writeFileWithDirs(
     unitPath,
     [
       "[Service]",
       `ExecStart=${args.execStart}`,
-      'Environment="BB_APP_NPM_PREFIX=/opt/npm"',
-      `Environment="BB_DATA_DIR=${args.dataDir}"`,
+      'Environment="CC_APP_NPM_PREFIX=/opt/npm"',
+      `Environment="CC_DATA_DIR=${args.dataDir}"`,
       "Restart=always",
       "",
     ].join("\n"),
@@ -324,7 +324,7 @@ export interface FixtureArgs {
   serverUrl?: string;
   autoUpdate?: boolean;
   hostDaemonPort?: number | null;
-  installBbApp?: ServerMoveServiceOptions["installBbApp"];
+  installCcApp?: ServerMoveServiceOptions["installCcApp"];
   checkPortAvailable?: ServerMoveServiceOptions["checkPortAvailable"];
   processOps?: ServerMoveServiceOptions["processOps"];
   portReleaseTimeoutMs?: number;
@@ -333,7 +333,7 @@ export interface FixtureArgs {
 export async function createFixture(args: FixtureArgs = {}) {
   const root = await createRoot();
   const homeDir = join(root, "home");
-  const dataDir = join(homeDir, ".bb-machines", "old-server");
+  const dataDir = join(homeDir, ".cc-machines", "old-server");
   await mkdir(dataDir, { recursive: true });
   const packageRoot = await createPackageRoot(root);
   const stubPath = join(root, "pending-server.mjs");
@@ -356,7 +356,7 @@ export async function createFixture(args: FixtureArgs = {}) {
     hostDaemonPort:
       args.hostDaemonPort === undefined ? 38_887 : args.hostDaemonPort,
     autoUpdate: args.autoUpdate ?? false,
-    env: args.env ?? { BB_SERVER_MOVE_SERVICE_MANAGER: "none" },
+    env: args.env ?? { CC_SERVER_MOVE_SERVICE_MANAGER: "none" },
     platform: "linux",
     uid: 1000,
     parentPid: PARENT_PID,
@@ -388,7 +388,7 @@ export async function createFixture(args: FixtureArgs = {}) {
       spawnedPids.push(pid);
       return pid;
     },
-    installBbApp: args.installBbApp ?? (async () => undefined),
+    installCcApp: args.installCcApp ?? (async () => undefined),
     checkGhAuthenticated: async () => null,
     checkPortAvailable: args.checkPortAvailable ?? (async () => true),
     processOps: args.processOps ?? launcherProcessOps,
@@ -441,12 +441,12 @@ export async function prepareCommand(
       sha256: fixture.source.archiveSha256,
       sizeBytes: fixture.source.archiveSizeBytes,
     },
-    bbApp: null,
+    ccApp: null,
     serverPort: await freePort(),
     bindHost: null,
-    sourceDataDir: "/Users/me/.bb",
+    sourceDataDir: "/Users/me/.cc",
     sourceServerHostId: "host-source",
-    serverUrl: "https://bb.example.test",
+    serverUrl: "https://cc.example.test",
     archiveExistingServerData: false,
     ...overrides,
   };

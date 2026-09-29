@@ -1,8 +1,8 @@
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   PANE_DIRECTION_APP_COMMAND_IDS,
   PANE_FOCUS_APP_COMMAND_IDS,
-} from "@bb/domain";
+} from "@cc/domain";
 import { useAtom, useAtomValue, useStore } from "jotai";
 import {
   Fragment,
@@ -26,7 +26,7 @@ import {
   type ThreadRoutePathArgs,
 } from "@/lib/route-paths";
 import { useIsMutating } from "@tanstack/react-query";
-import { BbHttpError } from "@/lib/sdk";
+import { CcHttpError } from "@/lib/sdk";
 import { useThread } from "@/hooks/queries/thread-queries";
 import { useSplitWorkspaceActive } from "@/hooks/useSplitWorkspaceActive";
 import {
@@ -87,9 +87,9 @@ import {
 import { AppBreadcrumbs } from "@/components/layout/AppBreadcrumbs";
 import { resourceRouteLabelAtom } from "@/components/layout/resourceRouteLabelAtom";
 import { resolveAutomationBreadcrumbs } from "@/components/tools/tools-navigation";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@cc/shared-ui/chrome-style-tokens";
 import { usePluginNavPanelChrome } from "@/lib/plugin-nav-panel-chrome";
 import {
   PluginPanelHeaderActions,
@@ -106,10 +106,10 @@ import {
 } from "./splitThreadNavigation";
 import { ThreadDetailWorkerPoolProvider } from "./ThreadDetailWorkerPoolProvider";
 import {
-  getBbDesktopInfo,
+  getCcDesktopInfo,
   MACOS_WINDOW_NO_DRAG_CLASS,
   shouldUseMacosDesktopChrome,
-} from "@/lib/bb-desktop";
+} from "@/lib/cc-desktop";
 import { SplitWorkspaceSecondaryPanelHost } from "./SplitWorkspaceSecondaryPanelHost";
 import { SecondaryPanelHostLayoutContext } from "@/components/secondary-panel/SecondaryPanelHostLayoutContext";
 import {
@@ -714,7 +714,7 @@ function SplitPaneCommandHandlers({
     [isSplitActive, layout.root, layout.focusedPaneId],
   );
   useEffect(() => {
-    getBbDesktopInfo()?.setSplitNavigationEnabled?.(
+    getCcDesktopInfo()?.setSplitNavigationEnabled?.(
       isSplitActive,
       PANE_DIRECTION_APP_COMMAND_IDS.filter(
         (_, index) => directionalTargets[index] !== null,
@@ -1127,7 +1127,7 @@ function NonThreadPaneContent({
   };
   const hostLayout = useContext(SecondaryPanelHostLayoutContext);
   const showsWindowPanelToggle = hostLayout?.pinsCornerToggle === true;
-  const [desktopInfo] = useState(getBbDesktopInfo);
+  const [desktopInfo] = useState(getCcDesktopInfo);
   const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
   const panelEntry =
     content.kind === "plugin-panel"
@@ -1528,7 +1528,7 @@ function PaneStaleWatcher({ threadId, onStale }: PaneStaleWatcherProps) {
       mutation.options.meta?.lifecycleOperation === "archive_thread",
   });
   const isGone =
-    isError && error instanceof BbHttpError && error.status === 404;
+    isError && error instanceof CcHttpError && error.status === 404;
   const isDeleted =
     isSuccess && thread !== undefined && thread.deletedAt !== null;
   const isConfirmedArchived =

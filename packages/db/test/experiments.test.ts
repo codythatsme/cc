@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultExperiments } from "@bb/domain";
+import { defaultExperiments } from "@cc/domain";
 import {
   createConnection,
   getExperiments,

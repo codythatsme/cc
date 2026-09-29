@@ -12,15 +12,14 @@ import {
   migrate,
   pluginSchedules,
   type DbConnection,
-} from "@bb/db";
-import type { Logger } from "@bb/logger";
+} from "@cc/db";
+import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
   type PluginService,
 } from "../../../src/services/plugins/plugin-service.js";
 import { testLogger } from "../../helpers/test-app.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
 const logger = testLogger as unknown as Logger;
 
@@ -35,7 +34,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "Background fixture",
         description: "Background plugin fixture.",
         branding: { icon: "Zap" },
@@ -74,10 +73,9 @@ describe("plugin background services", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-bg-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-bg-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -100,13 +98,13 @@ describe("plugin background services", () => {
 
   it("starts services after load and aborts them on reload", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-connector",
+      name: "cc-plugin-connector",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__connStarts = (g.__connStarts ?? 0);
           g.__connAborts = (g.__connAborts ?? 0);
-          bb.background.service("conn", {
+          cc.background.service("conn", {
             start(signal: any) {
               g.__connStarts += 1;
               return new Promise<void>((resolve) => {
@@ -136,13 +134,13 @@ describe("plugin background services", () => {
   it("suspends every plugin but the kept ones without disabling them, then resumes them", async () => {
     globals.__suspendStarts = {};
     globals.__suspendAborts = {};
-    for (const name of ["bb-plugin-suspended", "bb-plugin-kept"]) {
+    for (const name of ["cc-plugin-suspended", "cc-plugin-kept"]) {
       const rootDir = await writePlugin(workDir, {
         name,
         serverSource: `
-          export default function plugin(bb: any) {
+          export default function plugin(cc: any) {
             const g = globalThis as any;
-            bb.background.service("tick", {
+            cc.background.service("tick", {
               start(signal: any) {
                 g.__suspendStarts[${JSON.stringify(name)}] =
                   (g.__suspendStarts[${JSON.stringify(name)}] ?? 0) + 1;
@@ -170,7 +168,7 @@ describe("plugin background services", () => {
     expect(service.getApi("kept")).toBeDefined();
     expect(service.isPluginExpectedToRun("suspended")).toBe(true);
     expect(service.isPluginExpectedToRun("kept")).toBe(true);
-    expect(globals.__suspendAborts).toEqual({ "bb-plugin-suspended": 1 });
+    expect(globals.__suspendAborts).toEqual({ "cc-plugin-suspended": 1 });
     expect(getInstalledPlugin(db, "suspended")?.enabled).toBe(true);
     expect(
       service.list().find((plugin) => plugin.id === "suspended"),
@@ -183,8 +181,8 @@ describe("plugin background services", () => {
     expect(service.getApi("suspended")).toBeDefined();
     expect(service.isPluginExpectedToRun("suspended")).toBe(true);
     expect(globals.__suspendStarts).toEqual({
-      "bb-plugin-suspended": 2,
-      "bb-plugin-kept": 1,
+      "cc-plugin-suspended": 2,
+      "cc-plugin-kept": 1,
     });
     expect(await service.resumeSuspendedPlugins()).toEqual([]);
   });
@@ -198,7 +196,6 @@ describe("plugin background services", () => {
     const interruptPluginInteractions = vi.fn(() => []);
     const local = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -218,16 +215,16 @@ describe("plugin background services", () => {
     });
     try {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-dispose-request",
+        name: "cc-plugin-dispose-request",
         serverSource: `
-          export default function plugin(bb: any) {
+          export default function plugin(cc: any) {
             const g = globalThis as any;
             g.__disposeRequestErrors = g.__disposeRequestErrors ?? [];
-            bb.background.service("request-on-stop", {
+            cc.background.service("request-on-stop", {
               start(signal: any) {
                 return new Promise<void>((resolve) => {
                   signal.addEventListener("abort", () => {
-                    void bb.ui.requestInput({
+                    void cc.ui.requestInput({
                       threadId: "thread-test",
                       rendererId: "form",
                       title: "Form",
@@ -259,7 +256,6 @@ describe("plugin background services", () => {
   it("serializes concurrent reloads so a slow-stopping service never double-starts", async () => {
     const local = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -274,14 +270,14 @@ describe("plugin background services", () => {
     });
     try {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-slowstop",
+        name: "cc-plugin-slowstop",
         serverSource: `
-          export default function plugin(bb: any) {
+          export default function plugin(cc: any) {
             const g = globalThis as any;
             g.__slowActive = g.__slowActive ?? 0;
             g.__slowMaxActive = g.__slowMaxActive ?? 0;
             g.__slowStarts = g.__slowStarts ?? 0;
-            bb.background.service("slow", {
+            cc.background.service("slow", {
               start(signal: any) {
                 g.__slowStarts += 1;
                 g.__slowActive += 1;
@@ -316,10 +312,10 @@ describe("plugin background services", () => {
 
   it("marks the plugin degraded when a service ignores its abort", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-stubborn",
+      name: "cc-plugin-stubborn",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.service("socket", {
+        export default function plugin(cc: any) {
+          cc.background.service("socket", {
             start() {
               // Ignores the abort signal entirely.
               return new Promise(() => {});
@@ -349,10 +345,10 @@ describe("plugin background services", () => {
 
   it("reports a failed reload that kept the previous instance", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-keeper",
+      name: "cc-plugin-keeper",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } });
+        export default function plugin(cc: any) {
+          cc.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } });
         }
       `,
     });
@@ -379,7 +375,7 @@ describe("plugin background services", () => {
     expect((await service.reload()).ok).toBe(false);
     await writeFile(
       join(rootDir, "server.ts"),
-      `export default function plugin(bb: any) { bb.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } }); }`,
+      `export default function plugin(cc: any) { cc.cli.register({ name: "keeper", summary: "keeper", run() { return { exitCode: 0, stdout: "ok" }; } }); }`,
     );
     expect((await service.reload("keeper")).ok).toBe(true);
     expect(
@@ -389,12 +385,12 @@ describe("plugin background services", () => {
 
   it("restarts a crashed service with backoff", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-crashy",
+      name: "cc-plugin-crashy",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__crashyStarts = 0;
-          bb.background.service("flaky", {
+          cc.background.service("flaky", {
             async start(signal: any) {
               g.__crashyStarts += 1;
               if (g.__crashyStarts < 3) throw new Error("crash " + g.__crashyStarts);
@@ -421,14 +417,14 @@ describe("plugin background services", () => {
 
   it("routes an uncaught exception from a service's async context to the supervisor", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-emitter",
+      name: "cc-plugin-emitter",
       serverSource: `
         import { EventEmitter } from "node:events";
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__emitterStarts = 0;
           g.__emitterAborts = 0;
-          bb.background.service("imap", {
+          cc.background.service("imap", {
             async start(signal: any) {
               g.__emitterStarts += 1;
               if (g.__emitterStarts === 1) {
@@ -479,12 +475,12 @@ describe("plugin background services", () => {
 
   it("NeedsConfigurationError maps to needs-configuration and stops restarts", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-needy",
+      name: "cc-plugin-needy",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__needyStarts = (g.__needyStarts ?? 0);
-          bb.background.service("bot", {
+          cc.background.service("bot", {
             async start() {
               g.__needyStarts += 1;
               const error = new Error("api key missing");
@@ -513,12 +509,12 @@ describe("plugin background services", () => {
     });
   });
 
-  it("bb.status.needsConfiguration from the factory wins over running", async () => {
+  it("cc.status.needsConfiguration from the factory wins over running", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-unconfigured",
+      name: "cc-plugin-unconfigured",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.status.needsConfiguration("set the token first");
+        export default function plugin(cc: any) {
+          cc.status.needsConfiguration("set the token first");
         }
       `,
     });
@@ -530,10 +526,10 @@ describe("plugin background services", () => {
 
   it("rejects an invalid cron at registration", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-badcron",
+      name: "cc-plugin-badcron",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.schedule("bad", "not a cron", async () => {});
+        export default function plugin(cc: any) {
+          cc.background.schedule("bad", "not a cron", async () => {});
         }
       `,
     });
@@ -552,10 +548,9 @@ describe("plugin schedules", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-sched-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-sched-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -576,12 +571,12 @@ describe("plugin schedules", () => {
 
   async function installTicker(): Promise<void> {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-ticker",
+      name: "cc-plugin-ticker",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__tickRuns = 0;
-          bb.background.schedule("tick", "*/5 * * * *", async () => {
+          cc.background.schedule("tick", "*/5 * * * *", async () => {
             g.__tickRuns += 1;
           });
         }
@@ -657,10 +652,10 @@ describe("plugin schedules", () => {
 
   it("records last_error on failure and still advances the schedule", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-boomer",
+      name: "cc-plugin-boomer",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.schedule("boom", "*/5 * * * *", async () => {
+        export default function plugin(cc: any) {
+          cc.background.schedule("boom", "*/5 * * * *", async () => {
             throw new Error("sync exploded");
           });
         }
@@ -695,10 +690,10 @@ describe("plugin schedules", () => {
 
   it("prunes rows for schedule names the plugin no longer registers", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-renamer",
+      name: "cc-plugin-renamer",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.background.schedule("old-name", "*/5 * * * *", async () => {});
+        export default function plugin(cc: any) {
+          cc.background.schedule("old-name", "*/5 * * * *", async () => {});
         }
       `,
     });
@@ -708,8 +703,8 @@ describe("plugin schedules", () => {
     ]);
     await writeFile(
       join(rootDir, "server.ts"),
-      `export default function plugin(bb: any) {
-        bb.background.schedule("new-name", "*/5 * * * *", async () => {});
+      `export default function plugin(cc: any) {
+        cc.background.schedule("new-name", "*/5 * * * *", async () => {});
       }`,
     );
     await service.reload("renamer");

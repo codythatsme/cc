@@ -6,7 +6,7 @@ import {
   server,
   sha256Hex,
   type ConnectDb,
-} from "@bb/connect-db";
+} from "@cc/connect-db";
 import {
   parseCookie,
   verifyMachineCredential,

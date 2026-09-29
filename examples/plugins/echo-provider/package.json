@@ -1,13 +1,13 @@
 {
-  "name": "bb-plugin-echo-provider",
+  "name": "cc-plugin-echo-provider",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.4.3"
+    "cc": ">=0.0",
+    "ccPluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "cc": {
     "name": "Echo provider",
     "description": "The third-party canary: a complete agent provider that exercises every provider-plugin capability through the public SDK alone.",
     "branding": {
@@ -20,14 +20,14 @@
     "host": "./host.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "cc-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

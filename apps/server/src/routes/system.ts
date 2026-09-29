@@ -19,7 +19,7 @@ import {
   setAppKeybindingOverrides,
   setExperiments,
   setStoredAppearance,
-} from "@bb/db";
+} from "@cc/db";
 import {
   applyAppKeybindingOverrides,
   appSettingsSchema,
@@ -29,13 +29,13 @@ import {
   resolveCodeTheme,
   type AppKeybindingOverrides,
   type AppTheme,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
   type SystemEnvironmentProvider,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { Hono } from "hono";
 import {
   hashedAssetCacheControl,
@@ -302,7 +302,6 @@ export function registerSystemRoutes(
       ...settings,
       allowFastServiceTier:
         settings.allowFastServiceTier ?? current.allowFastServiceTier,
-      telemetryEnabled: settings.telemetryEnabled ?? current.telemetryEnabled,
       showDiagnosticEvents:
         diagnosticValue === undefined ||
         (showUnhandledProviderEvents !== undefined &&
@@ -311,10 +310,6 @@ export function registerSystemRoutes(
           : diagnosticValue,
     });
     setAppSettings(deps.db, updatedSettings);
-    if (current.telemetryEnabled && !updatedSettings.telemetryEnabled) {
-      deps.telemetry.capture({ name: "telemetry_disabled" });
-    }
-    deps.telemetry.setEnabled(updatedSettings.telemetryEnabled);
     deps.hub.notifySystem(["config-changed"]);
     return context.json(compatibleGeneralSettings());
   });
@@ -380,7 +375,7 @@ export function registerSystemRoutes(
 
   post(routes.reloadConfig, async (context) => {
     try {
-      await deps.bbAppManagedConfig.reload({ notify: true });
+      await deps.ccAppManagedConfig.reload({ notify: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new ApiError(422, "invalid_config", message);
@@ -691,7 +686,7 @@ function assertAppUpdateAllowed(
     throw new ApiError(
       403,
       "forbidden",
-      "Machine credentials cannot update the bb server",
+      "Machine credentials cannot update the cc server",
     );
   }
 }

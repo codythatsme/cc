@@ -7,14 +7,14 @@ import type {
   PluginInteractionLifecycle,
   ThreadEventItemPresentation,
   UserQuestionInteractionLifecycle,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   THREAD_CONTEXT_CLEAR_OPERATION,
   isApprovalInteractionLifecycle,
   isPluginInteractionLifecycle,
   isUserQuestionInteractionLifecycle,
   ownershipChangeOperationMetadataSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import { assertNever } from "./assert-never.js";
 import { getCompactionKey } from "./compaction-lifecycle.js";
 import { OWNERSHIP_CHANGE_VERBS } from "./family-a-verbs.js";

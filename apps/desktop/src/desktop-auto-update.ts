@@ -4,7 +4,7 @@ import type {
   UpdateDownloadedEvent,
   UpdateInfo,
 } from "electron-updater";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import type { CcDesktopInfo } from "@cc/desktop-contract";
 import {
   DESKTOP_AUTO_UPDATE_FEED_CONFIG,
   type DesktopAutoUpdateFeedConfig,
@@ -56,7 +56,7 @@ interface CreateDesktopAutoUpdateServiceArgs {
   forceDevUpdateConfig: boolean;
   logger: DesktopAutoUpdateLogger;
   now?: () => number;
-  platform: BbDesktopInfo["platform"];
+  platform: CcDesktopInfo["platform"];
   updater: DesktopAutoUpdaterAdapter;
 }
 
@@ -86,8 +86,8 @@ export interface DesktopAutoUpdateService extends DesktopUpdateService {
 
 function createBaseInfo(
   currentVersion: string,
-  platform: BbDesktopInfo["platform"],
-): BbDesktopInfo {
+  platform: CcDesktopInfo["platform"],
+): CcDesktopInfo {
   return {
     downloadState: "idle",
     lastCheckedAt: null,
@@ -113,7 +113,7 @@ function formatCheckedAt(now: () => number): string {
 export function shouldEnableDesktopAutoUpdate(
   args: ShouldEnableDesktopAutoUpdateArgs,
 ): boolean {
-  return args.isPackaged || args.env.BB_DESKTOP_AUTO_UPDATE === "1";
+  return args.isPackaged || args.env.CC_DESKTOP_AUTO_UPDATE === "1";
 }
 
 export function createElectronAutoUpdaterAdapter(

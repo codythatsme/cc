@@ -1,4 +1,4 @@
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+import { defineRpcContract, type CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import {
   ANNOTATION_MENTION_PROVIDER_ID,
@@ -20,28 +20,28 @@ export const agentAnnotationsRpcContract = defineRpcContract({
   },
 });
 
-export default async function plugin(bb: BbPluginApi) {
-  bb.rpc.register(agentAnnotationsRpcContract, {
+export default async function plugin(cc: CcPluginApi) {
+  cc.rpc.register(agentAnnotationsRpcContract, {
     async update({ id, comment }) {
       const record = annotationRecordSchema.parse(
-        await bb.storage.kv.get(`${STORAGE_PREFIX}${id}`),
+        await cc.storage.kv.get(`${STORAGE_PREFIX}${id}`),
       );
-      await bb.storage.kv.set(`${STORAGE_PREFIX}${id}`, { ...record, comment });
+      await cc.storage.kv.set(`${STORAGE_PREFIX}${id}`, { ...record, comment });
       return { id };
     },
     async save(annotation) {
       const id = annotation.id;
-      await bb.storage.kv.set(`${STORAGE_PREFIX}${id}`, annotation);
+      await cc.storage.kv.set(`${STORAGE_PREFIX}${id}`, annotation);
       return { id };
     },
   });
-  bb.ui.registerMentionProvider({
+  cc.ui.registerMentionProvider({
     id: ANNOTATION_MENTION_PROVIDER_ID,
     label: "Browser annotations",
     search: () => [],
     async resolve(id) {
       const parsed = annotationRecordSchema.safeParse(
-        await bb.storage.kv.get(`${STORAGE_PREFIX}${id}`),
+        await cc.storage.kv.get(`${STORAGE_PREFIX}${id}`),
       );
       if (!parsed.success) {
         throw new Error("This browser annotation is no longer available");

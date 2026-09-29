@@ -53,17 +53,17 @@ function createDesktopVersionFeed(platform, version) {
     platform,
     version,
     releaseDate: new Date(0).toISOString(),
-    releaseName: `bb desktop ${version}`,
+    releaseName: `cc desktop ${version}`,
     releaseNotes: null,
     minimumSystemVersion: null,
     files: [
       {
-        url: "https://example.invalid/bb.zip",
+        url: "https://example.invalid/cc.zip",
         sha512: "smoke",
         size: 0,
       },
     ],
-    path: "bb.zip",
+    path: "cc.zip",
     sha512: "smoke",
     stagingPercentage: null,
   };
@@ -72,24 +72,24 @@ function createDesktopVersionFeed(platform, version) {
 function renderSmokePage(expectedDesktopPlatform, expectedDesktopVersion) {
   return `<!doctype html>
 <meta charset="utf-8">
-<title>bb packaged desktop smoke</title>
+<title>cc packaged desktop smoke</title>
 <main>packaged desktop smoke</main>
 <script>
 (async () => {
   let ok = false;
   let reason = "";
   try {
-    if (typeof window.bbDesktop !== "object" || window.bbDesktop === null) {
-      reason = "missing window.bbDesktop";
-    } else if (typeof window.bbDesktop.getInfo !== "function") {
-      reason = "missing window.bbDesktop.getInfo";
+    if (typeof window.ccDesktop !== "object" || window.ccDesktop === null) {
+      reason = "missing window.ccDesktop";
+    } else if (typeof window.ccDesktop.getInfo !== "function") {
+      reason = "missing window.ccDesktop.getInfo";
     } else {
-      const info = await window.bbDesktop.getInfo();
+      const info = await window.ccDesktop.getInfo();
       const expectedPlatform = ${JSON.stringify(expectedDesktopPlatform)};
       const expectedVersion = ${JSON.stringify(expectedDesktopVersion)};
       ok =
-        window.bbDesktop.platform === expectedPlatform &&
-        window.bbDesktop.version === expectedVersion &&
+        window.ccDesktop.platform === expectedPlatform &&
+        window.ccDesktop.version === expectedVersion &&
         info.version === expectedVersion;
       reason = ok ? "" : "unexpected desktop bridge info";
     }
@@ -319,7 +319,7 @@ async function smokePackagedApp() {
     releaseDir,
   });
   await smokePackagedNpm(appBinary);
-  const smokeRoot = await mkdtemp(join(tmpdir(), "bb-desktop-packaged-smoke-"));
+  const smokeRoot = await mkdtemp(join(tmpdir(), "cc-desktop-packaged-smoke-"));
   const dataDir = join(smokeRoot, "data");
   const userDataDir = join(smokeRoot, "user-data");
   const smokeServer = await startSmokeServer({
@@ -332,17 +332,17 @@ async function smokePackagedApp() {
   const stderr = [];
   const childEnv = {
     ...process.env,
-    BB_DATA_DIR: dataDir,
-    // The smoke server answers the bb probe, so a packaged build treats it as a
-    // foreign bb and asks before attaching. No one is here to click, so opt out
+    CC_DATA_DIR: dataDir,
+    // The smoke server answers the cc probe, so a packaged build treats it as a
+    // foreign cc and asks before attaching. No one is here to click, so opt out
     // and keep exercising the real attach path.
-    BB_DESKTOP_ATTACH_WITHOUT_PROMPT: "1",
-    BB_DESKTOP_OPEN_DEVTOOLS: "0",
-    BB_DESKTOP_VERSION_FEED_URL: `${serverUrl}/desktop-version.json`,
-    BB_SERVER_PORT: String(smokeServer.port),
+    CC_DESKTOP_ATTACH_WITHOUT_PROMPT: "1",
+    CC_DESKTOP_OPEN_DEVTOOLS: "0",
+    CC_DESKTOP_VERSION_FEED_URL: `${serverUrl}/desktop-version.json`,
+    CC_SERVER_PORT: String(smokeServer.port),
   };
-  delete childEnv.BB_DESKTOP_APP_URL;
-  delete childEnv.BB_DESKTOP_NODE_EXEC_PATH;
+  delete childEnv.CC_DESKTOP_APP_URL;
+  delete childEnv.CC_DESKTOP_NODE_EXEC_PATH;
   delete childEnv.ELECTRON_RUN_AS_NODE;
 
   const child = spawn(

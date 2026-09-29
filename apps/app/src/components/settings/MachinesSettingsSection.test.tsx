@@ -7,16 +7,16 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
-import { RETRY_ACTION_ICON } from "@bb/domain/update-state";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
+import { RETRY_ACTION_ICON } from "@cc/domain/update-state";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
 import type {
   ServerMoveStatus,
   SystemConfigResponse,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { defaultExperiments, type Host } from "@bb/domain";
+import { defaultExperiments, type Host } from "@cc/domain";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { serverMoveStatusQueryKey } from "@/hooks/queries/query-keys";
@@ -172,7 +172,7 @@ function preparingMove(): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.cc.example.invalid",
     destinationStatusUrl: null,
     startedAt: NOW,
     finishedAt: null,
@@ -852,7 +852,7 @@ describe("MachinesSettingsSection", () => {
     vi.mocked(sdk.hosts.list).mockResolvedValue([primaryHost, offlineHost]);
     vi.mocked(sdk.hosts.experimental_reconnect).mockResolvedValue({
       command:
-        "curl -fsSL -H 'X-BB-Enrollment: bbde_test' 'https://bb.example.com/install.sh' | sh",
+        "curl -fsSL -H 'X-CC-Enrollment: bbde_test' 'https://cc.example.com/install.sh' | sh",
       expiresAt: NOW + 15 * 60 * 1000,
       hostId: offlineHost.id,
     });
@@ -872,7 +872,7 @@ describe("MachinesSettingsSection", () => {
       ).toHaveBeenCalledWith({ hostId: offlineHost.id });
     });
     expect(
-      await screen.findByText(/X-BB-Enrollment: bbde_test/),
+      await screen.findByText(/X-CC-Enrollment: bbde_test/),
     ).toBeDefined();
     expect(
       await screen.findByText("Waiting for the machine to reconnect…"),
@@ -913,7 +913,7 @@ describe("MachinesSettingsSection", () => {
       mode: "connect",
       serverUrl: null,
       requiresServerUrl: false,
-      targetDataDir: "/home/sawyer/.bb-machines/macbook-pro",
+      targetDataDir: "/home/sawyer/.cc-machines/macbook-pro",
       existingTargetServerData: null,
       items: [],
       canMove: true,

@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { listRunningThreads, type DbConnection } from "@bb/db";
-import { defaultFeatureFlags } from "@bb/domain";
+import { listRunningThreads, type DbConnection } from "@cc/db";
+import { defaultFeatureFlags } from "@cc/domain";
 import {
   acquireDaemonLock,
   createHostDaemonApp,
@@ -14,7 +14,7 @@ import {
   persistHostId,
   type HostDaemon,
   type HostDaemonApp,
-} from "@bb/host-daemon/test";
+} from "@cc/host-daemon/test";
 import { initDb } from "../../../apps/server/src/db.js";
 import { createLifecycleDedupers } from "../../../apps/server/src/lifecycle-dedupers.js";
 import { createApp } from "../../../apps/server/src/server.js";
@@ -39,8 +39,7 @@ import { PluginHostArtifactRegistry } from "../../../apps/server/src/services/pl
 import { createAppUpdateService } from "../../../apps/server/src/services/system/app-update.js";
 import { createAppVersionService } from "../../../apps/server/src/services/system/app-version.js";
 import { createProviderNativeRootsCache } from "../../../apps/server/src/services/providers/native-roots.js";
-import { createBbAppManagedConfigReloader } from "../../../apps/server/src/services/system/bb-app-managed-config.js";
-import { createNoopTelemetryService } from "../../../apps/server/src/services/system/telemetry.js";
+import { createCcAppManagedConfigReloader } from "../../../apps/server/src/services/system/cc-app-managed-config.js";
 import { TerminalSessionLifecycle } from "../../../apps/server/src/services/terminals/terminal-session-lifecycle.js";
 import type {
   ServerLogger,
@@ -50,8 +49,8 @@ import { HostSharedPortCoordinator } from "../../../apps/server/src/ws/host-shar
 import { NotificationHub } from "../../../apps/server/src/ws/hub.js";
 import { WatchInterestCoordinator } from "../../../apps/server/src/ws/watch-interests.js";
 import { WorkspaceReadCaches } from "../../../apps/server/src/services/environments/workspace-read-cache.js";
-import { createPublicApiClient } from "@bb/server-contract";
-import { resolveProjectEnvCandidates } from "@bb/test-helpers";
+import { createPublicApiClient } from "@cc/server-contract";
+import { resolveProjectEnvCandidates } from "@cc/test-helpers";
 import { waitForHostConnected } from "./assertions.js";
 import { createIntegrationFetch } from "./fetch.js";
 import { isNodeError, removePathWithRetry } from "./remove-path.js";
@@ -193,7 +192,7 @@ async function startIntegrationServer(
     hostDaemonPort: 3001,
     inheritedSkillsRootPaths: [],
     marketplaceUrl: "https://marketplace.invalid/marketplace.json",
-    appUrl: "https://bb.example.test",
+    appUrl: "https://cc.example.test",
     serverPort: 0,
     sharedSkillRoots: { user: [], project: [] },
     isDevelopment: false,
@@ -213,12 +212,11 @@ async function startIntegrationServer(
   });
   await machineAuth.ensureReady();
   const lifecycleDedupers = createLifecycleDedupers();
-  const bbAppManagedConfig = await createBbAppManagedConfigReloader({
+  const ccAppManagedConfig = await createCcAppManagedConfigReloader({
     config,
     hub,
     logger: testLogger,
   });
-  const telemetry = createNoopTelemetryService();
   const skillTreeRegistry = new SkillTreeRegistry();
   const providerRegistry = createProviderRegistryService({});
   await registerFirstPartyProviders(providerRegistry);
@@ -237,14 +235,10 @@ async function startIntegrationServer(
     pluginHostArtifacts,
     aiServices,
     skillTreeRegistry,
-    telemetry,
     terminalSessions,
   });
   pendingInteractions.start();
-  const appVersion = createAppVersionService({
-    config,
-    logger: testLogger,
-  });
+  const appVersion = createAppVersionService({ config });
   const appUpdate = createAppUpdateService({
     appSurface: "web",
     appVersion,
@@ -258,7 +252,7 @@ async function startIntegrationServer(
   const serverDeps = {
     appUpdate,
     appVersion,
-    bbAppManagedConfig,
+    ccAppManagedConfig,
     providerRegistry,
     providerNativeRoots: createProviderNativeRootsCache(),
     pluginHostArtifacts,
@@ -272,7 +266,6 @@ async function startIntegrationServer(
     pendingInteractions,
     sharedPorts,
     skillTreeRegistry,
-    telemetry,
     terminalSessions,
     watchInterests,
     workspaceReadCaches,
@@ -402,7 +395,7 @@ export async function createIntegrationHarness(
   options: CreateHarnessOptions = {},
 ): Promise<IntegrationHarness> {
   await loadProjectEnvFile();
-  const tmpRoot = await fs.mkdtemp(path.join(tmpdir(), "bb-integration-"));
+  const tmpRoot = await fs.mkdtemp(path.join(tmpdir(), "cc-integration-"));
   await fs.writeFile(
     path.join(tmpRoot, "parent.pid"),
     `${process.pid}\n`,

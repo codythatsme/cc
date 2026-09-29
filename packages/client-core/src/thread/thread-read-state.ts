@@ -1,4 +1,4 @@
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@cc/domain";
 
 export type ThreadReadState = Pick<Thread, "lastReadAt" | "latestAttentionAt">;
 

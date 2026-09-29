@@ -16,9 +16,9 @@ import {
 } from "./FilePreview";
 import { SOURCE_CODE_MAX_LINES } from "@/components/code/source-code-budget";
 import { SecondaryPanelFilePreview } from "./ThreadStorageFilePreview";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { HttpError } from "@/lib/api";
-import { BbHttpError } from "@bb/sdk/browser";
+import { CcHttpError } from "@cc/sdk/browser";
 import {
   PierreWorkerPoolGateContext,
   type PierreWorkerPoolGate,
@@ -357,7 +357,7 @@ describe("FilePreview", () => {
 
     const pierreFile = await screen.findByTestId("pierre-file");
     const codeViewport = scrollViewport.querySelector<HTMLElement>(
-      "[data-bb-source-code-viewport]",
+      "[data-cc-source-code-viewport]",
     );
     expect(codeViewport).not.toBeNull();
     await waitFor(() => {
@@ -371,7 +371,7 @@ describe("FilePreview", () => {
     expect(
       pierreFile.shadowRoot
         ?.querySelector('[data-line="2"]')
-        ?.hasAttribute("data-bb-source-code-target-line"),
+        ?.hasAttribute("data-cc-source-code-target-line"),
     ).toBe(true);
   });
 
@@ -649,7 +649,7 @@ describe("FilePreview", () => {
 
   it("hands the desktop shell an absolute preview url", () => {
     const openExternalUrl = vi.fn();
-    (window as unknown as { bbDesktop: unknown }).bbDesktop = {
+    (window as unknown as { ccDesktop: unknown }).ccDesktop = {
       openExternalUrl,
     };
 
@@ -674,7 +674,7 @@ describe("FilePreview", () => {
         `${window.location.origin}/api/v1/threads/thr_1/worktree/files/docs/progress-vis.html`,
       );
     } finally {
-      delete (window as unknown as { bbDesktop?: unknown }).bbDesktop;
+      delete (window as unknown as { ccDesktop?: unknown }).ccDesktop;
     }
   });
 
@@ -945,7 +945,7 @@ describe("FilePreview", () => {
       <SecondaryPanelFilePreview
         activePath="docs/notes.md"
         error={
-          new BbHttpError({
+          new CcHttpError({
             status: 502,
             code: "host_unavailable",
             message: "Host is not connected",
@@ -981,7 +981,7 @@ describe("FilePreview", () => {
       <SecondaryPanelFilePreview
         activePath="does-not-exist.md"
         error={
-          new BbHttpError({
+          new CcHttpError({
             status: 404,
             code: "ENOENT",
             message: "Path does not exist: /workspace/does-not-exist.md",

@@ -22,8 +22,8 @@ import {
   hosts,
   listThreadIdsWithHostOfflineQueueWaits,
   updateHost,
-} from "@bb/db";
-import { validatePluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@cc/db";
+import { validatePluginEnvironmentProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
 import {
   requestMachineRemoval,
   retryMachineCleanup,

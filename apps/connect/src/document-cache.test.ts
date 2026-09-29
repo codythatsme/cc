@@ -3,17 +3,17 @@ import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { decodeFrame, encodeFrame, type Frame } from "@bb/tunnel-contract";
+import { decodeFrame, encodeFrame, type Frame } from "@cc/tunnel-contract";
 
 const SHELL_CACHE_CONTROL = "no-cache";
 
 const BUILD_A = {
   etag: 'W/"build-a"',
-  html: `<!doctype html><title>bb</title>${"<p>build a</p>".repeat(40)}`,
+  html: `<!doctype html><title>cc</title>${"<p>build a</p>".repeat(40)}`,
 };
 const BUILD_B = {
   etag: 'W/"build-b"',
-  html: `<!doctype html><title>bb</title>${"<p>build b — new hashes</p>".repeat(40)}`,
+  html: `<!doctype html><title>cc</title>${"<p>build b — new hashes</p>".repeat(40)}`,
 };
 
 type ClientWebSocket = NonNullable<
@@ -106,7 +106,7 @@ async function get(
   });
   return {
     status: res.status,
-    cacheMarker: res.headers.get("x-bb-cache"),
+    cacheMarker: res.headers.get("x-cc-cache"),
     cacheControl: res.headers.get("cache-control"),
     etag: res.headers.get("etag"),
     body: Buffer.from(await res.arrayBuffer()).toString("utf8"),

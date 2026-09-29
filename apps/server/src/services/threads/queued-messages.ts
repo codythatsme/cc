@@ -15,23 +15,23 @@ import {
   type DbQueryConnection,
   type QueuedThreadMessageGroupClaimPolicy,
   type QueuedThreadMessageGroupEligibility,
-} from "@bb/db";
+} from "@cc/db";
 import {
   flattenPromptInputGroups,
   queuedMessageSystemNoticeSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   PromptInput,
   QueuedMessageWaitingOn,
   Thread,
   ThreadQueuedMessage,
   ThreadTurnInitiator,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   CreateQueuedMessageRequest,
   SendMessageRequest,
   SendQueuedMessageMode,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,
@@ -80,7 +80,6 @@ import {
 import { recordQueuedMessageDrainFailure } from "./queue-drain-failure.js";
 import {
   appendPluginMentionContext,
-  captureUserMessageSentTelemetry,
   ensureThreadQueueIsWritable,
   formatAgentThreadInput,
   resolveMessageSenderThreadId,
@@ -271,13 +270,6 @@ export async function createQueuedMessageForThread(
       { behavior: "immediate" },
     );
   deps.hub.notifyThread(thread.id, ["queue-changed"]);
-  if (senderThreadId === null && payload.input.length > 0) {
-    captureUserMessageSentTelemetry(deps, {
-      isChildThread: thread.parentThreadId !== null,
-      messageSource: "queued_message",
-      providerId: thread.providerId,
-    });
-  }
   if (currentThread.status === "idle" && hasProviderSession) {
     requestQueuedMessageDispatch(deps, {
       kind: "thread-ready",

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import plugin from "./server.js";
 import { createAutomationService } from "./service.js";
 
@@ -66,15 +66,15 @@ async function createHost(
       },
     },
   });
-  await plugin(host.bb as unknown as Parameters<typeof plugin>[0]);
+  await plugin(host.cc as unknown as Parameters<typeof plugin>[0]);
   return host;
 }
 
 function createService(host: Awaited<ReturnType<typeof createHost>>) {
   return createAutomationService({
-    bb: host.bb as never,
-    db: host.bb.storage.database(),
-    pluginDataDir: "/tmp/bb-automations-read-failure-test",
+    cc: host.cc as never,
+    db: host.cc.storage.database(),
+    pluginDataDir: "/tmp/cc-automations-read-failure-test",
     serverUrl: "http://127.0.0.1:38886",
   });
 }

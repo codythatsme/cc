@@ -1,8 +1,8 @@
 import { rm, rmdir } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import type { ServerMoveStepId } from "@bb/domain";
-import { readServerMovedFile } from "@bb/server-archive";
-import type { ServerMoveStatus } from "@bb/server-contract";
+import type { ServerMoveStepId } from "@cc/domain";
+import { readServerMovedFile } from "@cc/server-archive";
+import type { ServerMoveStatus } from "@cc/server-contract";
 import type { ServerLogger } from "../../types.js";
 import { SERVER_MOVE_WORK_DIR_NAME } from "./coordinator.js";
 import {

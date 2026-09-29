@@ -1,6 +1,6 @@
 import { withHostCleanup } from "../hosts/cleanup-context.js";
 import { findHostDataDir } from "../lib/entity-lookup.js";
-import { updateThread } from "@bb/db";
+import { updateThread } from "@cc/db";
 import {
   assertEnvironmentPathAvailable,
   findBlockingEnvironmentPathClaim,
@@ -40,7 +40,7 @@ import {
   type DbNotifier,
   type DbQueryConnection,
   threads,
-} from "@bb/db";
+} from "@cc/db";
 import {
   jsonValueSchema,
   type Environment,
@@ -52,14 +52,14 @@ import {
   type SystemThreadProvisioningStatus,
   type ThreadStatus,
   threadScope,
-} from "@bb/domain";
-import { type ThreadResponse } from "@bb/server-contract";
+} from "@cc/domain";
+import { type ThreadResponse } from "@cc/server-contract";
 import {
   type PluginEnvironmentProviderCreateContext,
   type PluginEnvironmentProviderCreateResult,
   type PluginEnvironmentProviderProgress,
   type PluginEnvironmentProviderRestoreContext,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@codythatsme/plugin-sdk/environment-provider";
 import {
   type ThreadProvisioningDeps,
   ensureWorkspaceReadyEventInTransaction,
@@ -78,7 +78,7 @@ import {
   applyLoggedEnvironmentLifecycleEventInTransaction,
 } from "./lifecycle-outcome.js";
 import { buildEnvironmentProvisionCommand } from "../threads/thread-create-helpers.js";
-import { recordProvisionedEnvironmentWorkspace } from "@bb/db/internal-environment-lifecycle";
+import { recordProvisionedEnvironmentWorkspace } from "@cc/db/internal-environment-lifecycle";
 import { type AppDeps } from "../../types.js";
 import {
   appendThreadProvisioningEvent,

@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 const loadRenameEditor = () => import("./SidebarRenameEditor");
 const SidebarRenameEditor = lazy(loadRenameEditor);
 

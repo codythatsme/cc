@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createConnection, migrate, type DbConnection } from "@bb/db";
+import { createConnection, migrate, type DbConnection } from "@cc/db";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { registerPluginCatalogRoutes } from "../../../src/routes/plugin-catalog.js";
@@ -28,7 +28,7 @@ describe("plugin catalog routes", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    dataDir = await mkdtemp(join(tmpdir(), "bb-catalog-routes-"));
+    dataDir = await mkdtemp(join(tmpdir(), "cc-catalog-routes-"));
   });
 
   afterEach(async () => {
@@ -79,7 +79,7 @@ describe("plugin catalog routes", () => {
     );
     await expect(search.json()).resolves.toMatchObject({
       results: [{ entryId: "memory", installed: false }],
-      collections: [{ id: "bb-official", displayName: "BB Official" }],
+      collections: [{ id: "cc-official", displayName: "CC Official" }],
     });
 
     const refresh = await app.request("/plugin-catalog/refresh", {
@@ -113,8 +113,8 @@ describe("plugin catalog routes", () => {
         ? new Response(
             JSON.stringify({
               schemaVersion: 1,
-              name: "bb-community",
-              displayName: "BB Community",
+              name: "cc-community",
+              displayName: "CC Community",
               plugins: [
                 {
                   id: "widgets",
@@ -136,11 +136,11 @@ describe("plugin catalog routes", () => {
         : new Response(VALID_SVG, { status: 200 }),
     );
     await refreshCuratedMarketplace(catalog, 1_000);
-    const hash = (await catalog.icon("bb-community", "widgets"))?.hash;
+    const hash = (await catalog.icon("cc-community", "widgets"))?.hash;
     expect(hash).toBeDefined();
 
     const hashed = await app.request(
-      `/plugin-catalog/icons/bb-community/widgets?h=${hash}`,
+      `/plugin-catalog/icons/cc-community/widgets?h=${hash}`,
     );
     expect(hashed.status).toBe(200);
     expect(hashed.headers.get("content-type")).toBe("image/svg+xml");
@@ -148,12 +148,12 @@ describe("plugin catalog routes", () => {
     expect(await hashed.text()).toBe(VALID_SVG.toString());
 
     const stale = await app.request(
-      "/plugin-catalog/icons/bb-community/widgets?h=stale",
+      "/plugin-catalog/icons/cc-community/widgets?h=stale",
     );
     expect(stale.headers.get("cache-control")).toBe("no-store");
 
     const missing = await app.request(
-      "/plugin-catalog/icons/bb-community/nothing",
+      "/plugin-catalog/icons/cc-community/nothing",
     );
     expect(missing.status).toBe(404);
   });
@@ -174,7 +174,7 @@ describe("plugin catalog routes", () => {
             icon: "Zap",
             author: { name: "Acme" },
             source: {
-              npm: { package: "bb-plugin-notes", range: "^1.0.0" },
+              npm: { package: "cc-plugin-notes", range: "^1.0.0" },
             },
           },
         ],
@@ -217,8 +217,8 @@ describe("plugin catalog routes", () => {
       const listed = await app.request("/marketplaces");
       await expect(listed.json()).resolves.toMatchObject({
         marketplaces: [
-          { name: "bb-official", official: true, sourceKind: "path" },
-          { name: "bb-community" },
+          { name: "cc-official", official: true, sourceKind: "path" },
+          { name: "cc-community" },
           { name: "acme-plugins" },
         ],
       });
@@ -267,7 +267,7 @@ describe("plugin catalog routes", () => {
       );
       expect(longPlan.status).toBe(422);
 
-      const reserved = await app.request("/marketplaces/bb-community", {
+      const reserved = await app.request("/marketplaces/cc-community", {
         method: "DELETE",
       });
       expect(reserved.status).toBe(422);
@@ -289,10 +289,10 @@ describe("plugin catalog routes", () => {
           kind: "marketplace",
           marketplace: "acme-plugins",
           official: false,
-          source: "npm:bb-plugin-notes@^1.0.0",
+          source: "npm:cc-plugin-notes@^1.0.0",
           resolvedSource: {
             kind: "npm",
-            package: "bb-plugin-notes",
+            package: "cc-plugin-notes",
             range: "^1.0.0",
             unresolvedReason: "no registry in this test",
           },
@@ -317,7 +317,7 @@ describe("plugin catalog routes", () => {
         marketplace: "acme-plugins",
         confirmedSource: {
           kind: "npm",
-          package: "bb-plugin-notes",
+          package: "cc-plugin-notes",
           range: "^1.0.0",
           unresolvedReason: "no registry in this test",
         },

@@ -1,5 +1,5 @@
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
-import { statusResponseSchema } from "@bb/host-daemon-contract/local";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
+import { statusResponseSchema } from "@cc/host-daemon-contract/local";
 import {
   createTurboBuildCommand,
   resolveDevHostDaemonPort,
@@ -40,17 +40,17 @@ interface ReadRunningSupervisorPidArgs {
 
 const restartTargets: Record<RestartTarget, RestartTargetConfig> = {
   both: {
-    filters: ["@bb/server", "@bb/host-daemon"],
+    filters: ["@cc/server", "@cc/host-daemon"],
     label: "server and host-daemon",
     services: ["server", "host-daemon"],
   },
   "host-daemon": {
-    filters: ["@bb/host-daemon"],
+    filters: ["@cc/host-daemon"],
     label: "host-daemon",
     services: ["host-daemon"],
   },
   server: {
-    filters: ["@bb/server"],
+    filters: ["@cc/server"],
     label: "server",
     services: ["server"],
   },

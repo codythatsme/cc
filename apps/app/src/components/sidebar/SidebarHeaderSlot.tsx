@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { PluginReplacementSlot } from "@/components/plugin/PluginReplacementSlot";
 import { appToast } from "@/components/ui/app-toast";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -11,7 +11,7 @@ const DEFAULT_CONTROL_SIZE = 28;
 
 function readControlSize(element: HTMLElement): number {
   const value = Number.parseFloat(
-    getComputedStyle(element).getPropertyValue("--bb-sidebar-control-size"),
+    getComputedStyle(element).getPropertyValue("--cc-sidebar-control-size"),
   );
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_CONTROL_SIZE;
 }
@@ -72,7 +72,7 @@ export function SidebarHeaderSlot({
         slotKind={SIDEBAR_HEADER_SLOT_KIND}
         onCrash={(pluginId) => {
           appToast.error("Sidebar header plugin crashed", {
-            description: `${title} (${pluginId}) stopped working, so bb removed it from the sidebar header.`,
+            description: `${title} (${pluginId}) stopped working, so cc removed it from the sidebar header.`,
           });
         }}
       >

@@ -3,9 +3,9 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InlineComposerDraftSession } from "./useActiveComposerDraft";
-import type { PromptDraftAttachment } from "@bb/client-core";
-import { BbHttpError } from "@bb/sdk/browser";
-import { createDeferredPromise } from "@bb/test-helpers";
+import type { PromptDraftAttachment } from "@cc/client-core";
+import { CcHttpError } from "@cc/sdk/browser";
+import { createDeferredPromise } from "@cc/test-helpers";
 import {
   useComposerAttachmentUploads,
   useDraftAttachmentUploads,
@@ -153,7 +153,7 @@ describe("useComposerAttachmentUploads", () => {
       "HEIC images are not supported. Convert the image to JPEG or PNG before attaching it.";
     mocks.upload
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new CcHttpError({
           body: { code: "invalid_request", message },
           code: "invalid_request",
           message,

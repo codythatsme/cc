@@ -19,18 +19,18 @@ import {
   upsertHost,
   type DbConnection,
   type ThreadWithPendingInteractionState,
-} from "@bb/db";
+} from "@cc/db";
 import {
   formatClientTurnRequestIdSuffix,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ClientTurnRequestId,
   PromptInput,
   Thread,
   ThreadRuntimeState,
-} from "@bb/domain";
+} from "@cc/domain";
 import { HOST_RECONNECT_GRACE_MS } from "../../../src/constants.js";
 import {
   resolveThreadRuntimeState,

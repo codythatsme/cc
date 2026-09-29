@@ -54,7 +54,7 @@ describe("plugin SDK deprecated aliases", () => {
       );
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledWith(
-        "experimental_UrlLink is deprecated; use UrlLink. Removed in bb 0.42",
+        "experimental_UrlLink is deprecated; use UrlLink. Removed in cc 0.42",
       );
     } finally {
       warn.mockRestore();
@@ -66,7 +66,7 @@ describe("plugin SDK deprecated aliases", () => {
     const openUrl = vi.fn(() => true);
     const results: unknown[] = [];
     function Probe() {
-      const navigate = pluginSdkAppImplementation.useBbNavigate();
+      const navigate = pluginSdkAppImplementation.useCcNavigate();
       const legacyOpenUrl = Reflect.get(navigate, "experimental_openUrl");
       return (
         <button
@@ -104,7 +104,7 @@ describe("plugin SDK deprecated aliases", () => {
       });
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledWith(
-        "experimental_openUrl is deprecated; use openUrl. Removed in bb 0.42",
+        "experimental_openUrl is deprecated; use openUrl. Removed in cc 0.42",
       );
     } finally {
       warn.mockRestore();

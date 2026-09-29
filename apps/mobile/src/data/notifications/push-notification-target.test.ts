@@ -4,7 +4,7 @@ import {
   resolvePushTargetProfile,
 } from "./push-notification-target";
 
-const sawyer = { id: "p1", serverUrl: "https://sawyer.getbb.app" };
+const sawyer = { id: "p1", serverUrl: "https://sawyer.cc.example.invalid" };
 const lan = { id: "p2", serverUrl: "http://192.168.1.20:3000" };
 
 describe("parsePushNotificationData", () => {
@@ -15,23 +15,23 @@ describe("parsePushNotificationData", () => {
     expect(
       parsePushNotificationData({
         threadId: "thr_1",
-        url: "https://sawyer.getbb.app/threads/thr_1",
+        url: "https://sawyer.cc.example.invalid/threads/thr_1",
         extra: 1,
       }),
     ).toEqual({
       threadId: "thr_1",
       projectId: null,
-      serverUrl: "https://sawyer.getbb.app",
+      serverUrl: "https://sawyer.cc.example.invalid",
     });
     expect(
       parsePushNotificationData({
         threadId: "thr_1",
-        serverUrl: "https://home.example.com/bb/",
+        serverUrl: "https://home.example.com/cc/",
       }),
     ).toEqual({
       threadId: "thr_1",
       projectId: null,
-      serverUrl: "https://home.example.com/bb",
+      serverUrl: "https://home.example.com/cc",
     });
   });
 
@@ -59,12 +59,12 @@ describe("resolvePushTargetProfile", () => {
   it("matches a server hint with a saved path prefix", async () => {
     const prefixed = {
       id: "p3",
-      serverUrl: "https://home.example.com/bb",
+      serverUrl: "https://home.example.com/cc",
     };
     const hasThread = vi.fn(async () => false);
     expect(
       await resolvePushTargetProfile(
-        { ...target, serverUrl: "https://home.example.com/bb" },
+        { ...target, serverUrl: "https://home.example.com/cc" },
         { profiles: [sawyer, prefixed], activeProfileId: "p1", hasThread },
       ),
     ).toBe(prefixed);

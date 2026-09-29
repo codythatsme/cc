@@ -55,7 +55,7 @@ vi.mock("@/app-shell", () => {
     id: "profile-1",
     label: "Profile",
     mode: "connect",
-    serverUrl: "https://bb.example.test",
+    serverUrl: "https://cc.example.test",
   };
   return {
     useProfiles: () => ({
@@ -128,7 +128,7 @@ describe("PushNotificationsHost", () => {
           content: {
             data: {
               projectId: "proj_1",
-              serverUrl: "https://bb.example.test",
+              serverUrl: "https://cc.example.test",
               threadId: "thr_1",
             },
           },

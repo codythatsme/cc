@@ -27,13 +27,13 @@ describe("fetchConnectAccountServers", () => {
                 handle: "me",
                 name: "primary",
                 live: true,
-                url: "https://me.getbb.app",
+                url: "https://me.cc.example.invalid",
               },
               {
                 handle: "other",
                 name: "laptop",
                 live: false,
-                url: "https://other.getbb.app",
+                url: "https://other.cc.example.invalid",
               },
             ],
           },
@@ -154,7 +154,7 @@ describe("createConnectServerSync", () => {
               handle: "other",
               name: "Other",
               live: true,
-              url: "https://other.getbb.app",
+              url: "https://other.cc.example.invalid",
             },
           ],
         },
@@ -182,7 +182,7 @@ describe("createConnectServerSync", () => {
         handle: "other",
         name: "Other",
         live: true,
-        url: "https://other.getbb.app",
+        url: "https://other.cc.example.invalid",
       },
     ]);
 
@@ -274,7 +274,7 @@ describe("createConnectServerSync without a local server", () => {
   const credential = {
     credential: "bbcm_desktop",
     handle: "me",
-    serverUrl: "https://me.getbb.app",
+    serverUrl: "https://me.cc.example.invalid",
   };
 
   it("lists servers straight from the gate with the cached credential", async () => {
@@ -305,9 +305,9 @@ describe("createConnectServerSync without a local server", () => {
 
     await sync.syncNow();
     expect(gateFetchImpl).toHaveBeenCalledWith(
-      "https://me.getbb.app/api/connect/servers",
+      "https://me.cc.example.invalid/api/connect/servers",
       expect.objectContaining({
-        headers: { "x-bb-connect-machine": "bbcm_desktop" },
+        headers: { "x-cc-connect-machine": "bbcm_desktop" },
       }),
     );
     expect(received).toEqual([
@@ -315,7 +315,7 @@ describe("createConnectServerSync without a local server", () => {
         handle: "other",
         name: "Other",
         live: true,
-        url: "https://other.getbb.app",
+        url: "https://other.cc.example.invalid",
       },
     ]);
   });

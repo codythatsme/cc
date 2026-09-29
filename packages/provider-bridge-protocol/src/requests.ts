@@ -3,7 +3,7 @@ import {
   dynamicToolSchema,
   instructionModeSchema,
   promptInputSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import { z } from "zod";
 import { bridgeExecutionOptionsSchema } from "./execution-options.js";
 

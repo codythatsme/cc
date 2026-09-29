@@ -19,25 +19,25 @@ describe("legacy local ui preferences", () => {
     expect(
       readLegacyLocalUiPreference("sidebar.organizationMode"),
     ).toBeUndefined();
-    seed("bb.sidebar.organizationMode", "by-color");
+    seed("cc.sidebar.organizationMode", "by-color");
     expect(
       readLegacyLocalUiPreference("sidebar.organizationMode"),
     ).toBeUndefined();
-    window.localStorage.setItem("bb.sidebar.collapsedProjects", "{not json");
+    window.localStorage.setItem("cc.sidebar.collapsedProjects", "{not json");
     expect(
       readLegacyLocalUiPreference("sidebar.collapsedProjects"),
     ).toBeUndefined();
-    seed("bb.sidebar.collapsedThreads", ["thr_a", 2]);
+    seed("cc.sidebar.collapsedThreads", ["thr_a", 2]);
     expect(
       readLegacyLocalUiPreference("sidebar.collapsedThreads"),
     ).toBeUndefined();
   });
 
   it("reads values from their old browser keys", () => {
-    seed("bb.sidebar.organizationMode", "machine");
-    seed("bb.sidebar.collapsedThreads", ["thr_a", "thr_b"]);
-    seed("bb.sidebar.navigationProvider", "docs/main");
-    seed("bb.sidebar.visiblePluginPanels", ["docs/main"]);
+    seed("cc.sidebar.organizationMode", "machine");
+    seed("cc.sidebar.collapsedThreads", ["thr_a", "thr_b"]);
+    seed("cc.sidebar.navigationProvider", "docs/main");
+    seed("cc.sidebar.visiblePluginPanels", ["docs/main"]);
     expect(readLegacyLocalUiPreference("sidebar.organizationMode")).toBe(
       "machine",
     );
@@ -54,9 +54,9 @@ describe("legacy local ui preferences", () => {
   });
 
   it("ignores retired folder-era and hidden-panel keys", () => {
-    seed("bb.sidebar.folderSectionOrder", ["pinned", "folders"]);
-    seed("bb.sidebar.collapsedFolders", ["proj_1::sec_1"]);
-    seed("bb.sidebar.hiddenPluginPanels", ["docs/main"]);
+    seed("cc.sidebar.folderSectionOrder", ["pinned", "folders"]);
+    seed("cc.sidebar.collapsedFolders", ["proj_1::sec_1"]);
+    seed("cc.sidebar.hiddenPluginPanels", ["docs/main"]);
     expect(
       readLegacyLocalUiPreference("sidebar.manualSectionOrder"),
     ).toBeUndefined();
@@ -72,22 +72,22 @@ describe("legacy local ui preferences", () => {
   });
 
   it("clears the old key and its retired predecessors", () => {
-    seed("bb.sidebar.pluginPanelOrder", ["docs/main"]);
-    seed("bb.sidebar.hiddenPluginPanels", ["docs/main"]);
-    seed("bb.sidebar.collapsedThreadSections", ["proj_1::sec_1"]);
-    seed("bb.sidebar.collapsedFolders", ["proj_1::sec_1"]);
-    seed("bb.sidebar.manualSectionOrder", ["pinned"]);
-    seed("bb.sidebar.folderSectionOrder", ["pinned"]);
+    seed("cc.sidebar.pluginPanelOrder", ["docs/main"]);
+    seed("cc.sidebar.hiddenPluginPanels", ["docs/main"]);
+    seed("cc.sidebar.collapsedThreadSections", ["proj_1::sec_1"]);
+    seed("cc.sidebar.collapsedFolders", ["proj_1::sec_1"]);
+    seed("cc.sidebar.manualSectionOrder", ["pinned"]);
+    seed("cc.sidebar.folderSectionOrder", ["pinned"]);
     clearLegacyLocalUiPreference("sidebar.pluginPanelOrder");
     clearLegacyLocalUiPreference("sidebar.collapsedThreadSections");
     clearLegacyLocalUiPreference("sidebar.manualSectionOrder");
     for (const key of [
-      "bb.sidebar.pluginPanelOrder",
-      "bb.sidebar.hiddenPluginPanels",
-      "bb.sidebar.collapsedThreadSections",
-      "bb.sidebar.collapsedFolders",
-      "bb.sidebar.manualSectionOrder",
-      "bb.sidebar.folderSectionOrder",
+      "cc.sidebar.pluginPanelOrder",
+      "cc.sidebar.hiddenPluginPanels",
+      "cc.sidebar.collapsedThreadSections",
+      "cc.sidebar.collapsedFolders",
+      "cc.sidebar.manualSectionOrder",
+      "cc.sidebar.folderSectionOrder",
     ]) {
       expect(window.localStorage.getItem(key)).toBeNull();
     }

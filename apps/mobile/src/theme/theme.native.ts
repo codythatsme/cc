@@ -1,4 +1,4 @@
-import type { BuiltInThemeId } from "@bb/domain";
+import type { BuiltInThemeId } from "@cc/domain";
 
 export interface NativeThemeTokens {
   accent: string;

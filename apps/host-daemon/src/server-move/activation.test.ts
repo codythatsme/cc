@@ -5,7 +5,7 @@ import {
   readLastServerMoveFile,
   readServerConnectHoldFile,
   writeServerConnectHoldFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { describe, expect, it } from "vitest";
 import { readIncomingMoveState, writeIncomingMoveState } from "./move-state.js";
 import { isProcessGroupAlive } from "./pending-server.js";
@@ -27,7 +27,7 @@ import {
 registerServerMoveFixtureCleanup();
 
 const DAEMON_ONLY_EXEC_START =
-  '"/usr/bin/node" "/opt/npm/bin/bb-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "http://old-server:38886"';
+  '"/usr/bin/node" "/opt/npm/bin/cc-app" host-daemon --auto-update --host-daemon-port "38887" --server-url "http://old-server:38886"';
 
 async function prepareMove(
   fixture: Fixture,
@@ -36,8 +36,8 @@ async function prepareMove(
   await writeFile(
     join(fixture.dataDir, "config.json"),
     JSON.stringify({
-      serverUrl: "https://bb.example.test",
-      serverHeaders: { "x-bb-connect-machine": "bbcm_target" },
+      serverUrl: "https://cc.example.test",
+      serverHeaders: { "x-cc-connect-machine": "bbcm_target" },
       machineCredential: "bbcm_target",
     }),
   );
@@ -63,7 +63,7 @@ async function expectMarkersRemoved(fixture: Fixture): Promise<void> {
 describe("server_move.activate pre-validation", () => {
   it.each([
     {
-      name: "the service definition cannot run bb-app start",
+      name: "the service definition cannot run cc-app start",
       setup: async (fixture: Fixture) => {
         await writeSystemdUnit({
           homeDir: fixture.homeDir,
@@ -72,7 +72,7 @@ describe("server_move.activate pre-validation", () => {
         });
       },
       fixtureArgs: { env: {} },
-      message: "to run the bb server",
+      message: "to run the cc server",
     },
     {
       name: "the host daemon port is unknown",
@@ -81,19 +81,19 @@ describe("server_move.activate pre-validation", () => {
       message: "host daemon port is unknown",
     },
     {
-      name: "the bb server package is missing",
+      name: "the cc server package is missing",
       setup: async (fixture: Fixture) => {
         await rm(join(fixture.packageRoot, "server", "dist", "index.js"));
       },
       fixtureArgs: {},
-      message: "does not include the bb server",
+      message: "does not include the cc server",
     },
     {
       name: "an unrecognized supervisor runs the daemon",
       setup: async () => undefined,
       fixtureArgs: {
         env: {
-          BB_SERVER_MOVE_SERVICE_MANAGER: "none",
+          CC_SERVER_MOVE_SERVICE_MANAGER: "none",
           INVOCATION_ID: "0123456789abcdef",
         },
       },
@@ -206,13 +206,13 @@ describe("server_move.activate sequencing", () => {
         "--user",
         "restart",
         "--no-block",
-        "bb-host-daemon-old-server-studio.service",
+        "cc-host-daemon-old-server-studio.service",
       ],
     ]);
     expect(atDaemonReload).toEqual([
       {
         unit: expect.stringContaining(
-          `ExecStart="/usr/bin/node" "/opt/npm/bin/bb-app" "start" "--data-dir" "${fixture.dataDir}" "--server-port" "${command.serverPort}" "--host-daemon-port" "38887"`,
+          `ExecStart="/usr/bin/node" "/opt/npm/bin/cc-app" "start" "--data-dir" "${fixture.dataDir}" "--server-port" "${command.serverPort}" "--host-daemon-port" "38887"`,
         ),
         importExists: false,
         stateExists: true,
@@ -220,19 +220,19 @@ describe("server_move.activate sequencing", () => {
     ]);
     await expectMarkersRemoved(fixture);
     expect(await readJson(join(fixture.dataDir, "config.json"))).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { CC_LOG_LEVEL: "info" },
       serverUrl: `http://127.0.0.1:${command.serverPort}`,
     });
-    expect(await exists(join(fixture.dataDir, "bb.db"))).toBe(true);
+    expect(await exists(join(fixture.dataDir, "cc.db"))).toBe(true);
     expect(fixture.shutdownRequests).toEqual([]);
   });
 
-  it("starts bb-app start through the npm prefix launcher when no service manager runs the daemon", async () => {
+  it("starts cc-app start through the npm prefix launcher when no service manager runs the daemon", async () => {
     const fixture = await createFixture();
     const service = fixture.createService({
       env: {
-        BB_SERVER_MOVE_SERVICE_MANAGER: "none",
-        BB_APP_NPM_PREFIX: fixture.npmPrefix,
+        CC_SERVER_MOVE_SERVICE_MANAGER: "none",
+        CC_APP_NPM_PREFIX: fixture.npmPrefix,
       },
     });
     await writeFile(
@@ -251,7 +251,7 @@ describe("server_move.activate sequencing", () => {
       {
         command: process.execPath,
         args: [
-          join(fixture.npmPrefix, "bin", "bb-app"),
+          join(fixture.npmPrefix, "bin", "cc-app"),
           "start",
           "--data-dir",
           fixture.dataDir,
@@ -263,9 +263,9 @@ describe("server_move.activate sequencing", () => {
           "0.0.0.0",
         ],
         env: expect.objectContaining({
-          BB_DATA_DIR: fixture.dataDir,
-          BB_APP_NPM_PREFIX: fixture.npmPrefix,
-          BB_SERVER_MOVE_SERVICE_MANAGER: "none",
+          CC_DATA_DIR: fixture.dataDir,
+          CC_APP_NPM_PREFIX: fixture.npmPrefix,
+          CC_SERVER_MOVE_SERVICE_MANAGER: "none",
         }),
         logPath: join(fixture.dataDir, "logs", "server-move.log"),
       },
@@ -276,12 +276,12 @@ describe("server_move.activate sequencing", () => {
     await expectMarkersRemoved(fixture);
   });
 
-  it("removes a bb connect hold so the moved server starts bb connect", async () => {
+  it("removes a cc connect hold so the moved server starts cc connect", async () => {
     const fixture = await createFixture();
     const service = fixture.createService({
       env: {
-        BB_SERVER_MOVE_SERVICE_MANAGER: "none",
-        BB_APP_NPM_PREFIX: fixture.npmPrefix,
+        CC_SERVER_MOVE_SERVICE_MANAGER: "none",
+        CC_APP_NPM_PREFIX: fixture.npmPrefix,
       },
     });
     await writeFile(
@@ -338,7 +338,7 @@ describe("server_move.activate sequencing", () => {
     const unitPath = await writeSystemdUnit({
       homeDir: fixture.homeDir,
       dataDir: fixture.dataDir,
-      execStart: `"/usr/bin/node" "/opt/npm/bin/bb-app" "start" "--data-dir" "${fixture.dataDir}" "--server-port" "38886" "--host-daemon-port" "38887"`,
+      execStart: `"/usr/bin/node" "/opt/npm/bin/cc-app" "start" "--data-dir" "${fixture.dataDir}" "--server-port" "38886" "--host-daemon-port" "38887"`,
     });
     const unit = await readFile(unitPath, "utf8");
     const command = await prepareCommand(fixture);
@@ -361,7 +361,7 @@ describe("server_move.activate sequencing", () => {
       false,
     );
     await expectMarkersRemoved(fixture);
-    expect(await exists(join(fixture.dataDir, "bb.db"))).toBe(true);
+    expect(await exists(join(fixture.dataDir, "cc.db"))).toBe(true);
     expect(await readFile(unitPath, "utf8")).toBe(unit);
     expect(fixture.commands).toEqual([]);
     expect(fixture.detachedRequests).toEqual([]);
@@ -417,7 +417,7 @@ describe("activation resume", () => {
     expect(fixture.shutdownRequests).toEqual([["server-move-activated", 0]]);
     await expectMarkersRemoved(fixture);
     expect(await readJson(join(fixture.dataDir, "config.json"))).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { CC_LOG_LEVEL: "info" },
       serverUrl: `http://127.0.0.1:${command.serverPort}`,
     });
   });
@@ -431,7 +431,7 @@ describe("activation resume", () => {
       activationToken: "activation-token-0123456789",
       serverPort,
       bindHost: null,
-      importedEntries: ["bb.db"],
+      importedEntries: ["cc.db"],
       archivedServerData: null,
       pendingServer: { pid: 999_998, localServerUrl: "http://127.0.0.1:1" },
       preparedAt: 1,
@@ -459,7 +459,7 @@ describe("server move redirects during a move", () => {
 
     await fixture.service.handleServerMoved({
       source: "session-open",
-      serverUrl: "https://bb.example.test/",
+      serverUrl: "https://cc.example.test/",
       headers: null,
       toHostName: "studio",
       movedAt: 1_700_000_200_000,
@@ -482,7 +482,7 @@ describe("server move redirects during a move", () => {
     ]);
     expect(fixture.shutdownRequests).toEqual([["server-move-activated", 0]]);
     expect(await readJson(join(fixture.dataDir, "config.json"))).toEqual({
-      config: { BB_LOG_LEVEL: "info" },
+      config: { CC_LOG_LEVEL: "info" },
       serverUrl: `http://127.0.0.1:${command.serverPort}`,
     });
   });
@@ -504,7 +504,7 @@ describe("server move redirects during a move", () => {
     });
     await fixture.service.handleServerMoved({
       source: "message",
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://cc.example.test",
       headers: {},
     });
 
@@ -577,7 +577,7 @@ describe("server move redirects during a move", () => {
 
     await fixture.service.handleServerMoved({
       source: "session-open",
-      serverUrl: "https://bb.example.test",
+      serverUrl: "https://cc.example.test",
       headers: null,
       toHostName: "studio",
       movedAt: 1_700_000_200_000,

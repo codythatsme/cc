@@ -22,11 +22,11 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/gu, "'\\''")}'`;
 }
 
-describe("bb bin wrapper", () => {
+describe("cc bin wrapper", () => {
   let tempRoot: string;
 
   beforeEach(async () => {
-    tempRoot = await mkdtemp(join(tmpdir(), "bb-cli-bin-"));
+    tempRoot = await mkdtemp(join(tmpdir(), "cc-cli-bin-"));
   });
 
   afterEach(async () => {
@@ -39,13 +39,13 @@ describe("bb bin wrapper", () => {
     await mkdir(fakeBinDir, { recursive: true });
     await writeFile(
       join(fakeRepoRoot, "package.json"),
-      JSON.stringify({ name: "bb", private: true }),
+      JSON.stringify({ name: "cc", private: true }),
     );
     await copyFile(
-      join(repoRoot, "apps", "cli", "bin", "bb"),
-      join(fakeBinDir, "bb"),
+      join(repoRoot, "apps", "cli", "bin", "cc"),
+      join(fakeBinDir, "cc"),
     );
-    await chmod(join(fakeBinDir, "bb"), 0o755);
+    await chmod(join(fakeBinDir, "cc"), 0o755);
     return fakeRepoRoot;
   }
 
@@ -79,7 +79,7 @@ NODE
 `);
 
     const result = await execFileAsync(
-      join(fakeRepoRoot, "apps", "cli", "bin", "bb"),
+      join(fakeRepoRoot, "apps", "cli", "bin", "cc"),
       ["status", "--json"],
       {
         cwd: fakeRepoRoot,
@@ -114,7 +114,7 @@ exit 42
     );
 
     const result = await execFileAsync(
-      join(fakeRepoRoot, "apps", "cli", "bin", "bb"),
+      join(fakeRepoRoot, "apps", "cli", "bin", "cc"),
       ["--help"],
       {
         cwd: fakeRepoRoot,

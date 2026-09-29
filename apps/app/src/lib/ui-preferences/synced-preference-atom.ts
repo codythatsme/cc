@@ -3,7 +3,7 @@ import {
   getUiPreferenceDefault,
   type UiPreferenceKey,
   type UiPreferenceValue,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   registerSyncedUiPreference,
   scheduleUiPreferenceWrite,

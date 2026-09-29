@@ -13,15 +13,15 @@ export const Route = createFileRoute("/api/connect/machine-code")({
       GET: async ({ request }) => {
         const result = await lookupMachineCodeForServerCredential(
           depsFromEnv(getEnv()),
-          request.headers.get("x-bb-connect-machine") ?? "",
-          request.headers.get("x-bb-connect-code") ?? "",
+          request.headers.get("x-cc-connect-machine") ?? "",
+          request.headers.get("x-cc-connect-code") ?? "",
         );
         return Response.json(result, {
           status: "status" in result ? result.status : 200,
         });
       },
       POST: async ({ request }) => {
-        const credential = request.headers.get("x-bb-connect-machine") ?? "";
+        const credential = request.headers.get("x-cc-connect-machine") ?? "";
         const result = await createMachineCodeForServerCredential(
           depsFromEnv(getEnv()),
           credential,

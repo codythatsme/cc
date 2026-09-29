@@ -1,16 +1,16 @@
 # Provider plugin API
 
-This document is the reference for BB's provider plugin surface — what "a
+This document is the reference for CC's provider plugin surface — what "a
 provider is a plugin" means. It has no phases: every change that touches this
 surface keeps it true, and a test (`packages/plugin-sdk/src/__tests__/
 provider-plugin-doc.test.ts`) checks its code blocks against the real types.
 Members that still carry the `experimental_` prefix are named with it here;
 each has an entry in [api_to_audit.md](api_to_audit.md) saying why.
 
-A "provider" is a coding agent BB can run a thread on (Claude Code, Codex, Pi,
+A "provider" is a coding agent CC can run a thread on (Claude Code, Codex, Pi,
 ACP agents such as Cursor or Amp). The design goal is that **everything a
 provider touches is owned by its plugin** — translating the agent's native
-output into BB's data model, projecting that data onto the timeline, and how
+output into CC's data model, projecting that data onto the timeline, and how
 its tools are represented — with the smallest possible provider-agnostic core.
 
 ## Principles
@@ -37,13 +37,13 @@ timeline projection (core)  ─►  renderers (core + optional plugin web render
 
 ## 1. Registration (plugin server code)
 
-A plugin registers one or more providers through `bb.providers.register`. One
+A plugin registers one or more providers through `cc.providers.register`. One
 plugin may own several providers (the ACP plugin owns Cursor and the
 user-configured agents); user-configured instances are rows in the plugin's
 own settings that produce registrations at runtime.
 
 ```ts
-bb.providers.register({
+cc.providers.register({
   id: "claude-code",             // flat; first registration wins; no reservation
   displayName: "Claude Code",
   family: undefined,             // optional grouping key (the ACP agents share one)
@@ -78,7 +78,7 @@ bb.providers.register({
   models: { fallback: [], scope: "host" }, // cold-cache placeholder; scope is
                                  // "host" | "workspace" (default): how far one
                                  // model/list answer travels
-  env: { passthrough: ["BB_CLAUDE_CODE_EXECUTABLE"] },
+  env: { passthrough: ["CC_CLAUDE_CODE_EXECUTABLE"] },
   deriveProviderOptions(ctx) {   // called on every command
     // ctx: { threadId, projectId, model, permissionMode, promptMode?, settings }
     return {};                   // opaque JSON handed to this plugin's bridge
@@ -87,7 +87,7 @@ bb.providers.register({
 // => { dispose(): void }
 ```
 
-bb keeps each machine's last successful `model/list` answer per
+cc keeps each machine's last successful `model/list` answer per
 `models.scope` across daemon reconnects and server restarts, serves it
 immediately, and refreshes it in the background once it is 10 minutes old. A
 stored answer is discarded when the bridge fingerprint changes (plugin bundle
@@ -104,18 +104,18 @@ namePrefix?, skipIfManifest? }`, where `recursive` scans nested skill
 directories, `ancestors` (project roots only) also scans the same relative
 directory in every ancestor of the workspace up to the repository root,
 `namePrefix` is prepended to every name under the root, and `skipIfManifest`
-names the marker file whose presence makes bb skip a directory as a vendor
+names the marker file whose presence makes cc skip a directory as a vendor
 plugin rather than a skill; a symlink out of a project root is followed
 within the workspace for a plain root and within the repository root for a
 root that walks ancestors or that the plugin resolved) and
-`experimental_resolvesNativeRoots` (the plugin's `bb.host`
+`experimental_resolvesNativeRoots` (the plugin's `cc.host`
 entry answers `resolveNativeRoots({ providerId, cwd })` with the roots only
 that host and workspace know: a moved config directory, installed vendor
 plugins, config-file entries; an answer lists each path once per side, and
-the `@get-bb/plugin-sdk/host` vendor-plugin readers keep the first root per
+the `@codythatsme/plugin-sdk/host` vendor-plugin readers keep the first root per
 path in answer order). Declared roots are relative to the host home
 (`user`) or the workspace (`project`) only; a host-absolute directory is
-always the resolver's answer. bb scans each absolute path once per provider
+always the resolver's answer. cc scans each absolute path once per provider
 across the declared and resolved roots: the first root in declaration order
 wins — declared skills (project, then user), declared commands, then the
 resolved skills and commands, each in the order given — and a later root with
@@ -135,12 +135,12 @@ Rules:
   thread timeline. `"collapse"` folds a finished turn's work into one "Worked
   for" row beside the final answer; `"flat"` keeps every row visible, as while
   the turn ran. The user overrides it per provider in Settings → Providers or
-  with `bb settings completed-turns`, and the server applies the result to the
-  timeline, turn details, conversation outline, and `bb thread log`.
+  with `cc settings completed-turns`, and the server applies the result to the
+  timeline, turn details, conversation outline, and `cc thread log`.
 - Third-party ACP agents (for example Amp) register the same way, with a
   bridge built from the published ACP kit.
 
-## 2. Bridge (plugin `bb.host` artifact, runs on the host)
+## 2. Bridge (plugin `cc.host` artifact, runs on the host)
 
 ```ts
 export const experimental_providerBridge = experimental_defineProviderBridge({
@@ -211,8 +211,8 @@ the `provider/recovery` notification; never both for one event).
 
 The delta assembler stays in the daemon, is generic for extension kinds, and
 ships with the conformance kit and JSON-RPC harness as
-`@get-bb/plugin-sdk/provider-bridge/testing`. The ACP bridge ships as
-`@get-bb/plugin-sdk/provider-bridge/acp`; the first-party ACP plugin consumes
+`@codythatsme/plugin-sdk/provider-bridge/testing`. The ACP bridge ships as
+`@codythatsme/plugin-sdk/provider-bridge/acp`; the first-party ACP plugin consumes
 the same kit.
 
 ## 3. Vocabulary
@@ -258,10 +258,10 @@ presentation: {
 `icon.glyph` is a name, never bytes or a path: a host glyph (`"FileText"`)
 or one of the plugin's own declared icons by its namespaced glyph
 (`"<pluginId>/<name>"`, an entry of the manifest's
-`bb.branding.experimental_icons` map of name → plugin-relative SVG). The
+`cc.branding.experimental_icons` map of name → plugin-relative SVG). The
 server rejects at ingest a namespaced glyph that is not the emitting
 plugin's declared icon (`provider/unhandled`, reason naming the glyph); for
-a `server: "bb"` tool row the emitting plugin is the one that registered
+a `server: "cc"` tool row the emitting plugin is the one that registered
 the tool, whose presentation the bridge stamps as handed to it. Clients
 resolve the name against the plugin inventory they hold and draw
 the SVG tinted with `currentColor`. If the plugin is gone or the name
@@ -305,7 +305,7 @@ provider-native tool). Its `presentation` — the same label, glyph, tint,
 headline, and detail its timeline row carries — is the whole description
 of the ask: the app, mobile, CLI, and the child-thread blocker summary render
 it from `presentation` alone (`describePendingInteractionToolUse` in
-`@bb/core-ui`), never from a tool-name table. `detail` is agent-authored
+`@cc/core-ui`), never from a tool-name table. `detail` is agent-authored
 Markdown on every surface it reaches (the row body, the approval banner, on
 the web and on mobile): an image in it renders as its alt text, never as a
 fetch the user did not decide on.
@@ -317,7 +317,7 @@ interaction-lifecycle event type; the server fabricates no placeholder items.
 
 The one event is `system/interaction/lifecycle`. Every status change of every
 interaction — any approval subject, a user question, a plugin request —
-appends one, carrying the interaction's lifecycle record (`@bb/domain`
+appends one, carrying the interaction's lifecycle record (`@cc/domain`
 `interactionLifecycleSchema`): id, status, origin, the ask, and the answer,
 with the payload and the resolution paired by kind so the event cannot hold
 an approval subject beside a user answer. The record keeps what a reader
@@ -345,7 +345,7 @@ the id of the plugin's `pendingInteraction` slot registration and `data` is
 whatever that form reads (the kind grammar is lowercase `[a-z0-9-]`, so a
 form a bridge can address must register a lowercase id). No permission mode
 answers a request: it reaches the user through the plugin's form on the web
-app (`bb thread interactions respond <id> --value '<json>'` from the CLI;
+app (`cc thread interactions respond <id> --value '<json>'` from the CLI;
 the phone shows a card that points at the desktop app), and the answer comes
 back as `{ kind: "request_answer", value }` — the form's submitted value,
 capped at 64 KiB (`PLUGIN_INTERACTION_MAX_PAYLOAD_BYTES`, the same cap on the
@@ -389,11 +389,11 @@ ships to every window whether or not the provider is selected. Mobile renders
 the declarative base for every kind.
 
 The provider directory is available to plugins through
-`app.experimental_useProviders()` (frontend) and `bb.sdk.providers`
+`app.experimental_useProviders()` (frontend) and `cc.sdk.providers`
 (backend); no plugin re-vendors provider names or icons. Every provider's
 mark is the logo its plugin declared, served as `logoUrl` and drawn as a
 `currentColor` mask; core vendors no brand marks. A plugin's declared icons
-(`bb.branding.experimental_icons`) reach clients the same way: the plugins
+(`cc.branding.experimental_icons`) reach clients the same way: the plugins
 inventory carries each plugin's `icons` (name → hashed SVG URL), and both
 the web timeline and mobile resolve a row's `"<pluginId>/<name>"` glyph
 against it before drawing, falling back to the per-kind glyph when the name
@@ -408,12 +408,12 @@ trust, identical to every other plugin.
 
 ## 7. AI services
 
-bb's helper tasks (thread titles, commit messages, voice transcripts) are
+cc's helper tasks (thread titles, commit messages, voice transcripts) are
 plugin-served too. A plugin registers
-`bb.experimental_aiServices.register({ id, displayName, complete, transcribe, status })`
+`cc.experimental_aiServices.register({ id, displayName, complete, transcribe, status })`
 from its server entry: `complete(prompt) → Promise<string>` and
 `transcribe(audio) → Promise<string>`, each with an abort signal. The user picks
-a service per task in Settings → AI services; Automatic walks the services bb
-ships (Codex, then bb cloud) and never reaches a third-party plugin. The codex
-plugin serves `codex` by calling its own `bb.host` entry for the Codex CLI
+a service per task in Settings → AI services; Automatic walks the services cc
+ships (Codex, then cc cloud) and never reaches a third-party plugin. The codex
+plugin serves `codex` by calling its own `cc.host` entry for the Codex CLI
 login on the primary machine. See `docs/api_to_audit.md` for the audit items.

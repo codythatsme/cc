@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { threadTabsSchema } from "@bb/server-contract";
+import { threadTabsSchema } from "@cc/server-contract";
 import {
   EMPTY_FIXED_PANEL_TABS_STATE,
   areFixedPanelTabsEquivalent,
@@ -259,7 +259,7 @@ describe("fixed-panel-tabs-state", () => {
     ).toBe(true);
     expect(
       isFixedPanelTabsStateStorageKey(
-        "bb.thread.fixedPanelTabsState-thr_old-0",
+        "cc.thread.fixedPanelTabsState-thr_old-0",
       ),
     ).toBe(true);
   });

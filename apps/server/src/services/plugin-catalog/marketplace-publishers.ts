@@ -1,4 +1,4 @@
-import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@bb/server-contract";
+import { CURATED_PLUGIN_MARKETPLACE_NAME } from "@cc/server-contract";
 import {
   BUNDLED_MARKETPLACE_NAME,
   BUILTIN_PUBLISHER_LABEL,
@@ -6,7 +6,7 @@ import {
 
 const RESERVED_PUBLISHER_LABELS: ReadonlySet<string> = new Set([
   BUILTIN_PUBLISHER_LABEL,
-  "BB Community",
+  "CC Community",
 ]);
 
 export function marketplacePublisherLabel(args: {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { updateHost } from "@bb/db";
+import { updateHost } from "@cc/db";
 import {
   seedHost,
   seedHostSession,

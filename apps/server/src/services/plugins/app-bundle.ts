@@ -2,11 +2,11 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import semver from "semver";
-import { PLUGIN_SDK_MAJOR } from "@bb/domain";
+import { PLUGIN_SDK_MAJOR } from "@cc/domain";
 import {
   assertValidPluginCompactIconSvg,
   assertValidPluginIconSvg,
-} from "@bb/plugin-build";
+} from "@cc/plugin-build";
 
 interface PluginArtifactMeta {
   sdkMajor: number;
@@ -15,7 +15,7 @@ interface PluginArtifactMeta {
   pluginId?: string;
   pluginVersion?: string;
   builtWith?: {
-    bbVersion: string;
+    ccVersion: string;
     pluginSdkVersion: string;
   };
 }
@@ -107,7 +107,7 @@ async function loadPluginIconAsset(
   path: string,
 ): Promise<PluginBrandingAssetSnapshot> {
   const bytes = await readFile(path);
-  assertValidPluginIconSvg(bytes, `bb.branding.experimental_icons["${name}"]`);
+  assertValidPluginIconSvg(bytes, `cc.branding.experimental_icons["${name}"]`);
   const hash = brandingAssetHash(bytes);
   return {
     url: `/api/v1/plugins/${encodeURIComponent(pluginId)}/assets/icons/${encodeURIComponent(name)}.svg?h=${hash}`,
@@ -213,15 +213,15 @@ function parsePluginArtifactMeta(raw: string): PluginArtifactMetaParseResult {
   }
   const builtWith = Object.fromEntries(Object.entries(meta.builtWith));
   if (
-    typeof builtWith.bbVersion !== "string" ||
-    builtWith.bbVersion.length === 0 ||
+    typeof builtWith.ccVersion !== "string" ||
+    builtWith.ccVersion.length === 0 ||
     typeof builtWith.pluginSdkVersion !== "string" ||
     semver.valid(builtWith.pluginSdkVersion) === null
   ) {
     return {
       meta: null,
       error:
-        "builtWith.bbVersion must be non-empty and builtWith.pluginSdkVersion must be a valid semver",
+        "builtWith.ccVersion must be non-empty and builtWith.pluginSdkVersion must be a valid semver",
     };
   }
   if (builtWith.pluginSdkVersion !== meta.sdkVersion) {
@@ -238,7 +238,7 @@ function parsePluginArtifactMeta(raw: string): PluginArtifactMetaParseResult {
       pluginId: meta.pluginId,
       pluginVersion: meta.pluginVersion,
       builtWith: {
-        bbVersion: builtWith.bbVersion,
+        ccVersion: builtWith.ccVersion,
         pluginSdkVersion: builtWith.pluginSdkVersion,
       },
     },
@@ -264,7 +264,7 @@ export function validatePluginArtifactMeta(args: {
   }
   const meta = parsed.meta;
   if (meta.sdkMajor !== PLUGIN_SDK_MAJOR) {
-    return `${args.artifact} artifact for plugin "${args.pluginId}" was built for SDK major ${meta.sdkMajor}, running SDK major is ${PLUGIN_SDK_MAJOR}; rebuild the ${args.artifact} artifact with this bb version`;
+    return `${args.artifact} artifact for plugin "${args.pluginId}" was built for SDK major ${meta.sdkMajor}, running SDK major is ${PLUGIN_SDK_MAJOR}; rebuild the ${args.artifact} artifact with this cc version`;
   }
   if (meta.artifactFormatVersion !== 1) return null;
   if (meta.pluginId !== args.pluginId) {

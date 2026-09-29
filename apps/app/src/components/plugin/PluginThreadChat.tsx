@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import type {
   ThreadChatMessageAction,
   ThreadChatProps,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   formatEnvironmentDisplay,
   type EnvironmentDisplayHostContext,
-} from "@bb/core-ui";
-import { EmptyStatePanel } from "@bb/shared-ui/empty-state";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/core-ui";
+import { EmptyStatePanel } from "@cc/shared-ui/empty-state";
+import { Skeleton } from "@cc/shared-ui/skeleton";
+import { cn } from "@cc/shared-ui/lib/utils";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import { ThreadEnvironmentSummary } from "@/components/promptbox/ThreadEnvironmentSummary";
 import { EmbeddedThreadChat } from "@/components/thread/embedded-chat";
@@ -33,7 +33,7 @@ import {
 import { useSystemEnvironmentProviders } from "@/hooks/queries/environment-provider-queries";
 import { useSystemMachineProviders } from "@/hooks/queries/machine-provider-queries";
 import { formatWorkspaceCheckoutDisplay } from "@/lib/workspace-checkout-display";
-import { BbHttpError } from "@/lib/sdk";
+import { CcHttpError } from "@/lib/sdk";
 import {
   getProjectComposeRoutePath,
   getThreadRoutePath,
@@ -237,7 +237,7 @@ function PluginThreadChatBody({
   ]);
 
   const isThreadMissing =
-    threadQuery.error instanceof BbHttpError &&
+    threadQuery.error instanceof CcHttpError &&
     threadQuery.error.status === 404;
   if (isThreadMissing) {
     return (

@@ -3,7 +3,7 @@ import {
   definePluginApp,
   type PluginFileOpenerProps,
   type PluginThreadListProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 
 const LABEL = "Beta";
 
@@ -96,7 +96,7 @@ function LabHeader({
             checked={embedOriginal ?? false}
             onChange={(event) => onEmbedOriginalChange(event.target.checked)}
           />
-          Embed BB original
+          Embed CC original
         </label>
       )}
       <button

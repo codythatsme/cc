@@ -32,13 +32,13 @@ import {
   resolveEnvironmentMergeBaseBranch,
   type ThreadListEntry,
   type ThreadWithRuntime,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   PullRequestMergeMethod,
   TerminalSession,
   TimelineRow,
-} from "@bb/server-contract";
-import type { WorkspaceOpenTarget } from "@bb/host-daemon-contract";
+} from "@cc/server-contract";
+import type { WorkspaceOpenTarget } from "@cc/host-daemon-contract";
 import { appToast } from "@/components/ui/app-toast";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import type { ThreadSecondaryPanel as ThreadSecondaryPanelTab } from "@/lib/thread-secondary-panel";
@@ -47,7 +47,7 @@ import {
   usePluginDetailPanelState,
 } from "@/components/plugin/plugin-detail-navigation";
 import { useForkThreadFromMessage } from "@/hooks/useForkThreadFromMessage";
-import { isThreadForkable } from "@bb/client-core";
+import { isThreadForkable } from "@cc/client-core";
 import { useRequestEnvironmentAction } from "../../hooks/mutations/environment-mutations";
 import {
   useMarkThreadRead,
@@ -96,8 +96,8 @@ import { ThreadWorkspaceOpenButton } from "@/components/thread/ThreadWorkspaceOp
 import {
   formatEnvironmentDisplay,
   type EnvironmentDisplayHostContext,
-} from "@bb/core-ui";
-import { assertNever } from "@bb/thread-view";
+} from "@cc/core-ui";
+import { assertNever } from "@cc/thread-view";
 import { useCreateThreadInEnvironment } from "@/hooks/useCreateThreadInEnvironment";
 import { useHostDaemon } from "@/hooks/useHostDaemon";
 import { useLocalOpenTargets } from "@/hooks/useLocalOpenTargets";
@@ -137,7 +137,7 @@ import {
   promptInputToDraft,
   type PromptDraftAttachment,
   type PromptDraftState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import { createLocalStorageEnumStorage } from "@/lib/browser-storage";
 import {
   getProjectComposeRoutePath,
@@ -195,7 +195,7 @@ import {
   SIDE_CHAT_PLUGIN_PANEL_ACTION_ID,
 } from "@/lib/side-chat-plugin";
 import { RightPanelFileTabIcon } from "@/components/secondary-panel/RightPanelFileTabIcon";
-import { COARSE_POINTER_COMPACT_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { COARSE_POINTER_COMPACT_ICON_SIZE_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
 import { PluginIcon } from "@/components/plugin/PluginIcon";
 import {
   PluginPanelTabContent,
@@ -209,12 +209,12 @@ import {
 import { ThreadTimelineNavigationProvider } from "@/components/thread/timeline/ThreadTimelineNavigationContext";
 import { usePluginSlots } from "@/lib/plugin-slots";
 import { getFileExtension } from "@/lib/plugin-slot-resolvers";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@cc/shared-ui/icon";
 import {
-  getBbDesktopInfo,
+  getCcDesktopInfo,
   getDesktopBrowserApi,
   isDesktopBrowserAvailable,
-} from "@/lib/bb-desktop";
+} from "@/lib/cc-desktop";
 import {
   openUrlByPreference,
   useOpenLinksInAppBrowserPreference,
@@ -234,7 +234,7 @@ import {
   normalizeExperimentalFileOpenOptions,
   toFilePreviewLineRange,
 } from "@/lib/live-file-navigation";
-import { getFilePreviewLineRangeStart } from "@bb/client-core";
+import { getFilePreviewLineRangeStart } from "@cc/client-core";
 import { getBrowserUrlHost } from "@/lib/browser-url";
 import {
   useThreadStorageBrowser,
@@ -244,7 +244,7 @@ import {
   useThreadFileTabs,
   type FileSearchSelection,
 } from "@/components/secondary-panel/useThreadFileTabs";
-import { isSecondaryFileTab } from "@bb/client-core";
+import { isSecondaryFileTab } from "@cc/client-core";
 import { useThreadOpenFileSignal } from "@/components/secondary-panel/useThreadOpenFileSignal";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import type {
@@ -292,7 +292,7 @@ import {
 } from "@/lib/fixed-panel-tabs-state";
 import { resolveGitDiffTabStatus } from "@/components/secondary-panel/gitDiffTabEligibility";
 import { isRootThread } from "./threadParentSelectorOptions";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   DEFAULT_TERMINAL_COLS,
   DEFAULT_TERMINAL_ROWS,
@@ -315,7 +315,7 @@ const EMPTY_PROJECT_THREAD_SUBSET_FILTERS =
   {} satisfies ProjectThreadSubsetFilters;
 const EMPTY_TERMINAL_SESSIONS: readonly TerminalSession[] = [];
 const DEFAULT_PULL_REQUEST_MERGE_METHOD: PullRequestMergeMethod = "merge";
-const PULL_REQUEST_MERGE_METHOD_STORAGE_KEY = "bb.pullRequest.mergeMethod";
+const PULL_REQUEST_MERGE_METHOD_STORAGE_KEY = "cc.pullRequest.mergeMethod";
 
 function isPullRequestMergeMethod(
   value: string,
@@ -1582,7 +1582,7 @@ function ThreadDetailViewInternal(props: ThreadRoutePathArgs) {
     if (!isFocused) {
       return;
     }
-    const desktopInfo = getBbDesktopInfo();
+    const desktopInfo = getCcDesktopInfo();
     if (
       desktopInfo === null ||
       desktopInfo.onAppCommand !== undefined ||
@@ -1708,7 +1708,7 @@ function ThreadDetailViewInternal(props: ThreadRoutePathArgs) {
     if (!isFocused) {
       return;
     }
-    const desktopInfo = getBbDesktopInfo();
+    const desktopInfo = getCcDesktopInfo();
     if (
       desktopInfo === null ||
       desktopInfo.onCloseWindowRequest === undefined

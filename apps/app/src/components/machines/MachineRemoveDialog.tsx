@@ -1,11 +1,11 @@
-import type { Host } from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
+import type { Host } from "@cc/domain";
+import { Button } from "@cc/shared-ui/button";
 import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
+} from "@cc/shared-ui/dialog";
 import { ConfirmDeleteDialog } from "@/components/dialogs/ConfirmDeleteDialog";
 import { useRemoveHost } from "@/hooks/mutations/host-mutations";
 import { useMachineThreadPreview } from "@/hooks/queries/thread-queries";

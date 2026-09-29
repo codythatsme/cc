@@ -121,15 +121,15 @@ vi.mock("@/components/sidebar/useSidebarReorderDnd", async (importOriginal) => {
 });
 
 const HOST_KEYS = [
-  "__bb__/new-thread",
-  "__bb__/search-threads",
-  "__bb__/extensions",
-  "__bb__/skills",
+  "__cc__/new-thread",
+  "__cc__/search-threads",
+  "__cc__/extensions",
+  "__cc__/skills",
 ];
 const DEFAULT_VISIBLE_HOST_KEYS = [
-  "__bb__/new-thread",
-  "__bb__/extensions",
-  "__bb__/skills",
+  "__cc__/new-thread",
+  "__cc__/extensions",
+  "__cc__/skills",
 ];
 
 function disabledPluginMutationResponse(id: string) {
@@ -840,7 +840,7 @@ describe("Navigation plugin in the sidebar navigation region", () => {
       screen.getByRole("button", { name: "Tasks" }).classList.contains("pr-18"),
     ).toBe(true);
     for (const className of [
-      "bb-sidebar-hover-actions-fade",
+      "cc-sidebar-hover-actions-fade",
       "right-1",
       "min-w-5",
       "max-h-5",
@@ -995,9 +995,9 @@ describe("Navigation plugin in the sidebar navigation region", () => {
       screen.getByTestId("sidebar-navigation-customize-inline"),
     ).not.toBeNull();
     expect(store.get(pluginNavVisiblePanelKeysAtom)).toEqual([
-      "__bb__/search-threads",
-      "__bb__/extensions",
-      "__bb__/skills",
+      "__cc__/search-threads",
+      "__cc__/extensions",
+      "__cc__/skills",
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: "New thread" }));
@@ -1035,7 +1035,7 @@ describe("Navigation plugin in the sidebar navigation region", () => {
         document.activeElement?.getAttribute(
           "data-sidebar-navigation-customize-launch",
         ),
-      ).toBe("__bb__/new-thread"),
+      ).toBe("__cc__/new-thread"),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
@@ -1101,14 +1101,14 @@ describe("Navigation plugin in the sidebar navigation region", () => {
     );
 
     expect(store.get(pluginNavVisiblePanelKeysAtom)).toEqual([
-      "__bb__/new-thread",
-      "__bb__/search-threads",
-      "__bb__/skills",
+      "__cc__/new-thread",
+      "__cc__/search-threads",
+      "__cc__/skills",
     ]);
     expect(visibleRowKeys()).toEqual([
-      "__bb__/new-thread",
-      "__bb__/search-threads",
-      "__bb__/skills",
+      "__cc__/new-thread",
+      "__cc__/search-threads",
+      "__cc__/skills",
     ]);
     expect(screen.getByTestId("sidebar-navigation-more-row")).not.toBeNull();
   });
@@ -1157,23 +1157,23 @@ describe("Navigation plugin in the sidebar navigation region", () => {
     renderNavigation({
       storedOrder: [
         "plugin-0/main",
-        "__bb__/new-thread",
+        "__cc__/new-thread",
         "plugin-1/main",
-        "__bb__/search-threads",
+        "__cc__/search-threads",
         "plugin-2/main",
-        "__bb__/extensions",
-        "__bb__/skills",
+        "__cc__/extensions",
+        "__cc__/skills",
         "plugin-3/main",
       ],
     });
 
     expect(visibleRowKeys()).toEqual([
       "plugin-0/main",
-      "__bb__/new-thread",
+      "__cc__/new-thread",
       "plugin-1/main",
       "plugin-2/main",
-      "__bb__/extensions",
-      "__bb__/skills",
+      "__cc__/extensions",
+      "__cc__/skills",
       "plugin-3/main",
     ]);
     expect(navigationRoot()?.lastElementChild).toBe(
@@ -1386,7 +1386,7 @@ describe("Navigation plugin in the sidebar navigation region", () => {
         storedVisibleKeys: [],
       });
       const title = kind === "plugin" ? "Docs" : "Search threads";
-      const key = kind === "plugin" ? "docs/main" : "__bb__/search-threads";
+      const key = kind === "plugin" ? "docs/main" : "__cc__/search-threads";
 
       await openMoreMenu();
       fireEvent.pointerDown(
@@ -1427,7 +1427,7 @@ describe("Navigation plugin in the sidebar navigation region", () => {
         document.activeElement?.getAttribute(
           "data-sidebar-navigation-customize-launch",
         ),
-      ).toBe("__bb__/new-thread"),
+      ).toBe("__cc__/new-thread"),
     );
     expect(choices.map((choice) => choice.getAttribute("data-state"))).toEqual([
       "checked",
@@ -1494,22 +1494,22 @@ describe("Navigation plugin in the sidebar navigation region", () => {
       const view = renderNavigation({
         compactViewport: mode === "compact customize",
         storedOrder: [
-          "__bb__/extensions",
+          "__cc__/extensions",
           "docs/main",
           "github/main",
           "unregistered/main",
         ],
         storedVisibleKeys: [
-          "__bb__/extensions",
+          "__cc__/extensions",
           "docs/main",
           "unregistered/main",
         ],
       });
       const initialVisibleKeys = visibleRowKeys();
       expect(initialVisibleKeys).toEqual([
-        "__bb__/new-thread",
-        "__bb__/extensions",
-        "__bb__/skills",
+        "__cc__/new-thread",
+        "__cc__/extensions",
+        "__cc__/skills",
         "docs/main",
         "tasks/main",
       ]);
@@ -1535,9 +1535,9 @@ describe("Navigation plugin in the sidebar navigation region", () => {
       view.unmount();
       renderNavigation({ storedOrder, storedVisibleKeys });
       expect(visibleRowKeys()).toEqual([
-        "__bb__/new-thread",
-        "__bb__/extensions",
-        "__bb__/skills",
+        "__cc__/new-thread",
+        "__cc__/extensions",
+        "__cc__/skills",
         "tasks/main",
         "docs/main",
       ]);
@@ -1549,9 +1549,9 @@ describe("Navigation plugin in the sidebar navigation region", () => {
     registerPanel("tasks", "Tasks");
     const { store } = renderNavigation({
       storedOrder: [
-        "__bb__/new-thread",
-        "__bb__/search-threads",
-        "__bb__/extensions",
+        "__cc__/new-thread",
+        "__cc__/search-threads",
+        "__cc__/extensions",
         "docs/main",
       ],
       storedVisibleKeys: ["docs/main"],
@@ -1601,12 +1601,12 @@ describe("Navigation plugin in the sidebar navigation region", () => {
     registerPanel("tasks", "Tasks");
     const { store } = renderNavigation({
       storedOrder: [...HOST_KEYS, "docs/main"],
-      storedVisibleKeys: ["__bb__/new-thread"],
+      storedVisibleKeys: ["__cc__/new-thread"],
     });
 
-    expect(visibleRowKeys()).toEqual(["__bb__/new-thread", "tasks/main"]);
+    expect(visibleRowKeys()).toEqual(["__cc__/new-thread", "tasks/main"]);
     expect(store.get(pluginNavVisiblePanelKeysAtom)).toEqual([
-      "__bb__/new-thread",
+      "__cc__/new-thread",
     ]);
     expect(store.get(pluginNavPanelOrderAtom)).toEqual([
       ...HOST_KEYS,
@@ -1659,26 +1659,26 @@ describe("Navigation plugin in the sidebar navigation region", () => {
     renderNavigation({
       storedOrder: [
         "plugin-3/main",
-        "__bb__/search-threads",
+        "__cc__/search-threads",
         "plugin-1/main",
-        "__bb__/new-thread",
+        "__cc__/new-thread",
         "plugin-0/main",
         "plugin-2/main",
-        "__bb__/extensions",
-        "__bb__/skills",
+        "__cc__/extensions",
+        "__cc__/skills",
       ],
       storedVisibleKeys: [
         "plugin-3/main",
-        "__bb__/search-threads",
-        "__bb__/new-thread",
+        "__cc__/search-threads",
+        "__cc__/new-thread",
         "plugin-0/main",
       ],
     });
 
     expect(visibleRowKeys()).toEqual([
       "plugin-3/main",
-      "__bb__/search-threads",
-      "__bb__/new-thread",
+      "__cc__/search-threads",
+      "__cc__/new-thread",
       "plugin-0/main",
     ]);
 
@@ -1817,7 +1817,7 @@ describe("Navigation plugin in the sidebar navigation region", () => {
 
     expect(
       view.container.querySelector(
-        '[data-sidebar-navigation-item="__bb__/automations"]',
+        '[data-sidebar-navigation-item="__cc__/automations"]',
       ),
     ).not.toBeNull();
     expect(

@@ -23,17 +23,17 @@ const acme = {
 
 const official = {
   ...acme,
-  name: "bb-community",
-  displayName: "BB Community",
+  name: "cc-community",
+  displayName: "CC Community",
   official: true,
-  source: "https://getbb.app/marketplace/v1/marketplace.json",
+  source: "https://cc.example.invalid/marketplace/v1/marketplace.json",
   entryCount: 5,
 };
 
 const bundled = {
   ...official,
-  name: "bb-official",
-  displayName: "BB Official",
+  name: "cc-official",
+  displayName: "CC Official",
   sourceKind: "path" as const,
   source: "/app/builtin-plugins",
   entryCount: 25,
@@ -46,7 +46,7 @@ function json(value: object, status = 200): Response {
   });
 }
 
-describe("bb marketplace", () => {
+describe("cc marketplace", () => {
   setupCommandOutputTestEnvironment();
   const register: CommandRegistrar = (program) =>
     registerMarketplaceCommands(program, () => "http://server");
@@ -70,7 +70,7 @@ describe("bb marketplace", () => {
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toContain("Added marketplace acme-plugins");
     expect(output).toContain("Adding a marketplace installs nothing");
-    expect(output).toContain("bb plugin install <id>@acme-plugins");
+    expect(output).toContain("cc plugin install <id>@acme-plugins");
   });
 
   it("resolves a relative path: source on the invoking machine", async () => {
@@ -95,8 +95,8 @@ describe("bb marketplace", () => {
     await runCommand(["marketplace", "list"], register);
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("bb-official (official)");
-    expect(output).toContain("bb-community (official)");
+    expect(output).toContain("cc-official (official)");
+    expect(output).toContain("cc-community (official)");
     expect(output).toContain("acme-plugins");
     expect(output).toContain("https://acme.test/marketplace.json");
   });
@@ -106,7 +106,7 @@ describe("bb marketplace", () => {
       json({
         results: [
           {
-            name: "bb-community",
+            name: "cc-community",
             ok: true,
             error: null,
             marketplace: official,
@@ -126,7 +126,7 @@ describe("bb marketplace", () => {
     ).rejects.toThrow("process.exit:1");
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("bb-community: 5 entries");
+    expect(output).toContain("cc-community: 5 entries");
     expect(output).toContain("acme-plugins: refresh failed");
     expect(output).toContain("keeping the last catalog");
   });

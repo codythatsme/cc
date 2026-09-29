@@ -2,7 +2,7 @@ import {
   ActionMenuItem,
   ActionMenuSeparator,
 } from "@/components/ui/action-menu-items";
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@cc/domain";
 import { useCallback, useState } from "react";
 import {
   DropdownMenu,
@@ -14,13 +14,13 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { Button } from "@bb/shared-ui/button";
-import { COARSE_POINTER_ICON_SIZE_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { isThreadRead } from "@bb/client-core";
+} from "@cc/shared-ui/dropdown-menu";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { Button } from "@cc/shared-ui/button";
+import { COARSE_POINTER_ICON_SIZE_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { isThreadRead } from "@cc/client-core";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import { getThreadRoutePath } from "@/lib/route-paths";
 import { useThreadActions } from "./ThreadActionsProvider";

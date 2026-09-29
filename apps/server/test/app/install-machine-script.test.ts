@@ -27,7 +27,7 @@ const FIXTURE_ARTIFACT_DIGEST = createHash("sha256")
   .digest("hex");
 
 function createFixture(): { binDir: string; dataDir: string; homeDir: string } {
-  const root = mkdtempSync(join(tmpdir(), "bb-install-script-test-"));
+  const root = mkdtempSync(join(tmpdir(), "cc-install-script-test-"));
   createdDirectories.push(root);
   const binDir = join(root, "bin");
   const dataDir = join(root, "data");
@@ -53,8 +53,8 @@ function createScriptEnv(
 ): NodeJS.ProcessEnv {
   return {
     ...process.env,
-    BB_DATA_DIR: fixture.dataDir,
-    BB_ENROLLMENT: bootstrapBundle(),
+    CC_DATA_DIR: fixture.dataDir,
+    CC_ENROLLMENT: bootstrapBundle(),
     HOME: fixture.homeDir,
     PATH: [fixture.binDir, "/usr/bin", "/bin"].join(delimiter),
     ...env,
@@ -72,9 +72,9 @@ function runScript(
   });
 }
 
-const BOOTSTRAP_ARGS = ["--bootstrap-env", "BB_ENROLLMENT"];
+const BOOTSTRAP_ARGS = ["--bootstrap-env", "CC_ENROLLMENT"];
 
-function bootstrapBundle(serverUrl = "https://machine.getbb.app"): string {
+function bootstrapBundle(serverUrl = "https://machine.cc.example.invalid"): string {
   return JSON.stringify({
     hostId: "host-test",
     serverUrl,
@@ -85,7 +85,7 @@ function bootstrapBundle(serverUrl = "https://machine.getbb.app"): string {
 
 function writeJoinedState(
   fixture: ReturnType<typeof createFixture>,
-  serverUrl = "https://machine.getbb.app",
+  serverUrl = "https://machine.cc.example.invalid",
   hostId = "host-test",
 ): void {
   writeFileSync(
@@ -98,7 +98,7 @@ function writeJoinedState(
   );
 }
 
-function createEnrollingBbAppScript(args: {
+function createEnrollingCcAppScript(args: {
   hostId: string;
   invocationPath?: string;
   statusServerUrl?: string;
@@ -116,7 +116,7 @@ const option = (name) => {
   const index = cliArgs.indexOf(name);
   return index === -1 ? undefined : cliArgs[index + 1];
 };
-const dataDir = process.env.BB_DATA_DIR;
+const dataDir = process.env.CC_DATA_DIR;
 const hostId = ${JSON.stringify(args.hostId)};
 if (cliArgs[0] === "machine" && cliArgs[1] === "enroll") {
   const bundle = JSON.parse(process.env[option("--bootstrap-env")]);
@@ -210,7 +210,7 @@ case "$*" in
       attempt=$((attempt + 1))
     done
     printf '%s\n' '${artifactStatus}' >>"${curlAttemptsLog}"
-    [ -z "$headers" ] || printf '%s\n' 'HTTP/1.1 ${artifactStatus}' 'x-bb-artifact-sha256: ${artifactDigest}' >"$headers"
+    [ -z "$headers" ] || printf '%s\n' 'HTTP/1.1 ${artifactStatus}' 'x-cc-artifact-sha256: ${artifactDigest}' >"$headers"
     if [ "$unchanged" = yes ] && [ '${artifactStatus}' = 200 ]; then
       printf '%s' 304
     else
@@ -221,10 +221,10 @@ case "$*" in
 esac
 `,
   );
-  const bbAppTemplatePath = join(fixture.dataDir, "bb-app-template");
+  const ccAppTemplatePath = join(fixture.dataDir, "cc-app-template");
   writeExecutable(
-    bbAppTemplatePath,
-    createEnrollingBbAppScript({ hostId: "host-test" }),
+    ccAppTemplatePath,
+    createEnrollingCcAppScript({ hostId: "host-test" }),
   );
   writeExecutable(
     join(fixture.binDir, "npm"),
@@ -236,42 +236,42 @@ while [ "$#" -gt 0 ]; do
 done
 [ -n "$prefix" ] || exit 2
 mkdir -p "$prefix/bin"
-cp "${bbAppTemplatePath}" "$prefix/bin/bb-app"
-chmod +x "$prefix/bin/bb-app"
-cp "${bbAppTemplatePath}" "$prefix/bin/bb"
-chmod +x "$prefix/bin/bb"
-mkdir -p "$prefix/lib/node_modules/bb-app/host-daemon/dist"
-printf '%s\n' 'fixture' >"$prefix/lib/node_modules/bb-app/host-daemon/dist/daemon-bundle.mjs"
+cp "${ccAppTemplatePath}" "$prefix/bin/cc-app"
+chmod +x "$prefix/bin/cc-app"
+cp "${ccAppTemplatePath}" "$prefix/bin/cc"
+chmod +x "$prefix/bin/cc"
+mkdir -p "$prefix/lib/node_modules/cc-app/host-daemon/dist"
+printf '%s\n' 'fixture' >"$prefix/lib/node_modules/cc-app/host-daemon/dist/daemon-bundle.mjs"
 for module in node-pty @parcel/watcher; do
-  mkdir -p "$prefix/lib/node_modules/bb-app/node_modules/$module"
+  mkdir -p "$prefix/lib/node_modules/cc-app/node_modules/$module"
   if [ -z "$FAKE_NPM_SKIP_NATIVE_MODULES" ]; then
-    printf '%s\n' 'module.exports = {};' >"$prefix/lib/node_modules/bb-app/node_modules/$module/index.js"
+    printf '%s\n' 'module.exports = {};' >"$prefix/lib/node_modules/cc-app/node_modules/$module/index.js"
   fi
 done
 `,
   );
 }
 
-function writeEnrollingBbApp(
+function writeEnrollingCcApp(
   fixture: ReturnType<typeof createFixture>,
   invocationPath: string,
   hostId = "host-test",
   statusServerUrl?: string,
 ): void {
   writeExecutable(
-    join(fixture.binDir, "bb-app"),
-    createEnrollingBbAppScript({ hostId, invocationPath, statusServerUrl }),
+    join(fixture.binDir, "cc-app"),
+    createEnrollingCcAppScript({ hostId, invocationPath, statusServerUrl }),
   );
-  writeEnrollingBb(fixture, hostId);
+  writeEnrollingCc(fixture, hostId);
 }
 
-function writeEnrollingBb(
+function writeEnrollingCc(
   fixture: ReturnType<typeof createFixture>,
   hostId = "host-test",
 ): void {
   writeExecutable(
-    join(fixture.binDir, "bb"),
-    createEnrollingBbAppScript({ hostId }),
+    join(fixture.binDir, "cc"),
+    createEnrollingCcAppScript({ hostId }),
   );
 }
 
@@ -335,7 +335,7 @@ exec '${process.execPath}' "$@"
       expect(result.status).not.toBe(0);
       expect(result.stderr).not.toContain("HOME");
       expect(existsSync(join(fixture.dataDir, "resolved-home"))).toBe(unset);
-      expect(existsSync(join(fixture.homeDir, ".local/bin/bb"))).toBe(true);
+      expect(existsSync(join(fixture.homeDir, ".local/bin/cc"))).toBe(true);
       expect(existsSync(join(fixture.dataDir, "auth.json"))).toBe(false);
     },
   );
@@ -352,21 +352,21 @@ exec '${process.execPath}' "$@"
 
   it("stops and uninstalls an owned Linux service through installer flags", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "owned"), {
+    mkdirSync(join(fixture.homeDir, ".cc-machines", "owned"), {
       recursive: true,
     });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "owned"),
+      join(fixture.homeDir, ".cc-machines", "owned"),
     );
     writeJoinedState({ ...fixture, dataDir });
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
-    const serviceName = "bb-host-daemon-machine-getbb-app-host-test.service";
+    const serviceName = "cc-host-daemon-machine-cc-example-invalid-host-test.service";
     const servicePath = join(serviceDir, serviceName);
     mkdirSync(serviceDir, { recursive: true });
     writeFileSync(
       servicePath,
-      `[Service]\nEnvironment="BB_DATA_DIR=${dataDir}"\n`,
+      `[Service]\nEnvironment="CC_DATA_DIR=${dataDir}"\n`,
     );
     writeExecutable(
       join(fixture.binDir, "uname"),
@@ -399,11 +399,11 @@ exec '${process.execPath}' "$@"
 
   it("stops and uninstalls a Linux service after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "machine.getbb.app"), {
+    mkdirSync(join(fixture.homeDir, ".cc-machines", "machine.cc.example.invalid"), {
       recursive: true,
     });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".cc-machines", "machine.cc.example.invalid"),
     );
     writeJoinedState(
       { ...fixture, dataDir },
@@ -411,17 +411,17 @@ exec '${process.execPath}' "$@"
     );
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
-    const serviceName = "bb-host-daemon-machine-getbb-app-host-test.service";
+    const serviceName = "cc-host-daemon-machine-cc-example-invalid-host-test.service";
     const servicePath = join(serviceDir, serviceName);
-    const otherServiceName = "bb-host-daemon-other-example-host-test.service";
+    const otherServiceName = "cc-host-daemon-other-example-host-test.service";
     mkdirSync(serviceDir, { recursive: true });
     writeFileSync(
       servicePath,
-      `[Service]\nExecStart="node" "bb-app" host-daemon --server-url "https://desk.tailnet.example:38886"\nEnvironment="BB_DATA_DIR=${dataDir}"\n`,
+      `[Service]\nExecStart="node" "cc-app" host-daemon --server-url "https://desk.tailnet.example:38886"\nEnvironment="CC_DATA_DIR=${dataDir}"\n`,
     );
     writeFileSync(
       join(serviceDir, otherServiceName),
-      `[Service]\nEnvironment="BB_DATA_DIR=${dataDir}-other"\n`,
+      `[Service]\nEnvironment="CC_DATA_DIR=${dataDir}-other"\n`,
     );
     writeExecutable(
       join(fixture.binDir, "uname"),
@@ -457,23 +457,23 @@ exec '${process.execPath}' "$@"
 
   it("boots out a macOS launch agent after a server move rewrote its server URL", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "machine.getbb.app"), {
+    mkdirSync(join(fixture.homeDir, ".cc-machines", "machine.cc.example.invalid"), {
       recursive: true,
     });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".cc-machines", "machine.cc.example.invalid"),
     );
     writeJoinedState({ ...fixture, dataDir }, "https://desk.tailnet.example");
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const agentDir = join(fixture.homeDir, "Library", "LaunchAgents");
     const agentPath = join(
       agentDir,
-      "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+      "io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
     );
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(
       agentPath,
-      `<plist><dict><key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>${dataDir}</string></dict></dict></plist>\n`,
+      `<plist><dict><key>EnvironmentVariables</key><dict><key>CC_DATA_DIR</key><string>${dataDir}</string></dict></dict></plist>\n`,
     );
     writeExecutable(join(fixture.binDir, "uname"), "#!/bin/sh\necho Darwin\n");
     const launchctlLog = join(fixture.homeDir, "launchctl.log");
@@ -495,23 +495,23 @@ exec '${process.execPath}' "$@"
 
   it("refuses lifecycle actions when several services reference the machine data directory", () => {
     const fixture = createFixture();
-    mkdirSync(join(fixture.homeDir, ".bb-machines", "machine.getbb.app"), {
+    mkdirSync(join(fixture.homeDir, ".cc-machines", "machine.cc.example.invalid"), {
       recursive: true,
     });
     const dataDir = realpathSync(
-      join(fixture.homeDir, ".bb-machines", "machine.getbb.app"),
+      join(fixture.homeDir, ".cc-machines", "machine.cc.example.invalid"),
     );
     writeJoinedState({ ...fixture, dataDir }, "https://desk.tailnet.example");
     writeFileSync(join(dataDir, "host-daemon-port"), "40000\n");
     const serviceDir = join(fixture.homeDir, ".config", "systemd", "user");
     mkdirSync(serviceDir, { recursive: true });
     for (const serviceName of [
-      "bb-host-daemon-machine-getbb-app-host-test.service",
-      "bb-host-daemon-machine-getbb-app.service",
+      "cc-host-daemon-machine-cc-example-invalid-host-test.service",
+      "cc-host-daemon-machine-cc-example-invalid.service",
     ]) {
       writeFileSync(
         join(serviceDir, serviceName),
-        `[Service]\nEnvironment="BB_DATA_DIR=${dataDir}"\n`,
+        `[Service]\nEnvironment="CC_DATA_DIR=${dataDir}"\n`,
       );
     }
     writeExecutable(
@@ -553,7 +553,7 @@ exec '${process.execPath}' "$@"
   it("rejects a bootstrap bundle carrying an unusable server URL", () => {
     const fixture = createFixture();
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_ENROLLMENT: bootstrapBundle("not-a-url"),
+      CC_ENROLLMENT: bootstrapBundle("not-a-url"),
     });
 
     expect(result.status).toBe(2);
@@ -566,21 +566,21 @@ exec '${process.execPath}' "$@"
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     writeExecutable(join(fixture.binDir, "npm"), "#!/bin/sh\nexit 19\n");
-    runScript(BOOTSTRAP_ARGS, fixture, { BB_INSTALL_SKIP_SERVICE: "1" });
+    runScript(BOOTSTRAP_ARGS, fixture, { CC_INSTALL_SKIP_SERVICE: "1" });
     const olderCli = join(
       fixture.homeDir,
-      ".bb-machines",
+      ".cc-machines",
       "older",
       "npm",
       "bin",
-      "bb",
+      "cc",
     );
     mkdirSync(dirname(olderCli), { recursive: true });
     writeExecutable(olderCli, "#!/bin/sh\necho wrong-installation\n");
-    const installedCli = join(fixture.dataDir, "npm", "bin", "bb");
+    const installedCli = join(fixture.dataDir, "npm", "bin", "cc");
     mkdirSync(dirname(installedCli), { recursive: true });
-    writeExecutable(installedCli, '#!/bin/sh\nprintf "%s" "$BB_DATA_DIR"\n');
-    const shim = join(fixture.homeDir, ".local", "bin", "bb");
+    writeExecutable(installedCli, '#!/bin/sh\nprintf "%s" "$CC_DATA_DIR"\n');
+    const shim = join(fixture.homeDir, ".local", "bin", "cc");
     const explicit = spawnSync(
       shim,
       ["machine", "uninstall", "--host-id", "host-test"],
@@ -590,7 +590,7 @@ exec '${process.execPath}' "$@"
     expect(explicit.stdout).toBe(fixture.dataDir);
     writeExecutable(installedCli, "#!/bin/sh\necho current-installation\n");
     const env = createScriptEnv(fixture, {});
-    delete env.BB_DATA_DIR;
+    delete env.CC_DATA_DIR;
     const selected = spawnSync(shim, ["machine", "enroll"], {
       env,
       encoding: "utf8",
@@ -604,11 +604,11 @@ exec '${process.execPath}' "$@"
     writeServerInstallTools(fixture, 200);
     writeExecutable(join(fixture.binDir, "npm"), "#!/bin/sh\nexit 19\n");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Could not install bb-app");
-    const shim = join(fixture.homeDir, ".local", "bin", "bb");
+    expect(result.stderr).toContain("Could not install cc-app");
+    const shim = join(fixture.homeDir, ".local", "bin", "cc");
     expect(existsSync(shim)).toBe(true);
     const cleanup = spawnSync(
       shim,
@@ -625,20 +625,20 @@ exec '${process.execPath}' "$@"
     ({ container }) => {
       const fixture = createFixture();
       writeCurlArtifactMock(fixture, 404);
-      writeEnrollingBbApp(
+      writeEnrollingCcApp(
         fixture,
         join(fixture.dataDir, "daemon-invocation"),
         "host-test",
       );
       writeExecutable(
-        join(fixture.binDir, "bb"),
+        join(fixture.binDir, "cc"),
         `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
-const bundle = JSON.parse(process.env.BB_ENROLLMENT);
-fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "enrollment-argv"), JSON.stringify(process.argv.slice(2)));
-fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "auth.json"), JSON.stringify({hostId: bundle.hostId, hostKey: "durable-test"}));
-fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringify({serverUrl: bundle.serverUrl}));
+const bundle = JSON.parse(process.env.CC_ENROLLMENT);
+fs.writeFileSync(path.join(process.env.CC_DATA_DIR, "enrollment-argv"), JSON.stringify(process.argv.slice(2)));
+fs.writeFileSync(path.join(process.env.CC_DATA_DIR, "auth.json"), JSON.stringify({hostId: bundle.hostId, hostKey: "durable-test"}));
+fs.writeFileSync(path.join(process.env.CC_DATA_DIR, "config.json"), JSON.stringify({serverUrl: bundle.serverUrl}));
 `,
       );
       if (container) {
@@ -661,10 +661,10 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
         );
       }
       const result = runScript(["--bootstrap-env", "TEST_BUNDLE"], fixture, {
-        BB_INSTALL_SKIP_SERVICE: container ? "0" : "1",
+        CC_INSTALL_SKIP_SERVICE: container ? "0" : "1",
         TEST_BUNDLE: JSON.stringify({
           hostId: "host-test",
-          serverUrl: "https://machine.getbb.app",
+          serverUrl: "https://machine.cc.example.invalid",
           credential: "private-bootstrap-test",
           expiresAt: Date.now() + 60_000,
         }),
@@ -676,12 +676,12 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
           JSON.parse(
             readFileSync(join(fixture.dataDir, "enrollment-argv"), "utf8"),
           ),
-        ).toEqual(["machine", "enroll", "--bootstrap-env", "BB_ENROLLMENT"]);
+        ).toEqual(["machine", "enroll", "--bootstrap-env", "CC_ENROLLMENT"]);
         expect(result.stdout + result.stderr).not.toContain(
           "private-bootstrap-test",
         );
         expect(
-          spawnSync("sh", ["-n", join(fixture.homeDir, ".local/bin/bb")])
+          spawnSync("sh", ["-n", join(fixture.homeDir, ".local/bin/cc")])
             .status,
         ).toBe(0);
       } finally {
@@ -703,13 +703,13 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     },
   );
 
-  it("uses bb-app from PATH and enrolls from the private bootstrap bundle", () => {
+  it("uses cc-app from PATH and enrolls from the private bootstrap bundle", () => {
     const fixture = createFixture();
     const invocationPath = join(fixture.dataDir, "invocation");
     writeCurlArtifactMock(fixture, 404);
-    writeEnrollingBbApp(fixture, invocationPath);
+    writeEnrollingCcApp(fixture, invocationPath);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -721,7 +721,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       JSON.parse(
         readFileSync(join(fixture.dataDir, "enrollment-argv"), "utf8"),
       ),
-    ).toEqual(["machine", "enroll", "--bootstrap-env", "BB_ENROLLMENT"]);
+    ).toEqual(["machine", "enroll", "--bootstrap-env", "CC_ENROLLMENT"]);
     expect(result.stdout + result.stderr).not.toContain("join-secret");
     expect(readFileSync(invocationPath, "utf8").trim().split("\n")).toEqual([
       "host-daemon",
@@ -729,7 +729,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       "--host-daemon-port",
       selectedPort,
       "--server-url",
-      "https://machine.getbb.app",
+      "https://machine.cc.example.invalid",
     ]);
     expect(
       JSON.parse(readFileSync(join(fixture.dataDir, "auth.json"), "utf8")),
@@ -745,11 +745,11 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const invocationPath = join(fixture.dataDir, "invocation");
     const daemonPidPath = join(fixture.dataDir, "install-daemon.pid");
     writeCurlArtifactMock(fixture, 404);
-    writeEnrollingBbApp(fixture, invocationPath);
+    writeEnrollingCcApp(fixture, invocationPath);
     writeJoinedState(fixture);
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -762,7 +762,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
         "--host-daemon-port",
         readFileSync(join(fixture.dataDir, "host-daemon-port"), "utf8").trim(),
         "--server-url",
-        "https://machine.getbb.app",
+        "https://machine.cc.example.invalid",
       ]);
     } finally {
       if (existsSync(daemonPidPath)) {
@@ -776,11 +776,11 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const invocationPath = join(fixture.dataDir, "invocation");
     const daemonPidPath = join(fixture.dataDir, "install-daemon.pid");
     writeCurlArtifactMock(fixture, 404);
-    writeEnrollingBbApp(fixture, invocationPath);
+    writeEnrollingCcApp(fixture, invocationPath);
     const reconnectEnv = {
-      BB_DATA_DIR: "",
-      BB_INSTALL_SKIP_SERVICE: "1",
-      BB_ENROLLMENT: JSON.stringify({
+      CC_DATA_DIR: "",
+      CC_INSTALL_SKIP_SERVICE: "1",
+      CC_ENROLLMENT: JSON.stringify({
         ...JSON.parse(bootstrapBundle()),
         reconnect: true,
         dataDir: fixture.dataDir,
@@ -802,7 +802,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     };
     try {
       const installed = runScript(BOOTSTRAP_ARGS, fixture, {
-        BB_INSTALL_SKIP_SERVICE: "1",
+        CC_INSTALL_SKIP_SERVICE: "1",
       });
       expect(installed.status, installed.stderr).toBe(0);
       const oldPid = readPid();
@@ -833,15 +833,15 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     const invocationPath = join(fixture.dataDir, "invocation");
     writeCurlArtifactMock(fixture, 404);
-    writeEnrollingBbApp(
+    writeEnrollingCcApp(
       fixture,
       invocationPath,
       "host-test",
       "http://127.0.0.1:20101",
     );
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_ENROLLMENT: bootstrapBundle("http://localhost:20101"),
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_ENROLLMENT: bootstrapBundle("http://localhost:20101"),
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -862,12 +862,12 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     process.kill(daemonPid, "SIGTERM");
   });
 
-  it("installs the server tarball even when a same-version bb-app is on PATH", () => {
+  it("installs the server tarball even when a same-version cc-app is on PATH", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
-    writeExecutable(join(fixture.binDir, "bb-app"), "#!/bin/sh\nexit 99\n");
+    writeExecutable(join(fixture.binDir, "cc-app"), "#!/bin/sh\nexit 99\n");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -876,7 +876,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       "utf8",
     );
     expect(npmInvocation).toMatch(
-      /^install -g --allow-scripts=better-sqlite3,node-pty,@parcel\/watcher --prefix \/.*\/data\/npm \/.*bb-app\..*\.tgz$/mu,
+      /^install -g --allow-scripts=better-sqlite3,node-pty,@parcel\/watcher --prefix \/.*\/data\/npm \/.*cc-app\..*\.tgz$/mu,
     );
     const daemonPid = Number(
       readFileSync(join(fixture.dataDir, "install-daemon.pid"), "utf8"),
@@ -884,11 +884,11 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     process.kill(daemonPid, "SIGTERM");
   });
 
-  it("prefers the server-matched tarball when bb-app is absent", () => {
+  it("prefers the server-matched tarball when cc-app is absent", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -897,29 +897,29 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       "utf8",
     );
     expect(npmInvocation).toMatch(
-      /^install -g --allow-scripts=better-sqlite3,node-pty,@parcel\/watcher --prefix \/.*\/data\/npm \/.*bb-app\..*\.tgz$/mu,
+      /^install -g --allow-scripts=better-sqlite3,node-pty,@parcel\/watcher --prefix \/.*\/data\/npm \/.*cc-app\..*\.tgz$/mu,
     );
-    expect(npmInvocation).not.toContain("bb-app\n");
+    expect(npmInvocation).not.toContain("cc-app\n");
     expect(readFileSync(join(fixture.dataDir, "curl.log"), "utf8")).toContain(
       "--silent --show-error --location --connect-timeout 10 --max-time 300 --retry 3",
     );
     expect(result.stdout).toContain(
-      "Setting up this machine as host-test for https://machine.getbb.app",
+      "Setting up this machine as host-test for https://machine.cc.example.invalid",
     );
-    expect(result.stdout).toContain("\n  bb machine setup\n\n");
+    expect(result.stdout).toContain("\n  cc machine setup\n\n");
     expect(result.stdout).toContain(
-      "  ○  Setting up this machine as host-test for https://machine.getbb.app",
-    );
-    expect(result.stdout).toContain(
-      "Downloading the server's bb-app package (timeout: 5 minutes)",
+      "  ○  Setting up this machine as host-test for https://machine.cc.example.invalid",
     );
     expect(result.stdout).toContain(
-      "  ✓  Downloaded the server's bb-app package",
+      "Downloading the server's cc-app package (timeout: 5 minutes)",
     );
     expect(result.stdout).toContain(
-      "  ○  Installing the server's bb-app build",
+      "  ✓  Downloaded the server's cc-app package",
     );
-    expect(result.stdout).toContain("  ✓  Installed the server's bb-app build");
+    expect(result.stdout).toContain(
+      "  ○  Installing the server's cc-app build",
+    );
+    expect(result.stdout).toContain("  ✓  Installed the server's cc-app build");
     expect(result.stdout).toContain("Waiting for the host daemon to connect");
     expect(result.stdout).toContain("Host daemon output is logged to");
     const daemonPid = Number(
@@ -942,7 +942,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     writeServerInstallTools(fixture, 500, FIXTURE_ARTIFACT_DIGEST, 0, body);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("HTTP 500");
@@ -956,7 +956,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeServerInstallTools(fixture, 200, FIXTURE_ARTIFACT_DIGEST, 1);
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
@@ -965,7 +965,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
         .trim()
         .split("\n"),
     ).toEqual(["504", "200"]);
-    expect(result.stdout).toContain("Downloaded the server's bb-app package");
+    expect(result.stdout).toContain("Downloaded the server's cc-app package");
     const daemonPid = Number(
       readFileSync(join(fixture.dataDir, "install-daemon.pid"), "utf8"),
     );
@@ -976,12 +976,12 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const first = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
     expect(first.status, first.stderr).toBe(0);
 
     const second = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(second.status, second.stderr).toBe(0);
@@ -1008,7 +1008,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeServerInstallTools(fixture, 200, "a".repeat(64));
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status).toBe(1);
@@ -1019,34 +1019,26 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     );
   });
 
-  it("falls back to npm only when the server artifact returns 404", () => {
+  it("refuses registry fallback when the server host artifact is unavailable", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 404);
-    const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
-    });
-
-    expect(result.status, result.stderr).toBe(0);
-    expect(readFileSync(join(fixture.dataDir, "npm.log"), "utf8")).toMatch(
-      /^install -g --allow-scripts=better-sqlite3,node-pty,@parcel\/watcher --prefix \/.*\/data\/npm bb-app\n$/u,
-    );
-    const daemonPid = Number(
-      readFileSync(join(fixture.dataDir, "install-daemon.pid"), "utf8"),
-    );
-    process.kill(daemonPid, "SIGTERM");
+    const result = runScript(BOOTSTRAP_ARGS, fixture, { CC_INSTALL_SKIP_SERVICE: "1" });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("No npm fallback is used");
+    expect(existsSync(join(fixture.dataDir, "npm.log"))).toBe(false);
   });
 
   it("fails loudly when npm skipped the native add-on install scripts", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
       FAKE_NPM_SKIP_NATIVE_MODULES: "1",
     });
 
     expect(result.status, result.stderr).toBe(1);
     expect(result.stderr).toContain(
-      "npm installed bb-app, but its host native add-ons (node-pty, @parcel/watcher) did not load.",
+      "npm installed cc-app, but its host native add-ons (node-pty, @parcel/watcher) did not load.",
     );
     expect(result.stderr).toContain(
       "npm_config_allow_scripts=better-sqlite3,node-pty,@parcel/watcher",
@@ -1054,18 +1046,18 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     expect(existsSync(join(fixture.dataDir, "install-daemon.pid"))).toBe(false);
   });
 
-  it("defaults the data dir to a per-server directory under ~/.bb-machines", () => {
+  it("defaults the data dir to a per-server directory under ~/.cc-machines", () => {
     const fixture = createFixture();
     writeServerInstallTools(fixture, 200);
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_DATA_DIR: "",
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_DATA_DIR: "",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status, result.stderr).toBe(0);
     const defaultDataDir = join(
       fixture.homeDir,
-      ".bb-machines/machine.getbb.app",
+      ".cc-machines/machine.cc.example.invalid",
     );
     expect(
       JSON.parse(readFileSync(join(defaultDataDir, "auth.json"), "utf8")),
@@ -1079,11 +1071,11 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
   it("refuses a data dir enrolled for a different host instead of faking success", () => {
     const fixture = createFixture();
     writeCurlArtifactMock(fixture, 404);
-    writeExecutable(join(fixture.binDir, "bb-app"), "#!/bin/sh\nexit 99\n");
-    writeEnrollingBb(fixture);
-    writeJoinedState(fixture, "https://machine.getbb.app", "host-other");
+    writeExecutable(join(fixture.binDir, "cc-app"), "#!/bin/sh\nexit 99\n");
+    writeEnrollingCc(fixture);
+    writeJoinedState(fixture, "https://machine.cc.example.invalid", "host-other");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status).toBe(1);
@@ -1099,8 +1091,8 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeServerInstallTools(fixture, 200);
     const missingDir = join(fixture.homeDir, "elsewhere");
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_DATA_DIR: "",
-      BB_ENROLLMENT: JSON.stringify({
+      CC_DATA_DIR: "",
+      CC_ENROLLMENT: JSON.stringify({
         ...JSON.parse(bootstrapBundle()),
         reconnect: true,
         dataDir: missingDir,
@@ -1124,8 +1116,8 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
     writeFileSync(
       join(fixture.dataDir, "config.json"),
       JSON.stringify({
-        serverUrl: "https://machine.getbb.app/",
-        serverHeaders: { "x-bb-connect-machine": "machine-credential" },
+        serverUrl: "https://machine.cc.example.invalid/",
+        serverHeaders: { "x-cc-connect-machine": "machine-credential" },
       }),
     );
     writeServerInstallTools(fixture, 200);
@@ -1135,7 +1127,7 @@ fs.writeFileSync(path.join(process.env.BB_DATA_DIR, "config.json"), JSON.stringi
       `#!/bin/sh
 if [ "$1" = bootstrap ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1144,31 +1136,31 @@ fi
     const result = runScript(
       ["--adopt", "--data-dir", fixture.dataDir],
       fixture,
-      { BB_DATA_DIR: undefined, BB_ENROLLMENT: undefined },
+      { CC_DATA_DIR: undefined, CC_ENROLLMENT: undefined },
     );
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain(
-      "Setting up this machine as host-test for https://machine.getbb.app",
+      "Setting up this machine as host-test for https://machine.cc.example.invalid",
     );
     expect(result.stdout).toContain("already joined");
-    expect(result.stdout).toContain("  ●  bb machine is ready");
+    expect(result.stdout).toContain("  ●  cc machine is ready");
     expect(existsSync(join(fixture.dataDir, "enrollment-argv"))).toBe(false);
     expect(
       readFileSync(join(fixture.dataDir, "curl-config.log"), "utf8"),
-    ).toContain('header = "x-bb-connect-machine: machine-credential"');
+    ).toContain('header = "x-cc-connect-machine: machine-credential"');
     const plist = readFileSync(
       join(
         fixture.homeDir,
-        "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+        "Library/LaunchAgents/io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
       ),
       "utf8",
     );
     expect(plist).toContain(
-      `<key>BB_DATA_DIR</key><string>${fixture.dataDir}</string>`,
+      `<key>CC_DATA_DIR</key><string>${fixture.dataDir}</string>`,
     );
     expect(plist).toContain("<string>--auto-update</string>");
-    expect(plist).toContain("<string>https://machine.getbb.app</string>");
+    expect(plist).toContain("<string>https://machine.cc.example.invalid</string>");
   });
 
   it("sends a legacy machine credential when adopting a data directory", () => {
@@ -1180,7 +1172,7 @@ fi
     writeFileSync(
       join(fixture.dataDir, "config.json"),
       JSON.stringify({
-        serverUrl: "https://machine.getbb.app",
+        serverUrl: "https://machine.cc.example.invalid",
         machineCredential: "legacy-credential",
       }),
     );
@@ -1189,7 +1181,7 @@ fi
     const result = runScript(
       ["--adopt", "--data-dir", fixture.dataDir],
       fixture,
-      { BB_ENROLLMENT: undefined, BB_INSTALL_SKIP_SERVICE: "1" },
+      { CC_ENROLLMENT: undefined, CC_INSTALL_SKIP_SERVICE: "1" },
     );
 
     expect(result.status, result.stderr).toBe(0);
@@ -1199,7 +1191,7 @@ fi
     );
     expect(
       readFileSync(join(fixture.dataDir, "curl-config.log"), "utf8"),
-    ).toContain('header = "x-bb-connect-machine: legacy-credential"');
+    ).toContain('header = "x-cc-connect-machine: legacy-credential"');
   });
 
   it.each([
@@ -1224,14 +1216,14 @@ fi
     const fixture = createFixture();
     writeFileSync(
       join(fixture.dataDir, "config.json"),
-      JSON.stringify({ serverUrl: "https://machine.getbb.app" }),
+      JSON.stringify({ serverUrl: "https://machine.cc.example.invalid" }),
     );
     writeServerInstallTools(fixture, 200);
 
     const result = runScript(
       ["--adopt", "--data-dir", fixture.dataDir],
       fixture,
-      { BB_ENROLLMENT: undefined },
+      { CC_ENROLLMENT: undefined },
     );
 
     expect(result.status).toBe(1);
@@ -1264,11 +1256,11 @@ fi
     const fixture = createFixture();
     const invocationPath = join(fixture.dataDir, "invocation");
     writeCurlArtifactMock(fixture, 404);
-    writeEnrollingBbApp(fixture, invocationPath);
+    writeEnrollingCcApp(fixture, invocationPath);
 
     try {
       const result = runScript(BOOTSTRAP_ARGS, fixture, {
-        BB_INSTALL_SKIP_SERVICE: "1",
+        CC_INSTALL_SKIP_SERVICE: "1",
       });
 
       expect(result.status, result.stderr).toBe(0);
@@ -1297,16 +1289,16 @@ fi
     const fixture = createFixture();
     writeCurlArtifactMock(fixture, 404);
     writeExecutable(
-      join(fixture.binDir, "bb-app"),
+      join(fixture.binDir, "cc-app"),
       `#!/usr/bin/env node
 setInterval(() => {}, 1000);
 `,
     );
-    writeEnrollingBb(fixture);
+    writeEnrollingCc(fixture);
     writeExecutable(join(fixture.binDir, "sleep"), "#!/bin/sh\nexit 0\n");
 
     const result = runScript(BOOTSTRAP_ARGS, fixture, {
-      BB_INSTALL_SKIP_SERVICE: "1",
+      CC_INSTALL_SKIP_SERVICE: "1",
     });
 
     expect(result.status).toBe(1);
@@ -1316,7 +1308,7 @@ setInterval(() => {}, 1000);
     expect(result.stdout).toContain(
       "Still waiting for the host daemon (60/60 checks)",
     );
-    expect(result.stderr).toContain("The bb host daemon did not connect");
+    expect(result.stderr).toContain("The cc host daemon did not connect");
   }, 15_000);
 
   it("starts a fresh macOS launch agent once and replaces it with one new process", () => {
@@ -1340,7 +1332,7 @@ if [ "$1" = bootout ] && [ -f "${join(fixture.dataDir, "service-daemon.pid")}" ]
 fi
 if [ "$1" = bootstrap ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
   printf 'start\n' >>"${join(fixture.dataDir, "launchctl-starts.log")}"
 fi
@@ -1357,32 +1349,32 @@ fi
     expect(firstResult.status, firstResult.stderr).toBe(0);
     expect(firstResult.stdout).toContain("already joined");
     expect(firstResult.stdout).toContain(
-      "Installing the persistent bb host daemon service",
+      "Installing the persistent cc host daemon service",
     );
     expect(firstResult.stdout).toContain(
       "Waiting for the launch agent to connect",
     );
-    expect(firstResult.stdout).toContain("  ●  bb machine is ready");
+    expect(firstResult.stdout).toContain("  ●  cc machine is ready");
     expect(secondResult.status, secondResult.stderr).toBe(0);
     expect(secondResult.stdout).toContain("already joined");
-    expect(secondResult.stdout).toContain("  ●  bb machine is ready");
-    expect(secondResult.stdout).toContain("server  https://machine.getbb.app");
+    expect(secondResult.stdout).toContain("  ●  cc machine is ready");
+    expect(secondResult.stdout).toContain("server  https://machine.cc.example.invalid");
     expect(secondResult.stdout).toContain(
       "service " +
         join(
           fixture.homeDir,
-          "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+          "Library/LaunchAgents/io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
         ),
     );
     const plist = readFileSync(
       join(
         fixture.homeDir,
-        "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+        "Library/LaunchAgents/io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
       ),
       "utf8",
     );
     expect(plist).toContain(
-      "<string>app.getbb.host-daemon.machine-getbb-app-host-test</string>",
+      "<string>io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test</string>",
     );
     expect(plist).toContain("<key>RunAtLoad</key><true/>");
     expect(plist).toContain("<key>KeepAlive</key><true/>");
@@ -1395,13 +1387,13 @@ fi
     expect(plist).toContain(
       `<string>--host-daemon-port</string>\n    <string>${selectedPort}</string>`,
     );
-    expect(plist).toContain("<string>https://machine.getbb.app</string>");
+    expect(plist).toContain("<string>https://machine.cc.example.invalid</string>");
     expect(plist).toContain(
-      `<key>BB_APP_NPM_PREFIX</key><string>${realpathSync(fixture.dataDir)}/npm</string>`,
+      `<key>CC_APP_NPM_PREFIX</key><string>${realpathSync(fixture.dataDir)}/npm</string>`,
     );
     const serviceFile = join(
       fixture.homeDir,
-      "Library/LaunchAgents/app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+      "Library/LaunchAgents/io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
     );
     const domain = `gui/${process.getuid?.()}`;
     expect(readFileSync(join(fixture.dataDir, "launchctl.log"), "utf8")).toBe(
@@ -1421,23 +1413,23 @@ fi
     mkdirSync(serviceDir, { recursive: true });
     const legacyServiceFile = join(
       serviceDir,
-      "app.getbb.host-daemon.machine-getbb-app.plist",
+      "io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid.plist",
     );
     const unrelatedServiceFile = join(
       serviceDir,
-      "app.getbb.host-daemon.other-getbb-app.plist",
+      "io.github.codythatsme.cc.host-daemon.other-cc-example-invalid.plist",
     );
     writeFileSync(join(fixture.dataDir, "host-daemon-port"), "45123\n");
     writeFileSync(
       unrelatedServiceFile,
-      "<plist><dict><key>BB_DATA_DIR</key><string>/other/machine</string></dict></plist>\n",
+      "<plist><dict><key>CC_DATA_DIR</key><string>/other/machine</string></dict></plist>\n",
     );
     writeFileSync(
       legacyServiceFile,
       `<plist><dict>
-<key>Label</key><string>app.getbb.host-daemon.machine-getbb-app</string>
+<key>Label</key><string>io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid</string>
 <key>ProgramArguments</key><array><string>host-daemon</string><string>--host-daemon-port</string><string>45122</string></array>
-<key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
+<key>EnvironmentVariables</key><dict><key>CC_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
 </dict></plist>
 `,
     );
@@ -1447,7 +1439,7 @@ fi
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
 if [ "$1" = print ]; then exit 1; fi
 if [ "$1" = bootstrap ]; then
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1461,16 +1453,16 @@ fi
     expect(
       readdirSync(serviceDir).filter((file) => file.endsWith(".plist")),
     ).toEqual([
-      "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
-      "app.getbb.host-daemon.other-getbb-app.plist",
+      "io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
+      "io.github.codythatsme.cc.host-daemon.other-cc-example-invalid.plist",
     ]);
     const serviceFile = join(
       serviceDir,
-      "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+      "io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
     );
     const domain = `gui/${process.getuid?.()}`;
     expect(readFileSync(join(fixture.dataDir, "launchctl.log"), "utf8")).toBe(
-      `bootout ${domain} ${legacyServiceFile}\nprint ${domain}/app.getbb.host-daemon.machine-getbb-app\nbootout ${domain} ${serviceFile}\nbootstrap ${domain} ${serviceFile}\n`,
+      `bootout ${domain} ${legacyServiceFile}\nprint ${domain}/io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid\nbootout ${domain} ${serviceFile}\nbootstrap ${domain} ${serviceFile}\n`,
     );
   });
 
@@ -1483,13 +1475,13 @@ fi
     mkdirSync(serviceDir, { recursive: true });
     const existingServiceFile = join(
       serviceDir,
-      "app.getbb.host-daemon.machine-getbb-app.plist",
+      "io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid.plist",
     );
     writeFileSync(
       existingServiceFile,
       `<plist><dict>
-<key>Label</key><string>app.getbb.host-daemon.machine-getbb-app</string>
-<key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
+<key>Label</key><string>io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid</string>
+<key>EnvironmentVariables</key><dict><key>CC_DATA_DIR</key><string>${fixture.dataDir}</string></dict>
 </dict></plist>
 `,
     );
@@ -1502,14 +1494,14 @@ fi
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "Could not stop the existing bb launch agent app.getbb.host-daemon.machine-getbb-app.",
+      "Could not stop the existing cc launch agent io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid.",
     );
     expect(existsSync(existingServiceFile)).toBe(true);
     expect(
       existsSync(
         join(
           serviceDir,
-          "app.getbb.host-daemon.machine-getbb-app-host-test.plist",
+          "io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.plist",
         ),
       ),
     ).toBe(false);
@@ -1535,7 +1527,7 @@ fi
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "Could not register the bb host-daemon launch agent app.getbb.host-daemon.machine-getbb-app-host-test.",
+      "Could not register the cc host-daemon launch agent io.github.codythatsme.cc.host-daemon.machine-cc-example-invalid-host-test.",
     );
     expect(result.stderr).toContain("launchctl: fixture bootstrap failure");
   });
@@ -1557,7 +1549,7 @@ printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      "The bb host-daemon launch agent started but did not connect to https://machine.getbb.app.",
+      "The cc host-daemon launch agent started but did not connect to https://machine.cc.example.invalid.",
     );
     expect(result.stderr).toContain(
       `See ${fixture.dataDir}/logs/host-daemon-stdio.log for the startup error and ${fixture.dataDir}/logs/launchd.log for launch agent output.`,
@@ -1576,9 +1568,9 @@ printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
       join(fixture.binDir, "systemctl"),
       `#!/bin/sh
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
-if [ "$*" = "--user restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
+if [ "$*" = "--user restart cc-host-daemon-machine-cc-example-invalid-host-test.service" ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1594,7 +1586,7 @@ fi
     const unit = readFileSync(
       join(
         fixture.homeDir,
-        ".config/systemd/user/bb-host-daemon-machine-getbb-app-host-test.service",
+        ".config/systemd/user/cc-host-daemon-machine-cc-example-invalid-host-test.service",
       ),
       "utf8",
     );
@@ -1603,13 +1595,13 @@ fi
       "utf8",
     ).trim();
     expect(unit).toContain(
-      `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.getbb.app"`,
+      `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.cc.example.invalid"`,
     );
     expect(unit).toContain(
-      `Environment="BB_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
+      `Environment="CC_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
     );
     expect(readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8")).toBe(
-      "--user show-environment\n--user daemon-reload\n--user enable bb-host-daemon-machine-getbb-app-host-test.service\n--user restart bb-host-daemon-machine-getbb-app-host-test.service\n",
+      "--user show-environment\n--user daemon-reload\n--user enable cc-host-daemon-machine-cc-example-invalid-host-test.service\n--user restart cc-host-daemon-machine-cc-example-invalid-host-test.service\n",
     );
   });
 
@@ -1631,9 +1623,9 @@ fi
         join(fixture.binDir, "systemctl"),
         `#!/bin/sh
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
-if [ "$*" = "${scope} restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
+if [ "$*" = "${scope} restart cc-host-daemon-machine-cc-example-invalid-host-test.service" ]; then
   port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.getbb.app >/dev/null 2>&1 &
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1650,11 +1642,11 @@ fi
         container
           ? join(
               fixture.homeDir,
-              ".config/systemd/user/bb-host-daemon-machine-getbb-app-host-test.service",
+              ".config/systemd/user/cc-host-daemon-machine-cc-example-invalid-host-test.service",
             )
           : join(
               fixture.dataDir,
-              "systemd/bb-host-daemon-machine-getbb-app-host-test.service",
+              "systemd/cc-host-daemon-machine-cc-example-invalid-host-test.service",
             ),
         "utf8",
       );
@@ -1663,22 +1655,22 @@ fi
         "utf8",
       ).trim();
       expect(unit).toContain(
-        `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.getbb.app"`,
+        `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.cc.example.invalid"`,
       );
       expect(unit).toContain(
-        `Environment="BB_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
+        `Environment="CC_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
       );
       expect(unit).toContain(
         container ? "WantedBy=default.target" : "WantedBy=multi-user.target",
       );
       const enableUnit = container
-        ? "bb-host-daemon-machine-getbb-app-host-test.service"
+        ? "cc-host-daemon-machine-cc-example-invalid-host-test.service"
         : join(
             realpathSync(fixture.dataDir),
-            "systemd/bb-host-daemon-machine-getbb-app-host-test.service",
+            "systemd/cc-host-daemon-machine-cc-example-invalid-host-test.service",
           );
       expect(readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8")).toBe(
-        `${container ? "--user show-environment\n" : ""}${scope} daemon-reload\n${scope} enable ${enableUnit}\n${scope} restart bb-host-daemon-machine-getbb-app-host-test.service\n`,
+        `${container ? "--user show-environment\n" : ""}${scope} daemon-reload\n${scope} enable ${enableUnit}\n${scope} restart cc-host-daemon-machine-cc-example-invalid-host-test.service\n`,
       );
     },
   );
@@ -1692,22 +1684,22 @@ fi
     mkdirSync(serviceDir, { recursive: true });
     const legacyServiceFile = join(
       serviceDir,
-      "bb-host-daemon-machine-getbb-app.service",
+      "cc-host-daemon-machine-cc-example-invalid.service",
     );
     writeFileSync(join(fixture.dataDir, "host-daemon-port"), "45123\n");
     writeFileSync(
       legacyServiceFile,
       `[Service]
-ExecStart="node" "bb-app" host-daemon --auto-update --host-daemon-port "45123" --server-url "https://machine.getbb.app"
-Environment="BB_DATA_DIR=${fixture.dataDir}"
+ExecStart="node" "cc-app" host-daemon --auto-update --host-daemon-port "45123" --server-url "https://machine.cc.example.invalid"
+Environment="CC_DATA_DIR=${fixture.dataDir}"
 `,
     );
     writeExecutable(
       join(fixture.binDir, "systemctl"),
       `#!/bin/sh
 printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
-if [ "$*" = "--user restart bb-host-daemon-machine-getbb-app-host-test.service" ]; then
-  BB_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/bb-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.getbb.app >/dev/null 2>&1 &
+if [ "$*" = "--user restart cc-host-daemon-machine-cc-example-invalid-host-test.service" ]; then
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port 45123 --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
   echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
 fi
 `,
@@ -1719,9 +1711,9 @@ fi
     expect(existsSync(legacyServiceFile)).toBe(false);
     expect(
       readdirSync(serviceDir).filter((file) => file.endsWith(".service")),
-    ).toEqual(["bb-host-daemon-machine-getbb-app-host-test.service"]);
+    ).toEqual(["cc-host-daemon-machine-cc-example-invalid-host-test.service"]);
     expect(readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8")).toBe(
-      "--user show-environment\n--user disable --now bb-host-daemon-machine-getbb-app.service\n--user daemon-reload\n--user enable bb-host-daemon-machine-getbb-app-host-test.service\n--user restart bb-host-daemon-machine-getbb-app-host-test.service\n",
+      "--user show-environment\n--user disable --now cc-host-daemon-machine-cc-example-invalid.service\n--user daemon-reload\n--user enable cc-host-daemon-machine-cc-example-invalid-host-test.service\n--user restart cc-host-daemon-machine-cc-example-invalid-host-test.service\n",
     );
   });
 });

@@ -138,7 +138,7 @@ describe("Codex credential health and usage", () => {
   }
 
   beforeEach(async () => {
-    homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "bb-codex-maint-"));
+    homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "cc-codex-maint-"));
     tempDirs.push(homeDir);
     const binDir = path.join(homeDir, "bin");
     await fs.mkdir(binDir);

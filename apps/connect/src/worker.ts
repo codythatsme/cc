@@ -1,12 +1,12 @@
 import { drizzle } from "drizzle-orm/d1";
-import { escapeHtmlText } from "@bb/text-utils";
+import { escapeHtmlText } from "@cc/text-utils";
 import {
   RESERVED_HANDLES,
   handleAppLinkAssociationRequest,
   parseVisitorHost,
   schema,
   sha256Hex,
-} from "@bb/connect-db";
+} from "@cc/connect-db";
 import { refreshAccountSessionCookies } from "./account-session.js";
 import {
   TUNNEL_OFFLINE_HEADER,
@@ -29,7 +29,7 @@ import {
   verifyDesktopSessionCookie,
 } from "./servers.js";
 import { serveWithCache } from "./cache.js";
-import { BB_ICON_DATA_URI } from "./bb-icon.js";
+import { CC_ICON_DATA_URI } from "./cc-icon.js";
 import { handleAssignMachineLabel } from "./machine-label.js";
 import {
   publicConnectOrigin,
@@ -119,13 +119,13 @@ function gatePage(
   return new Response(
     `<!doctype html><html lang="en"><head><meta charset="utf-8">
      <meta name="viewport" content="width=device-width, initial-scale=1">
-     ${refresh}<title>bb connect</title>
+     ${refresh}<title>cc connect</title>
      <link rel="preconnect" href="https://fonts.googleapis.com">
      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
      <style>${GATE_STYLE}</style></head>
      <body><div class="wrap">
-       <div class="brand"><img src="${BB_ICON_DATA_URI}" alt="bb"><div><b>bb connect</b><br><span>Your bb, reachable anywhere</span></div></div>
+       <div class="brand"><img src="${CC_ICON_DATA_URI}" alt="cc"><div><b>cc connect</b><br><span>Your cc, reachable anywhere</span></div></div>
        <div class="card">${cardBody}</div>
      </div></body></html>`,
     { status, headers: { "content-type": "text/html; charset=utf-8" } },
@@ -150,7 +150,7 @@ function signInPage(label: string, appUrl: string, returnTo: string): Response {
   const host = new URL(appUrl).host;
   const signInUrl = dashboardSignInUrl(appUrl, returnTo);
   return gatePage(
-    `<h1>This is <code>${escapeHtmlText(label)}</code>'s bb</h1>
+    `<h1>This is <code>${escapeHtmlText(label)}</code>'s cc</h1>
      <p>Sign in with the account that owns this server to open it.</p>
      <a class="btn primary" href="${signInUrl}">Sign in at ${escapeHtmlText(host)}</a>`,
     401,
@@ -162,7 +162,7 @@ export function offlinePage(
   kind: "server" | "machine",
 ): Response {
   const heading =
-    kind === "machine" ? "This machine is offline" : "Your bb is offline";
+    kind === "machine" ? "This machine is offline" : "Your cc is offline";
   const lastSeen = lastSeenAt
     ? kind === "machine"
       ? `This machine was last seen ${relativeTime(lastSeenAt)}. `
@@ -170,8 +170,8 @@ export function offlinePage(
     : "";
   const note =
     kind === "machine"
-      ? "Usually this means the machine is asleep or bb isn't running on it."
-      : "Usually this means the machine is asleep or bb isn't running.";
+      ? "Usually this means the machine is asleep or cc isn't running on it."
+      : "Usually this means the machine is asleep or cc isn't running.";
   return gatePage(
     `<div class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke-width="1.5"><path d="M1.5 6.2a9.5 9.5 0 0 1 13 0M3.8 8.7a6 6 0 0 1 8.4 0M6.1 11.2a2.6 2.6 0 0 1 3.8 0" stroke-linecap="round"/><path d="M2 2l12 12" stroke-linecap="round"/><circle cx="8" cy="13.6" r="0.9" fill="currentColor" stroke="none"/></svg></div>
      <h1>${heading}</h1>
@@ -194,7 +194,7 @@ function machinePage(
   return gatePage(
     `<h1><code>${escapeHtmlText(label)}</code> is a machine</h1>
      <p>This machine is on <code>${escapeHtmlText(accountHandle)}</code>'s account. Its shares appear at <code>${escapeHtmlText(label)}--&lt;port&gt;.${escapeHtmlText(baseHost)}</code>.</p>
-     <a class="btn primary" href="${escapeHtmlText(appOrigin)}">Open the bb app at ${escapeHtmlText(appHost)}</a>`,
+     <a class="btn primary" href="${escapeHtmlText(appOrigin)}">Open the cc app at ${escapeHtmlText(appHost)}</a>`,
     200,
   );
 }
@@ -311,7 +311,7 @@ export default {
     }
     const host = resolveConnectRequestHost(request.headers, runtime);
     const parsed = parseVisitorHost(host, env.BASE_DOMAIN);
-    if (!parsed) return text("bb connect: unknown host\n", 404);
+    if (!parsed) return text("cc connect: unknown host\n", 404);
     if (parsed.target === null) {
       const appLinks = handleAppLinkAssociationRequest(
         { method: request.method, url: url.toString() },
@@ -334,7 +334,7 @@ export default {
       db,
       isTunnelDial ? { fresh: true } : undefined,
     );
-    if (!resolved) return text(`bb connect: no server for "${label}"\n`, 404);
+    if (!resolved) return text(`cc connect: no server for "${label}"\n`, 404);
 
     const routingKey =
       resolved.kind === "machine" ? resolved.routingKey : label;
@@ -342,7 +342,7 @@ export default {
       fetchTunnelDo(env, routingKey, doRequest);
 
     if (isTunnelDial) {
-      if (target !== null) return text("bb connect: not found\n", 404);
+      if (target !== null) return text("cc connect: not found\n", 404);
       const auth = request.headers.get("authorization") ?? "";
       const credential = auth.startsWith("Bearer ") ? auth.slice(7) : "";
       const owner =
@@ -350,13 +350,13 @@ export default {
       if (owner.revokedAt != null || owner.credentialHash == null) {
         return text(
           resolved.kind === "server"
-            ? "bb connect: server not paired\n"
-            : "bb connect: machine not paired\n",
+            ? "cc connect: server not paired\n"
+            : "cc connect: machine not paired\n",
           403,
         );
       }
       if ((await sha256Hex(credential)) !== owner.credentialHash) {
-        return text("bb connect: invalid credential\n", 401);
+        return text("cc connect: invalid credential\n", 401);
       }
       const forward = new URL(request.url);
       forward.searchParams.delete("serverId");
@@ -372,7 +372,7 @@ export default {
     }
 
     if (url.pathname.startsWith("/__"))
-      return text("bb connect: not found\n", 404);
+      return text("cc connect: not found\n", 404);
 
     if (resolved.kind === "machine" && target === null) {
       return machinePage(label, resolved.accountHandle, runtime);
@@ -381,9 +381,9 @@ export default {
     const isPublicInstallPath =
       url.pathname === "/install.sh" ||
       url.pathname === "/install/version" ||
-      url.pathname === "/install/bb-app.tgz";
+      url.pathname === "/install/cc-app.tgz";
     if (request.method === "GET" && isPublicInstallPath) {
-      if (target !== null) return text("bb connect: not found\n", 404);
+      if (target !== null) return text("cc connect: not found\n", 404);
       return tunnelDo(requestForTunnelDo(request, null));
     }
 
@@ -392,22 +392,22 @@ export default {
       url.pathname === "/api/v1" ||
       url.pathname.startsWith("/api/v1/");
     if (target !== null && url.pathname.startsWith("/internal")) {
-      return text("bb connect: not found\n", 404);
+      return text("cc connect: not found\n", 404);
     }
     const presentedMachineCredential = request.headers.get(
       MACHINE_CREDENTIAL_HEADER,
     );
     if (isMachinePath && presentedMachineCredential !== null) {
-      if (target !== null) return text("bb connect: not found\n", 404);
+      if (target !== null) return text("cc connect: not found\n", 404);
       const verified = await verifyMachineCredentialDetails(
         presentedMachineCredential,
         db,
       );
       if (verified == null || verified.userId !== resolved.userId) {
-        return text("bb connect: machine not authorized\n", 403);
+        return text("cc connect: machine not authorized\n", 403);
       }
       if (isHostManagementMutation(request, url.pathname)) {
-        return text("bb connect: machine cannot manage hosts\n", 403);
+        return text("cc connect: machine cannot manage hosts\n", 403);
       }
       ctx.waitUntil(markMachineSeen(verified.machineId, db));
       return tunnelDo(
@@ -415,7 +415,7 @@ export default {
       );
     }
     if (url.pathname.startsWith("/internal")) {
-      return text("bb connect: machine not authorized\n", 403);
+      return text("cc connect: machine not authorized\n", 403);
     }
 
     const cookieHeader = request.headers.get("cookie");
@@ -441,7 +441,7 @@ export default {
       sessionUserId !== resolved.userId &&
       desktopUserId !== resolved.userId
     ) {
-      return text("bb connect: not your server\n", 403);
+      return text("cc connect: not your server\n", 403);
     }
 
     const doRequest = requestForTunnelDo(request, target, "session");

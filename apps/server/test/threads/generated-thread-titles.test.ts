@@ -3,14 +3,14 @@ import {
   getThread,
   listEvents,
   setAiServiceSelection,
-} from "@bb/db";
+} from "@cc/db";
 import {
   type ResolvedThreadExecutionOptions,
   systemThreadProvisioningEventDataSchema,
   threadSchema,
   turnScope,
-} from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+} from "@cc/domain";
+import { groupHostDaemonEvents } from "@cc/host-daemon-contract";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   internalAuthHeaders,
@@ -335,8 +335,8 @@ describe("generated thread titles", () => {
     completeTitle.mockRejectedValueOnce(new Error("Codex is overloaded"));
     await withTestHarness(async (harness) => {
       const cloud = registerFakeAiService(harness.deps.aiServices, {
-        id: "bb",
-        pluginId: "bb-ai",
+        id: "cc",
+        pluginId: "cc-ai",
         builtin: true,
         complete: async () => "Recovered Managed Metadata",
       });

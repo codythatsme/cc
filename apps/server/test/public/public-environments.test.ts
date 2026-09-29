@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getEnvironment } from "@bb/db";
+import { getEnvironment } from "@cc/db";
 import {
   registerTestHostRpcCapture,
   reportQueuedCommandError,
@@ -212,7 +212,7 @@ describe("public environments", () => {
       const environment = seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
-        branchName: "bb/stale",
+        branchName: "cc/stale",
         defaultBranch: "main",
         path: "/tmp/current-branch-env",
         environmentProviderId: "git-worktree",
@@ -284,7 +284,7 @@ describe("public environments", () => {
       const environment = seedEnvironment(harness.deps, {
         hostId: host.id,
         projectId: project.id,
-        branchName: "bb/stale",
+        branchName: "cc/stale",
         defaultBranch: "main",
         path: "/tmp/detached-branch-env",
         environmentProviderId: "git-worktree",

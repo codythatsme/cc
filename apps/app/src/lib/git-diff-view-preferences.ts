@@ -11,9 +11,9 @@ import {
 } from "./code-overflow-mode";
 
 export const GIT_DIFF_DISPLAY_MODE_STORAGE_KEY =
-  "bb.thread.gitDiff.displayMode";
+  "cc.thread.gitDiff.displayMode";
 export const GIT_DIFF_LINE_OVERFLOW_MODE_STORAGE_KEY =
-  "bb.thread.gitDiff.lineOverflowMode";
+  "cc.thread.gitDiff.lineOverflowMode";
 
 function isGitDiffDisplayMode(value: string): value is GitDiffDisplayMode {
   return value === "unified" || value === "split";

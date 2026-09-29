@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { THREAD_JUMP_APP_COMMAND_IDS } from "@bb/domain";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { THREAD_JUMP_APP_COMMAND_IDS } from "@cc/domain";
 import { useNavigate } from "react-router-dom";
 import { OverflowFade } from "@/components/ui/overflow-fade.js";
 import {
@@ -50,7 +50,7 @@ import { SidebarFooterCustomize } from "./SidebarFooterCustomize";
 import { SIDEBAR_FOOTER_MORE_ID } from "./sidebarFooterPreferences";
 import { SidebarHeaderSlot } from "./SidebarHeaderSlot";
 
-const BUG_REPORT_NEW_ISSUE_URL = "https://github.com/get-bb/bb/issues/new";
+const BUG_REPORT_NEW_ISSUE_URL = "https://github.com/codythatsme/cc/issues/new";
 
 interface AppSidebarProps {
   onResizeMouseDown: (event: React.MouseEvent<HTMLDivElement>) => void;

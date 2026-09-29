@@ -27,10 +27,10 @@ function entry(
     collections: [],
     source: `builtin:${id}`,
     repositoryUrl: null,
-    marketplace: "bb-official",
-    marketplaceDisplayName: "BB Official",
-    publisherKey: "bb-official",
-    publisherLabel: "BB Official",
+    marketplace: "cc-official",
+    marketplaceDisplayName: "CC Official",
+    publisherKey: "cc-official",
+    publisherLabel: "CC Official",
     official: true,
     author: null,
     installed: false,
@@ -55,7 +55,7 @@ describe("plugin browse shelves", () => {
       collections: [
         {
           id: "z-server-first",
-          displayName: "BB Official",
+          displayName: "CC Official",
           pluginIds: ["official"],
         },
         {
@@ -67,7 +67,7 @@ describe("plugin browse shelves", () => {
     });
 
     expect(shelves.map((shelf) => shelf.label)).toEqual([
-      "BB Official",
+      "CC Official",
       "New & notable",
       "Thread Content",
     ]);

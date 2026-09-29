@@ -2,7 +2,7 @@ import {
   resolveHostEnvironment,
   mergeHostAndProviderEnvironment,
 } from "../hosts/host-environment.js";
-import { getEnvironment, getHost, getProject } from "@bb/db";
+import { getEnvironment, getHost, getProject } from "@cc/db";
 import type {
   DynamicTool,
   InstructionMode,
@@ -10,11 +10,11 @@ import type {
   Thread,
   ThreadTurnInitiator,
   EnvironmentStatus,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   HostDaemonContributedEnvEntry,
   HostDaemonInjectedSkillSource,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { ApiError } from "../../errors.js";
 import type { LoggedWorkSessionDeps } from "../../types.js";
 import { throwEnvironmentNotReady } from "../lib/lifecycle-api-errors.js";
@@ -230,7 +230,7 @@ export async function resolveThreadRuntimeCommandConfig(
       instructionSections.push(contribution.instructions);
     } else {
       instructionSections.push(
-        `The following instructions come from the BB plugin "${contribution.pluginId}" for its tool "${contribution.tool.name}":`,
+        `The following instructions come from the CC plugin "${contribution.pluginId}" for its tool "${contribution.tool.name}":`,
         contribution.instructions,
       );
     }
@@ -258,13 +258,13 @@ export async function resolveThreadRuntimeCommandConfig(
       text = text.slice(0, PLUGIN_INSTRUCTION_CONTRIBUTION_MAX_CHARS);
     }
     instructionSections.push(
-      `The following instructions come from the BB plugin "${contribution.pluginId}":`,
+      `The following instructions come from the CC plugin "${contribution.pluginId}":`,
       text,
     );
   }
   for (const contribution of conditionalConfiguration.dynamicInstructions) {
     instructionSections.push(
-      `The following dynamic instructions come from the BB plugin "${contribution.pluginId}":`,
+      `The following dynamic instructions come from the CC plugin "${contribution.pluginId}":`,
       contribution.text,
     );
   }

@@ -1,5 +1,5 @@
-import type { ProjectSource } from "@bb/domain";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import type { ProjectSource } from "@cc/domain";
+import type { SystemEnvironmentProvider } from "@cc/server-contract";
 import modalLogoUrl from "../../../../../plugins/environment-modal-sandbox/modal-logo.svg?url";
 import { EnvironmentPickerUI } from "./EnvironmentPicker";
 import { ProjectSelector } from "./ProjectSelector";
@@ -41,7 +41,7 @@ function makeSource(id: string, hostId: string, path: string): ProjectSource {
 }
 
 const localProjectSources: readonly ProjectSource[] = [
-  makeSource("src_local", HOST_IDS.local, "/Users/michael/Projects/bb"),
+  makeSource("src_local", HOST_IDS.local, "/Users/michael/Projects/cc"),
 ];
 
 const noop = () => {};
@@ -189,8 +189,8 @@ const machineHosts = [
 ];
 
 const machineSources: readonly ProjectSource[] = [
-  makeSource("src_local", HOST_IDS.local, "/Users/michael/Projects/bb"),
-  makeSource("src_remote", HOST_IDS.remote, "/home/michael/bb"),
+  makeSource("src_local", HOST_IDS.local, "/Users/michael/Projects/cc"),
+  makeSource("src_remote", HOST_IDS.remote, "/home/michael/cc"),
 ];
 
 const offlineBuildHost = makeHost({
@@ -210,7 +210,7 @@ const contextualMachineHosts = [
 ];
 const contextualMachineSources: readonly ProjectSource[] = [
   ...machineSources,
-  makeSource("src_build", offlineBuildHost.id, "/srv/bb"),
+  makeSource("src_build", offlineBuildHost.id, "/srv/cc"),
 ];
 
 export function MachineMenu() {
@@ -302,7 +302,7 @@ export function ManyMachines() {
     <EnvironmentPickerUI
       value="provider:project-checkout"
       sources={hosts.map((host, index) =>
-        makeSource(`src_scroll_${index}`, host.id, "/projects/bb"),
+        makeSource(`src_scroll_${index}`, host.id, "/projects/cc"),
       )}
       host={hosts[0] ?? null}
       isLocal={false}
@@ -424,7 +424,7 @@ export function MachineSearchReuse() {
         <EnvironmentPickerUI
           value="provider:project-checkout"
           sources={hosts.map((host, index) =>
-            makeSource(`src_scroll_${index}`, host.id, "/projects/bb"),
+            makeSource(`src_scroll_${index}`, host.id, "/projects/cc"),
           )}
           host={hosts[0] ?? null}
           isLocal={false}
@@ -470,7 +470,7 @@ export function IconAlignment() {
     <StoryCard>
       <StoryRow label="Project selector reference">
         <ProjectSelector
-          projects={[{ id: "proj_demo", name: "bb" }]}
+          projects={[{ id: "proj_demo", name: "cc" }]}
           value="proj_demo"
           onChange={noop}
         />

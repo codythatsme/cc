@@ -1,16 +1,16 @@
 {
-  "name": "bb-plugin-provider-codex",
+  "name": "cc-plugin-provider-codex",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Run bb threads with Codex.",
+  "description": "Run cc threads with Codex.",
   "engines": {
-    "bb": ">=0.0",
-    "bbPluginSdk": ">=0.5.23"
+    "cc": ">=0.0",
+    "ccPluginSdk": ">=0.5.23"
   },
-  "bb": {
+  "cc": {
     "name": "Codex provider",
-    "description": "Run bb threads with Codex.",
+    "description": "Run cc threads with Codex.",
     "branding": {
       "icon": "./icons/codex.svg"
     },
@@ -18,16 +18,16 @@
     "host": "./src/host.ts"
   },
   "keywords": [
-    "bb-plugin"
+    "cc-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
-    "prepare:bundled": "bb-plugin-build prepare-bundled"
+    "prepare:bundled": "cc-plugin-build prepare-bundled"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
+    "@cc/plugin-build": "workspace:*",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.0.0",
     "better-sqlite3": "12.10.0",
@@ -38,7 +38,7 @@
     "vitest": "^4.1.1"
   },
   "dependencies": {
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
     "zod": "^4.3.6"
   }
 }

@@ -1,9 +1,9 @@
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { prependOlderTimelineRows } from "@cc/client-core";
 import { Command } from "commander";
 import {
   formatThreadTimelineText,
   type ThreadTimelineTextFormat,
-} from "@bb/thread-view";
+} from "@cc/thread-view";
 import {
   resolveEnvironmentMergeBaseBranch,
   type Environment,
@@ -13,15 +13,15 @@ import {
   type ThreadPullRequest,
   type ThreadTimelinePendingTodos,
   type WorkspaceStatus,
-} from "@bb/domain";
-import { BbHttpError, type BbSdk } from "@bb/sdk";
+} from "@cc/domain";
+import { CcHttpError, type CcSdk } from "@cc/sdk";
 import type {
   EnvironmentDiffQuery,
   ThreadTimelineResponse,
-} from "@bb/server-contract";
-import { THREAD_EVENT_LIST_PAGE_SIZE } from "@bb/server-contract";
+} from "@cc/server-contract";
+import { THREAD_EVENT_LIST_PAGE_SIZE } from "@cc/server-contract";
 import { action } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliCcSdk } from "../../client.js";
 import {
   getErrorMessage,
   outputJson,
@@ -101,7 +101,7 @@ type CliEnvironmentDiffQuery =
 async function fetchWorkStatus(args: {
   environmentId: string;
   mergeBaseBranch: string;
-  sdk: BbSdk;
+  sdk: CcSdk;
 }): Promise<FetchedWorkStatus> {
   const environmentStatus = await args.sdk.environments.status({
     environmentId: args.environmentId,
@@ -119,7 +119,7 @@ async function fetchWorkStatus(args: {
 async function fetchGitDiff(args: {
   environmentId: string;
   query: EnvironmentDiffQuery;
-  sdk: BbSdk;
+  sdk: CcSdk;
 }): Promise<FetchedGitDiff> {
   const environmentDiff = await args.sdk.environments.diff({
     environmentId: args.environmentId,
@@ -136,7 +136,7 @@ async function fetchGitDiff(args: {
 
 async function fetchPullRequest(args: {
   environmentId: string;
-  sdk: BbSdk;
+  sdk: CcSdk;
 }): Promise<FetchedPullRequest> {
   try {
     const response = await args.sdk.environments.pullRequest({
@@ -193,7 +193,7 @@ export function registerShowCommand(
     .command("show [id]")
     .aliases(["get", "view", "status"])
     .description("Show thread details and pull request status")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option("--work-status", "Include work status (git state) in output")
     .option("--git-diff", "Include git diff in output")
@@ -210,7 +210,7 @@ export function registerShowCommand(
     .action(
       action(async (id: string | undefined, opts: ThreadShowCommandOptions) => {
         const threadId = requireThreadIdOrSelf(id, opts);
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const thread = await sdk.threads.get({ threadId });
 
         const statusPayload: ThreadStatusPayload = { thread };
@@ -402,7 +402,7 @@ export function registerShowCommand(
     .command("log [id]")
     .aliases(["messages", "timeline"])
     .description("Show thread event log")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option(
       "--json",
       "Print machine-readable JSON output (alias for --format json)",
@@ -427,7 +427,7 @@ export function registerShowCommand(
     .action(
       action(async (id: string | undefined, opts: ThreadLogCommandOptions) => {
         const threadId = requireThreadIdOrSelf(id, opts);
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const format = resolveThreadTimelineTextFormat(opts);
 
         if (opts.all && opts.limit !== undefined) {
@@ -511,13 +511,13 @@ export function registerShowCommand(
   parent
     .command("output [id]")
     .description("Get the final output of a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
         async (id: string | undefined, opts: ThreadOutputCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           const result = await sdk.threads.output({ threadId });
           if (outputJson(opts, result)) return;
           if (result.output) {
@@ -624,7 +624,7 @@ interface ThreadLogEventBatch {
 }
 
 async function listThreadLogEventBatch(
-  sdk: BbSdk,
+  sdk: CcSdk,
   args: {
     threadId: string;
     limit: number;
@@ -642,7 +642,7 @@ async function listThreadLogEventBatch(
       return { pageSize, rows };
     } catch (error) {
       if (
-        !(error instanceof BbHttpError) ||
+        !(error instanceof CcHttpError) ||
         error.status !== 413 ||
         error.code !== "event_data_too_large" ||
         pageSize === 1
@@ -659,7 +659,7 @@ function growThreadLogEventPageSize(pageSize: number): number {
 }
 
 async function listThreadLogEventsPage(
-  sdk: BbSdk,
+  sdk: CcSdk,
   args: { threadId: string; limit: number; afterSeq: string | undefined },
 ): Promise<ThreadLogEventsPage> {
   const requestedRows = args.limit + 1;
@@ -686,7 +686,7 @@ async function listThreadLogEventsPage(
 }
 
 async function listAllThreadLogEvents(
-  sdk: BbSdk,
+  sdk: CcSdk,
   threadId: string,
   afterSeq: string | undefined,
 ): Promise<ThreadLogEventsPage> {

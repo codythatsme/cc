@@ -1,12 +1,12 @@
 import {
   definePluginApp,
-  useBbNavigate,
+  useCcNavigate,
   useRealtime,
   useRpc,
-} from "@get-bb/plugin-sdk/app";
-import { Badge as BbBadge } from "@/components/ui/badge";
-import { Button as BbButton } from "@/components/ui/button";
-import { Checkbox as BbCheckbox } from "@/components/ui/checkbox";
+} from "@codythatsme/plugin-sdk/app";
+import { Badge as CcBadge } from "@/components/ui/badge";
+import { Button as CcButton } from "@/components/ui/button";
+import { Checkbox as CcCheckbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,7 +44,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { Icon, type IconName } from "@/components/ui/icon";
-import { Input as BbInput } from "@/components/ui/input";
+import { Input as CcInput } from "@/components/ui/input";
 import { PluginCompactIconMask } from "@/components/ui/plugin-icon";
 import {
   Popover,
@@ -58,7 +58,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select";
-import { Switch as BbSwitch } from "@/components/ui/switch";
+import { Switch as CcSwitch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
@@ -206,7 +206,7 @@ function Badge({
     merged: "border-transparent bg-pr-merged/15 text-pr-merged",
   };
   return (
-    <BbBadge
+    <CcBadge
       variant="outline"
       className={cn(
         "h-5 gap-1 whitespace-nowrap px-1.5 py-0 text-[11px] font-medium",
@@ -214,7 +214,7 @@ function Badge({
       )}
     >
       {children}
-    </BbBadge>
+    </CcBadge>
   );
 }
 
@@ -319,12 +319,12 @@ function MockSidebarRow({
     MOCK_SIDEBAR_ROW_CLASS,
     state === "hover" && "bg-sidebar-accent text-sidebar-accent-foreground",
     state === "selected" &&
-      "bb-sidebar-selected-row bg-state-active text-sidebar-foreground",
-    state === "split" && "bb-sidebar-open-in-split-row",
+      "cc-sidebar-selected-row bg-state-active text-sidebar-foreground",
+    state === "split" && "cc-sidebar-open-in-split-row",
   );
   if (interactive) {
     return (
-      <BbButton
+      <CcButton
         type="button"
         size="sm"
         variant="ghost"
@@ -334,11 +334,11 @@ function MockSidebarRow({
         className={className}
       >
         {content}
-      </BbButton>
+      </CcButton>
     );
   }
   return (
-    <BbButton
+    <CcButton
       asChild
       size="sm"
       variant="ghost"
@@ -347,7 +347,7 @@ function MockSidebarRow({
       <div data-tp-sidebar-row="" data-tp-sidebar-state={state}>
         {content}
       </div>
-    </BbButton>
+    </CcButton>
   );
 }
 
@@ -367,7 +367,7 @@ function Sidebar({
       <div className="flex min-h-0 flex-1 flex-col px-2 py-2">
         {mobile ? null : (
           <div className="flex h-8 items-center px-2 text-sm font-semibold">
-            bb-plugins
+            cc-plugins
           </div>
         )}
         <MockSidebarRow label="New thread" />
@@ -641,7 +641,7 @@ function ThreadTocFixture() {
             }}
           >
             {messages.map((message, index) => (
-              <BbButton
+              <CcButton
                 key={message}
                 variant="ghost"
                 size="sm"
@@ -662,7 +662,7 @@ function ThreadTocFixture() {
                 >
                   {message}
                 </span>
-              </BbButton>
+              </CcButton>
             ))}
           </TabsContent>
         </Tabs>
@@ -715,7 +715,7 @@ const NEW_THREAD_ACTIONS = [
   },
   {
     icon: "Explore",
-    title: "Learn what bb can do",
+    title: "Learn what cc can do",
     description: "Get a tour of its capabilities",
   },
 ] as const;
@@ -770,7 +770,7 @@ function Thread({
         >
           <div
             role="img"
-            aria-label="bb"
+            aria-label="cc"
             style={{
               fontSize: narrow ? 28 : 34,
               lineHeight: 1,
@@ -779,7 +779,7 @@ function Thread({
               color: v("foreground"),
             }}
           >
-            bb
+            cc
           </div>
           <div
             style={{
@@ -791,7 +791,7 @@ function Thread({
             }}
           >
             {NEW_THREAD_ACTIONS.map((action) => (
-              <BbButton
+              <CcButton
                 key={action.title}
                 type="button"
                 variant="ghost"
@@ -822,7 +822,7 @@ function Thread({
                     {action.description}
                   </span>
                 </span>
-              </BbButton>
+              </CcButton>
             ))}
           </div>
         </div>
@@ -855,7 +855,7 @@ function Thread({
                 <Dot color={v("success")} size={6} /> Running
               </Badge>
               {narrow ? null : (
-                <Badge tone="outline">bb/endless-theme-plugin</Badge>
+                <Badge tone="outline">cc/endless-theme-plugin</Badge>
               )}
             </div>
           )}
@@ -1151,12 +1151,12 @@ function InfoPanel({ mobile = false }: { mobile?: boolean }) {
             {kv("Environment", "Worktree")}
             {kv(
               "Directory",
-              <span style={{ fontFamily: MONO, fontSize: 12 }}>~/Code/bb</span>,
+              <span style={{ fontFamily: MONO, fontSize: 12 }}>~/Code/cc</span>,
             )}
             {kv(
               "Branch",
               <span style={{ fontFamily: MONO, fontSize: 12 }}>
-                bb/endless-theme
+                cc/endless-theme
               </span>,
             )}
             {kv(
@@ -1215,7 +1215,7 @@ function SettingsPage({
   mode: Mode;
 }) {
   const control = (label: string, value: ReactNode) => (
-    <BbButton
+    <CcButton
       type="button"
       variant="outline"
       size="sm"
@@ -1236,7 +1236,7 @@ function SettingsPage({
         name="ChevronDown"
         className="size-3.5 shrink-0 text-muted-foreground"
       />
-    </BbButton>
+    </CcButton>
   );
   const row = (label: string, description: string | null, child: ReactNode) => (
     <div
@@ -1328,7 +1328,7 @@ function SettingsPage({
               )}
               {row(
                 "Palette",
-                "Palettes change bb's colors, including syntax colors in diffs and file previews. Choose a built-in palette or create one from a prompt.",
+                "Palettes change cc's colors, including syntax colors in diffs and file previews. Choose a built-in palette or create one from a prompt.",
                 control("Palette", themeName),
               )}
               {row(
@@ -1355,7 +1355,7 @@ function SettingsPage({
               {row(
                 "Fade inactive splits",
                 "Fade out splits that do not have focus.",
-                <BbSwitch checked aria-label="Fade inactive splits" />,
+                <CcSwitch checked aria-label="Fade inactive splits" />,
               )}
             </div>
           </div>
@@ -1551,15 +1551,15 @@ function MobileFrame({
           className="absolute inset-y-0 left-0 flex w-[76%] max-w-80 flex-col bg-sidebar [&>aside]:w-full!"
         >
           <div className="flex h-12 shrink-0 items-center justify-between px-3 text-sm text-sidebar-foreground">
-            <span className="font-semibold">bb-plugins</span>
-            <BbButton
+            <span className="font-semibold">cc-plugins</span>
+            <CcButton
               variant="ghost"
               className={headerButton}
               aria-label="Close navigation preview"
               onClick={() => setSurface("conversation")}
             >
               <Icon name="PanelLeft" />
-            </BbButton>
+            </CcButton>
           </div>
           {view === "settings" ? (
             <SettingsSidebarFixture />
@@ -1579,7 +1579,7 @@ function MobileFrame({
         }}
       >
         <div className="flex h-12 shrink-0 items-center gap-1 border-b border-border-seam bg-surface-scrim px-2 text-sm">
-          <BbButton
+          <CcButton
             variant="ghost"
             className={headerButton}
             aria-label="Show navigation preview"
@@ -1588,17 +1588,17 @@ function MobileFrame({
             }
           >
             <Icon name="PanelLeft" />
-          </BbButton>
+          </CcButton>
           <span className="min-w-0 flex-1 truncate">{title}</span>
           <Icon name="MoreHorizontal" className="size-5 shrink-0" />
-          <BbButton
+          <CcButton
             variant="ghost"
             className={headerButton}
             aria-label="Show right panel preview"
             onClick={() => setSurface(panel ? "conversation" : "panel")}
           >
             <Icon name="PanelRight" />
-          </BbButton>
+          </CcButton>
         </div>
         {view === "settings" ? (
           <SettingsPage narrow themeName={themeName} mode={mode} />
@@ -1646,14 +1646,14 @@ function MobileFrame({
             <Icon name="Info" className="size-5" />
             <Icon name="FileDiff" className="size-5" />
             <span className="min-w-0 flex-1 truncate text-sm">Info</span>
-            <BbButton
+            <CcButton
               variant="ghost"
               className={headerButton}
               aria-label="Close right panel preview"
               onClick={() => setSurface("conversation")}
             >
               <Icon name="PanelRight" />
-            </BbButton>
+            </CcButton>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto [&>aside]:w-full! [&>aside]:border-0 [&>aside]:bg-background">
             <InfoPanel mobile />
@@ -1731,7 +1731,7 @@ const ALL_TOKENS = [
   "text-sm--line-height",
   "spacing",
   "tracking-normal",
-  "bb-sidebar-row-height",
+  "cc-sidebar-row-height",
   "icon-stroke-width",
   "radius",
   "radius-sm",
@@ -2630,13 +2630,13 @@ function OverlaySpecimens() {
     >
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <BbButton
+          <CcButton
             variant="outline"
             size="sm"
             className={OVERLAY_TRIGGER_CLASS}
           >
             <OverlayTriggerLabel>Menu</OverlayTriggerLabel>
-          </BbButton>
+          </CcButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuLabel>Thread</DropdownMenuLabel>
@@ -2651,13 +2651,13 @@ function OverlaySpecimens() {
       </DropdownMenu>
       <Dialog>
         <DialogTrigger asChild>
-          <BbButton
+          <CcButton
             variant="outline"
             size="sm"
             className={OVERLAY_TRIGGER_CLASS}
           >
             <OverlayTriggerLabel>Dialog</OverlayTriggerLabel>
-          </BbButton>
+          </CcButton>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -2669,25 +2669,25 @@ function OverlaySpecimens() {
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
-              <BbButton variant="outline" size="sm">
+              <CcButton variant="outline" size="sm">
                 Cancel
-              </BbButton>
+              </CcButton>
             </DialogClose>
             <DialogClose asChild>
-              <BbButton size="sm">Archive</BbButton>
+              <CcButton size="sm">Archive</CcButton>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       <Popover>
         <PopoverTrigger asChild>
-          <BbButton
+          <CcButton
             variant="outline"
             size="sm"
             className={OVERLAY_TRIGGER_CLASS}
           >
             <OverlayTriggerLabel>Popover</OverlayTriggerLabel>
-          </BbButton>
+          </CcButton>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-56 p-1">
           <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
@@ -2713,7 +2713,7 @@ function OverlaySpecimens() {
       <TooltipProvider delayDuration={HOVER_OPEN_DELAY_MS}>
         <Tooltip open={tooltip.open} onOpenChange={tooltip.setOpen}>
           <TooltipTrigger asChild>
-            <BbButton
+            <CcButton
               variant="outline"
               size="sm"
               data-tp-tooltip-trigger=""
@@ -2728,7 +2728,7 @@ function OverlaySpecimens() {
               }}
             >
               <OverlayTriggerLabel>Tooltip</OverlayTriggerLabel>
-            </BbButton>
+            </CcButton>
           </TooltipTrigger>
           <TooltipContent
             data-tp-tooltip-content=""
@@ -2746,7 +2746,7 @@ function OverlaySpecimens() {
         closeDelay={HOVER_CLOSE_DELAY_MS}
       >
         <HoverCardTrigger asChild>
-          <BbButton
+          <CcButton
             variant="outline"
             size="sm"
             data-tp-hovercard-trigger=""
@@ -2754,7 +2754,7 @@ function OverlaySpecimens() {
             onClick={() => setHoverCardOpen((open) => !open)}
           >
             <OverlayTriggerLabel>Hover card</OverlayTriggerLabel>
-          </BbButton>
+          </CcButton>
         </HoverCardTrigger>
         <HoverCardContent
           data-tp-hovercard-content=""
@@ -2780,7 +2780,7 @@ function OverlaySpecimens() {
               color: v("muted-foreground"),
             }}
           >
-            bb/endless-theme
+            cc/endless-theme
           </div>
           <div
             style={{
@@ -2794,23 +2794,23 @@ function OverlaySpecimens() {
             .20.
           </div>
           <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-            <BbButton
+            <CcButton
               variant="outline"
               size="sm"
               className="h-7 flex-1 cursor-pointer px-2 text-xs"
             >
               Copy branch
-            </BbButton>
-            <BbButton
+            </CcButton>
+            <CcButton
               size="sm"
               className="h-7 flex-1 cursor-pointer px-2 text-xs"
             >
               Open in split
-            </BbButton>
+            </CcButton>
           </div>
         </HoverCardContent>
       </HoverCard>
-      <BbButton
+      <CcButton
         variant="outline"
         size="sm"
         className={OVERLAY_TRIGGER_CLASS}
@@ -2821,7 +2821,7 @@ function OverlaySpecimens() {
         }
       >
         <OverlayTriggerLabel>Toast</OverlayTriggerLabel>
-      </BbButton>
+      </CcButton>
     </div>
   );
 }
@@ -2879,48 +2879,48 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
             gap: 6,
           }}
         >
-          <BbButton
+          <CcButton
             size="sm"
             className="h-7 min-w-0 cursor-pointer px-2 text-xs"
           >
             Default
-          </BbButton>
-          <BbButton
+          </CcButton>
+          <CcButton
             size="sm"
             variant="secondary"
             className="h-7 min-w-0 cursor-pointer px-2 text-xs"
           >
             Secondary
-          </BbButton>
-          <BbButton
+          </CcButton>
+          <CcButton
             size="sm"
             variant="outline"
             className="h-7 min-w-0 cursor-pointer px-2 text-xs"
           >
             Outline
-          </BbButton>
-          <BbButton
+          </CcButton>
+          <CcButton
             size="sm"
             variant="ghost"
             className="h-7 min-w-0 cursor-pointer px-2 text-xs"
           >
             Ghost
-          </BbButton>
-          <BbButton
+          </CcButton>
+          <CcButton
             size="sm"
             variant="destructive"
             className="h-7 min-w-0 cursor-pointer px-2 text-xs"
           >
             Delete
-          </BbButton>
-          <BbButton
+          </CcButton>
+          <CcButton
             size="sm"
             variant="outline"
             className="h-7 min-w-0 px-2 text-xs"
             disabled
           >
             Disabled
-          </BbButton>
+          </CcButton>
         </div>
       </div>
       <div data-tp-block="badges" style={compactBlock(true)}>
@@ -2956,14 +2956,14 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
           Inputs
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <BbInput
+          <CcInput
             className="h-7 px-2 text-xs"
             aria-label="Search threads"
             placeholder="Search threads…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <BbInput
+          <CcInput
             className="h-7 px-2 text-xs"
             aria-label="Disabled input"
             value="Disabled"
@@ -2989,7 +2989,7 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
               ...compactLabel,
             }}
           >
-            <BbSwitch
+            <CcSwitch
               checked={notify}
               onCheckedChange={setNotify}
               className="cursor-pointer"
@@ -3005,7 +3005,7 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
               ...compactLabel,
             }}
           >
-            <BbSwitch
+            <CcSwitch
               checked={compact}
               onCheckedChange={setCompact}
               className="cursor-pointer"
@@ -3021,7 +3021,7 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
               color: v("muted-foreground"),
             }}
           >
-            <BbSwitch checked disabled /> Disabled
+            <CcSwitch checked disabled /> Disabled
           </label>
         </div>
       </div>
@@ -3042,7 +3042,7 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
               ...compactLabel,
             }}
           >
-            <BbCheckbox
+            <CcCheckbox
               checked={checked}
               onCheckedChange={(next) => setChecked(next === true)}
               className="cursor-pointer"
@@ -3058,7 +3058,7 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
               ...compactLabel,
             }}
           >
-            <BbCheckbox
+            <CcCheckbox
               checked={agreed}
               onCheckedChange={(next) => setAgreed(next === true)}
               className="cursor-pointer"
@@ -3074,7 +3074,7 @@ function ComponentsSection({ stacked = false }: { stacked?: boolean }) {
               color: v("muted-foreground"),
             }}
           >
-            <BbCheckbox checked disabled /> Disabled
+            <CcCheckbox checked disabled /> Disabled
           </label>
         </div>
       </div>
@@ -3426,7 +3426,7 @@ function ThemePicker({
   );
 }
 
-const MODE_KEY = "bb.theme";
+const MODE_KEY = "cc.theme";
 
 function useColorMode(): [Mode, (next: Mode) => void] {
   const read = () =>
@@ -3462,7 +3462,7 @@ function useColorMode(): [Mode, (next: Mode) => void] {
 function PreviewPage({ subPath }: { subPath: string }) {
   const rpc = useRpc<typeof rpcContract>();
   const [mode, setMode] = useColorMode();
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);

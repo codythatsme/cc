@@ -495,40 +495,40 @@ describe("validateLabel", () => {
 
 describe("parseVisitorHost", () => {
   it("extracts a bare handle", () => {
-    expect(parseVisitorHost("sawyer.getbb.app", "getbb.app")).toEqual({
+    expect(parseVisitorHost("sawyer.cc.example.invalid", "cc.example.invalid")).toEqual({
       handle: "sawyer",
       target: null,
     });
-    expect(parseVisitorHost("Sawyer.getbb.app", "getbb.app")).toEqual({
+    expect(parseVisitorHost("Sawyer.cc.example.invalid", "cc.example.invalid")).toEqual({
       handle: "sawyer",
       target: null,
     });
   });
 
   it("extracts handle--port share hosts", () => {
-    expect(parseVisitorHost("sawyer--8000.getbb.app", "getbb.app")).toEqual({
+    expect(parseVisitorHost("sawyer--8000.cc.example.invalid", "cc.example.invalid")).toEqual({
       handle: "sawyer",
       target: "8000",
     });
-    expect(parseVisitorHost("Sawyer--5173.getbb.app", "getbb.app")).toEqual({
+    expect(parseVisitorHost("Sawyer--5173.cc.example.invalid", "cc.example.invalid")).toEqual({
       handle: "sawyer",
       target: "5173",
     });
   });
 
   it("rejects invalid share targets as unroutable", () => {
-    expect(parseVisitorHost("sawyer--0.getbb.app", "getbb.app")).toBeNull();
-    expect(parseVisitorHost("sawyer--99999.getbb.app", "getbb.app")).toBeNull();
-    expect(parseVisitorHost("sawyer--08000.getbb.app", "getbb.app")).toBeNull();
-    expect(parseVisitorHost("sawyer--x.getbb.app", "getbb.app")).toBeNull();
-    expect(parseVisitorHost("foo--80--00.getbb.app", "getbb.app")).toBeNull();
+    expect(parseVisitorHost("sawyer--0.cc.example.invalid", "cc.example.invalid")).toBeNull();
+    expect(parseVisitorHost("sawyer--99999.cc.example.invalid", "cc.example.invalid")).toBeNull();
+    expect(parseVisitorHost("sawyer--08000.cc.example.invalid", "cc.example.invalid")).toBeNull();
+    expect(parseVisitorHost("sawyer--x.cc.example.invalid", "cc.example.invalid")).toBeNull();
+    expect(parseVisitorHost("foo--80--00.cc.example.invalid", "cc.example.invalid")).toBeNull();
   });
 
   it("rejects the apex, multi-label, and foreign hosts", () => {
-    expect(parseVisitorHost("getbb.app", "getbb.app")).toBeNull();
-    expect(parseVisitorHost("a.b.getbb.app", "getbb.app")).toBeNull();
-    expect(parseVisitorHost("evil.com", "getbb.app")).toBeNull();
-    expect(parseVisitorHost("getbb.app.evil.com", "getbb.app")).toBeNull();
+    expect(parseVisitorHost("cc.example.invalid", "cc.example.invalid")).toBeNull();
+    expect(parseVisitorHost("a.b.cc.example.invalid", "cc.example.invalid")).toBeNull();
+    expect(parseVisitorHost("evil.com", "cc.example.invalid")).toBeNull();
+    expect(parseVisitorHost("cc.example.invalid.evil.com", "cc.example.invalid")).toBeNull();
   });
 });
 

@@ -35,7 +35,7 @@ import {
   FILE_LIST_LIMIT_MAX,
   FILE_LIST_QUERY_MAX_LENGTH,
   flattenPromptInputGroups,
-} from "@bb/domain";
+} from "@cc/domain";
 import { z } from "zod";
 import {
   pathsExistRequestSchema,
@@ -53,7 +53,7 @@ import {
   providerUsageResultSchema,
   providerUsageSchema,
   providerUsageWindowSchema,
-} from "@bb/provider-bridge-protocol";
+} from "@cc/provider-bridge-protocol";
 
 export {
   HOST_ARTIFACT_MAX_BYTES,
@@ -73,7 +73,7 @@ export {
   FILE_LIST_EXCLUDE_NAMES_MAX,
   FILE_LIST_LIMIT_MAX,
   FILE_LIST_QUERY_MAX_LENGTH,
-} from "@bb/domain";
+} from "@cc/domain";
 const INJECTED_SKILL_NAME_PATTERN =
   /^(?!.*--)[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
 
@@ -730,9 +730,9 @@ const hostListCommandsCommandSchema = z
   .strict();
 
 const skillRootKindSchema = z.enum([
-  "bb-project",
-  "bb-data-dir",
-  "bb-builtin",
+  "cc-project",
+  "cc-data-dir",
+  "cc-builtin",
   "provider-project",
   "provider-user",
   "shared-project",
@@ -761,8 +761,8 @@ const hostListSkillsCommandSchema = z
   .strict();
 
 export const deletableSkillScopeSchema = z.enum([
-  "bb-user",
-  "bb-project",
+  "cc-user",
+  "cc-project",
   "provider-user",
   "provider-project",
 ]);
@@ -777,23 +777,23 @@ const hostDeleteSkillCommandSchema = z
   })
   .strict()
   .superRefine((command, context) => {
-    if (command.scope === "bb-project" && command.cwd === null) {
+    if (command.scope === "cc-project" && command.cwd === null) {
       context.addIssue({
         code: "custom",
         path: ["cwd"],
-        message: "cwd is required to delete a bb-project skill",
+        message: "cwd is required to delete a cc-project skill",
       });
     }
-    const isBbScope =
-      command.scope === "bb-user" || command.scope === "bb-project";
-    if (isBbScope && command.rootPath !== null) {
+    const isCcScope =
+      command.scope === "cc-user" || command.scope === "cc-project";
+    if (isCcScope && command.rootPath !== null) {
       context.addIssue({
         code: "custom",
         path: ["rootPath"],
-        message: "rootPath must be null for a bb skill",
+        message: "rootPath must be null for a cc skill",
       });
     }
-    if (!isBbScope && command.rootPath === null) {
+    if (!isCcScope && command.rootPath === null) {
       context.addIssue({
         code: "custom",
         path: ["rootPath"],
@@ -802,12 +802,12 @@ const hostDeleteSkillCommandSchema = z
     }
   });
 
-const writableBbSkillScopeSchema = z.enum(["bb-user", "bb-project"]);
+const writableCcSkillScopeSchema = z.enum(["cc-user", "cc-project"]);
 
 const hostWriteSkillCommandSchema = z
   .object({
     type: z.literal("host.write_skill"),
-    scope: writableBbSkillScopeSchema,
+    scope: writableCcSkillScopeSchema,
     name: z.string().min(1),
     cwd: z.string().min(1).nullable(),
     content: z.string().min(1).max(1_000_000),
@@ -815,11 +815,11 @@ const hostWriteSkillCommandSchema = z
   })
   .strict()
   .superRefine((command, context) => {
-    if (command.scope === "bb-project" && command.cwd === null) {
+    if (command.scope === "cc-project" && command.cwd === null) {
       context.addIssue({
         code: "custom",
         path: ["cwd"],
-        message: "cwd is required to edit a bb-project skill",
+        message: "cwd is required to edit a cc-project skill",
       });
     }
   });
@@ -911,7 +911,7 @@ export { providerHealthSchema };
 export type {
   ProviderHealth,
   ProviderHealthResult,
-} from "@bb/provider-bridge-protocol";
+} from "@cc/provider-bridge-protocol";
 
 const provisionInitiatorSchema = z
   .object({
@@ -1269,12 +1269,12 @@ const workspaceCommitResultSchema = z.object({
 const workspacePullRequestActionResultSchema = z.object({}).strict();
 
 export { providerUsageWindowSchema };
-export type { ProviderUsageWindow } from "@bb/provider-bridge-protocol";
+export type { ProviderUsageWindow } from "@cc/provider-bridge-protocol";
 
 export type {
   ProviderUsage,
   ProviderUsageResult,
-} from "@bb/provider-bridge-protocol";
+} from "@cc/provider-bridge-protocol";
 
 export const providerUsageResponseSchema = z.record(
   z.string().min(1),

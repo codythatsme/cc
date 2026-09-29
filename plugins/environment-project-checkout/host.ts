@@ -1,5 +1,5 @@
-import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
-import { createHostProgress } from "bb-environment-provider-host/progress";
+import { experimental_defineHostEntry } from "@codythatsme/plugin-sdk/host";
+import { createHostProgress } from "cc-environment-provider-host/progress";
 import { checkoutHostContract, checkoutHostSignals } from "./contract.js";
 import { attachCheckout, inspectCheckout } from "./host/checkout.js";
 

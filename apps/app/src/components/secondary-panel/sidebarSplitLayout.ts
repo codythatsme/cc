@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { arrayMove } from "@bb/client-core";
+import { arrayMove } from "@cc/client-core";
 import {
   MAX_PANES,
   countPanes,
@@ -27,10 +27,10 @@ import {
 
 const SIDEBAR_SPLIT_LAYOUT_STORAGE_VERSION = 1;
 const SIDEBAR_SPLIT_LAYOUT_STORAGE_PREFIX =
-  "bb.thread.secondaryPanelSplitLayout";
+  "cc.thread.secondaryPanelSplitLayout";
 export const SIDEBAR_FIXED_INFO_TAB_ID = createThreadInfoFixedPanelTab().id;
 
-const SIDEBAR_SPLIT_PLUGIN_ID = "bb-secondary-panel-split";
+const SIDEBAR_SPLIT_PLUGIN_ID = "cc-secondary-panel-split";
 const NORMALIZED_SPLIT_SIZE_EPSILON = 1e-9;
 
 export interface SidebarSplitStorage {

@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { PLUGIN_CATALOG_CATEGORIES as BUILTIN_DISCOVERY_CATEGORIES } from "@bb/domain";
+import { PLUGIN_CATALOG_CATEGORIES as BUILTIN_DISCOVERY_CATEGORIES } from "@cc/domain";
 import {
   deletePluginMarketplace,
   getInstalledPlugin,
@@ -16,7 +16,7 @@ import {
   upsertPluginMarketplace,
   type DbConnection,
   type PluginMarketplaceRow,
-} from "@bb/db";
+} from "@cc/db";
 import {
   CURATED_PLUGIN_MARKETPLACE_NAME,
   type InstalledPlugin,
@@ -29,7 +29,7 @@ import {
   type PluginCatalogStatus,
   type PluginMarketplace,
   type PluginMarketplaceRefreshResult,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { brandingAssetHash } from "../plugins/app-bundle.js";
 import {
   builtinPluginSource,
@@ -214,19 +214,25 @@ export function createPluginCatalogService(deps: {
     });
   }
 
-  function seedCuratedMarketplace(): void {
+  function seedCuratedMarketplace(refreshedAt: number | null = null): void {
     const existing = getPluginMarketplace(
       deps.db,
       CURATED_PLUGIN_MARKETPLACE_NAME,
     );
     const isCurrentSource =
-      existing?.sourceKind === "https" &&
+      existing?.sourceKind ===
+        (curatedManifestUrls.primary === "" ? "path" : "https") &&
       existing.manifestUrl === curatedManifestUrls.primary;
     const isFallbackSource =
-      existing?.sourceKind === "https" &&
+      existing?.sourceKind ===
+        (curatedManifestUrls.primary === "" ? "path" : "https") &&
       curatedManifestUrls.fallback !== null &&
       existing.manifestUrl === curatedManifestUrls.fallback;
-    if (existing !== undefined && (isCurrentSource || isFallbackSource)) {
+    if (
+      refreshedAt === null &&
+      existing !== undefined &&
+      (isCurrentSource || isFallbackSource)
+    ) {
       try {
         parseMarketplaceManifestJson(
           existing.manifestJson,
@@ -236,7 +242,7 @@ export function createPluginCatalogService(deps: {
         if (isFallbackSource) {
           upsertPluginMarketplace(deps.db, {
             name: CURATED_PLUGIN_MARKETPLACE_NAME,
-            sourceKind: "https",
+            sourceKind: curatedManifestUrls.primary === "" ? "path" : "https",
             manifestUrl: curatedManifestUrls.primary,
             sourceGitRef: null,
             sourceGitCommit: null,
@@ -258,7 +264,7 @@ export function createPluginCatalogService(deps: {
     }
     upsertPluginMarketplace(deps.db, {
       name: CURATED_PLUGIN_MARKETPLACE_NAME,
-      sourceKind: "https",
+      sourceKind: curatedManifestUrls.primary === "" ? "path" : "https",
       manifestUrl: curatedManifestUrls.primary,
       sourceGitRef: null,
       sourceGitCommit: null,
@@ -266,8 +272,9 @@ export function createPluginCatalogService(deps: {
       statsJson: existing?.statsJson ?? null,
       etag: null,
       lastModified: null,
-      lastSuccessfulRefreshAt: null,
-      lastAttemptedRefreshAt: existing?.lastAttemptedRefreshAt ?? null,
+      lastSuccessfulRefreshAt: refreshedAt,
+      lastAttemptedRefreshAt:
+        refreshedAt ?? existing?.lastAttemptedRefreshAt ?? null,
       lastError: null,
     });
   }
@@ -353,11 +360,11 @@ export function createPluginCatalogService(deps: {
   }
 
   function compatibilityProblem(ranges: {
-    bbRange: string | undefined;
+    ccRange: string | undefined;
     sdkRange: string | undefined;
   }): string | null {
     const compatibility = evaluateCompatibility({
-      bbRange: ranges.bbRange,
+      ccRange: ranges.ccRange,
       sdkRange: ranges.sdkRange,
       appVersion: deps.appVersion,
     });
@@ -391,8 +398,8 @@ export function createPluginCatalogService(deps: {
     return {
       manifest,
       problem: compatibilityProblem({
-        bbRange: manifest.bbEngineRange,
-        sdkRange: manifest.bbPluginSdkRange,
+        ccRange: manifest.ccEngineRange,
+        sdkRange: manifest.ccPluginSdkRange,
       }),
     };
   }
@@ -471,8 +478,8 @@ export function createPluginCatalogService(deps: {
       manifest === null
         ? null
         : compatibilityProblem({
-            bbRange: manifest.bbEngineRange,
-            sdkRange: manifest.bbPluginSdkRange,
+            ccRange: manifest.ccEngineRange,
+            sdkRange: manifest.ccPluginSdkRange,
           });
     const metadata = catalogEntryMetadata({
       manifest: catalog,
@@ -573,6 +580,14 @@ export function createPluginCatalogService(deps: {
       seedBundledMarketplace(attemptedAt);
       reservedCollections = buildReservedCollectionIndex();
       deps.notifyCatalogChanged?.();
+      return;
+    }
+    if (
+      row.name === CURATED_PLUGIN_MARKETPLACE_NAME &&
+      curatedManifestUrls.primary === ""
+    ) {
+      seedCuratedMarketplace(attemptedAt);
+      reservedCollections = buildReservedCollectionIndex();
       return;
     }
     let collisionError: string | null = null;
@@ -1004,7 +1019,7 @@ export function createPluginCatalogService(deps: {
           const name = materialized.catalog.name;
           if (isReservedMarketplace(name)) {
             throw new Error(
-              `marketplace name "${name}" is reserved for a marketplace that ships with bb`,
+              `marketplace name "${name}" is reserved for a marketplace that ships with cc`,
             );
           }
           if (getPluginMarketplace(deps.db, name) !== undefined) {

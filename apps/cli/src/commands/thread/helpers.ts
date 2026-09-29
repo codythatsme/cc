@@ -8,12 +8,12 @@ import {
   type PromptInput,
   serviceTierSchema,
   type ServiceTier,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   DEFAULT_THREAD_WAIT_POLL_INTERVAL_MS,
   DEFAULT_THREAD_WAIT_TIMEOUT_MS,
-} from "@bb/sdk";
-import type { BbSdk } from "@bb/sdk/node";
+} from "@cc/sdk";
+import type { CcSdk } from "@cc/sdk/node";
 import { parseDurationMs } from "../../duration.js";
 import { joinValues } from "../helpers.js";
 
@@ -102,7 +102,7 @@ async function clientAttachmentMimeType(
 export async function uploadClientAttachmentInputs(args: {
   input: PromptInput[];
   resolveProjectId: () => Promise<string>;
-  sdk: BbSdk;
+  sdk: CcSdk;
 }): Promise<PromptInput[]> {
   const clientPaths = args.input.map((item) =>
     item.type === "localImage" || item.type === "localFile"

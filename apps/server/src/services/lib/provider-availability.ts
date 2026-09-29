@@ -1,5 +1,5 @@
-import { jsonValueSchema } from "@bb/domain";
-import type { StandardSchemaV1 } from "@get-bb/plugin-sdk";
+import { jsonValueSchema } from "@cc/domain";
+import type { StandardSchemaV1 } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import type { PluginHookInvocation } from "../plugins/plugin-hook-registry.js";
 

@@ -3,12 +3,12 @@ import { basename, dirname, join, resolve } from "node:path";
 import { z } from "zod";
 import { pathExists } from "./fs.js";
 
-const BB_APP_VERSION_DEV_FALLBACK = "0.0.0-dev";
-const BB_APP_PACKAGE_NAME = "bb-app";
+const CC_APP_VERSION_DEV_FALLBACK = "0.0.0-dev";
+const CC_APP_PACKAGE_NAME = "cc-app";
 
 const packageJsonVersionSchema = z.object({ version: z.string().min(1) });
 
-export function resolvePackagedBbAppRoot(
+export function resolvePackagedCcAppRoot(
   daemonEntryPath: string | null,
 ): string | null {
   if (daemonEntryPath === null) {
@@ -26,16 +26,16 @@ export function resolvePackagedBbAppRoot(
   return dirname(hostDaemonDir);
 }
 
-export function npmPrefixBbAppRoot(npmPrefix: string): string {
-  return join(npmPrefix, "lib", "node_modules", BB_APP_PACKAGE_NAME);
+export function npmPrefixCcAppRoot(npmPrefix: string): string {
+  return join(npmPrefix, "lib", "node_modules", CC_APP_PACKAGE_NAME);
 }
 
-export async function resolveBbServerEntry(
+export async function resolveCcServerEntry(
   packageRoot: string,
 ): Promise<string | null> {
-  const serverEntry = join(packageRoot, "dist", "bb-server.js");
+  const serverEntry = join(packageRoot, "dist", "cc-server.js");
   const required = [
-    join(packageRoot, "dist", "bb-app.js"),
+    join(packageRoot, "dist", "cc-app.js"),
     serverEntry,
     join(packageRoot, "server", "dist", "index.js"),
     join(packageRoot, "app", "dist", "index.html"),
@@ -48,23 +48,23 @@ export async function resolveBbServerEntry(
   return serverEntry;
 }
 
-export async function resolveBbAppLauncherEntry(
+export async function resolveCcAppLauncherEntry(
   packageRoot: string,
 ): Promise<string | null> {
-  const entry = join(packageRoot, "dist", "bb-app.js");
+  const entry = join(packageRoot, "dist", "cc-app.js");
   return (await pathExists(entry)) ? entry : null;
 }
 
-export async function readBbAppVersion(args: {
+export async function readCcAppVersion(args: {
   env: NodeJS.ProcessEnv;
   packageRoot: string | null;
 }): Promise<string> {
-  const configured = args.env.BB_APP_VERSION?.trim();
+  const configured = args.env.CC_APP_VERSION?.trim();
   if (configured !== undefined && configured !== "") {
     return configured;
   }
   if (args.packageRoot === null) {
-    return BB_APP_VERSION_DEV_FALLBACK;
+    return CC_APP_VERSION_DEV_FALLBACK;
   }
   try {
     return packageJsonVersionSchema.parse(
@@ -73,6 +73,6 @@ export async function readBbAppVersion(args: {
       ),
     ).version;
   } catch {
-    return BB_APP_VERSION_DEV_FALLBACK;
+    return CC_APP_VERSION_DEV_FALLBACK;
   }
 }

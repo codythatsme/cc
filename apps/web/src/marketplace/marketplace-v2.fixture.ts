@@ -7,9 +7,9 @@ import type { MarketplaceStats } from "./marketplace-model.js";
 export const MARKETPLACE_V2_FIXTURE: MarketplaceV2Manifest = {
   $schema: MARKETPLACE_V2_SCHEMA_URL,
   schemaVersion: 2,
-  name: "bb-community",
-  displayName: "BB Community",
-  description: "Plugins from the bb community.",
+  name: "cc-community",
+  displayName: "CC Community",
+  description: "Plugins from the cc community.",
   categories: [
     {
       id: "thread-content",
@@ -37,15 +37,15 @@ export const MARKETPLACE_V2_FIXTURE: MarketplaceV2Manifest = {
       icon: "FileText",
       category: "thread-content",
       screenshots: [
-        "https://getbb.app/marketplace/v2/screenshots/prompt-library/overview.png",
+        "https://cc.example.invalid/marketplace/v2/screenshots/prompt-library/overview.png",
       ],
       publishedAt: "2026-07-14T09:30:00Z",
       updatedAt: "2026-08-24T16:45:00+02:00",
       tags: ["prompts", "templates"],
-      author: { name: "BB Labs", github: "get-bb" },
+      author: { name: "CC Labs", github: "get-cc" },
       source: {
         npm: {
-          package: "@get-bb/plugin-prompt-library",
+          package: "@codythatsme/plugin-prompt-library",
           range: "^1.2.0",
         },
       },
@@ -55,7 +55,7 @@ export const MARKETPLACE_V2_FIXTURE: MarketplaceV2Manifest = {
       displayName: "Review Companion",
       description: "Keep pull request checks with review context.",
       icon: {
-        url: "https://getbb.app/marketplace/v1/icons/review-companion.svg",
+        url: "https://cc.example.invalid/marketplace/v1/icons/review-companion.svg",
       },
       category: "code-and-reviews",
       screenshots: [],
@@ -64,7 +64,7 @@ export const MARKETPLACE_V2_FIXTURE: MarketplaceV2Manifest = {
       author: { name: "Acme", github: "acme-tools" },
       source: {
         git: {
-          url: "https://github.com/acme/bb-plugins.git",
+          url: "https://github.com/acme/cc-plugins.git",
           subdir: "plugins/review-companion",
           range: ">=1.0.0 <2.0.0",
           tagPrefix: "review-companion/",
@@ -82,7 +82,7 @@ export const MARKETPLACE_V2_FIXTURE: MarketplaceV2Manifest = {
       author: { name: "Acme", github: "acme-tools" },
       source: {
         git: {
-          url: "https://github.com/acme/bb-plugins.git",
+          url: "https://github.com/acme/cc-plugins.git",
           range: "^1.0.0",
         },
       },

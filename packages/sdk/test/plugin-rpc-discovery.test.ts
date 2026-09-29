@@ -1,13 +1,13 @@
 import { expect, it } from "vitest";
 import { z } from "zod";
-import { createBbSdk } from "../src/core.js";
+import { createCcSdk } from "../src/core.js";
 import { createHttpTransport } from "../src/transport-http.js";
 
 it("discovers published methods with filters and calls using a copied response schema", async () => {
   const requests: string[] = [];
-  const sdk = createBbSdk({
+  const sdk = createCcSdk({
     transport: createHttpTransport({
-      baseUrl: "http://bb.test",
+      baseUrl: "http://cc.test",
       runtime: "node",
       fetch: async (input) => {
         const url = String(input);
@@ -56,9 +56,9 @@ it("discovers published methods with filters and calls using a copied response s
 
 it("omits absent and explicitly undefined discovery filters", async () => {
   const urls: URL[] = [];
-  const sdk = createBbSdk({
+  const sdk = createCcSdk({
     transport: createHttpTransport({
-      baseUrl: "http://bb.test",
+      baseUrl: "http://cc.test",
       runtime: "node",
       fetch: async (input) => {
         urls.push(new URL(String(input)));

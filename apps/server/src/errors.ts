@@ -1,6 +1,6 @@
-import { ProjectAttachmentError } from "@bb/domain";
+import { ProjectAttachmentError } from "@cc/domain";
 import { HTTPException } from "hono/http-exception";
-import type { ThreadEventScopeKind, ThreadEventType } from "@bb/domain";
+import type { ThreadEventScopeKind, ThreadEventType } from "@cc/domain";
 import type { ServerLogger } from "./types.js";
 
 interface ApiErrorBody {

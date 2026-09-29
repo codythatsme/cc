@@ -4,12 +4,12 @@ import {
   countLiveThreadsInEnvironment,
   listEnvironments,
   updateEnvironmentMetadata,
-} from "@bb/db";
+} from "@cc/db";
 import {
   environmentStatusValues,
   type EnvironmentStatus,
   type ThreadPullRequest,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   publicApiRoutes,
   typedRoutes,
@@ -18,7 +18,7 @@ import {
   type EnvironmentDiffQuery,
   type PublicApiSchema,
   type PullRequestMergeMethod,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { Hono } from "hono";
 import type { AppDeps } from "../types.js";
 import {
@@ -80,7 +80,7 @@ import {
 const LISTED_ENVIRONMENT_STATUSES: readonly EnvironmentStatus[] =
   environmentStatusValues.filter((status) => status !== "destroyed");
 
-const COMMIT_FALLBACK_MESSAGE = "bb: automated commit";
+const COMMIT_FALLBACK_MESSAGE = "cc: automated commit";
 
 const AI_MAX_DIFF_BYTES = 32_000;
 const AI_MAX_FILE_LIST_BYTES = 4_000;

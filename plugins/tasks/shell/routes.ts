@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useCcNavigate } from "@codythatsme/plugin-sdk/app";
 
 export const PANEL_PATH = "tasks";
 
@@ -69,7 +69,7 @@ export interface TasksNavigation {
 }
 
 export function useTasksNavigation(): TasksNavigation {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   return useMemo(
     () => ({
       go: (route, options) => {

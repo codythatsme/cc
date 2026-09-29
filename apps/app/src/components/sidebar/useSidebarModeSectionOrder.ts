@@ -13,7 +13,7 @@ import {
   buildSidebarEntitySectionId,
   normalizeSidebarSectionOrder,
   type LegacySidebarEntityAnchor,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 const MODE_SECTION_ORDER_CONFIG: Record<
   SidebarOrganizationMode,

@@ -23,7 +23,7 @@ import {
   setPluginStateSnapshotStatus,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
+} from "@cc/db";
 import { garbageCollectPluginArtifacts } from "../../../src/services/plugins/plugin-artifact-gc.js";
 import {
   createPluginStateSnapshotOnDisk,
@@ -38,7 +38,7 @@ describe("plugin activation snapshots and garbage collection", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    dataDir = await mkdtemp(join(tmpdir(), "bb-plugin-snapshot-"));
+    dataDir = await mkdtemp(join(tmpdir(), "cc-plugin-snapshot-"));
   });
 
   afterEach(async () => {
@@ -133,15 +133,15 @@ describe("plugin activation snapshots and garbage collection", () => {
     await mkdir(pluginDir, { recursive: true });
     upsertInstalledPlugin(db, {
       id: "legacy-snapshot",
-      source: "npm:bb-plugin-legacy@^1.0.0",
+      source: "npm:cc-plugin-legacy@^1.0.0",
       provenance: {
         kind: "catalog",
-        marketplace: "bb-community",
+        marketplace: "cc-community",
         entryId: "legacy-entry",
       },
       sourceIntent: {
         kind: "npm",
-        packageName: "bb-plugin-legacy",
+        packageName: "cc-plugin-legacy",
         registry: "https://registry.npmjs.org",
         requestedSpec: "^1.0.0",
         specKind: "range",
@@ -205,7 +205,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       JSON.stringify({
         ...legacyRegistration,
         provenance: "marketplace",
-        marketplaceId: "bb-community",
+        marketplaceId: "cc-community",
         marketplaceEntryId: "legacy-entry",
       }),
     );
@@ -246,7 +246,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       JSON.stringify({
         ...legacyRegistration,
         provenance: "marketplace",
-        marketplaceId: "bb-community",
+        marketplaceId: "cc-community",
         marketplaceEntryId: "legacy-entry",
       }),
     );
@@ -574,7 +574,7 @@ describe("plugin activation snapshots and garbage collection", () => {
       status: "rollback-pending",
       rollbackCandidateVersion: "candidate",
       rollbackSourceFingerprint: "source",
-      rollbackBbVersion: "1.0.0",
+      rollbackCcVersion: "1.0.0",
       rollbackSdkVersion: "0.2.0",
       rollbackDetail: "failed",
       createdAt: 1,

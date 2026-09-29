@@ -4,7 +4,7 @@ import {
   type AppUpdateLauncherRequest,
   type LauncherAppUpdateStatus,
   type ServerToLauncherMessage,
-} from "@bb/config/app-update";
+} from "@cc/config/app-update";
 
 const SOURCE_CHECK_TIMEOUT_MS = 3 * 60 * 1000;
 const LAUNCHER_REQUEST_TIMEOUT_MS = 15 * 1000;
@@ -65,7 +65,7 @@ export function createLauncherChannel(
     const parsed = launcherToServerMessageSchema.safeParse(raw);
     if (!parsed.success) return;
     const message = parsed.data;
-    if (message.channel === "bb-app-update/status") {
+    if (message.channel === "cc-app-update/status") {
       for (const listener of listeners) listener(message.status);
       return;
     }
@@ -80,7 +80,7 @@ export function createLauncherChannel(
     }
   };
   const onDisconnect = (): void => {
-    rejectAll("The bb-app launcher disconnected.");
+    rejectAll("The cc-app launcher disconnected.");
     for (const listener of disconnectListeners) listener();
   };
 
@@ -88,7 +88,7 @@ export function createLauncherChannel(
   port.on("disconnect", onDisconnect);
   port.channel?.unref();
   try {
-    send({ channel: "bb-app-update/hello" }, () => undefined);
+    send({ channel: "cc-app-update/hello" }, () => undefined);
   } catch {}
 
   return {
@@ -116,7 +116,7 @@ export function createLauncherChannel(
       return new Promise((resolvePromise, rejectPromise) => {
         const timer = setTimeout(() => {
           pending.delete(requestId);
-          rejectPromise(new Error("The bb-app launcher did not respond."));
+          rejectPromise(new Error("The cc-app launcher did not respond."));
         }, requestTimeoutMs(request));
         pending.set(requestId, {
           reject: rejectPromise,
@@ -125,7 +125,7 @@ export function createLauncherChannel(
         });
         try {
           send(
-            { channel: "bb-app-update/request", request, requestId },
+            { channel: "cc-app-update/request", request, requestId },
             (error) => {
               if (error === null || !pending.has(requestId)) return;
               clearTimeout(timer);

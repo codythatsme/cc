@@ -14,20 +14,20 @@ describe("DesktopZoomIndicator", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
-    delete window.bbDesktop;
+    delete window.ccDesktop;
   });
 
   function setup() {
     const changeListener = { current: (_factor: number) => undefined };
     const unsubscribe = vi.fn();
     const zoom = vi.fn();
-    window.bbDesktop = {
+    window.ccDesktop = {
       onZoomChange: vi.fn((callback) => {
         changeListener.current = callback;
         return unsubscribe;
       }),
       zoom,
-    } as unknown as Window["bbDesktop"];
+    } as unknown as Window["ccDesktop"];
     const view = render(<DesktopZoomIndicator />);
     return {
       emitZoomChange: (factor: number) => changeListener.current(factor),
@@ -110,7 +110,7 @@ describe("DesktopZoomIndicator", () => {
   });
 
   it("renders nothing without zoom notifications and unsubscribes", () => {
-    window.bbDesktop = {} as Window["bbDesktop"];
+    window.ccDesktop = {} as Window["ccDesktop"];
     const view = render(<DesktopZoomIndicator />);
     expect(view.container.childElementCount).toBe(0);
     view.unmount();

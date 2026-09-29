@@ -3,9 +3,9 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { build } from "esbuild";
 import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { decodeFrame, encodeFrame, type Frame } from "@bb/tunnel-contract";
+import { decodeFrame, encodeFrame, type Frame } from "@cc/tunnel-contract";
 
-const HTML = `<!doctype html><title>bb</title>${"<p>relayed body</p>".repeat(50)}`;
+const HTML = `<!doctype html><title>cc</title>${"<p>relayed body</p>".repeat(50)}`;
 const GZIP = gzipSync(Buffer.from(HTML));
 const IMMUTABLE = "public, max-age=31536000, immutable";
 
@@ -169,7 +169,7 @@ describe("edge cache", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
-    expect(res.headers.get("x-bb-cache")).toBe("hit");
+    expect(res.headers.get("x-cc-cache")).toBe("hit");
     expect(res.headers.get("cache-control")).toBe(IMMUTABLE);
   });
 });

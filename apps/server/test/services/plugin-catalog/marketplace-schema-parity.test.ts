@@ -68,7 +68,7 @@ function manifestWith(entry: Record<string, unknown>): Record<string, unknown> {
         description: "An Acme plugin.",
         icon: "ZoomIn",
         author: { name: "Acme" },
-        source: { npm: { package: "bb-plugin-acme" } },
+        source: { npm: { package: "cc-plugin-acme" } },
         ...entry,
       },
     ],
@@ -84,7 +84,7 @@ function rangeFixture(label: string, range: string, valid: boolean): Fixture {
     label,
     valid,
     manifest: manifestWith({
-      source: { npm: { package: "bb-plugin-acme", range } },
+      source: { npm: { package: "cc-plugin-acme", range } },
     }),
   };
 }
@@ -144,7 +144,7 @@ const fixtures: readonly Fixture[] = [
     valid: false,
     manifest: manifestWith({
       source: {
-        npm: { package: "bb-plugin-acme", range: "^1.0.0", tag: "beta" },
+        npm: { package: "cc-plugin-acme", range: "^1.0.0", tag: "beta" },
       },
     }),
   },
@@ -181,8 +181,8 @@ const fixtures: readonly Fixture[] = [
   rangeFixture("four segments", "1.2.3.4", false),
   rangeFixture("garbage alternative", "1.0.0 || garbage", false),
 
-  enginesFixture("engines.bb range", { bb: ">=0.30.0" }),
-  enginesFixture("engines.bbPluginSdk range", { bbPluginSdk: "^0.5.0" }),
+  enginesFixture("engines.cc range", { cc: ">=0.30.0" }),
+  enginesFixture("engines.ccPluginSdk range", { ccPluginSdk: "^0.5.0" }),
   enginesFixture("empty engines object", {}),
 
   {
@@ -225,7 +225,7 @@ const v2Fixtures: readonly Fixture[] = [
         updatedAt: "2026-08-27T16:12:00Z",
       },
       {
-        $schema: "https://getbb.app/schemas/marketplace-v2.schema.json",
+        $schema: "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace-v2.schema.json",
         categories: [
           {
             id: "acme-tools",
@@ -291,14 +291,14 @@ const v2Fixtures: readonly Fixture[] = [
     label: "partial prerelease range",
     valid: true,
     manifest: manifestV2With({
-      source: { npm: { package: "bb-plugin-acme", range: "1.x-alpha" } },
+      source: { npm: { package: "cc-plugin-acme", range: "1.x-alpha" } },
     }),
   },
   {
     label: "partial range with build metadata",
     valid: true,
     manifest: manifestV2With({
-      source: { npm: { package: "bb-plugin-acme", range: "1.2+build" } },
+      source: { npm: { package: "cc-plugin-acme", range: "1.2+build" } },
     }),
   },
   {
@@ -306,7 +306,7 @@ const v2Fixtures: readonly Fixture[] = [
     valid: true,
     manifest: manifestV2With({
       source: {
-        npm: { package: "bb-plugin-acme", range: ">=1.2.3-alpha" },
+        npm: { package: "cc-plugin-acme", range: ">=1.2.3-alpha" },
       },
     }),
   },
@@ -314,7 +314,7 @@ const v2Fixtures: readonly Fixture[] = [
     label: "double equals partial range",
     valid: true,
     manifest: manifestV2With({
-      source: { npm: { package: "bb-plugin-acme", range: "==1.2" } },
+      source: { npm: { package: "cc-plugin-acme", range: "==1.2" } },
     }),
   },
   {
@@ -323,7 +323,7 @@ const v2Fixtures: readonly Fixture[] = [
     manifest: manifestV2With({
       source: {
         npm: {
-          package: "bb-plugin-acme",
+          package: "cc-plugin-acme",
           range: ">=1.0.0 ".repeat(33).trim(),
         },
       },
@@ -336,7 +336,7 @@ const v2Fixtures: readonly Fixture[] = [
       author: { name: "Acme", url: "HTTPS://example.com/acme" },
       source: {
         npm: {
-          package: "bb-plugin-acme",
+          package: "cc-plugin-acme",
           registry: "HTTPS://registry.example.com/",
         },
       },
@@ -354,7 +354,7 @@ const v2Fixtures: readonly Fixture[] = [
     valid: true,
     manifest: manifestV2With({
       source: {
-        npm: { package: "bb-plugin-acme", registry: "https://" },
+        npm: { package: "cc-plugin-acme", registry: "https://" },
       },
     }),
   },
@@ -456,7 +456,7 @@ describe("published marketplace schema parity", () => {
     const manifests = [
       manifestV2With({
         source: {
-          npm: { package: "bb-plugin-acme", regsitry: "https://npm.test/" },
+          npm: { package: "cc-plugin-acme", regsitry: "https://npm.test/" },
         },
       }),
       manifestV2With({
@@ -480,13 +480,13 @@ describe("published marketplace schema parity", () => {
     const validate = await compilePublishedSchema(2);
     const manifest = {
       ...manifestV2With({ source: { bundled: { plugin: "docs" } } }),
-      name: "bb-official",
-      displayName: "BB Official",
+      name: "cc-official",
+      displayName: "CC Official",
     };
 
     expect(validate(manifest)).toBe(false);
     expect(parseBundledMarketplaceManifest(manifest, "fixture")).toMatchObject({
-      name: "bb-official",
+      name: "cc-official",
     });
     expect(() => parseMarketplaceManifest(manifest, "fixture")).toThrow(
       /not allowed in fetched or third-party documents/u,
@@ -506,7 +506,7 @@ describe("published marketplace schema parity", () => {
           description: "An Acme plugin.",
           icon: "ZoomIn",
           author: { name: "Acme" },
-          source: { npm: { package: `bb-plugin-acme-${index}` } },
+          source: { npm: { package: `cc-plugin-acme-${index}` } },
         })),
       };
 

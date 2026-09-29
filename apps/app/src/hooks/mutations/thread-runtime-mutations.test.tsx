@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { ThreadQueuedMessage } from "@bb/domain";
+import type { ThreadQueuedMessage } from "@cc/domain";
 import type {
   ExistingThreadExecutionInputSources,
   ThreadResponse,
   ThreadTimelineResponse,
-} from "@bb/server-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
-import { makeThreadQueuedMessage as makeThreadQueuedMessageFixture } from "@bb/test-helpers/domain-fixtures";
+} from "@cc/server-contract";
+import { createDeferredPromise } from "@cc/test-helpers";
+import { makeThreadQueuedMessage as makeThreadQueuedMessageFixture } from "@cc/test-helpers/domain-fixtures";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { CcHttpError, sdk } from "@/lib/sdk";
 import { subscribeComposerSubmitted } from "@/lib/composer-submissions";
 import { wsManager } from "@/lib/ws";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -482,7 +482,7 @@ describe("thread runtime mutations", () => {
       makeQueuedMessage({ id: "qmsg-2" }),
     ]);
     vi.mocked(sdk.threads.queuedMessages.delete).mockRejectedValue(
-      new BbHttpError({
+      new CcHttpError({
         status: 404,
         code: "invalid_request",
         message: "Queued message not found",

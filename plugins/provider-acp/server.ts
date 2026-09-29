@@ -1,9 +1,9 @@
 import { registerUsageSource } from "./src/usage-source.js";
 import type {
-  BbPluginApi,
+  CcPluginApi,
   PluginProviderDeclaration,
-} from "@get-bb/plugin-sdk";
-import type { AcpAgentProbe } from "@get-bb/plugin-sdk/provider-bridge/acp";
+} from "@codythatsme/plugin-sdk";
+import type { AcpAgentProbe } from "@codythatsme/plugin-sdk/provider-bridge/acp";
 import { z } from "zod";
 import { type AcpAgentDefinition } from "./src/agents.js";
 import { resolveConfiguredAcpAgents } from "./src/configured-agents.js";
@@ -42,11 +42,11 @@ async function sleepUntilAbort(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export default async function acpProvidersPlugin(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
 ): Promise<void> {
-  registerUsageSource(bb);
-  const host = bb.hosts.experimental_client({ contract: acpHostContract });
-  const settings = bb.settings.define({
+  registerUsageSource(cc);
+  const host = cc.hosts.experimental_client({ contract: acpHostContract });
+  const settings = cc.settings.define({
     customAgents: {
       type: "string",
       label: "Custom agents",
@@ -93,13 +93,13 @@ export default async function acpProvidersPlugin(
 
   function register(declaration: PluginProviderDeclaration): void {
     try {
-      const { dispose } = bb.providers.register(declaration);
+      const { dispose } = cc.providers.register(declaration);
       registered.set(declaration.id, {
         key: JSON.stringify(declaration),
         dispose,
       });
     } catch (error) {
-      bb.log.error(
+      cc.log.error(
         `Could not register ACP provider "${declaration.id}": ${String(error)}`,
       );
     }
@@ -127,7 +127,7 @@ export default async function acpProvidersPlugin(
 
   async function resolveAndReconcile(settingValue: string): Promise<void> {
     const legacy = await readLegacyCustomAcpAgents(
-      bb.server.experimental_dataDir,
+      cc.server.experimental_dataDir,
     );
     const resolved = resolveConfiguredAcpAgents({
       settingValue,
@@ -139,12 +139,12 @@ export default async function acpProvidersPlugin(
       shippedAgents: KNOWN_ACP_AGENTS,
     });
     for (const warning of resolved.warnings) {
-      bb.log.warn(warning);
+      cc.log.warn(warning);
     }
     configuredAgents = resolved.agents;
     reconcile(desiredAgents());
     if (resolved.agents.length > 0) {
-      bb.log.info(
+      cc.log.info(
         `Registered ${resolved.agents.length} configured ACP agent(s).`,
       );
     }
@@ -180,7 +180,7 @@ export default async function acpProvidersPlugin(
           { hostId, signal },
         );
       } catch (error) {
-        bb.log.debug(
+        cc.log.debug(
           `Could not probe ${agent.id} on host ${hostId}: ${String(error)}`,
         );
         continue;
@@ -189,7 +189,7 @@ export default async function acpProvidersPlugin(
       if (applied === null) {
         continue;
       }
-      bb.log.info(
+      cc.log.info(
         `${agent.id} on host ${hostId}: ${applied.reason}; re-registering.`,
       );
       narrowed.set(agent.id, applied.agent);
@@ -205,17 +205,17 @@ export default async function acpProvidersPlugin(
   await queueReconcile(initial.customAgents);
   settings.onChange((next) => {
     void queueReconcile(next.customAgents).catch((error: unknown) => {
-      bb.log.error(
+      cc.log.error(
         `Could not re-register the configured ACP agents: ${String(error)}`,
       );
     });
   });
 
-  bb.background.service("acp-capability-probe", {
+  cc.background.service("acp-capability-probe", {
     async start(signal: AbortSignal): Promise<void> {
       const probed = new Set<string>();
       while (!signal.aborted) {
-        const hosts = await bb.sdk.hosts.list();
+        const hosts = await cc.sdk.hosts.list();
         const connected = new Set(
           hosts
             .filter((available) => available.status === "connected")
@@ -235,7 +235,7 @@ export default async function acpProvidersPlugin(
     },
   });
 
-  bb.onDispose(() => {
+  cc.onDispose(() => {
     for (const [, entry] of registered) {
       entry.dispose();
     }

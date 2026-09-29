@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   definePluginApp,
-  useBbNavigate,
+  useCcNavigate,
   useRealtime,
   useRpc,
   type PluginNavPanelProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import type { automationRpcContract } from "./src/rpc.js";
 import { toast } from "sonner";
 import type {
@@ -396,7 +396,7 @@ function OverviewView({
   activeMode: AutomationCollectionMode;
   onModeChange: (mode: AutomationCollectionMode) => void;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const { entries, error, refetch } = useOverview();
   const mutations = useMutations();
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -498,7 +498,7 @@ function DetailView({
   initialEditing: boolean;
   onBack: () => void;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const { automation, error, refetch } = useAutomation(route);
   const [editingRequested, setEditingRequested] = useState(initialEditing);
   const overviewState = useOverview();
@@ -706,7 +706,7 @@ function AutomationsPageFrame({
 }
 
 function AutomationsPanel({ subPath }: PluginNavPanelProps) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const parsedRoute = useMemo(() => parseSubPath(subPath), [subPath]);
   const collectionMode: AutomationCollectionMode =
     subPath === "browse" ? "browse" : "installed";

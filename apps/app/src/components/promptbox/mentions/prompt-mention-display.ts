@@ -1,6 +1,6 @@
-import type { PromptMentionResource } from "@bb/domain";
-import type { IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { PromptMentionResource } from "@cc/domain";
+import type { IconName } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 
 type PromptCommandLike = Pick<
   Extract<PromptMentionResource, { kind: "command" }>,

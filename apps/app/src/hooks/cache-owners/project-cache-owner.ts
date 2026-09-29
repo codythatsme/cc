@@ -4,7 +4,7 @@ import type {
   ThreadSectionMutationResponse,
   ProjectWithThreadsResponse,
   SidebarBootstrapResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   projectsQueryKey,
   sidebarNavigationQueryKey,

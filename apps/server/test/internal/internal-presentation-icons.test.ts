@@ -1,15 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { events } from "@bb/db";
-import { threadScope, turnScope } from "@bb/domain";
+import { events } from "@cc/db";
+import { threadScope, turnScope } from "@cc/domain";
 import {
   groupHostDaemonEvents,
   type HostDaemonEventEnvelope,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
-import { validatePluginProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+import { validatePluginProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
 import { internalAuthHeaders } from "../helpers/commands.js";
 import { readJson } from "../helpers/json.js";
 import {
@@ -405,9 +405,9 @@ async function writeToolPluginFixture(rootDir: string): Promise<void> {
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${TOOL_PLUGIN_ID}`,
+      name: `cc-plugin-${TOOL_PLUGIN_ID}`,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "Tooled",
         description: "Registers a tool with a declared icon.",
         branding: {
@@ -425,7 +425,7 @@ async function writeToolPluginFixture(rootDir: string): Promise<void> {
   await writeFile(join(rootDir, "icons", "stamp.svg"), STAMP_SVG);
 }
 
-function bbToolItem(
+function ccToolItem(
   threadId: string,
   id: string,
   tool: string,
@@ -442,7 +442,7 @@ function bbToolItem(
         type: "toolCall",
         id,
         tool,
-        server: "bb",
+        server: "cc",
         status: "completed",
         presentation: {
           label: { pending: "Stamping", completed: "Stamped" },
@@ -458,14 +458,14 @@ function storedGlyph(row: { data: unknown }): string | undefined {
     .item?.presentation?.icon.glyph;
 }
 
-describe("presentation icon ingest validation for bb-injected tool rows", () => {
-  it("keeps the tool plugin's declared icon on a thread of another provider plugin, and refuses any other glyph on a bb tool row", async () => {
+describe("presentation icon ingest validation for cc-injected tool rows", () => {
+  it("keeps the tool plugin's declared icon on a thread of another provider plugin, and refuses any other glyph on a cc tool row", async () => {
     const { harness, session, thread } = await setup();
     try {
       const rootDir = join(
         harness.config.dataDir,
         "fixtures",
-        `bb-plugin-${TOOL_PLUGIN_ID}`,
+        `cc-plugin-${TOOL_PLUGIN_ID}`,
       );
       await writeToolPluginFixture(rootDir);
       const entry = await harness.pluginService.installPath(rootDir);
@@ -480,9 +480,9 @@ describe("presentation icon ingest validation for bb-injected tool rows", () => 
 
       const response = await post(harness, session.id, [
         turnStarted(thread.id),
-        bbToolItem(thread.id, "item-1", "stamp_tool", TOOL_ICON_GLYPH),
-        bbToolItem(thread.id, "item-2", "stamp_tool", "other-plugin/stamp"),
-        bbToolItem(thread.id, "item-3", "no_such_tool", TOOL_ICON_GLYPH),
+        ccToolItem(thread.id, "item-1", "stamp_tool", TOOL_ICON_GLYPH),
+        ccToolItem(thread.id, "item-2", "stamp_tool", "other-plugin/stamp"),
+        ccToolItem(thread.id, "item-3", "no_such_tool", TOOL_ICON_GLYPH),
         toolItem(thread.id, "item-4", TOOL_ICON_GLYPH),
       ]);
       expect(response.status).toBe(200);

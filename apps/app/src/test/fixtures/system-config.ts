@@ -3,8 +3,8 @@ import {
   defaultAppTheme,
   defaultExperiments,
   defaultFeatureFlags,
-} from "@bb/domain";
-import type { SystemConfigResponse } from "@bb/server-contract";
+} from "@cc/domain";
+import type { SystemConfigResponse } from "@cc/server-contract";
 
 export function makeSystemConfig(
   overrides: Partial<SystemConfigResponse> = {},
@@ -31,7 +31,7 @@ export function makeSystemConfig(
     primaryHostId: null,
     primaryHostPlatform: null,
     voiceTranscriptionEnabled: false,
-    dataDir: "/tmp/bb-test",
+    dataDir: "/tmp/cc-test",
     ...overrides,
   };
 }

@@ -6,7 +6,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
-import { getBbDesktopInfo, isDesktopBrowserAvailable } from "@/lib/bb-desktop";
+import { getCcDesktopInfo, isDesktopBrowserAvailable } from "@/lib/cc-desktop";
 import { shellOpenExternal } from "@/lib/native-shell";
 import {
   openUrlByPreference,
@@ -30,7 +30,7 @@ const InAppBrowserUrlOpenContext = createContext<OpenInAppBrowserUrl | null>(
 );
 
 export function openUrlInExternalBrowser(url: string): void {
-  const desktopInfo = getBbDesktopInfo();
+  const desktopInfo = getCcDesktopInfo();
   if (desktopInfo !== null) {
     desktopInfo.openExternalUrl(url);
     return;

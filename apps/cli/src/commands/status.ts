@@ -1,11 +1,11 @@
 import { Command } from "commander";
-import type { ThreadTimelinePendingTodos } from "@bb/domain";
+import type { ThreadTimelinePendingTodos } from "@cc/domain";
 import { action } from "../action.js";
 import {
   resolveContextSnapshot,
   type ContextSnapshot,
 } from "../context-env.js";
-import { cliFetch, createCliBbSdk } from "../client.js";
+import { cliFetch, createCliCcSdk } from "../client.js";
 import { outputJson } from "./helpers.js";
 import {
   type ThreadEnvironmentInfo,
@@ -77,7 +77,7 @@ export function registerStatusCommand(
         } catch {}
 
         if (serverAvailable) {
-          const { plugins } = await createCliBbSdk(getUrl()).plugins.list();
+          const { plugins } = await createCliCcSdk(getUrl()).plugins.list();
           payload.pluginsNeedingAttention = plugins
             .filter(
               (p) =>
@@ -88,7 +88,7 @@ export function registerStatusCommand(
         }
 
         if (context.projectId || context.threadId) {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           const status = await sdk.status.get({
             projectId: context.projectId,
             threadId: context.threadId,
@@ -189,13 +189,13 @@ export function registerStatusCommand(
         if (attention.length > 0) {
           console.log("");
           console.log(
-            `${attention.length} plugin${attention.length === 1 ? "" : "s"} not running (${attention.map((p) => `${p.id}: ${p.status}`).join(", ")}). Run bb plugin list.`,
+            `${attention.length} plugin${attention.length === 1 ? "" : "s"} not running (${attention.map((p) => `${p.id}: ${p.status}`).join(", ")}). Run cc plugin list.`,
           );
         }
 
         if (!context.projectId && !context.threadId) {
           console.log("");
-          console.log("Tip: run bb guide for help getting started.");
+          console.log("Tip: run cc guide for help getting started.");
         }
       }),
     );

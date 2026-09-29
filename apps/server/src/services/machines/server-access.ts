@@ -1,8 +1,8 @@
-import { getAppSettings, getHost, hosts } from "@bb/db";
+import { getAppSettings, getHost, hosts } from "@cc/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { ServerAccessGrant } from "@get-bb/plugin-sdk";
-import type { ServerAccessStatus } from "@bb/server-contract";
+import type { ServerAccessGrant } from "@codythatsme/plugin-sdk";
+import type { ServerAccessStatus } from "@cc/server-contract";
 import { decideWithinBox } from "../threads/dispatch-hooks.js";
 import type { WorkSessionDeps } from "../../types.js";
 import {
@@ -48,7 +48,7 @@ const availabilitySchema = z.discriminatedUnion("status", [
 
 export function machineServerUrl(deps: Dependencies) {
   const configured = getAppSettings(deps.db).machineServerUrl;
-  const raw = configured ?? process.env.BB_EXTERNAL_URL ?? null;
+  const raw = configured ?? process.env.CC_EXTERNAL_URL ?? null;
   const parsed = reachableUrlSchema.safeParse(raw);
   return {
     url: parsed.success ? parsed.data.replace(/\/$/u, "") : null,
@@ -56,7 +56,7 @@ export function machineServerUrl(deps: Dependencies) {
       configured !== null
         ? ("setting" as const)
         : raw !== null
-          ? ("BB_EXTERNAL_URL" as const)
+          ? ("CC_EXTERNAL_URL" as const)
           : null,
   };
 }

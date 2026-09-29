@@ -3,8 +3,8 @@ import { sql } from "drizzle-orm";
 import { betterAuth } from "better-auth";
 import { apiKey } from "@better-auth/api-key";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
-import { authApiKeys, authUsers, type DbConnection } from "@bb/db";
-import { readOrCreateSecretFile } from "@bb/secret-storage";
+import { authApiKeys, authUsers, type DbConnection } from "@cc/db";
+import { readOrCreateSecretFile } from "@cc/secret-storage";
 import { z } from "zod";
 import type { ServerLogger } from "../types.js";
 import { runSerialized } from "./lib/async-deduper.js";
@@ -13,8 +13,8 @@ const AUTH_SECRET_FILE_NAME = "auth-secret";
 export const DAEMON_ENROLL_CONFIG_ID = "daemon-enroll";
 export const DAEMON_HOST_CONFIG_ID = "daemon-host";
 const ENROLL_KEY_TTL_SECONDS = 60 * 15;
-const MACHINE_AUTH_SYSTEM_USER_ID = "bb-machine-auth-system-user";
-const MACHINE_AUTH_SYSTEM_USER_EMAIL = "machine-auth@bb.internal";
+const MACHINE_AUTH_SYSTEM_USER_ID = "cc-machine-auth-system-user";
+const MACHINE_AUTH_SYSTEM_USER_EMAIL = "machine-auth@cc.internal";
 const MACHINE_AUTH_SYSTEM_USER_NAME = "Machine Auth System";
 
 const machineAuthSchema = {

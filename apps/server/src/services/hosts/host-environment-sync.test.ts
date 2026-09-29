@@ -5,8 +5,8 @@ import {
   setAppSettings,
   updateHost,
   upsertHost,
-} from "@bb/db";
-import { defaultAppSettings } from "@bb/domain";
+} from "@cc/db";
+import { defaultAppSettings } from "@cc/domain";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,7 +17,7 @@ import { HostEnvironmentSync } from "./host-environment-sync.js";
 
 it("synchronizes configured variables to every connected host", async () => {
   const db = createConnection(":memory:");
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-machine-env-sync-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-machine-env-sync-"));
   const hub = new NotificationHub();
   try {
     migrate(db);

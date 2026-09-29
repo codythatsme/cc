@@ -4,7 +4,7 @@ import {
   type PromptMentionCommandTrigger,
   type PromptMentionResource,
   type PromptTextMention,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { JSONContent } from "@tiptap/react";
 import {
   Fragment,
@@ -16,7 +16,7 @@ import type { Selection } from "@tiptap/pm/state";
 import type {
   PromptMentionSuggestion,
   ProviderCommandSuggestion,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 export interface PromptEditorValue {
   text: string;

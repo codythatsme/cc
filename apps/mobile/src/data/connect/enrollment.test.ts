@@ -1,4 +1,4 @@
-import { ConnectMachineRedeemError } from "@bb/connect-client";
+import { ConnectMachineRedeemError } from "@cc/connect-client";
 import { describe, expect, it, vi } from "vitest";
 import {
   accountServerProfile,
@@ -20,20 +20,20 @@ describe("redeemEnrollment", () => {
         credential: "bbcm_secret",
         machineId: "m1",
         handle: "account",
-        serverUrl: "https://bee.getbb.app",
+        serverUrl: "https://bee.cc.example.invalid",
       }),
     );
     const result = await redeemEnrollment(
-      { apexUrl: "https://getbb.app", code: "ABCD-EFGH" },
+      { apexUrl: "https://cc.example.invalid", code: "ABCD-EFGH" },
       fetchImpl,
     );
     expect(fetchImpl).toHaveBeenCalledWith(
-      "https://getbb.app/api/connect/redeem-machine",
+      "https://cc.example.invalid/api/connect/redeem-machine",
       expect.objectContaining({ method: "POST" }),
     );
     expect(result.profile).toEqual({
       mode: "connect",
-      serverUrl: "https://bee.getbb.app",
+      serverUrl: "https://bee.cc.example.invalid",
       handle: "bee",
       credential: "bbcm_secret",
       label: "bee",
@@ -48,10 +48,10 @@ describe("redeemEnrollment", () => {
         jsonResponse(409, { error: "machine-limit" }),
       );
     await expect(
-      redeemEnrollment({ apexUrl: "https://getbb.app", code: "X-1" }, limit),
+      redeemEnrollment({ apexUrl: "https://cc.example.invalid", code: "X-1" }, limit),
     ).rejects.toBeInstanceOf(ConnectMachineRedeemError);
     const failure = await redeemEnrollment(
-      { apexUrl: "https://getbb.app", code: "X-1" },
+      { apexUrl: "https://cc.example.invalid", code: "X-1" },
       limit,
     ).catch((error: unknown) => describeEnrollmentError(error));
     expect(failure).toMatchObject({ code: "machine_limit" });
@@ -63,7 +63,7 @@ describe("redeemEnrollment", () => {
       [409, "already-used", "already_used"],
     ] as const) {
       const failed = await redeemEnrollment(
-        { apexUrl: "https://getbb.app", code: "X-1" },
+        { apexUrl: "https://cc.example.invalid", code: "X-1" },
         vi
           .fn<typeof fetch>()
           .mockResolvedValue(jsonResponse(status, { error: wire })),
@@ -81,15 +81,15 @@ describe("accountServerProfile", () => {
     expect(
       accountServerProfile(
         {
-          serverUrl: "https://bee.getbb.app",
+          serverUrl: "https://bee.cc.example.invalid",
           handle: "bee",
           credential: "bbcm_1",
         },
-        { handle: "lab", name: "  ", url: "https://lab.getbb.app" },
+        { handle: "lab", name: "  ", url: "https://lab.cc.example.invalid" },
       ),
     ).toEqual({
       mode: "connect",
-      serverUrl: "https://lab.getbb.app",
+      serverUrl: "https://lab.cc.example.invalid",
       handle: "lab",
       credential: "bbcm_1",
       label: "lab",

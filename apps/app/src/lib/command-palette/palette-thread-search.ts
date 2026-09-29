@@ -1,11 +1,11 @@
 import {
   PERSONAL_PROJECT_ID,
   type ThreadListEntry,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ThreadSearchMatch,
   ThreadSearchResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { getThreadDisplayTitle } from "@/lib/thread-title";
 import {

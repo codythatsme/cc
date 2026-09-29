@@ -9,9 +9,9 @@ import {
   listThreadsWithPendingInteractionState,
   setExperiments,
   upsertProjectExecutionDefaults,
-} from "@bb/db";
-import { defaultExperiments, threadSchema } from "@bb/domain";
-import { sidebarBootstrapResponseSchema } from "@bb/server-contract";
+} from "@cc/db";
+import { defaultExperiments, threadSchema } from "@cc/domain";
+import { sidebarBootstrapResponseSchema } from "@cc/server-contract";
 import { waitForQueuedCommand } from "../helpers/commands.js";
 import { availableModelFixture } from "../helpers/available-models.js";
 import { registerProviderHostRpcResponder } from "../helpers/host-rpc.js";

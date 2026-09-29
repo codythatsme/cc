@@ -18,7 +18,7 @@ import {
   session,
   sha256Hex,
   user,
-} from "@bb/connect-db";
+} from "@cc/connect-db";
 
 import {
   MACHINE_LAST_SEEN_WRITE_INTERVAL_MS,
@@ -138,7 +138,7 @@ async function signedSessionCookie(
 }
 
 describe("resolveLabel — label → server row (multi-server)", () => {
-  it("resolves the primary bb by its backfilled handle-label subdomain", async () => {
+  it("resolves the primary cc by its backfilled handle-label subdomain", async () => {
     seedUser("acct-a");
     db.insert(profile)
       .values({ userId: "acct-a", handle: "sawyer", createdAt: now })
@@ -165,7 +165,7 @@ describe("resolveLabel — label → server row (multi-server)", () => {
     });
   });
 
-  it("resolves a second bb on the same account by its own claimed subdomain", async () => {
+  it("resolves a second cc on the same account by its own claimed subdomain", async () => {
     seedUser("acct-a");
     db.insert(profile)
       .values({ userId: "acct-a", handle: "sawyer", createdAt: now })
@@ -455,8 +455,8 @@ describe("account session refresh", () => {
 
     const setCookies = await refreshAccountSessionCookies(
       `__Secure-better-auth.session_token=${cookie}`,
-      "https://getbb.app",
-      createAuthFetch("https://getbb.app", "getbb.app"),
+      "https://cc.example.invalid",
+      createAuthFetch("https://cc.example.invalid", "cc.example.invalid"),
     );
     const afterRefresh = Date.now();
     const refreshed = db
@@ -473,7 +473,7 @@ describe("account session refresh", () => {
     expect(setCookies).toHaveLength(1);
     expect(setCookies?.[0]).toContain("__Secure-better-auth.session_token=");
     expect(setCookies?.[0]).toContain("Max-Age=604800");
-    expect(setCookies?.[0]).toContain("Domain=.getbb.app");
+    expect(setCookies?.[0]).toContain("Domain=.cc.example.invalid");
     expect(setCookies?.[0]).toContain("Secure");
   });
 
@@ -487,8 +487,8 @@ describe("account session refresh", () => {
     await expect(
       refreshAccountSessionCookies(
         `__Secure-better-auth.session_token=${cookie}`,
-        "https://getbb.app",
-        createAuthFetch("https://getbb.app", "getbb.app"),
+        "https://cc.example.invalid",
+        createAuthFetch("https://cc.example.invalid", "cc.example.invalid"),
       ),
     ).resolves.toBeNull();
     expect(
@@ -509,12 +509,12 @@ describe("account session refresh", () => {
 
     const setCookies = await refreshAccountSessionCookies(
       `better-auth.session_token=${cookie}`,
-      "http://bb.localhost:42745",
-      createAuthFetch("http://bb.localhost:42745", "bb.localhost"),
+      "http://cc.localhost:42745",
+      createAuthFetch("http://cc.localhost:42745", "cc.localhost"),
     );
     expect(setCookies).toHaveLength(1);
     expect(setCookies?.[0]).toContain("better-auth.session_token=");
-    expect(setCookies?.[0]).toContain("Domain=.bb.localhost");
+    expect(setCookies?.[0]).toContain("Domain=.cc.localhost");
     expect(setCookies?.[0]).not.toContain("Secure");
   });
 
@@ -526,7 +526,7 @@ describe("account session refresh", () => {
     await expect(
       refreshAccountSessionCookies(
         "session=old",
-        "https://getbb.app",
+        "https://cc.example.invalid",
         async () =>
           Response.json(
             { session: { id: "session" }, user: { id: "user" } },

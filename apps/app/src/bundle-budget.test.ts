@@ -102,7 +102,7 @@ async function writeFixture(
   ),
   brotliFiles: readonly string[] = chunks.map((c) => c.fileName),
 ): Promise<Fixture> {
-  const root = await mkdtemp(resolve(tmpdir(), "bb-bundle-budget-test-"));
+  const root = await mkdtemp(resolve(tmpdir(), "cc-bundle-budget-test-"));
   const distDir = resolve(root, "dist");
   await mkdir(resolve(distDir, "assets"), { recursive: true });
   for (const fileName of brotliFiles) {

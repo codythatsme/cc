@@ -3,14 +3,14 @@ import {
   PROTOCOL_VERSION,
   TUNNEL_PROTOCOL_QUERY_PARAM,
   TUNNEL_REPLACED_CLOSE_REASON,
-} from "@bb/tunnel-contract";
+} from "@cc/tunnel-contract";
 import {
   humanizeTransportError,
   ReconnectBackoff,
   TunnelSession,
   type StreamOriginResult,
-} from "@bb/tunnel-client";
-import type { PluginLogger } from "@get-bb/plugin-sdk";
+} from "@cc/tunnel-client";
+import type { PluginLogger } from "@codythatsme/plugin-sdk";
 import {
   ConnectListError,
   deriveConnectBaseUrl,
@@ -20,7 +20,7 @@ import {
   type ConnectCredential,
   type DesktopSession,
   type ListAccountServersResult,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 import type { CredentialStore } from "./credential.js";
 import { fetchMachineCode, MachineCodeError } from "./machine-code.js";
 import { asConnectPairError, redeemConnectCode } from "./redeem.js";
@@ -48,7 +48,7 @@ async function notifyCloudOfDisconnect(
     new URL("/api/connect/disconnect", credential.serverUrl),
     {
       method: "POST",
-      headers: { "x-bb-connect-machine": credential.credential },
+      headers: { "x-cc-connect-machine": credential.credential },
       signal: AbortSignal.timeout(DISCONNECT_TIMEOUT_MS),
     },
   );
@@ -111,6 +111,11 @@ export class ConnectTunnel {
       (args.serverUrl !== undefined
         ? deriveConnectBaseUrl(args.serverUrl)
         : this.options.defaultBaseUrl);
+    if (!baseUrl) {
+      throw new Error(
+        "Remote access requires your own connect service. Set CC_CONNECT_BASE_URL or pair with cc connect --code <code> --server <server-url>.",
+      );
+    }
     this.pairing = true;
     this.publish();
     try {
@@ -190,7 +195,7 @@ export class ConnectTunnel {
     if (credential === null) {
       throw new ConnectListError(
         "not_paired",
-        "this bb is not connected to getbb.app — run `bb connect` for how to pair",
+        "this cc is not connected to your connect service — run `cc connect` for how to pair",
       );
     }
     return listAccountServers(credential);
@@ -198,7 +203,7 @@ export class ConnectTunnel {
 
   async createDesktopSession(): Promise<DesktopSession> {
     if (this.credential === null) {
-      throw new ConnectListError("not_paired", "this bb is not connected");
+      throw new ConnectListError("not_paired", "this cc is not connected");
     }
     return fetchDesktopSession(this.credential);
   }
@@ -246,7 +251,7 @@ export class ConnectTunnel {
       this.credential !== null
         ? deriveConnectBaseUrl(this.credential.serverUrl)
         : this.options.defaultBaseUrl;
-    return `${base.replace(/\/$/, "")}/dashboard`;
+    return base ? `${base.replace(/\/$/, "")}/dashboard` : "";
   }
 
   stop(): void {
@@ -285,7 +290,7 @@ export class ConnectTunnel {
     this.remoteClients = 0;
     const tunnel = this.tunnel;
     if (tunnel !== undefined && tunnel.readyState === NodeWebSocket.OPEN) {
-      tunnel.close(TUNNEL_CLEAN_CLOSE_CODE, "tunnel closed by bb");
+      tunnel.close(TUNNEL_CLEAN_CLOSE_CODE, "tunnel closed by cc");
       setTimeout(() => tunnel.terminate(), TUNNEL_CLOSE_GRACE_MS).unref?.();
     } else {
       tunnel?.terminate();
@@ -343,8 +348,8 @@ export class ConnectTunnel {
 
   private credentialRejected(statusCode: number): void {
     this.lastError =
-      `the gate rejected this bb's credential (HTTP ${statusCode}) — ` +
-      "pairing was revoked; get a new code from the getbb.app dashboard and re-pair";
+      `the gate rejected this cc's credential (HTTP ${statusCode}) — ` +
+      "pairing was revoked; get a new code from the connect service dashboard and re-pair";
     this.options.log.warn(this.lastError);
     this.credential = null;
     this.teardown();
@@ -507,7 +512,7 @@ export class ConnectTunnel {
       ) {
         if (retryScheduled || this.stopped || this.tunnel !== tunnel) return;
         this.lastError =
-          "another bb connected with this server's identity and took over bb connect";
+          "another cc connected with this server's identity and took over cc connect";
         scheduleReconnect(this.lastError, TUNNEL_REPLACED_RETRY_MS);
         return;
       }
@@ -522,7 +527,7 @@ function connectApexHost(serverUrl: string): string {
   try {
     return new URL(deriveConnectBaseUrl(serverUrl)).host;
   } catch {
-    return "getbb.app";
+    return "cc.example.invalid";
   }
 }
 

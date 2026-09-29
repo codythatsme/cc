@@ -9,12 +9,12 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useAtom, useAtomValue, useStore } from "jotai";
-import { isMacKeyboardPlatform } from "@bb/domain";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Icon } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { threadListIndicatorStateForThread } from "@bb/client-core";
+import { isMacKeyboardPlatform } from "@cc/domain";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@cc/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@cc/shared-ui/tooltip";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { threadListIndicatorStateForThread } from "@cc/client-core";
 import { usePromptDraftHasInput } from "@/hooks/usePromptDraftStorage";
 import {
   ThreadTitle,

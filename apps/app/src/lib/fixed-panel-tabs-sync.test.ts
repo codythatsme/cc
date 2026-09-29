@@ -25,7 +25,7 @@ import {
   useRemoveFixedRightTerminalTab,
   useUpdateFixedPanelTabsState,
 } from "./fixed-panel-tabs";
-import { BbHttpError } from "./sdk";
+import { CcHttpError } from "./sdk";
 import { setCachedThreadTabs } from "@/hooks/cache-owners/thread-tabs-cache-owner";
 import { scheduleThreadTabsPersistence } from "./thread-tabs-sync";
 import { syncTerminalTabsInFixedPanelState } from "@/components/secondary-panel/terminalPanelTabs";
@@ -317,7 +317,7 @@ describe("fixed panel tab server sync", () => {
       .mockResolvedValueOnce({ revision: 0, tabs: [] })
       .mockResolvedValueOnce({ revision: 1, tabs: [serverTab] });
     apiMocks.updateThreadTabs.mockRejectedValueOnce(
-      new BbHttpError({
+      new CcHttpError({
         body: null,
         code: "thread_tabs_conflict",
         message: "changed",
@@ -407,7 +407,7 @@ describe("fixed panel tab server sync", () => {
         tabs: [originalTab, concurrentTab],
       });
     apiMocks.updateThreadTabs.mockRejectedValueOnce(
-      new BbHttpError({
+      new CcHttpError({
         body: null,
         code: "thread_tabs_conflict",
         message: "changed",

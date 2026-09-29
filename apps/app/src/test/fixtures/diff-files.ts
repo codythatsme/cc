@@ -1,4 +1,4 @@
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { DiffFileEntry } from "@cc/server-contract";
 
 export function makeDiffFileEntry(
   overrides: Partial<DiffFileEntry> = {},

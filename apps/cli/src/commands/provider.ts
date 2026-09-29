@@ -1,11 +1,11 @@
 import { Command } from "commander";
-import type { AvailableModel } from "@bb/domain";
+import type { AvailableModel } from "@cc/domain";
 import type {
   SystemExecutionOptionsModelLoadError,
   SystemProviderInfo,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { action } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliCcSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { outputJson } from "./helpers.js";
 import { resolveMachineEnvironmentRouting } from "./machine.js";
@@ -55,7 +55,7 @@ export function registerProviderCommands(
     .action(
       action(async (opts: ProviderListCommandOptions) => {
         const serverUrl = getUrl();
-        const sdk = createCliBbSdk(serverUrl);
+        const sdk = createCliCcSdk(serverUrl);
         const providers = await sdk.providers.list(
           await resolveMachineEnvironmentRouting(opts, serverUrl),
         );
@@ -82,7 +82,7 @@ export function registerProviderCommands(
           opts: ProviderModelsCommandOptions,
         ) => {
           const serverUrl = getUrl();
-          const sdk = createCliBbSdk(serverUrl);
+          const sdk = createCliCcSdk(serverUrl);
           const executionOptions = await sdk.providers.models({
             ...(await resolveMachineEnvironmentRouting(opts, serverUrl)),
             ...(providerId ? { providerId } : {}),

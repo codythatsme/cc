@@ -15,7 +15,7 @@ describe("provider maintenance kit", () => {
   it.skipIf(process.platform === "win32")(
     "reads the version of a CLI that keeps reading stdin until EOF",
     async () => {
-      const dir = await mkdtemp(path.join(tmpdir(), "bb-cli-version-"));
+      const dir = await mkdtemp(path.join(tmpdir(), "cc-cli-version-"));
       try {
         const executable = path.join(dir, "stdio-server-cli");
         await writeFile(
@@ -116,7 +116,7 @@ describe("provider maintenance kit", () => {
     ["0.5.0-01", " >&2"],
     ["1.2.3-beta..1", ""],
   ])("returns null when --version reports %s", async (version, redirect) => {
-    const dir = await mkdtemp(path.join(tmpdir(), "bb-cli-invalid-version-"));
+    const dir = await mkdtemp(path.join(tmpdir(), "cc-cli-invalid-version-"));
     try {
       const executable = path.join(dir, "invalid-version-cli");
       await writeFile(

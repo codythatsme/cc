@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PromptDraftState } from "@cc/client-core";
 import {
   notifyComposerSubmitted,
   removePluginMention,

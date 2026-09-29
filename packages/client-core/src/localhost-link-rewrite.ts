@@ -1,4 +1,4 @@
-export const REWRITE_LOCALHOST_LINKS_STORAGE_KEY = "bb.rewriteLocalhostLinks";
+export const REWRITE_LOCALHOST_LINKS_STORAGE_KEY = "cc.rewriteLocalhostLinks";
 
 export const REWRITE_LOCALHOST_LINKS_DEFAULT = true;
 
@@ -10,7 +10,7 @@ interface RewriteLocalhostLinkHrefArgs {
 
 const LOOPBACK_LINK_HOSTNAMES = new Set(["127.0.0.1", "localhost"]);
 const IGNORED_REWRITE_HOSTNAME_PATTERNS = [
-  /^(?:.+\.)?getbb\.app$/i,
+  /^(?:.+\.)?cc\.example\.invalid$/i,
 ];
 
 function isIgnoredRewriteHostname(hostname: string): boolean {

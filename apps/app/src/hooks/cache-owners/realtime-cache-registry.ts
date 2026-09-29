@@ -8,7 +8,7 @@ import type {
   ThreadEventType,
   ThreadStatusChangeMetadata,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   getCachedEnvironmentRefWorkspaceStateInvalidationQueryKeys,
   getCachedGlobalThreadListInvalidationQueryKeys,

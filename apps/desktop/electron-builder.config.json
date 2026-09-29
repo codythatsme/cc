@@ -1,13 +1,13 @@
 {
-  "appId": "dev.bb.desktop",
-  "productName": "bb",
+  "appId": "io.github.codythatsme.cc",
+  "productName": "cc",
   "artifactName": "${productName}-${version}-${arch}.${ext}",
   "toolsets": {
     "appimage": "1.0.3"
   },
   "afterPack": "scripts/prepare-native-modules.cjs",
   "asar": true,
-  "asarUnpack": ["dist/bb-app-bridge.mjs", "node_modules/**"],
+  "asarUnpack": ["dist/cc-app-bridge.mjs", "node_modules/**"],
   "directories": {
     "buildResources": "assets",
     "output": "release"
@@ -17,12 +17,17 @@
     "dist/**",
     "node_modules/**",
     {
-      "from": "node_modules/bb-app/server/dist/app-scaffold-template",
-      "to": "node_modules/bb-app/server/dist/app-scaffold-template",
+      "from": "node_modules/cc-app/host-daemon/dist/plugin-sdk",
+      "to": "node_modules/cc-app/host-daemon/dist/plugin-sdk",
       "filter": ["**/*"]
     },
     {
-      "from": "node_modules/bb-app/node_modules/npm/node_modules",
+      "from": "node_modules/cc-app/server/dist/app-scaffold-template",
+      "to": "node_modules/cc-app/server/dist/app-scaffold-template",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "node_modules/cc-app/node_modules/npm/node_modules",
       "to": "node_modules/npm/node_modules",
       "filter": ["**/*"]
     },
@@ -33,7 +38,7 @@
     {
       "channel": "latest",
       "provider": "generic",
-      "url": "https://github.com/get-bb/bb/releases/download/desktop-latest/"
+      "url": "https://github.com/codythatsme/cc/releases/download/desktop-latest/"
     }
   ],
   "mac": {
@@ -59,9 +64,14 @@
   },
   "linux": {
     "category": "Development",
-    "executableName": "bb",
+    "executableName": "cc",
     "icon": "assets/icon.png",
-    "target": [{ "target": "AppImage", "arch": ["x64"] }]
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      }
+    ]
   },
   "dmg": {
     "sign": false

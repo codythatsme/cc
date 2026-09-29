@@ -1,5 +1,5 @@
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
 import { ProviderRequirementBanner } from "./ProviderRequirementBanner";
 
 interface ProviderCliBannerProps {

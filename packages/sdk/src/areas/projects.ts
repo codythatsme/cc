@@ -24,9 +24,9 @@ import type {
   UploadedPromptAttachment,
   WorkspacePathListResponse,
   WorkspaceFileListResponse,
-} from "@bb/server-contract";
-import { uploadedPromptAttachmentSchema } from "@bb/server-contract";
-import type { ProjectExecutionDefaults, ProjectSource } from "@bb/domain";
+} from "@cc/server-contract";
+import { uploadedPromptAttachmentSchema } from "@cc/server-contract";
+import type { ProjectExecutionDefaults, ProjectSource } from "@cc/domain";
 import { signalRequestArgs, type CreateSdkAreaArgs } from "./common.js";
 
 export interface ProjectListArgs {
@@ -488,7 +488,7 @@ export function createProjectsArea(args: CreateSdkAreaArgs): ProjectsArea {
         ),
       );
       const bytes = new Uint8Array(await response.arrayBuffer());
-      const contentEncoding = response.headers.get("x-bb-content-encoding");
+      const contentEncoding = response.headers.get("x-cc-content-encoding");
       if (contentEncoding !== "utf8" && contentEncoding !== "base64") {
         throw new Error(
           "Project file response is missing its content encoding",

@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createConnection, migrate, type DbConnection } from "@bb/db";
-import { encodeClientTurnRequestIdNumber } from "@bb/domain";
-import type { Logger } from "@bb/logger";
-import { RESERVED_AGENT_TOOL_NAMES } from "@get-bb/plugin-sdk/internal/host-policy";
+import { createConnection, migrate, type DbConnection } from "@cc/db";
+import { encodeClientTurnRequestIdNumber } from "@cc/domain";
+import type { Logger } from "@cc/logger";
+import { RESERVED_AGENT_TOOL_NAMES } from "@codythatsme/plugin-sdk/internal/host-policy";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
@@ -33,7 +33,6 @@ import {
   withTestHarness,
   type TestAppHarness,
 } from "../../helpers/test-app.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
 const logger = testLogger as unknown as Logger;
 
@@ -48,7 +47,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "Agent tools fixture",
         description: "Agent tools plugin fixture.",
         branding: { icon: "Zap" },
@@ -60,7 +59,7 @@ async function writePlugin(
   return rootDir;
 }
 
-describe("bb.agents.registerTool", () => {
+describe("cc.agents.registerTool", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
@@ -68,10 +67,9 @@ describe("bb.agents.registerTool", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-tools-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-tools-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -92,16 +90,16 @@ describe("bb.agents.registerTool", () => {
 
   it("rejects duplicate tool names within one factory execution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-replacer",
+      name: "cc-plugin-replacer",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "echo_tool",
             description: "first version",
             parameters: { type: "object", properties: { text: { type: "string" } } },
             execute: () => "first",
           });
-          bb.agents.registerTool({
+          cc.agents.registerTool({
             name: "echo_tool",
             description: "second version",
             instructions: "Prefer echo_tool for echoing.",
@@ -121,11 +119,11 @@ describe("bb.agents.registerTool", () => {
 
   it("rejects duplicate configure registrations within one factory execution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-double-configure",
+      name: "cc-plugin-double-configure",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.configure(() => ({ tools: [], skills: [] }));
-          bb.agents.configure(() => ({ tools: [], skills: [] }));
+        export default function plugin(cc: any) {
+          cc.agents.configure(() => ({ tools: [], skills: [] }));
+          cc.agents.configure(() => ({ tools: [], skills: [] }));
         }
       `,
     });
@@ -138,10 +136,10 @@ describe("bb.agents.registerTool", () => {
 
   it("two tools from different plugins dispatch by name (design §9 regression)", async () => {
     const a = await writePlugin(workDir, {
-      name: "bb-plugin-tool-a",
+      name: "cc-plugin-tool-a",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "alpha_tool",
             description: "Alpha",
             parameters: { type: "object" },
@@ -151,10 +149,10 @@ describe("bb.agents.registerTool", () => {
       `,
     });
     const b = await writePlugin(workDir, {
-      name: "bb-plugin-tool-b",
+      name: "cc-plugin-tool-b",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "beta_tool",
             description: "Beta",
             parameters: { type: "object" },
@@ -197,7 +195,7 @@ describe("bb.agents.registerTool", () => {
 
   it("zod parameters: converted to JSON schema, validated per call, bad input is not a plugin error", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-zodded",
+      name: "cc-plugin-zodded",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -273,7 +271,7 @@ describe("bb.agents.registerTool", () => {
 
   it("uses a foreign zod schema's own JSON Schema converter", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-foreign-zod",
+      name: "cc-plugin-foreign-zod",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -310,7 +308,7 @@ describe("bb.agents.registerTool", () => {
 
   it("rejects recursive tool schemas before they reach a provider", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-schema-refs",
+      name: "cc-plugin-schema-refs",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -363,7 +361,7 @@ describe("bb.agents.registerTool", () => {
 
   it("resolves one full row presentation per injected tool", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-presented-tools",
+      name: "cc-plugin-presented-tools",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -417,10 +415,10 @@ describe("bb.agents.registerTool", () => {
 
   it("cross-plugin name collision drops the later registration with a status detail", async () => {
     const first = await writePlugin(workDir, {
-      name: "bb-plugin-collide-a",
+      name: "cc-plugin-collide-a",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "shared_tool",
             description: "First owner",
             parameters: { type: "object" },
@@ -430,16 +428,16 @@ describe("bb.agents.registerTool", () => {
       `,
     });
     const second = await writePlugin(workDir, {
-      name: "bb-plugin-collide-b",
+      name: "cc-plugin-collide-b",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "shared_tool",
             description: "Second owner",
             parameters: { type: "object" },
             execute: () => "from collide-b",
           });
-          bb.agents.registerTool({
+          cc.agents.registerTool({
             name: "unique_tool",
             description: "Unrelated",
             parameters: { type: "object" },
@@ -466,10 +464,10 @@ describe("bb.agents.registerTool", () => {
 
   it("fails a plugin's load when its environment provider id is already registered", async () => {
     const first = await writePlugin(workDir, {
-      name: "bb-plugin-env-a",
+      name: "cc-plugin-env-a",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.experimental_environments.register({
+        export default function plugin(cc: any) {
+          cc.experimental_environments.register({
             id: "shared-env",
             displayName: "Shared",
             description: "Create a shared workspace.",
@@ -480,10 +478,10 @@ describe("bb.agents.registerTool", () => {
       `,
     });
     const second = await writePlugin(workDir, {
-      name: "bb-plugin-env-b",
+      name: "cc-plugin-env-b",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.experimental_environments.register({
+        export default function plugin(cc: any) {
+          cc.experimental_environments.register({
             id: "shared-env",
             displayName: "Shared again",
             description: "Create another shared workspace.",
@@ -507,10 +505,10 @@ describe("bb.agents.registerTool", () => {
       UPDATE_ENVIRONMENT_DIRECTORY_TOOL_NAME,
     );
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-shadower",
+      name: "cc-plugin-shadower",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "update_environment_directory",
             description: "Shadow attempt",
             parameters: { type: "object" },
@@ -521,7 +519,7 @@ describe("bb.agents.registerTool", () => {
     });
     const entry = await service.installPath(rootDir);
     expect(entry.status).toBe("error");
-    expect(entry.statusDetail).toContain("built-in bb tool");
+    expect(entry.statusDetail).toContain("built-in cc tool");
     expect(service.listAgentTools()).toEqual([]);
   });
 
@@ -542,10 +540,10 @@ describe("bb.agents.registerTool", () => {
     "rejects a registration built against SDK <0.4.16 that carries %s",
     async (field, message) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-stale-field",
+        name: "cc-plugin-stale-field",
         serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "stale_tool",
             description: "Built against an SDK before 0.4.16",
             ${field}: { pending: "Working", completed: "Worked" },
@@ -563,7 +561,7 @@ describe("bb.agents.registerTool", () => {
   );
 });
 
-describe("bb.agents.experimental_registerProvider (removed in SDK 0.4.16)", () => {
+describe("cc.agents.experimental_registerProvider (removed in SDK 0.4.16)", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
@@ -571,10 +569,9 @@ describe("bb.agents.experimental_registerProvider (removed in SDK 0.4.16)", () =
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-old-provider-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-old-provider-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -594,14 +591,14 @@ describe("bb.agents.experimental_registerProvider (removed in SDK 0.4.16)", () =
   });
 
   const REMOVED_MESSAGE =
-    "bb.agents.experimental_registerProvider was removed in SDK 0.4.16; use bb.providers.register";
+    "cc.agents.experimental_registerProvider was removed in SDK 0.4.16; use cc.providers.register";
 
   it("fails the plugin at factory time with a message naming the replacement", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-old-provider",
+      name: "cc-plugin-old-provider",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.experimental_registerProvider({ id: "old" });
+        export default function plugin(cc: any) {
+          cc.agents.experimental_registerProvider({ id: "old" });
         }
       `,
     });
@@ -610,9 +607,9 @@ describe("bb.agents.experimental_registerProvider (removed in SDK 0.4.16)", () =
     expect(entry.statusDetail).toContain(REMOVED_MESSAGE);
   });
 
-  it("is invisible to enumeration and leaves the rest of bb.agents working", async () => {
+  it("is invisible to enumeration and leaves the rest of cc.agents working", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-current-agents",
+      name: "cc-plugin-current-agents",
       serverSource: "export default function plugin() {}",
     });
     await service.installPath(rootDir);
@@ -642,7 +639,7 @@ describe("bb.agents.experimental_registerProvider (removed in SDK 0.4.16)", () =
   });
 });
 
-describe("bb.agents.contributeInstructions", () => {
+describe("cc.agents.contributeInstructions", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
@@ -650,10 +647,9 @@ describe("bb.agents.contributeInstructions", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-instr-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-instr-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -674,11 +670,11 @@ describe("bb.agents.contributeInstructions", () => {
 
   it("rejects duplicate instruction providers within one factory execution", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-advisor",
+      name: "cc-plugin-advisor",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "first");
-          bb.agents.contributeInstructions(() => "second");
+        export default function plugin(cc: any) {
+          cc.agents.contributeInstructions(() => "first");
+          cc.agents.contributeInstructions(() => "second");
         }
       `,
     });
@@ -692,18 +688,18 @@ describe("bb.agents.contributeInstructions", () => {
 
   it("two plugins each contribute one provider, ordered by plugin id", async () => {
     const zebra = await writePlugin(workDir, {
-      name: "bb-plugin-zebra",
+      name: "cc-plugin-zebra",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "from zebra");
+        export default function plugin(cc: any) {
+          cc.agents.contributeInstructions(() => "from zebra");
         }
       `,
     });
     const alpha = await writePlugin(workDir, {
-      name: "bb-plugin-alpha",
+      name: "cc-plugin-alpha",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "from alpha");
+        export default function plugin(cc: any) {
+          cc.agents.contributeInstructions(() => "from alpha");
         }
       `,
     });
@@ -719,10 +715,10 @@ describe("bb.agents.contributeInstructions", () => {
 
   it("reload without contributeInstructions clears the previous provider", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-transient",
+      name: "cc-plugin-transient",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.contributeInstructions(() => "present");
+        export default function plugin(cc: any) {
+          cc.agents.contributeInstructions(() => "present");
         }
       `,
     });
@@ -744,7 +740,7 @@ describe("plugin tools reach thread runtime config", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    pluginsDir = await mkdtemp(join(tmpdir(), "bb-plugin-tools-runtime-"));
+    pluginsDir = await mkdtemp(join(tmpdir(), "cc-plugin-tools-runtime-"));
   });
 
   afterEach(async () => {
@@ -755,17 +751,17 @@ describe("plugin tools reach thread runtime config", () => {
 
   it("thread.start dynamicTools include plugin tools with per-tool instructions", async () => {
     const rootDir = await writePlugin(pluginsDir, {
-      name: "bb-plugin-tooldemo",
+      name: "cc-plugin-tooldemo",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "demo_lookup",
             description: "Look up demo data",
             instructions: "Call demo_lookup before guessing demo data.",
             parameters: { type: "object", properties: { key: { type: "string" } } },
             execute: () => "demo",
           });
-          bb.agents.registerTool({
+          cc.agents.registerTool({
             name: "quiet_tool",
             description: "No instructions on purpose",
             parameters: { type: "object" },
@@ -824,7 +820,7 @@ describe("plugin tools reach thread runtime config", () => {
     ).toMatchObject({ type: "object" });
     expect(command.instructions).toContain("update_environment_directory");
     expect(command.instructions).toContain(
-      'The following instructions come from the BB plugin "tooldemo" for its tool "demo_lookup":',
+      'The following instructions come from the CC plugin "tooldemo" for its tool "demo_lookup":',
     );
     expect(command.instructions).toContain(
       "Call demo_lookup before guessing demo data.",
@@ -834,15 +830,15 @@ describe("plugin tools reach thread runtime config", () => {
 
   it("resolves different conditional tools, skills, instructions, and context without rebuilding static registrations", async () => {
     const rootDir = await writePlugin(pluginsDir, {
-      name: "bb-plugin-conditional",
+      name: "cc-plugin-conditional",
       serverSource: `
-        globalThis.__bbConditionalFactoryCount =
-          (globalThis.__bbConditionalFactoryCount ?? 0) + 1;
-        const factoryCount = globalThis.__bbConditionalFactoryCount;
+        globalThis.__ccConditionalFactoryCount =
+          (globalThis.__ccConditionalFactoryCount ?? 0) + 1;
+        const factoryCount = globalThis.__ccConditionalFactoryCount;
         let configureCount = 0;
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           for (const name of ["alpha_tool", "beta_tool"]) {
-            bb.agents.registerTool({
+            cc.agents.registerTool({
               name,
               description: name,
               instructions: "Static instructions for " + name,
@@ -850,7 +846,7 @@ describe("plugin tools reach thread runtime config", () => {
               execute: () => name,
             });
           }
-          bb.agents.configure((context: any) => {
+          cc.agents.configure((context: any) => {
             configureCount += 1;
             if (
               context.origin.pluginId === "side-chat" &&
@@ -892,16 +888,16 @@ describe("plugin tools reach thread runtime config", () => {
       );
     }
     const brokenRoot = await writePlugin(pluginsDir, {
-      name: "bb-plugin-broken-conditional",
+      name: "cc-plugin-broken-conditional",
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "broken_tool",
             description: "Must never leak from an invalid selection",
             parameters: { type: "object" },
             execute: () => "broken",
           });
-          bb.agents.configure((context: any) => {
+          cc.agents.configure((context: any) => {
             if (context.provider.id === "claude-code") {
               throw new Error("conditional failure");
             }
@@ -1080,7 +1076,7 @@ describe("plugin tools reach thread runtime config", () => {
       sideCommand.injectedSkillSources.map((skill) => skill.name),
     ).not.toContain("beta-skill");
     expect(sideCommand.instructions).toContain(
-      'The following dynamic instructions come from the BB plugin "conditional":',
+      'The following dynamic instructions come from the CC plugin "conditional":',
     );
     expect(
       harness.pluginService.list().find((plugin) => plugin.id === "conditional")
@@ -1118,13 +1114,13 @@ describe("plugin tools reach thread runtime config", () => {
 describe("internal tool-call dispatch to plugin tools", () => {
   it("dispatches by name to plugin tools and keeps update_environment_directory working", async () => {
     await withTestHarness(async (harness) => {
-      const pluginsDir = await mkdtemp(join(tmpdir(), "bb-plugin-tools-wire-"));
+      const pluginsDir = await mkdtemp(join(tmpdir(), "cc-plugin-tools-wire-"));
       try {
         const rootDir = await writePlugin(pluginsDir, {
-          name: "bb-plugin-wired",
+          name: "cc-plugin-wired",
           serverSource: `
-            export default function plugin(bb: any) {
-              bb.agents.registerTool({
+            export default function plugin(cc: any) {
+              cc.agents.registerTool({
                 name: "echo_context",
                 description: "Echo params and call context",
                 parameters: { type: "object" },

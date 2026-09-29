@@ -1,5 +1,5 @@
-import type { EnvironmentChangeKind } from "@bb/domain";
-import type { HostDaemonOnlineRpcResult } from "@bb/host-daemon-contract";
+import type { EnvironmentChangeKind } from "@cc/domain";
+import type { HostDaemonOnlineRpcResult } from "@cc/host-daemon-contract";
 import type { ServerChangedMessage } from "../../ws/hub.js";
 
 const IGNORED_ENVIRONMENT_CHANGES: ReadonlySet<EnvironmentChangeKind> = new Set(

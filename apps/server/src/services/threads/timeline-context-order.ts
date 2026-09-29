@@ -1,9 +1,9 @@
-import type { TimelineRow } from "@bb/server-contract";
+import type { TimelineRow } from "@cc/server-contract";
 import {
   isExternalUserBoundaryForTurn,
   type ExternalUserBoundaryMessage,
   type ExternalUserBoundaryTurnSpan,
-} from "@bb/thread-view";
+} from "@cc/thread-view";
 import {
   getDatabaseDataVersion,
   getFirstParentedTimelineBoundarySequence,
@@ -11,7 +11,7 @@ import {
   hasTimelineGroupingContextRowsInRange,
   listTimelineOrderingContext,
   type DbConnection,
-} from "@bb/db";
+} from "@cc/db";
 
 interface TimelineGroupingContext {
   orderingBoundarySequence: number | null;

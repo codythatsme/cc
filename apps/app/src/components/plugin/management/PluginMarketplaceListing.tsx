@@ -7,15 +7,15 @@ import {
   CarouselNext,
   CarouselPrevious,
   type CarouselApi,
-} from "@bb/shared-ui/carousel";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/carousel";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   ResourceDefinitionSection,
   ResourceListPanel,
   ResourceRow,
   ResourceRowDetailChevron,
-} from "@bb/shared-ui/resource-list";
+} from "@cc/shared-ui/resource-list";
 import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
 import { PluginOverviewMarkdown } from "@/components/plugin/management/PluginOverviewMarkdown";
 import { getPluginsRoutePath } from "@/lib/route-paths";
@@ -92,7 +92,7 @@ export function PluginMarketplaceDetailMetadata({
 }) {
   return (
     <>
-      {entry.marketplace === "bb-official" ? null : (
+      {entry.marketplace === "cc-official" ? null : (
         <PluginDetailMetadataItem label="Marketplace">
           {entry.marketplaceDisplayName}
         </PluginDetailMetadataItem>
@@ -263,7 +263,7 @@ export function PluginMarketplaceListingSections({
     <>
       <PluginMarketplaceOverview entry={entry} />
       <PluginMarketplaceSource entry={entry} />
-      {entry.marketplace === "bb-official" &&
+      {entry.marketplace === "cc-official" &&
       entry.publishedAt === undefined ? null : (
         <ResourceDefinitionSection label="Details">
           <PluginDetailMetadata>

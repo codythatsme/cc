@@ -6,7 +6,7 @@ import {
   experimental_useSidebarNavigationSplit,
   type ExperimentalSidebarNavigationItem,
   type ExperimentalSidebarNavigationProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 
 function NavigationButton({
   item,
@@ -114,7 +114,7 @@ function SidebarNavigation({
           className="flex-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
           onClick={() => setShowOriginal(true)}
         >
-          Use BB navigation
+          Use CC navigation
         </button>
         <button
           type="button"

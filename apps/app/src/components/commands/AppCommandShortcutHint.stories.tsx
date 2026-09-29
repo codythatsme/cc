@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import type { AppShortcutPresentation } from "@/lib/app-keybindings";
 import {
   SIDEBAR_ROW_BASE_CLASS,

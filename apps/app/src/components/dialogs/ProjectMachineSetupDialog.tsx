@@ -3,8 +3,8 @@ import {
   getProjectPathValidationMessage,
   normalizeProjectPathInput,
   type ProjectSource,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
+} from "@cc/domain";
+import { Button } from "@cc/shared-ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +12,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/dialog";
+import { Icon } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { RemotePathBrowser } from "@/components/dialogs/RemotePathBrowser";
 import { useAddProjectSource } from "@/hooks/mutations/project-mutations";
 import {
@@ -23,7 +23,7 @@ import {
   useHostPathExistence,
 } from "@/hooks/queries/host-path-queries";
 import { useHostCloneDefaultPath } from "@/hooks/queries/host-queries";
-import { BbHttpError } from "@bb/sdk/browser";
+import { CcHttpError } from "@cc/sdk/browser";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
 
 export interface ProjectMachineSetupDialogTarget {
@@ -193,7 +193,7 @@ function ProjectMachineSetupDialogContent({
       })
     : null;
   const isTargetNotEmptyError =
-    addSource.error instanceof BbHttpError &&
+    addSource.error instanceof CcHttpError &&
     addSource.error.code === "target_not_empty";
 
   const submitDisabled =

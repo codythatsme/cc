@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fuzzyMatchPaths } from "@bb/fuzzy-match";
-import { detectGitRepo, runGit } from "@bb/host-workspace";
+import { fuzzyMatchPaths } from "@cc/fuzzy-match";
+import { detectGitRepo, runGit } from "@cc/host-workspace";
 import type {
   HostPathEntry,
   HostPathEntryKind,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 
 interface FinalizeListedFilesArgs {
   filePaths: string[];

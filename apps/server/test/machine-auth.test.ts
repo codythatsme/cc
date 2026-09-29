@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { authApiKeys, authUsers } from "@bb/db";
+import { authApiKeys, authUsers } from "@cc/db";
 import { afterEach, describe, expect, it } from "vitest";
 import { initDb } from "../src/db.js";
 import { createMachineAuthService } from "../src/services/machine-auth.js";
@@ -17,7 +17,7 @@ const testLogger = {
 };
 
 async function makeTempDir(): Promise<string> {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-machine-auth-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-machine-auth-"));
   tempDirs.push(dataDir);
   return dataDir;
 }

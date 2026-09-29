@@ -1,7 +1,7 @@
-import { findProviderEnvironmentContainingPath } from "@bb/db";
+import { findProviderEnvironmentContainingPath } from "@cc/db";
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { isBbManagedWorkspacePath } from "../threads/workspace-paths.js";
+import { isCcManagedWorkspacePath } from "../threads/workspace-paths.js";
 import {
   getInstalledPlugin,
   getInstalledPluginRegistration,
@@ -15,7 +15,7 @@ import {
   type PluginExactResolution,
   type PluginProvenance,
   type PluginSourceIntent,
-} from "@bb/db";
+} from "@cc/db";
 import {
   BUNDLED_PLUGINS,
   builtinPluginSource,
@@ -27,8 +27,7 @@ import {
   type InstalledPlugin,
   type PluginRuntimeStatus,
   type PluginSourceSelection,
-} from "@bb/server-contract";
-import type { TelemetryEvent } from "../system/telemetry.js";
+} from "@cc/server-contract";
 import { resolveSelectedSubdirectory } from "./collection-manifest.js";
 import {
   isCommitSha,
@@ -55,30 +54,6 @@ import {
   type NpmSourceIntentForResolution,
   type PluginResolvedUpdateVersion,
 } from "./update-resolver.js";
-
-export function pluginInstalledTelemetryEvent(
-  pluginId: string,
-  provenance: PluginProvenance,
-  sourceIntent: PluginSourceIntent,
-): Extract<TelemetryEvent, { name: "plugin_installed" }> {
-  const isPublic =
-    provenance.kind === "builtin" ||
-    (provenance.kind === "catalog" &&
-      (provenance.marketplace === CURATED_PLUGIN_MARKETPLACE_NAME ||
-        provenance.marketplace === BUNDLED_MARKETPLACE_NAME));
-  return {
-    name: "plugin_installed",
-    properties: {
-      plugin_id: isPublic ? pluginId : null,
-      provenance: provenance.kind,
-      marketplace:
-        isPublic && provenance.kind === "catalog"
-          ? provenance.marketplace
-          : null,
-      source_kind: sourceIntent.kind,
-    },
-  };
-}
 
 interface PluginRegistrationContext {
   deps: PluginServiceDeps;
@@ -309,7 +284,7 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
       identity.sourceIntent.kind === "git"
     ) {
       throw new Error(
-        `plugin "${pluginId}" is already installed; use \`bb plugin update ${pluginId}\` or remove it before reinstalling`,
+        `plugin "${pluginId}" is already installed; use \`cc plugin update ${pluginId}\` or remove it before reinstalling`,
       );
     }
   }
@@ -409,13 +384,6 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
     if (isFreshInstall) await runInstallHandlers(manifest.id);
     const entry = list().find((p) => p.id === manifest.id);
     if (!entry) throw new Error(`plugin ${manifest.id} missing after install`);
-    deps.telemetry.capture(
-      pluginInstalledTelemetryEvent(
-        manifest.id,
-        args.provenance,
-        args.sourceIntent,
-      ),
-    );
     return entry;
   }
 
@@ -438,11 +406,11 @@ export function createPluginRegistration(context: PluginRegistrationContext) {
             "plugin subdirectory",
           );
     if (
-      isBbManagedWorkspacePath({ dataDir: deps.dataDir, path: rootDir }) ||
+      isCcManagedWorkspacePath({ dataDir: deps.dataDir, path: rootDir }) ||
       findProviderEnvironmentContainingPath(deps.db, rootDir) !== null
     ) {
       logger.warn(
-        `plugin "${rootDir}" is installed from inside a bb-managed workspace; ` +
+        `plugin "${rootDir}" is installed from inside a cc-managed workspace; ` +
           "its source will be deleted when that environment is destroyed (e.g. when the owning thread is archived). " +
           "Reinstall from a stable path outside the managed workspace to avoid losing it.",
       );

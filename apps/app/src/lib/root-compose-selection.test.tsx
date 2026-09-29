@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import type { ForkThreadCreateSeed } from "@bb/client-core";
+import type { ForkThreadCreateSeed } from "@cc/client-core";
 import {
   useRootComposeForkSeed,
   useRootComposeSectionId,

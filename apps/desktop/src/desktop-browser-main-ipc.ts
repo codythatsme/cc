@@ -1,31 +1,31 @@
 import { BrowserWindow, ipcMain, type IpcMainEvent } from "electron";
 import type { z } from "zod";
 import {
-  bbDesktopBrowserAttachRequestSchema,
-  bbDesktopBrowserEvaluateRequestSchema,
-  bbDesktopBrowserFindInPageRequestSchema,
-  bbDesktopBrowserNavigateRequestSchema,
-  bbDesktopBrowserSetBoundsRequestSchema,
-  bbDesktopBrowserSetVisibleRequestSchema,
-  bbDesktopBrowserStopFindInPageRequestSchema,
-  bbDesktopBrowserTabRefSchema,
-  type BbDesktopBrowserEvaluateResult,
-} from "@bb/desktop-contract";
+  ccDesktopBrowserAttachRequestSchema,
+  ccDesktopBrowserEvaluateRequestSchema,
+  ccDesktopBrowserFindInPageRequestSchema,
+  ccDesktopBrowserNavigateRequestSchema,
+  ccDesktopBrowserSetBoundsRequestSchema,
+  ccDesktopBrowserSetVisibleRequestSchema,
+  ccDesktopBrowserStopFindInPageRequestSchema,
+  ccDesktopBrowserTabRefSchema,
+  type CcDesktopBrowserEvaluateResult,
+} from "@cc/desktop-contract";
 import {
-  BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
-  BB_DESKTOP_BROWSER_DETACH_CHANNEL,
-  BB_DESKTOP_BROWSER_EVALUATE_CHANNEL,
-  BB_DESKTOP_BROWSER_FOCUS_CHANNEL,
-  BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
-  BB_DESKTOP_BROWSER_GO_BACK_CHANNEL,
-  BB_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
-  BB_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
-  BB_DESKTOP_BROWSER_RELOAD_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
-  BB_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
-  BB_DESKTOP_BROWSER_STOP_CHANNEL,
-  BB_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
+  CC_DESKTOP_BROWSER_ATTACH_CHANNEL,
+  CC_DESKTOP_BROWSER_DETACH_CHANNEL,
+  CC_DESKTOP_BROWSER_EVALUATE_CHANNEL,
+  CC_DESKTOP_BROWSER_FOCUS_CHANNEL,
+  CC_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+  CC_DESKTOP_BROWSER_GO_BACK_CHANNEL,
+  CC_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
+  CC_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
+  CC_DESKTOP_BROWSER_RELOAD_CHANNEL,
+  CC_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+  CC_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
+  CC_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
+  CC_DESKTOP_BROWSER_STOP_CHANNEL,
+  CC_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
 } from "./desktop-browser-ipc.js";
 import type { DesktopBrowserViewManager } from "./desktop-browser-view.js";
 
@@ -57,87 +57,87 @@ export function registerDesktopBrowserIpc(
   manager: DesktopBrowserViewManager,
 ): void {
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_ATTACH_CHANNEL,
-    bbDesktopBrowserAttachRequestSchema,
+    CC_DESKTOP_BROWSER_ATTACH_CHANNEL,
+    ccDesktopBrowserAttachRequestSchema,
     (args) => manager.attach(args),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
-    bbDesktopBrowserNavigateRequestSchema,
+    CC_DESKTOP_BROWSER_NAVIGATE_CHANNEL,
+    ccDesktopBrowserNavigateRequestSchema,
     (args) => manager.navigate(args),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
-    bbDesktopBrowserSetBoundsRequestSchema,
+    CC_DESKTOP_BROWSER_SET_BOUNDS_CHANNEL,
+    ccDesktopBrowserSetBoundsRequestSchema,
     (args) => manager.setBounds(args),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
-    bbDesktopBrowserSetVisibleRequestSchema,
+    CC_DESKTOP_BROWSER_SET_VISIBLE_CHANNEL,
+    ccDesktopBrowserSetVisibleRequestSchema,
     (args) => manager.setVisible(args),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
-    bbDesktopBrowserSetVisibleRequestSchema,
+    CC_DESKTOP_BROWSER_SET_VISIBLE_WITHOUT_FOCUS_CHANNEL,
+    ccDesktopBrowserSetVisibleRequestSchema,
     (args) => manager.setVisibleWithoutFocus(args),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
-    bbDesktopBrowserFindInPageRequestSchema,
+    CC_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
+    ccDesktopBrowserFindInPageRequestSchema,
     (args) => manager.findInPage(args),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
-    bbDesktopBrowserStopFindInPageRequestSchema,
+    CC_DESKTOP_BROWSER_STOP_FIND_IN_PAGE_CHANNEL,
+    ccDesktopBrowserStopFindInPageRequestSchema,
     (args) => manager.stopFindInPage(args),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_DETACH_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    CC_DESKTOP_BROWSER_DETACH_CHANNEL,
+    ccDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.detach({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_FOCUS_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    CC_DESKTOP_BROWSER_FOCUS_CHANNEL,
+    ccDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.focus({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_GO_BACK_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    CC_DESKTOP_BROWSER_GO_BACK_CHANNEL,
+    ccDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.goBack({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    CC_DESKTOP_BROWSER_GO_FORWARD_CHANNEL,
+    ccDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.goForward({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_RELOAD_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    CC_DESKTOP_BROWSER_RELOAD_CHANNEL,
+    ccDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.reload({ hostWindow, tabId: request.tabId }),
   );
   registerRequestCommand(
-    BB_DESKTOP_BROWSER_STOP_CHANNEL,
-    bbDesktopBrowserTabRefSchema,
+    CC_DESKTOP_BROWSER_STOP_CHANNEL,
+    ccDesktopBrowserTabRefSchema,
     ({ hostWindow, request }) =>
       manager.stop({ hostWindow, tabId: request.tabId }),
   );
   ipcMain.handle(
-    BB_DESKTOP_BROWSER_EVALUATE_CHANNEL,
+    CC_DESKTOP_BROWSER_EVALUATE_CHANNEL,
     async (
       event,
       payload: unknown,
-    ): Promise<BbDesktopBrowserEvaluateResult> => {
+    ): Promise<CcDesktopBrowserEvaluateResult> => {
       const hostWindow = BrowserWindow.fromWebContents(event.sender);
       if (hostWindow === null) {
         return { ok: false, error: "Browser host window is not available" };
       }
-      const parsed = bbDesktopBrowserEvaluateRequestSchema.safeParse(payload);
+      const parsed = ccDesktopBrowserEvaluateRequestSchema.safeParse(payload);
       if (!parsed.success) {
         return { ok: false, error: "Invalid browser page evaluation request" };
       }

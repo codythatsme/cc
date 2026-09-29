@@ -2,7 +2,7 @@
 
 ## Goal
 
-Move bb's built-in sidebar navigation (New thread, Search threads, Plugins,
+Move cc's built-in sidebar navigation (New thread, Search threads, Plugins,
 Skills, and plugin panel rows, plus their order, visibility, More menu, row
 menus, accessories, and split affordances) out of `apps/app` and into a
 bundled first-party plugin that registers
@@ -16,8 +16,8 @@ work unchanged whether the host nav is built in or a plugin.
 
 ## What Compact Nav works around today
 
-Compact Nav renders `experimental_Original` (bb's navigation) and restyles it,
-because the slot props cannot express most of what bb's navigation does.
+Compact Nav renders `experimental_Original` (cc's navigation) and restyles it,
+because the slot props cannot express most of what cc's navigation does.
 
 | Hack in compact-nav | Why it exists | Replacement in this plan |
 |---|---|---|
@@ -27,7 +27,7 @@ because the slot props cannot express most of what bb's navigation does.
 | Content script adding `title` to host buttons | Hover labels on host rows it does not own | Not needed once the plugin owns its buttons |
 | `[data-testid="sidebar-navigation-region"] + [data-testid="app-sidebar-navigation-divider"] { display: none }` | The divider under the nav is host-rendered | The divider moves into the navigation provider (3c) |
 | `:not(:has([data-sidebar-navigation-customize-mode]))` on every rule | The inline customize editor renders inside the replaced region | The host renders the customize editor in place of the provider while it is open (3b) |
-| Media queries duplicating bb's 28/36/40px control sizes | No sizing contract | `--bb-sidebar-control-size` and `--bb-sidebar-control-icon-size` (2g) |
+| Media queries duplicating cc's 28/36/40px control sizes | No sizing contract | `--cc-sidebar-control-size` and `--cc-sidebar-control-icon-size` (2g) |
 
 ## Status (2026-09-22)
 
@@ -45,7 +45,7 @@ Implemented as five stacked layers:
    navigation deleted, placeholder with remembered height, a picked provider
    that is disabled or removed falls back to Navigation, `experimental_Original`
    renders the bundled plugin. SDK 0.5.14.
-5. Install hook: `bb.onInstall` runs once after a fresh install,
+5. Install hook: `cc.onInstall` runs once after a fresh install,
    so a plugin such as Compact Nav can pick its own header and navigation.
    SDK 0.5.15.
 
@@ -62,14 +62,14 @@ divider shows below its icons.
    `sidebar.pluginPanelOrder` and `sidebar.visiblePluginPanels`, unlike the
    thread-list preferences that moved to plugin KV. Arrangement must survive
    switching navigation providers (Compact Nav's README promises "your
-   existing order and hidden items carry over"), and `bb settings` already
+   existing order and hidden items carry over"), and `cc settings` already
    exposes both keys. The host resolves seeding (Skills after Plugins, Search
    hidden by default, new leading keys) and hands providers the result.
 2. **The host owns the customize editor.** `SidebarVisibilityCustomize` stays
    in `apps/app` and takes over the navigation region (and the whole sidebar
    body on compact viewports, as `compactCustomizeMode` does today) when any
    provider calls `openCustomize()`. The alternative, where every provider
-   builds its own editor, gives Compact Nav a reason to delegate back to bb
+   builds its own editor, gives Compact Nav a reason to delegate back to cc
    again.
 3. **Automatic goes away for navigation too**, matching #4051:
    `sidebar.navigationProvider` defaults to the bundled plugin, legacy
@@ -98,7 +98,7 @@ Mirror `ThreadListPlaceholder` with a host-owned
 - **loading**: bundles are still loading (`usePluginFrontendsSettled` is
   false). Render skeleton rows at the last height the active provider
   rendered, remembered per provider key in a `createLastKnownCache`
-  (`bb.sidebar-navigation.height`), so neither bb's rows nor Compact Nav's
+  (`cc.sidebar-navigation.height`), so neither cc's rows nor Compact Nav's
   single icon row shift the thread list when the plugin lands.
 - **missing**: settled with no provider. One row: "Navigation is disabled"
   with a Plugins link.
@@ -127,9 +127,9 @@ ordering.
   `action: { kind: "open-extensions" }`, so a provider cannot tell Skills
   from Plugins. Add `name: "skills"` and `{ kind: "open-skills" }`.
 - Item ids (`new-thread`, `plugin-panel:<enc>/<enc>`) differ from the
-  arrangement keys (`__bb__/new-thread`, `<pluginId>/<panelId>`, and
-  `__bb__/automations` for the automations panel). Make `id` the
-  arrangement key so the provider, the preferences, and `bb settings` share
+  arrangement keys (`__cc__/new-thread`, `<pluginId>/<panelId>`, and
+  `__cc__/automations` for the automations panel). Make `id` the
+  arrangement key so the provider, the preferences, and `cc settings` share
   one identifier.
 - Items include remembered nav-panel chrome from `usePluginNavPanelChrome()`
   so rows exist before plugin bundles register, marked `isLoading`.
@@ -158,7 +158,7 @@ export type ExperimentalSidebarNavigationIcon =
   | { kind: "plugin"; pluginId: string; icon: string | null };
 
 export interface ExperimentalSidebarNavigationItem {
-  /** Arrangement key: `__bb__/new-thread`, `<pluginId>/<panelId>`. Stable across reloads. */
+  /** Arrangement key: `__cc__/new-thread`, `<pluginId>/<panelId>`. Stable across reloads. */
   id: string;
   label: string;
   icon: ExperimentalSidebarNavigationIcon;
@@ -168,10 +168,10 @@ export interface ExperimentalSidebarNavigationItem {
   isVisible: boolean;
   /** Remembered plugin panel whose bundle has not registered yet. Activating it is a no-op until it loads. */
   isLoading: boolean;
-  /** Plugin that contributed the panel; null for bb's own items. Gates details and disable. */
+  /** Plugin that contributed the panel; null for cc's own items. Gates details and disable. */
   pluginId: string | null;
   shortcut: ExperimentalSidebarNavigationShortcut | null;
-  /** The panel's `experimental_sidebarAccessory`, wrapped by the host in its crash boundary and size budget. Null on compact viewports and for bb's items. */
+  /** The panel's `experimental_sidebarAccessory`, wrapped by the host in its crash boundary and size budget. Null on compact viewports and for cc's items. */
   experimental_Accessory: ComponentType | null;
 }
 ```
@@ -245,7 +245,7 @@ nothing. This replaces the `replacementIdentity` check in
 Same shape as `PluginSidebarThreadSplit`: `{ splitProps, isAvailable, layout }`.
 The host owns the drag rules (`usePaneContentSplitDrag`), the pane cap, and
 the compact/disabled checks; `layout` feeds a mini-map the way
-`usePaneContentSplitIndicator` does for bb's rows. `isAvailable` is false for
+`usePaneContentSplitIndicator` does for cc's rows. `isAvailable` is false for
 Search, Plugins, and Skills, which cannot open in a pane.
 
 ### 2e. `app.slots.experimental_sidebarHeader`
@@ -268,7 +268,7 @@ export interface ExperimentalSidebarHeaderRegistration {
 export interface ExperimentalSidebarHeaderProps {
   /** Width in px of the header space, updated on sidebar resize and window chrome changes. */
   width: number;
-  /** Height and width in px of the header's own controls; equals `--bb-sidebar-control-size`. */
+  /** Height and width in px of the header's own controls; equals `--cc-sidebar-control-size`. */
   controlSize: number;
   isCompactViewport: boolean;
 }
@@ -277,7 +277,7 @@ export interface ExperimentalSidebarHeaderProps {
 Selection works like the other two sidebar slots:
 `sidebar.headerProvider` (`__none__` by default, or a
 `<pluginId>/<registrationId>` key), a `SidebarHeaderSetting` picker next to
-`SidebarNavigationSetting`, the value also reachable through `bb settings`,
+`SidebarNavigationSetting`, the value also reachable through `cc settings`,
 and the same automatic-free normalization as 3d.
 
 Host side, in `SidebarTopReserveRow`: the row becomes
@@ -309,9 +309,9 @@ the navigation region. Document that in the guide next to the slot.
 ### 2f. `experimental_SidebarNavigationIcon`
 
 `ComponentType<{ icon: ExperimentalSidebarNavigationIcon; className?: string }>`
-on `PluginSdkApp`. Renders bb's glyphs for host icons and `PluginIcon`
+on `PluginSdkApp`. Renders cc's glyphs for host icons and `PluginIcon`
 (compact branding mask, then declared icon, then Zap) for plugin icons, so
-providers match bb's artwork without learning host icon names or branding
+providers match cc's artwork without learning host icon names or branding
 URLs.
 
 ### 2g. Sizing tokens
@@ -320,8 +320,8 @@ Define on the sidebar root, and document with the theme tokens:
 
 | Token | Desktop | Coarse pointer | Compact coarse |
 |---|---|---|---|
-| `--bb-sidebar-control-size` | 28px | 40px | 36px |
-| `--bb-sidebar-control-icon-size` | 16px | 16px | 20px |
+| `--cc-sidebar-control-size` | 28px | 40px | 36px |
+| `--cc-sidebar-control-icon-size` | 16px | 16px | 20px |
 
 The sidebar toggle and history controls read the same tokens, so the two
 cannot drift.
@@ -361,7 +361,7 @@ first-party plugin draws it at the bottom of its own region.
 `sidebar.headerProvider` beside it with `__none__` as the default and a
 `SidebarHeaderSetting` picker that lists None plus each header registration.
 Update `docs/configuration.md`, `app-settings.md`, and
-`bb-guide-customization.md` for both keys.
+`cc-guide-customization.md` for both keys.
 
 ### 3e. Header slot
 
@@ -376,10 +376,10 @@ picked sets them once from its backend on first load.
 
 ## Phase 4: first-party plugin
 
-`plugins/navigation/` (package `bb-plugin-navigation`; the example at
-`examples/plugins/sidebar-navigation` already owns `bb-plugin-sidebar-navigation`),
+`plugins/navigation/` (package `cc-plugin-navigation`; the example at
+`examples/plugins/sidebar-navigation` already owns `cc-plugin-sidebar-navigation`),
 following `plugins/thread-list/`. Name "Navigation", added to
-`plugins/bb-official.json`. Contents, ported from the
+`plugins/cc-official.json`. Contents, ported from the
 host:
 
 - Rows: `SidebarNavRowChrome` with the accessory, mini-map (2d), hover
@@ -434,7 +434,7 @@ import {
   type ExperimentalSidebarHeaderProps,
   type ExperimentalSidebarNavigationItem,
   type ExperimentalSidebarNavigationProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import "./app.css";
 
 const GAP = 4;
@@ -495,7 +495,7 @@ export default definePluginApp((app) => {
   app.slots.experimental_sidebarNavigation({
     id: "icons",
     title: "Compact Nav",
-    description: "Compact icons with bb's saved order, visibility, and customization.",
+    description: "Compact icons with cc's saved order, visibility, and customization.",
     component: CompactNavigation,
   });
 });
@@ -504,11 +504,11 @@ export default definePluginApp((app) => {
 ```css
 .compact-nav-row { display: flex; align-items: center; gap: 4px; }
 .compact-nav-button {
-  width: var(--bb-sidebar-control-size);
-  height: var(--bb-sidebar-control-size);
+  width: var(--cc-sidebar-control-size);
+  height: var(--cc-sidebar-control-size);
   display: grid; place-items: center; border-radius: 8px;
 }
-.compact-nav-button > * { width: var(--bb-sidebar-control-icon-size); height: var(--bb-sidebar-control-icon-size); }
+.compact-nav-button > * { width: var(--cc-sidebar-control-icon-size); height: var(--cc-sidebar-control-icon-size); }
 .compact-nav-button[aria-current="page"] { color: var(--primary); background: var(--sidebar-accent); }
 ```
 
@@ -531,7 +531,7 @@ component renders the remainder instead of returning `null`.
    2e with 3e (the header slot, its preference, and its picker), then 2f+2g,
    one PR each, each shipping its testing fake and guide text. The header
    slot does not depend on the flip and can land first.
-3. Phase 4 plugin behind the pinned provider, while bb's navigation stays
+3. Phase 4 plugin behind the pinned provider, while cc's navigation stays
    the default.
 4. Phase 0 + 3 + 5: flip the default, delete the host navigation, add the
    placeholder and the `Original` compatibility path.
@@ -539,7 +539,7 @@ component renders the remainder instead of returning `null`.
 
 ## Verification
 
-- `pnpm exec turbo run typecheck test --filter=@get-bb/plugin-sdk --filter=@bb/app --filter=bb-plugin-navigation`
+- `pnpm exec turbo run typecheck test --filter=@codythatsme/plugin-sdk --filter=@cc/app --filter=cc-plugin-navigation`
 - `apps/server/test/services/plugins/plugin-authoring-docs.test.ts` for
   guide parity.
 - Both SDK guards (surface check and npm version guard) against the merge
@@ -547,6 +547,6 @@ component renders the remainder instead of returning `null`.
 - Manual pass in the dev app: macOS desktop chrome (traffic lights, window
   drag between header icons), browser, iOS Simulator Safari drawer; Compact
   Nav as navigation only, as header only, and as both; hide,
-  reorder, and customize under both bb's navigation and Compact Nav 0.1.5
+  reorder, and customize under both cc's navigation and Compact Nav 0.1.5
   (compat path) and 0.2 (new API); disable the navigation plugin and confirm
   the missing placeholder; crash it and confirm Reload.

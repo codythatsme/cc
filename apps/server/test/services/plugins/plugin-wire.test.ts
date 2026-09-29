@@ -14,7 +14,7 @@ const BASE = "http://127.0.0.1:3334";
 const EVIL_ORIGIN = "https://evil.example";
 
 const WIRE_SOURCE = `
-  import { defineRpcContract } from "@get-bb/plugin-sdk";
+  import { defineRpcContract } from "@codythatsme/plugin-sdk";
   import { z } from "zod";
   const rpcContract = defineRpcContract({
     echo: {
@@ -33,24 +33,24 @@ const WIRE_SOURCE = `
     nonFiniteResult: { input: z.null(), output: z.any() },
     validated: { input: z.object({ value: z.string().min(1) }), output: z.string() },
   });
-  export default function plugin(bb: any) {
-    bb.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v1" }));
-    bb.http.route("POST", "/echo", async (c: any) =>
+  export default function plugin(cc: any) {
+    cc.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v1" }));
+    cc.http.route("POST", "/echo", async (c: any) =>
       c.json({ echoed: await c.req.json() }));
-    bb.http.route("POST", "/socket", async (c: any) =>
+    cc.http.route("POST", "/socket", async (c: any) =>
       c.json({ http: await c.req.json() }));
-    bb.http.route("GET", "/guarded", (c: any) => c.json({ guarded: true }), {
+    cc.http.route("GET", "/guarded", (c: any) => c.json({ guarded: true }), {
       auth: "token",
     });
-    bb.http.route("GET", "/open", (c: any) => c.json({ open: true }), {
+    cc.http.route("GET", "/open", (c: any) => c.json({ open: true }), {
       auth: "none",
     });
-    bb.http.route("GET", "/boom", () => {
+    cc.http.route("GET", "/boom", () => {
       throw new Error("route boom");
     });
     // A structurally valid Response whose prototype is not this realm's
     // Response, as a handler running in another realm would return (#1661).
-    bb.http.route("GET", "/foreign", () => {
+    cc.http.route("GET", "/foreign", () => {
       const real = new Response(JSON.stringify({ foreign: true }), {
         status: 201,
         statusText: "Created",
@@ -67,7 +67,7 @@ const WIRE_SOURCE = `
     });
     // Streams two chunks; the second is only produced after the test releases
     // it, so buffering the whole body would hang the first read.
-    bb.http.route("GET", "/foreign-stream", () => {
+    cc.http.route("GET", "/foreign-stream", () => {
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
@@ -87,8 +87,8 @@ const WIRE_SOURCE = `
         clone: () => real.clone(),
       };
     });
-    bb.http.route("GET", "/not-a-response", () => ({ status: 200 }));
-    bb.http.experimental_websocket("/socket", (context: any) => ({
+    cc.http.route("GET", "/not-a-response", () => ({ status: 200 }));
+    cc.http.experimental_websocket("/socket", (context: any) => ({
       onOpen(socket: any) {
         socket.send(JSON.stringify({
           marker: context.headers.get("x-test-marker"),
@@ -99,36 +99,36 @@ const WIRE_SOURCE = `
         socket.send(data);
       },
     }));
-    bb.http.experimental_websocket("/guarded-socket", () => ({
+    cc.http.experimental_websocket("/guarded-socket", () => ({
       onOpen(socket: any) {
         socket.send("guarded");
       },
     }), { auth: "token" });
-    bb.http.experimental_websocket("/open-socket", () => ({
+    cc.http.experimental_websocket("/open-socket", () => ({
       onOpen(socket: any) {
         socket.send("open");
       },
     }), { auth: "none" });
-    bb.http.experimental_websocket("/boom-socket", () => {
+    cc.http.experimental_websocket("/boom-socket", () => {
       throw new Error("socket factory boom");
     }, { auth: "none" });
-    bb.http.experimental_websocket("/event-boom", () => ({
+    cc.http.experimental_websocket("/event-boom", () => ({
       onMessage(socket: any, data: any) {
         if (data === "boom") throw new Error("socket message boom");
         socket.send(data);
       },
     }), { auth: "none" });
-    bb.rpc.register(rpcContract, {
+    cc.rpc.register(rpcContract, {
       echo: async (input: any) => ({ echoed: input }),
       boom: async () => {
         throw new Error("rpc boom");
       },
       publish: async (input: any) => {
-        bb.realtime.publish(input.channel, input.payload);
+        cc.realtime.publish(input.channel, input.payload);
         return "published";
       },
       publishBad: async () => {
-        bb.realtime.publish("bad", { n: BigInt(1) });
+        cc.realtime.publish("bad", { n: BigInt(1) });
       },
       invalidOutput: () => 42,
       bigintResult: () => BigInt(1),
@@ -157,7 +157,7 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: "0.1.0",
-      bb: {
+      cc: {
         name: "Wire fixture",
         description: "Plugin wire fixture.",
         branding: { icon: "Zap" },
@@ -197,7 +197,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
   beforeEach(async () => {
     harness = await createTestAppHarness({ devAppPort: 5173 });
     rootDir = await writePlugin(join(harness.config.dataDir, "fixtures"), {
-      name: "bb-plugin-wire",
+      name: "cc-plugin-wire",
       serverSource: WIRE_SOURCE,
     });
     const entry = await harness.pluginService.installPath(rootDir);
@@ -224,7 +224,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
     const appOrigin = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/hello`,
-      { headers: { origin: "https://bb.example.test" } },
+      { headers: { origin: "https://cc.example.test" } },
     );
     expect(appOrigin.status).toBe(200);
   });
@@ -237,7 +237,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     expect(foreignOrigin.status).toBe(403);
     expect(await foreignOrigin.json()).toMatchObject({
       ok: false,
-      error: expect.stringContaining("not a local BB app origin"),
+      error: expect.stringContaining("not a local CC app origin"),
     });
 
     const copiedPort = await harness.app.request(
@@ -253,8 +253,8 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     expect(sameOriginLan.status).toBe(200);
 
     const sameOriginReverseProxy = await harness.app.request(
-      "https://bb.lan.test/api/v1/plugins/wire/http/hello",
-      { headers: { origin: "https://bb.lan.test" } },
+      "https://cc.lan.test/api/v1/plugins/wire/http/hello",
+      { headers: { origin: "https://cc.lan.test" } },
     );
     expect(sameOriginReverseProxy.status).toBe(200);
 
@@ -368,7 +368,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
     const viaHeader = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/guarded`,
-      { headers: { "x-bb-plugin-token": token, origin: EVIL_ORIGIN } },
+      { headers: { "x-cc-plugin-token": token, origin: EVIL_ORIGIN } },
     );
     expect(viaHeader.status).toBe(200);
     expect(await viaHeader.json()).toEqual({ guarded: true });
@@ -391,13 +391,13 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
     const staleToken = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/guarded`,
-      { headers: { "x-bb-plugin-token": token } },
+      { headers: { "x-cc-plugin-token": token } },
     );
     expect(staleToken.status).toBe(401);
 
     const freshToken = await harness.app.request(
       `${BASE}/api/v1/plugins/wire/http/guarded`,
-      { headers: { "x-bb-plugin-token": nextToken } },
+      { headers: { "x-cc-plugin-token": nextToken } },
     );
     expect(freshToken.status).toBe(200);
 
@@ -513,8 +513,8 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     await writeFile(
       join(rootDir, "server.ts"),
       `
-        export default function plugin(bb: any) {
-          bb.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v2" }));
+        export default function plugin(cc: any) {
+          cc.http.route("GET", "/hello", (c: any) => c.json({ message: "hello v2" }));
         }
       `,
     );
@@ -534,10 +534,10 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     await writeFile(
       join(rootDir, "server.ts"),
       `
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const schema = { "~standard": { version: 1, vendor: "test", validate: (value: any) => ({ value }) } };
-          bb.http.route("GET", "/candidate", (c: any) => c.json({ candidate: true }));
-          bb.rpc.register({ candidate: { input: schema, output: schema } }, { candidate: () => ({ candidate: true }) });
+          cc.http.route("GET", "/candidate", (c: any) => c.json({ candidate: true }));
+          cc.rpc.register({ candidate: { input: schema, output: schema } }, { candidate: () => ({ candidate: true }) });
           throw new Error("candidate failed");
         }
       `,
@@ -659,7 +659,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     });
   });
 
-  it("bb.realtime.publish broadcasts a plugin-signal WS frame to connected clients", async () => {
+  it("cc.realtime.publish broadcasts a plugin-signal WS frame to connected clients", async () => {
     const socket = createMockHubSocket();
     harness.hub.subscribe(socket, { kind: "system" });
 
@@ -679,7 +679,7 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
     });
   });
 
-  it("bb.realtime.publish rejects payloads that do not survive JSON", async () => {
+  it("cc.realtime.publish rejects payloads that do not survive JSON", async () => {
     const response = await rpc(harness, "publishBad", {});
     expect(response.status).toBe(500);
     expect(await response.json()).toMatchObject({
@@ -693,16 +693,16 @@ describe("plugin wire surfaces (http/rpc dispatcher + realtime)", () => {
 
   it("rpc resolves the handler after the body arrives, so a reload during the body read never runs a stale handler", async () => {
     const genDir = await writePlugin(join(harness.config.dataDir, "fixtures"), {
-      name: "bb-plugin-gen",
+      name: "cc-plugin-gen",
       serverSource: `
-        import { defineRpcContract } from "@get-bb/plugin-sdk";
+        import { defineRpcContract } from "@codythatsme/plugin-sdk";
         import { z } from "zod";
         const rpcContract = defineRpcContract({ gen: { input: z.record(z.string(), z.unknown()), output: z.object({ gen: z.number() }) } });
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__wireGen = (g.__wireGen ?? 0) + 1;
           const gen = g.__wireGen;
-          bb.rpc.register(rpcContract, { gen: async () => ({ gen }) });
+          cc.rpc.register(rpcContract, { gen: async () => ({ gen }) });
         }
       `,
     });
@@ -822,7 +822,7 @@ describe("plugin WebSocket routes", () => {
   beforeEach(async () => {
     server = await startTestServer({ devAppPort: 5173 });
     rootDir = await writePlugin(join(server.config.dataDir, "fixtures"), {
-      name: "bb-plugin-wire",
+      name: "cc-plugin-wire",
       serverSource: WIRE_SOURCE,
     });
     const entry = await server.pluginService.installPath(rootDir);
@@ -895,7 +895,7 @@ describe("plugin WebSocket routes", () => {
     const guardedConnection = await openPluginWebSocketWithFirstMessage(
       guardedUrl,
       {
-        headers: { "x-bb-plugin-token": token ?? "" },
+        headers: { "x-cc-plugin-token": token ?? "" },
       },
     );
     const { socket: guarded } = guardedConnection;

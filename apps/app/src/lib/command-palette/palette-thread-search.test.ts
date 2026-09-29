@@ -1,5 +1,5 @@
-import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@bb/domain";
-import type { ThreadSearchResponse } from "@bb/server-contract";
+import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@cc/domain";
+import type { ThreadSearchResponse } from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import { buildPaletteThreadSearchRows } from "./palette-thread-search";
 

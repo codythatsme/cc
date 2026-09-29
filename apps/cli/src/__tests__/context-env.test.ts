@@ -12,8 +12,8 @@ import {
 
 describe("context-env", () => {
   beforeEach(() => {
-    vi.stubEnv("BB_PROJECT_ID", undefined);
-    vi.stubEnv("BB_THREAD_ID", undefined);
+    vi.stubEnv("CC_PROJECT_ID", undefined);
+    vi.stubEnv("CC_THREAD_ID", undefined);
   });
 
   afterEach(() => {
@@ -26,9 +26,9 @@ describe("context-env", () => {
     );
   });
 
-  it("does not use BB_PROJECT_ID and BB_THREAD_ID as explicit ID defaults", () => {
-    vi.stubEnv("BB_PROJECT_ID", "proj-env");
-    vi.stubEnv("BB_THREAD_ID", "thread-env");
+  it("does not use CC_PROJECT_ID and CC_THREAD_ID as explicit ID defaults", () => {
+    vi.stubEnv("CC_PROJECT_ID", "proj-env");
+    vi.stubEnv("CC_THREAD_ID", "thread-env");
 
     expect(
       resolveExplicitIdFlag({ flagName: "--project flag", value: undefined }),
@@ -42,8 +42,8 @@ describe("context-env", () => {
   });
 
   it("resolves explicit project and thread flags", () => {
-    vi.stubEnv("BB_PROJECT_ID", "proj-env");
-    vi.stubEnv("BB_THREAD_ID", "thread-env");
+    vi.stubEnv("CC_PROJECT_ID", "proj-env");
+    vi.stubEnv("CC_THREAD_ID", "thread-env");
 
     expect(
       resolveExplicitIdFlag({ flagName: "--project flag", value: "proj-flag" }),
@@ -57,8 +57,8 @@ describe("context-env", () => {
   });
 
   it("normalizes empty values as undefined", () => {
-    vi.stubEnv("BB_PROJECT_ID", "");
-    vi.stubEnv("BB_THREAD_ID", "   ");
+    vi.stubEnv("CC_PROJECT_ID", "");
+    vi.stubEnv("CC_THREAD_ID", "   ");
 
     expect(
       resolveExplicitIdFlag({ flagName: "--project flag", value: undefined }),
@@ -72,7 +72,7 @@ describe("context-env", () => {
   });
 
   it("resolves explicit ID flags without environment fallback", () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-env");
+    vi.stubEnv("CC_THREAD_ID", "thread-env");
 
     expect(
       resolveExplicitIdFlag({
@@ -104,8 +104,8 @@ describe("context-env", () => {
   });
 
   it("captures a consistent context snapshot", () => {
-    vi.stubEnv("BB_PROJECT_ID", "proj-1");
-    vi.stubEnv("BB_THREAD_ID", "thread-1");
+    vi.stubEnv("CC_PROJECT_ID", "proj-1");
+    vi.stubEnv("CC_THREAD_ID", "thread-1");
 
     expect(resolveContextProjectId()).toBe("proj-1");
     expect(resolveContextThreadId()).toBe("thread-1");
@@ -118,8 +118,8 @@ describe("context-env", () => {
   it("resolves connection settings from one CLI runtime context", () => {
     const context = createCliRuntimeContext({
       cliConfig: {
-        BB_HOST_DAEMON_PORT: 4567,
-        BB_SERVER_URL: "http://server.test",
+        CC_HOST_DAEMON_PORT: 4567,
+        CC_SERVER_URL: "http://server.test",
       },
     });
 
@@ -129,8 +129,8 @@ describe("context-env", () => {
     );
   });
 
-  it("resolves --self from BB_THREAD_ID for thread commands", () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-self");
+  it("resolves --self from CC_THREAD_ID for thread commands", () => {
+    vi.stubEnv("CC_THREAD_ID", "thread-self");
 
     expect(requireThreadIdOrSelf(undefined, { self: true })).toBe(
       "thread-self",
@@ -138,7 +138,7 @@ describe("context-env", () => {
   });
 
   it("rejects combining a thread id with --self for thread commands", () => {
-    vi.stubEnv("BB_THREAD_ID", "thread-self");
+    vi.stubEnv("CC_THREAD_ID", "thread-self");
 
     expect(() =>
       requireThreadIdOrSelf("thread-explicit", { self: true }),

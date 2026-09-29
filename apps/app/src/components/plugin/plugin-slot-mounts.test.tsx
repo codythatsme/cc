@@ -17,14 +17,14 @@ import {
 } from "@testing-library/react";
 import { createStore } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@cc/domain";
 import type {
   ExperimentalComposerSelection,
   PluginComposerApi,
   PluginFileOpenerProps,
   PluginNewThreadPanelProps,
   PluginThreadPanelProps,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { createPluginPanelFixedPanelTab } from "@/lib/fixed-panel-tabs-state";
 import {
   resetPluginSlotStoreForTest,
@@ -79,7 +79,7 @@ import {
 import { NewTabActions } from "@/components/secondary-panel/NewTabActions";
 import { buildFileOpenerPanelTab } from "./file-opener-tabs";
 import { splitLayoutAtom } from "@/lib/split-layout/atoms";
-import type { PromptDraftState } from "@bb/client-core";
+import type { PromptDraftState } from "@cc/client-core";
 
 function composerTextEffectValues(storageKey: string | null) {
   return getComposerTextEffects(storageKey).map(({ effect }) => effect);
@@ -1582,20 +1582,20 @@ describe("Navigation plugin + PluginPanelView", () => {
       </MemoryRouter>,
     );
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-cc-plugin-css="demo"]'),
     ).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Leave panel" }));
     await act(async () => {});
     expect(screen.getByText("home")).toBeDefined();
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-cc-plugin-css="demo"]'),
     ).not.toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_500);
     });
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-cc-plugin-css="demo"]'),
     ).toBeNull();
   });
 
@@ -1673,7 +1673,7 @@ describe("Navigation plugin + PluginPanelView", () => {
     );
     renderNavigationHarness({
       initialEntries: [
-        "/plugins/simple-notes/simple-notes/bb-plugin-marketplaces-and-compatible-updates.md",
+        "/plugins/simple-notes/simple-notes/cc-plugin-marketplaces-and-compatible-updates.md",
       ],
     });
 
@@ -1828,20 +1828,20 @@ describe("plugin panel shared title bar and full-bleed body", () => {
       screen.getByRole("button", { name: "Toggle sidebar" }),
     ).toBeDefined();
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-cc-plugin-css="demo"]'),
     ).not.toBeNull();
     expect(screen.queryByTestId("plugin-panel-body")).toBeNull();
 
     view.unmount();
     await act(async () => {});
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-cc-plugin-css="demo"]'),
     ).not.toBeNull();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_500);
     });
     expect(
-      document.head.querySelector('link[data-bb-plugin-css="demo"]'),
+      document.head.querySelector('link[data-cc-plugin-css="demo"]'),
     ).toBeNull();
   });
 
@@ -2641,7 +2641,7 @@ describe("file opener experimental_Original alias", () => {
     expect(renders).toBe(2);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
-      "experimental_Original is deprecated; use Original. Removed in bb 0.42",
+      "experimental_Original is deprecated; use Original. Removed in cc 0.42",
     );
   });
 

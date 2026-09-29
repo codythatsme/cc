@@ -3,7 +3,7 @@
   "name": "coarse-pointer-visibility",
   "type": "registry:ui",
   "title": "coarse-pointer-visibility",
-  "description": "BB ui \"coarse-pointer-visibility\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"coarse-pointer-visibility\" — vendored from the CC app's own source (version-matched to this CC release).",
   "files": [
     {
       "path": "registry/components/ui/coarse-pointer-visibility.ts",

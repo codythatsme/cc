@@ -1,3 +1,3 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 
-export default function plugin(_bb: BbPluginApi) {}
+export default function plugin(_cc: CcPluginApi) {}

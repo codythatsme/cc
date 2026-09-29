@@ -2,7 +2,7 @@ import type {
   DeltaFileChange,
   DeltaItemShape,
   DeltaPresentation,
-} from "@bb/provider-bridge-protocol";
+} from "@cc/provider-bridge-protocol";
 import {
   REASONING_PRESENTATION,
   extractResultText,
@@ -11,7 +11,7 @@ import {
   toOptionalString,
   toolPresentation,
   webFetchPresentation,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@cc/provider-bridge-protocol/bridge-kit";
 import { z } from "zod";
 import {
   commandPresentation,
@@ -38,7 +38,7 @@ export interface AcpInjectedTool {
   presentation?: DeltaPresentation;
 }
 
-const BB_TOOL_SERVER = "bb";
+const CC_TOOL_SERVER = "cc";
 
 export function isInjectedToolCandidate(
   event: AcpToolCallUpdateEvent,
@@ -466,7 +466,7 @@ function genericToolItem(
   };
 }
 
-function bbToolItem(
+function ccToolItem(
   event: AcpToolCallUpdateEvent,
   injected: AcpInjectedTool,
 ): AcpClassifiedToolCall {
@@ -474,7 +474,7 @@ function bbToolItem(
     item: {
       type: "tool",
       tool: injected.name,
-      server: BB_TOOL_SERVER,
+      server: CC_TOOL_SERVER,
       ...genericToolFields(event),
     },
     presentation: injected.presentation ?? toolPresentation(injected.name),
@@ -487,7 +487,7 @@ export function classifyAcpToolCall(
   options?: AcpToolCallPathOptions,
 ): AcpClassifiedToolCall {
   if (injected !== undefined && isInjectedToolCandidate(event)) {
-    return bbToolItem(event, injected);
+    return ccToolItem(event, injected);
   }
   const operation = classifyAcpToolCallOperation(event, options);
   if (operation.kind === "command") {

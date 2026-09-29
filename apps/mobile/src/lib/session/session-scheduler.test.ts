@@ -1,4 +1,4 @@
-import { ConnectListError, type DesktopSession } from "@bb/connect-client";
+import { ConnectListError, type DesktopSession } from "@cc/connect-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConnectServerProfile } from "../profiles/profile";
 import type { CookieStoreLike, SessionCookieSpec } from "./cookie-store";
@@ -10,7 +10,7 @@ const MINUTE = 60 * 1000;
 const profile: ConnectServerProfile = {
   id: "p1",
   mode: "connect",
-  serverUrl: "https://bee.getbb.app",
+  serverUrl: "https://bee.cc.example.invalid",
   label: "bee",
   handle: "bee",
   credential: "bbcm_secret",
@@ -20,9 +20,9 @@ const profile: ConnectServerProfile = {
 function session(expiresAt: number, value = "sess"): DesktopSession {
   return {
     cookie: {
-      name: "bb_desktop_session",
+      name: "cc_desktop_session",
       value,
-      domain: ".getbb.app",
+      domain: ".cc.example.invalid",
       expiresAt,
     },
   };
@@ -72,11 +72,11 @@ describe("createSessionScheduler", () => {
     });
     expect(cookies.map((c) => c.useWebKit)).toEqual([false, true]);
     expect(cookies[0]).toMatchObject({
-      url: "https://bee.getbb.app",
+      url: "https://bee.cc.example.invalid",
       cookie: {
-        name: "bb_desktop_session",
+        name: "cc_desktop_session",
         value: "one",
-        domain: ".getbb.app",
+        domain: ".cc.example.invalid",
         path: "/",
         secure: true,
         httpOnly: true,

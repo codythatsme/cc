@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { afterEach, expect, it } from "vitest";
-import { installTestPluginRuntime } from "@get-bb/plugin-sdk/testing/app";
+import { installTestPluginRuntime } from "@codythatsme/plugin-sdk/testing/app";
 import { threadRowActionsAtom } from "../preferences/atoms.js";
 
 installTestPluginRuntime();

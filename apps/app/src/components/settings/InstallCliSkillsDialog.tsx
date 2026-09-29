@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import type { Host } from "@bb/domain";
-import type { CliSkillMachineStatus } from "@bb/server-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Checkbox } from "@bb/shared-ui/checkbox";
+import type { Host } from "@cc/domain";
+import type { CliSkillMachineStatus } from "@cc/server-contract";
+import { Button } from "@cc/shared-ui/button";
+import { Checkbox } from "@cc/shared-ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
+} from "@cc/shared-ui/dialog";
 import { MachineStatusDot } from "@/components/machines/MachineStatusDot";
 
 interface InstallCliSkillsDialogContentProps {
@@ -61,7 +61,7 @@ function InstallCliSkillsDialogContent({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Install bb CLI skills</DialogTitle>
+        <DialogTitle>Install cc CLI skills</DialogTitle>
         <DialogDescription>
           {choosable
             ? "Choose the machines to install them onto. Each one gets the skills in ~/.agents/skills and ~/.claude/skills, replacing any copy already there."

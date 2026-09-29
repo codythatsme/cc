@@ -1,32 +1,32 @@
 import {
-  createBbSdk,
+  createCcSdk,
   createBuiltinPlanCommandTextInput,
-  type BbSdk,
-  type BbSdkAreas,
+  type CcSdk,
+  type CcSdkAreas,
 } from "./core.js";
 import { createHttpTransport } from "./transport-http.js";
 import type {
-  BbRealtimeSocketFactory,
-  BbSdkContext,
-  BbSdkTransport,
+  CcRealtimeSocketFactory,
+  CcSdkContext,
+  CcSdkTransport,
 } from "./transport.js";
 
 export interface CreateBrowserTransportArgs {
   baseUrl?: string;
   fetch?: typeof fetch;
   realtimeUrl?: string;
-  websocket?: BbRealtimeSocketFactory;
+  websocket?: CcRealtimeSocketFactory;
 }
 
-export interface CreateBrowserBbSdkArgs extends CreateBrowserTransportArgs {
-  context?: BbSdkContext;
+export interface CreateBrowserCcSdkArgs extends CreateBrowserTransportArgs {
+  context?: CcSdkContext;
 }
 
-export type BrowserBbSdk = BbSdkAreas;
+export type BrowserCcSdk = CcSdkAreas;
 
 export function createBrowserTransport(
   args: CreateBrowserTransportArgs = {},
-): BbSdkTransport {
+): CcSdkTransport {
   return createHttpTransport({
     baseUrl: args.baseUrl,
     fetch: args.fetch,
@@ -36,18 +36,18 @@ export function createBrowserTransport(
   });
 }
 
-export function createBrowserBbSdk(
-  args: CreateBrowserBbSdkArgs = {},
-): BrowserBbSdk {
-  return createBbSdk({
+export function createBrowserCcSdk(
+  args: CreateBrowserCcSdkArgs = {},
+): BrowserCcSdk {
+  return createCcSdk({
     context: args.context,
     transport: createBrowserTransport(args),
   });
 }
 
-export { BbHttpError, BbRequestTimeoutError } from "./response.js";
-export type { BbHttpErrorArgs } from "./response.js";
-export { createBbSdk, createBuiltinPlanCommandTextInput, createHttpTransport };
-export type { BbSdk, BbSdkAreas, BbSdkContext, BbSdkTransport };
+export { CcHttpError, CcRequestTimeoutError } from "./response.js";
+export type { CcHttpErrorArgs } from "./response.js";
+export { createCcSdk, createBuiltinPlanCommandTextInput, createHttpTransport };
+export type { CcSdk, CcSdkAreas, CcSdkContext, CcSdkTransport };
 export type * from "./areas/skills.js";
 export type * from "./public-types.js";

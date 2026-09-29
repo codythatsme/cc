@@ -4,27 +4,27 @@ import {
   UrlLink as UrlLink,
   useRealtime,
   useRpc,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import {
   encodeMobilePairingPayload,
   mobilePairingPayload,
   type MobilePairingPayload,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 import type { connectRpcContract } from "./src/rpc.js";
 import type { MachineCodeErrorCode } from "./src/machine-code.js";
 import type { ConnectPairErrorCode } from "./src/redeem.js";
 import QRCode from "qrcode";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/dialog";
+import { Icon } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { CONNECT_REALTIME_CHANNEL, type ConnectStatus } from "@/src/types";
 
 function errorText(error: unknown): string {
@@ -136,9 +136,7 @@ function asStatus(payload: unknown): ConnectStatus | null {
     handle: typeof record.handle === "string" ? record.handle : null,
     url: typeof record.url === "string" ? record.url : null,
     dashboardUrl:
-      typeof record.dashboardUrl === "string"
-        ? record.dashboardUrl
-        : "https://getbb.app/dashboard",
+      typeof record.dashboardUrl === "string" ? record.dashboardUrl : "",
     lastError: typeof record.lastError === "string" ? record.lastError : null,
     nextRetryAt:
       typeof record.nextRetryAt === "number" ? record.nextRetryAt : null,
@@ -507,13 +505,13 @@ function MobilePairingCard({
       <div className={cn("shrink-0", expired && "opacity-40 saturate-0")}>
         <QrCodeImage
           value={qrText}
-          alt="QR code to pair the bb mobile app"
+          alt="QR code to pair the cc mobile app"
           className="size-40"
         />
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         <p className="text-sm">
-          Scan this with the bb mobile app, or enter the code by hand.
+          Scan this with the cc mobile app, or enter the code by hand.
         </p>
         <div className="flex max-w-xs items-center gap-1 rounded-lg border border-border bg-surface-recessed py-1 pl-3.5 pr-1">
           <span
@@ -559,7 +557,7 @@ function MobilePairingCard({
           The code works once. Your phone gets its own credential on your{" "}
           {dashboardHost} account — it shows up in the dashboard&apos;s machine
           list, where you can revoke it. Same thing from a terminal:{" "}
-          <span className="font-mono">bb connect machine-code</span>.
+          <span className="font-mono">cc connect machine-code</span>.
         </p>
       </div>
     </div>
@@ -668,8 +666,8 @@ function AddMobileDeviceSectionContent({
         />
       ) : (
         <p className="text-xs text-subtle-foreground/75">
-          Pair the bb mobile app with this bb. It gets a one-time code to scan
-          or type; the phone then reaches this bb through {dashboardHost}.
+          Pair the cc mobile app with this cc. It gets a one-time code to scan
+          or type; the phone then reaches this cc through {dashboardHost}.
         </p>
       )}
 
@@ -689,7 +687,7 @@ function AddMobileDeviceSectionContent({
       ) : errorCode !== null ? (
         <p className="text-xs text-destructive-text">
           {errorCode === "not_paired"
-            ? "This bb is no longer paired — re-pair, then try again."
+            ? "This cc is no longer paired — re-pair, then try again."
             : "Couldn't reach the Connect service to create a code — check your connection, then try again."}
         </p>
       ) : null}
@@ -990,10 +988,20 @@ function NotPairedContent({
   onPaired: () => void;
 }) {
   const dashboardHost = hostOf(dashboardUrl);
+  if (!dashboardUrl) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Remote access requires a connect service that you operate. Set
+        CC_CONNECT_BASE_URL to its origin and restart cc, or pair using cc
+        connect --code &lt;code&gt; --server &lt;server-url&gt;. Local and
+        tailnet access work without a connect service.
+      </p>
+    );
+  }
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Pairing gives this bb a private URL like{" "}
+        Pairing gives this cc a private URL like{" "}
         <span className="rounded bg-surface-recessed px-1.5 py-0.5 font-mono text-xs text-foreground">
           you.{dashboardHost}
         </span>
@@ -1029,7 +1037,7 @@ function NotPairedContent({
           className="mt-px size-3.5 shrink-0 opacity-70"
         />
         Anyone signed in to your {dashboardHost} account gets full control of
-        this bb.
+        this cc.
       </p>
     </div>
   );
@@ -1068,7 +1076,7 @@ function DisconnectControls({
     );
   }, [rpc, onChanged, onDisconnected]);
 
-  const host = status.url !== null ? hostOf(status.url) : "this bb";
+  const host = status.url !== null ? hostOf(status.url) : "this cc";
 
   return (
     <>
@@ -1140,7 +1148,7 @@ function ConnectedContent({
       {repairOpen ? (
         <div className="space-y-2 rounded-md border border-border bg-surface-recessed/50 px-3 py-3">
           <p className="text-xs text-muted-foreground">
-            Re-pairing replaces this bb&apos;s credential. Paste a fresh code
+            Re-pairing replaces this cc&apos;s credential. Paste a fresh code
             from your dashboard.
           </p>
           <PairForm dashboardUrl={status.dashboardUrl} onPaired={onChanged} />
@@ -1153,7 +1161,7 @@ function ConnectedContent({
 
       <DisconnectControls
         status={status}
-        note="Disconnecting forgets this bb's credential."
+        note="Disconnecting forgets this cc's credential."
         onChanged={onChanged}
         onDisconnected={onDisconnected}
       />
@@ -1188,7 +1196,7 @@ function ReconnectingContent({
 
       <div className="space-y-2 pointer-events-none opacity-60 saturate-[0.85]">
         <p className="text-sm text-muted-foreground">
-          Your bb will be reachable again at:
+          Your cc will be reachable again at:
         </p>
         {status.url !== null ? (
           <UrlHero url={status.url} showOpen={false} />
@@ -1199,7 +1207,7 @@ function ReconnectingContent({
 
       <DisconnectControls
         status={status}
-        note="Remote devices can't reach this bb right now. Local access is unaffected."
+        note="Remote devices can't reach this cc right now. Local access is unaffected."
         onChanged={onChanged}
         onDisconnected={onDisconnected}
       />
@@ -1302,7 +1310,7 @@ export default definePluginApp((app) => {
   app.slots.settingsSection({
     id: "remote-access",
     description:
-      "Use this bb from any device, anywhere — powered by getbb.app.",
+      "Use this cc from any device, anywhere — using your own connect service.",
     component: ConnectSettingsSection,
   });
   app.experimental_sidebarFooter.register({

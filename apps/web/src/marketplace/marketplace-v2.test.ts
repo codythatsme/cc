@@ -127,7 +127,7 @@ describe("parseMarketplaceV2Manifest", () => {
           screenshots: Array.from(
             { length: 8 },
             (_, index) =>
-              `https://getbb.app/marketplace/v2/screenshots/plugin/${index}.png`,
+              `https://cc.example.invalid/marketplace/v2/screenshots/plugin/${index}.png`,
           ),
         },
       ],

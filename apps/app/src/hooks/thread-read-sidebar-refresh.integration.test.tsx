@@ -3,7 +3,7 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useQuery } from "@tanstack/react-query";
 import { afterEach, expect, it, vi } from "vitest";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import { sdk } from "@/lib/sdk";
 import {
   makeSidebarBootstrapResponse,

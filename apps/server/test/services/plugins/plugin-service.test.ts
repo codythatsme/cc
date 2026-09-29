@@ -23,19 +23,16 @@ import {
   upsertInstalledPlugin,
   upsertPluginMarketplace,
   type DbConnection,
-} from "@bb/db";
-import { PLUGIN_SDK_VERSION, type SystemChangeKind } from "@bb/domain";
-import type { Logger } from "@bb/logger";
-import { pluginListResponseSchema } from "@bb/server-contract";
+} from "@cc/db";
+import { PLUGIN_SDK_VERSION, type SystemChangeKind } from "@cc/domain";
+import type { Logger } from "@cc/logger";
+import { pluginListResponseSchema } from "@cc/server-contract";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
   type PluginService,
 } from "../../../src/services/plugins/plugin-service.js";
 import { testLogger } from "../../helpers/test-app.js";
-import { pluginInstalledTelemetryEvent } from "../../../src/services/plugins/plugin-registration.js";
-import type { TelemetryEvent } from "../../../src/services/system/telemetry.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 import { createProviderRegistryService } from "../../../src/services/providers/provider-registry.js";
 
 const logger = testLogger as unknown as Logger;
@@ -47,7 +44,7 @@ async function writePlugin(
     version?: string;
     engines?: string;
     serverSource: string;
-    bb?: Record<string, unknown>;
+    cc?: Record<string, unknown>;
   },
 ): Promise<string> {
   const rootDir = join(dir, options.name);
@@ -57,13 +54,13 @@ async function writePlugin(
     JSON.stringify({
       name: options.name,
       version: options.version ?? "0.1.0",
-      ...(options.engines ? { engines: { bb: options.engines } } : {}),
-      bb: {
+      ...(options.engines ? { engines: { cc: options.engines } } : {}),
+      cc: {
         name: "Service fixture",
         description: "Plugin service fixture.",
         branding: { icon: "Zap" },
         server: "./server.ts",
-        ...options.bb,
+        ...options.cc,
       },
     }),
   );
@@ -76,10 +73,10 @@ async function writeEsmPlugin(rootDir: string, id: string): Promise<void> {
   await writeFile(
     join(rootDir, "package.json"),
     JSON.stringify({
-      name: `bb-plugin-${id}`,
+      name: `cc-plugin-${id}`,
       version: "0.1.0",
       type: "module",
-      bb: {
+      cc: {
         name: `${id} fixture`,
         description: "ESM reload fixture.",
         branding: { icon: "Zap" },
@@ -116,10 +113,9 @@ describe("plugin service", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -133,9 +129,7 @@ describe("plugin service", () => {
     });
   });
 
-  function createTelemetryTrackedService(
-    captured: TelemetryEvent[],
-  ): PluginService {
+  function createUnbundledService(): PluginService {
     return createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
@@ -145,10 +139,6 @@ describe("plugin service", () => {
         notifySystem: () => {},
       },
       logger,
-      telemetry: {
-        ...createNoopTelemetryService(),
-        capture: (event) => captured.push(event),
-      },
       dataDir: join(workDir, "data"),
       appVersion: "0.9.0",
       bundledPlugins: [],
@@ -167,12 +157,12 @@ describe("plugin service", () => {
 
   it("installs a path plugin, runs its factory, and reports running", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-greeter",
+      name: "cc-plugin-greeter",
       serverSource: `
-        import type { BbPluginApi } from "@get-bb/plugin-sdk";
-        export default function plugin(bb: any) {
+        import type { CcPluginApi } from "@codythatsme/plugin-sdk";
+        export default function plugin(cc: any) {
           (globalThis as any).__greeterLoads = ((globalThis as any).__greeterLoads ?? 0) + 1;
-          bb.log.info("hello from greeter");
+          cc.log.info("hello from greeter");
         }
       `,
     });
@@ -186,13 +176,13 @@ describe("plugin service", () => {
     "reports starting while a %s factory is pending",
     async (mode) => {
       const rootDir = await writePlugin(workDir, {
-        name: "bb-plugin-starting",
+        name: "cc-plugin-starting",
         serverSource: `export default function plugin() { throw new Error("failed"); }`,
       });
       expect((await service.installPath(rootDir)).status).toBe("error");
       if (mode === "startup") {
         await service.stop();
-        service = createTelemetryTrackedService([]);
+        service = createUnbundledService();
         expect(service.list()[0]).toMatchObject({
           status: "starting",
           statusDetail: null,
@@ -248,7 +238,7 @@ describe("plugin service", () => {
   );
 
   it("summarizes user-facing capabilities and drops the live ones when disabled", async () => {
-    const rootDir = join(workDir, "bb-plugin-capabilities");
+    const rootDir = join(workDir, "cc-plugin-capabilities");
     await mkdir(join(rootDir, "skills", "review"), { recursive: true });
     await mkdir(join(rootDir, "skills", "triage"), { recursive: true });
     await mkdir(join(rootDir, "skills", "not-a-skill"), { recursive: true });
@@ -256,8 +246,8 @@ describe("plugin service", () => {
     await writeFile(join(rootDir, "skills", "triage", "SKILL.md"), "# triage");
     await writeFile(join(rootDir, "midnight.css"), ":root { --canvas: #000; }");
     await writePlugin(workDir, {
-      name: "bb-plugin-capabilities",
-      bb: {
+      name: "cc-plugin-capabilities",
+      cc: {
         themes: [
           {
             id: "midnight",
@@ -268,14 +258,14 @@ describe("plugin service", () => {
         ],
       },
       serverSource: `
-        export default function plugin(bb: any) {
-          bb.agents.registerTool({
+        export default function plugin(cc: any) {
+          cc.agents.registerTool({
             name: "capabilities_probe",
             description: "Probe capabilities",
             parameters: { type: "object" },
             execute: async () => ({ content: "ok" }),
           });
-          bb.ui.registerMentionProvider({
+          cc.ui.registerMentionProvider({
             id: "issues",
             label: "Issues",
             triggers: ["#"],
@@ -333,11 +323,11 @@ describe("plugin service", () => {
 
   it("marks a throwing factory as error without affecting others", async () => {
     const bad = await writePlugin(workDir, {
-      name: "bb-plugin-bad",
+      name: "cc-plugin-bad",
       serverSource: `export default function plugin() { throw new Error("boom at load"); }`,
     });
     const good = await writePlugin(workDir, {
-      name: "bb-plugin-good",
+      name: "cc-plugin-good",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(bad);
@@ -352,14 +342,14 @@ describe("plugin service", () => {
 
   it("reload re-runs the factory against current sources and runs dispose hooks LIFO", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-cycler",
+      name: "cc-plugin-cycler",
       serverSource: `
-        export default function plugin(bb: any) {
+        export default function plugin(cc: any) {
           const g = globalThis as any;
           g.__cyclerVersion = "v1";
           g.__cyclerDisposals = g.__cyclerDisposals ?? [];
-          bb.onDispose(() => g.__cyclerDisposals.push("first"));
-          bb.onDispose(() => g.__cyclerDisposals.push("second"));
+          cc.onDispose(() => g.__cyclerDisposals.push("first"));
+          cc.onDispose(() => g.__cyclerDisposals.push("second"));
         }
       `,
     });
@@ -378,7 +368,7 @@ describe("plugin service", () => {
   });
 
   it("reload re-reads an ESM plugin's entry and its submodules", async () => {
-    const rootDir = join(workDir, "bb-plugin-esm-reloader");
+    const rootDir = join(workDir, "cc-plugin-esm-reloader");
     await writeEsmPlugin(rootDir, "esm-reloader");
     const globals = globalThis as Record<string, unknown>;
 
@@ -397,9 +387,9 @@ describe("plugin service", () => {
 
   it("runs a CommonJS entry whose module.exports is the factory", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-cjs-factory",
+      name: "cc-plugin-cjs-factory",
       serverSource: "",
-      bb: { server: "./server.cjs" },
+      cc: { server: "./server.cjs" },
     });
     await writeFile(
       join(rootDir, "server.cjs"),
@@ -417,7 +407,7 @@ describe("plugin service", () => {
   });
 
   it("reload re-reads a plugin's CommonJS children", async () => {
-    const rootDir = join(workDir, "bb-plugin-cjs-child");
+    const rootDir = join(workDir, "cc-plugin-cjs-child");
     await writeEsmPlugin(rootDir, "cjs-child");
     const writeSources = async (value: string): Promise<void> => {
       await writeFile(
@@ -450,8 +440,8 @@ describe("plugin service", () => {
   });
 
   it("loads cross-plugin imports while reloading the imported plugin", async () => {
-    const importerDir = join(workDir, "bb-plugin-importer");
-    const importedDir = join(workDir, "bb-plugin-imported");
+    const importerDir = join(workDir, "cc-plugin-importer");
+    const importedDir = join(workDir, "cc-plugin-imported");
     await writeEsmPlugin(importerDir, "importer");
     await writeEsmPlugin(importedDir, "imported");
     await writeEsmSources(importedDir, "imported", "entry1", "sub1");
@@ -482,8 +472,8 @@ describe("plugin service", () => {
   });
 
   it("hides a failed reload's sources from a plugin that imports it", async () => {
-    const importerDir = join(workDir, "bb-plugin-fail-importer");
-    const importedDir = join(workDir, "bb-plugin-fail-imported");
+    const importerDir = join(workDir, "cc-plugin-fail-importer");
+    const importedDir = join(workDir, "cc-plugin-fail-imported");
     await writeEsmPlugin(importerDir, "fail-importer");
     await writeEsmPlugin(importedDir, "fail-imported");
     await writeEsmSources(importedDir, "failImported", "entry1", "sub1");
@@ -567,7 +557,7 @@ describe("plugin service", () => {
   });
 
   it("keeps a live plugin's lazy imports coherent after a failed reload", async () => {
-    const rootDir = join(workDir, "bb-plugin-rollback");
+    const rootDir = join(workDir, "cc-plugin-rollback");
     await writeEsmPlugin(rootDir, "rollbacker");
     await writeFile(join(rootDir, "lazy.js"), `export const LAZY = "lazy1";\n`);
     await writeFile(
@@ -599,10 +589,10 @@ describe("plugin service", () => {
 
   it("stale API handles throw after reload", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-staler",
+      name: "cc-plugin-staler",
       serverSource: `
-        export default function plugin(bb: any) {
-          (globalThis as any).__stalerApi = bb;
+        export default function plugin(cc: any) {
+          (globalThis as any).__stalerApi = cc;
         }
       `,
     });
@@ -616,7 +606,7 @@ describe("plugin service", () => {
 
   it("marks initial engine mismatches incompatible and preserves a live plugin when reload finds its directory missing", async () => {
     const tooNew = await writePlugin(workDir, {
-      name: "bb-plugin-too-new",
+      name: "cc-plugin-too-new",
       engines: ">=99.0.0",
       serverSource: `export default function plugin() {}`,
     });
@@ -626,7 +616,7 @@ describe("plugin service", () => {
     );
 
     const vanishing = await writePlugin(workDir, {
-      name: "bb-plugin-vanishing",
+      name: "cc-plugin-vanishing",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(vanishing);
@@ -643,7 +633,7 @@ describe("plugin service", () => {
     const globals = globalThis as Record<string, unknown>;
     globals.__slowFactoryEntered = false;
     const slowRoot = await writePlugin(workDir, {
-      name: "bb-plugin-aaa-slow",
+      name: "cc-plugin-aaa-slow",
       serverSource: `
         export default async function plugin() {
           (globalThis as any).__slowFactoryEntered = true;
@@ -652,11 +642,11 @@ describe("plugin service", () => {
       `,
     });
     const pendingRoot = await writePlugin(workDir, {
-      name: "bb-plugin-zzz-pending",
+      name: "cc-plugin-zzz-pending",
       serverSource: `export default function plugin() {}`,
     });
     const brokenRoot = await writePlugin(workDir, {
-      name: "bb-plugin-zzz-broken",
+      name: "cc-plugin-zzz-broken",
       serverSource: `export default function plugin() { throw new Error("nope"); }`,
     });
     const install = (id: string, rootDir: string) => {
@@ -684,7 +674,6 @@ describe("plugin service", () => {
 
     const booting = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -737,7 +726,6 @@ describe("plugin service", () => {
     const makeService = (appVersion: string) =>
       createPluginService({
         aiServices: createAiServiceRegistry(),
-        telemetry: createNoopTelemetryService(),
         db,
         hub: {
           getDaemonSessionIdForHost: () => null,
@@ -751,7 +739,7 @@ describe("plugin service", () => {
         bundledPlugins: [],
       });
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-notify",
+      name: "cc-plugin-notify",
       version: "0.2.1",
       engines: ">=0.38.0 <0.39.0",
       serverSource: `export default function plugin() {}`,
@@ -780,29 +768,29 @@ describe("plugin service", () => {
     const entry = after.list().find((p) => p.id === "notify");
     expect(entry?.status).toBe("incompatible");
     expect(entry?.statusDetail).toBe(
-      "requires bb >=0.38.0 <0.39.0, this is 0.39.0",
+      "requires cc >=0.38.0 <0.39.0, this is 0.39.0",
     );
     expect(lines).toContain(
-      "warn plugin notify not loaded (incompatible): requires bb >=0.38.0 <0.39.0, this is 0.39.0",
+      "warn plugin notify not loaded (incompatible): requires cc >=0.38.0 <0.39.0, this is 0.39.0",
     );
     await after.stop();
   });
 
   it("keeps a persisted 0.4.8 scaffold plugin running after an SDK upgrade", async () => {
     const fixtureDir = new URL(
-      "../../fixtures/plugins/bb-plugin-sdk-0.4.8-scaffold/",
+      "../../fixtures/plugins/cc-plugin-sdk-0.4.8-scaffold/",
       import.meta.url,
     );
-    const rootDir = join(workDir, "bb-plugin-sdk-upgrade-fixture");
+    const rootDir = join(workDir, "cc-plugin-sdk-upgrade-fixture");
     await cp(fixtureDir, rootDir, { recursive: true });
     const manifest = JSON.parse(
       await readFile(join(rootDir, "package.json"), "utf8"),
     ) as {
-      engines: { bbPluginSdk: string };
+      engines: { ccPluginSdk: string };
       devDependencies: Record<string, string>;
     };
-    expect(manifest.engines.bbPluginSdk).toBe(">=0.4.8");
-    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe("0.4.8");
+    expect(manifest.engines.ccPluginSdk).toBe(">=0.4.8");
+    expect(manifest.devDependencies["@codythatsme/plugin-sdk"]).toBe("0.4.8");
     expect(semver.gt(PLUGIN_SDK_VERSION, "0.4.8")).toBe(true);
 
     upsertInstalledPlugin(db, {
@@ -825,7 +813,6 @@ describe("plugin service", () => {
 
     const upgraded = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -854,7 +841,6 @@ describe("plugin service", () => {
   it("skips the engines gate on 0.0.0 dev builds instead of marking everything incompatible", async () => {
     const devService = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -867,116 +853,13 @@ describe("plugin service", () => {
       loadTimeoutMs: 2000,
     });
     const gated = await writePlugin(workDir, {
-      name: "bb-plugin-dev-gated",
+      name: "cc-plugin-dev-gated",
       engines: ">=0.9",
       serverSource: `export default function plugin() {}`,
     });
     const entry = await devService.installPath(gated);
     expect(entry.status).toBe("running");
     await devService.stop();
-  });
-
-  it("reports one anonymous plugin_installed event per user install", async () => {
-    const captured: TelemetryEvent[] = [];
-    const tracked = createTelemetryTrackedService(captured);
-    const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-tracked",
-      serverSource: "export default function plugin() {}",
-    });
-    const installed = await tracked.installPath(rootDir);
-    expect(installed.status).toBe("running");
-    expect(captured).toEqual([
-      {
-        name: "plugin_installed",
-        properties: {
-          plugin_id: null,
-          provenance: "direct",
-          marketplace: null,
-          source_kind: "path",
-        },
-      },
-    ]);
-    await tracked.reload("tracked");
-    expect(tracked.list().find((entry) => entry.id === "tracked")?.status).toBe(
-      "running",
-    );
-    expect((await tracked.setEnabled("tracked", false))?.status).toBe(
-      "disabled",
-    );
-    expect((await tracked.setEnabled("tracked", true))?.status).toBe("running");
-    expect(captured).toHaveLength(1);
-    await tracked.stop();
-  });
-
-  it("does not report plugin_installed during boot-time reconcile", async () => {
-    const captured: TelemetryEvent[] = [];
-    const tracked = createTelemetryTrackedService(captured);
-    const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-reconciled",
-      serverSource: "export default function plugin() {}",
-    });
-    await tracked.installPath(rootDir);
-    await tracked.stop();
-    captured.length = 0;
-
-    await tracked.start();
-
-    expect(captured).toEqual([]);
-    expect(
-      tracked.list().find((entry) => entry.id === "reconciled")?.status,
-    ).toBe("running");
-    await tracked.stop();
-  });
-
-  it("hides names of plugins from third-party catalogs in the install event", () => {
-    const properties = pluginInstalledTelemetryEvent(
-      "internal-tool",
-      {
-        kind: "catalog",
-        marketplace: "acme-private",
-        entryId: "internal-tool",
-      },
-      {
-        kind: "git",
-        url: "git@github.com:acme/internal-tool.git",
-        subdirectory: null,
-        selector: { kind: "ref", ref: "main", refKind: "branch" },
-      },
-    ).properties;
-    expect(properties).toEqual({
-      plugin_id: null,
-      provenance: "catalog",
-      marketplace: null,
-      source_kind: "git",
-    });
-    expect(
-      pluginInstalledTelemetryEvent(
-        "tasks",
-        { kind: "builtin" },
-        { kind: "builtin", name: "tasks" },
-      ).properties.plugin_id,
-    ).toBe("tasks");
-  });
-
-  it("names public plugins in the install event so PostHog can rank them", () => {
-    expect(
-      pluginInstalledTelemetryEvent(
-        "tasks",
-        { kind: "catalog", marketplace: "bb-community", entryId: "tasks" },
-        {
-          kind: "npm",
-          packageName: "@get-bb/tasks",
-          registry: "https://registry.npmjs.org",
-          requestedSpec: "^1",
-          specKind: "range",
-        },
-      ).properties,
-    ).toEqual({
-      plugin_id: "tasks",
-      provenance: "catalog",
-      marketplace: "bb-community",
-      source_kind: "npm",
-    });
   });
 
   it("adds marketplace discovery metadata to an installed plugin", () => {
@@ -1096,7 +979,7 @@ describe("plugin service", () => {
             icon: "Zap",
             category: "acme-tools",
             author: { name: "Acme" },
-            source: { npm: { package: "bb-plugin-installed-tool" } },
+            source: { npm: { package: "cc-plugin-installed-tool" } },
           },
         ],
       }),
@@ -1115,7 +998,7 @@ describe("plugin service", () => {
 
   it("times out a hung factory and reports error", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-hang",
+      name: "cc-plugin-hang",
       serverSource: `export default function plugin() { return new Promise(() => {}); }`,
     });
     await service.installPath(rootDir);
@@ -1126,9 +1009,9 @@ describe("plugin service", () => {
 
   it("disable unloads and disposes; enable loads again", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-switchable",
-      serverSource: `export default function plugin(bb: any) {
-        bb.onDispose(() => { (globalThis as any).__switchableDisposed = true; });
+      name: "cc-plugin-switchable",
+      serverSource: `export default function plugin(cc: any) {
+        cc.onDispose(() => { (globalThis as any).__switchableDisposed = true; });
       }`,
     });
     await service.installPath(rootDir);
@@ -1144,11 +1027,11 @@ describe("plugin service", () => {
   it("holds a plugin at start without running its factory or starting its services", async () => {
     const globals = globalThis as Record<string, unknown>;
     const heldRoot = await writePlugin(workDir, {
-      name: "bb-plugin-held-tunnel",
-      serverSource: `export default function plugin(bb: any) {
+      name: "cc-plugin-held-tunnel",
+      serverSource: `export default function plugin(cc: any) {
         const g = globalThis as any;
         g.__heldFactoryRuns = (g.__heldFactoryRuns ?? 0) + 1;
-        bb.background.service("tunnel", {
+        cc.background.service("tunnel", {
           start(signal: any) {
             g.__heldServiceStarts = (g.__heldServiceStarts ?? 0) + 1;
             return new Promise<void>((resolve) => {
@@ -1159,7 +1042,7 @@ describe("plugin service", () => {
       }`,
     });
     const otherRoot = await writePlugin(workDir, {
-      name: "bb-plugin-unheld",
+      name: "cc-plugin-unheld",
       serverSource: `export default function plugin() {}`,
     });
     const held = await service.installPath(heldRoot);
@@ -1167,7 +1050,7 @@ describe("plugin service", () => {
     await service.stop();
     globals.__heldFactoryRuns = 0;
     globals.__heldServiceStarts = 0;
-    service = createTelemetryTrackedService([]);
+    service = createUnbundledService();
 
     try {
       await service.start({
@@ -1204,21 +1087,21 @@ describe("plugin service", () => {
       holdActive = true;
       globals.__heldLoads = 0;
       const heldRoot = await writePlugin(workDir, {
-        name: "bb-plugin-held-copy",
+        name: "cc-plugin-held-copy",
         serverSource: `export default function plugin() {
           const g = globalThis as any;
           g.__heldLoads = (g.__heldLoads ?? 0) + 1;
         }`,
       });
       const otherRoot = await writePlugin(workDir, {
-        name: "bb-plugin-free-copy",
+        name: "cc-plugin-free-copy",
         serverSource: `export default function plugin() {}`,
       });
       const held = await service.installPath(heldRoot);
       await service.installPath(otherRoot);
       await service.stop();
       globals.__heldLoads = 0;
-      service = createTelemetryTrackedService([]);
+      service = createUnbundledService();
       await service.start({
         hold: {
           source: held.source,
@@ -1289,7 +1172,7 @@ describe("plugin service", () => {
 
   it("enables a disabled path plugin when it is reinstalled", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-reinstalled",
+      name: "cc-plugin-reinstalled",
       serverSource: `export default function plugin() {}`,
     });
     await service.install(rootDir, { kind: "root" });
@@ -1310,10 +1193,10 @@ describe("plugin service", () => {
   it("reports a settings change to the server once the plugin's own listeners ran", async () => {
     const changed: string[] = [];
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-observed",
+      name: "cc-plugin-observed",
       serverSource: `
-        export default function plugin(bb) {
-          const settings = bb.settings.define({
+        export default function plugin(cc) {
+          const settings = cc.settings.define({
             floor: { type: "string", label: "Floor", default: "60" },
           });
           settings.onChange((next) => {
@@ -1323,7 +1206,6 @@ describe("plugin service", () => {
     });
     const observing = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -1356,20 +1238,20 @@ describe("plugin service", () => {
 
   it("re-points a path plugin at a new checkout and keeps its settings, secrets, and schedules", async () => {
     const serverSource = (marker: string) => `
-      export default function plugin(bb) {
-        bb.settings.define({
+      export default function plugin(cc) {
+        cc.settings.define({
           floor: { type: "string", label: "Floor", default: "60" },
           token: { type: "string", label: "Token", secret: true },
         });
-        bb.background.schedule("sweep", "0 * * * *", async () => {});
+        cc.background.schedule("sweep", "0 * * * *", async () => {});
         globalThis.__movedCheckout = "${marker}";
       }`;
     const checkoutA = await writePlugin(join(workDir, "a"), {
-      name: "bb-plugin-moved",
+      name: "cc-plugin-moved",
       serverSource: serverSource("a"),
     });
     const checkoutB = await writePlugin(join(workDir, "b"), {
-      name: "bb-plugin-moved",
+      name: "cc-plugin-moved",
       serverSource: serverSource("b"),
     });
     await service.installPath(checkoutA);
@@ -1404,7 +1286,7 @@ describe("plugin service", () => {
         .all("moved"),
     ).toEqual([{ name: "sweep" }]);
 
-    const checkoutC = join(workDir, "c", "bb-plugin-moved");
+    const checkoutC = join(workDir, "c", "cc-plugin-moved");
     await mkdir(checkoutC, { recursive: true });
     await writeFile(join(checkoutC, "package.json"), "{ not json");
     await expect(service.installPath(checkoutC)).rejects.toThrowError();
@@ -1424,11 +1306,11 @@ describe("plugin service", () => {
         globalThis.__disabledMoveStarted = "${marker}";
       }`;
     const checkoutA = await writePlugin(join(workDir, "a"), {
-      name: "bb-plugin-dormant",
+      name: "cc-plugin-dormant",
       serverSource: serverSource("a"),
     });
     const checkoutB = await writePlugin(join(workDir, "b"), {
-      name: "bb-plugin-dormant",
+      name: "cc-plugin-dormant",
       serverSource: serverSource("b"),
     });
     await service.installPath(checkoutA);
@@ -1465,18 +1347,18 @@ describe("plugin service", () => {
 
   it("rejects a path move whose new checkout fails to start and keeps the old install running", async () => {
     const checkoutA = await writePlugin(join(workDir, "a"), {
-      name: "bb-plugin-brittle",
+      name: "cc-plugin-brittle",
       version: "0.2.0",
       serverSource: `
-        export default function plugin(bb) {
-          bb.settings.define({
+        export default function plugin(cc) {
+          cc.settings.define({
             token: { type: "string", label: "Token", secret: true },
           });
           globalThis.__brittleCheckout = "a";
         }`,
     });
     const checkoutB = await writePlugin(join(workDir, "b"), {
-      name: "bb-plugin-brittle",
+      name: "cc-plugin-brittle",
       version: "0.3.0",
       serverSource: `
         export default function plugin() {
@@ -1516,10 +1398,10 @@ describe("plugin service", () => {
       "data",
       "personal-workspaces",
       "env_test",
-      "bb-plugin-managed",
+      "cc-plugin-managed",
     );
     const written = await writePlugin(workDir, {
-      name: "bb-plugin-managed",
+      name: "cc-plugin-managed",
       serverSource: `export default function plugin() {}`,
     });
     await mkdir(dirname(managedRoot), { recursive: true });
@@ -1527,7 +1409,7 @@ describe("plugin service", () => {
 
     await service.installPath(managedRoot);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("bb-managed workspace"),
+      expect.stringContaining("cc-managed workspace"),
     );
   });
 
@@ -1535,7 +1417,7 @@ describe("plugin service", () => {
     const warnSpy = vi.spyOn(logger, "warn");
     warnSpy.mockClear();
     const checkoutRoot = await writePlugin(join(workDir, "checkout"), {
-      name: "bb-plugin-attached",
+      name: "cc-plugin-attached",
       serverSource: `export default function plugin() {}`,
     });
     seedEnvironmentAtPath(db, {
@@ -1546,7 +1428,7 @@ describe("plugin service", () => {
 
     await service.installPath(checkoutRoot);
     expect(warnSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("bb-managed workspace"),
+      expect.stringContaining("cc-managed workspace"),
     );
   });
 
@@ -1554,7 +1436,7 @@ describe("plugin service", () => {
     const warnSpy = vi.spyOn(logger, "warn");
     warnSpy.mockClear();
     const ownedRoot = await writePlugin(join(workDir, "owned"), {
-      name: "bb-plugin-owned",
+      name: "cc-plugin-owned",
       serverSource: `export default function plugin() {}`,
     });
     seedEnvironmentAtPath(db, {
@@ -1565,7 +1447,7 @@ describe("plugin service", () => {
 
     await service.installPath(ownedRoot);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("bb-managed workspace"),
+      expect.stringContaining("cc-managed workspace"),
     );
   });
 });
@@ -1582,12 +1464,11 @@ describe("plugins-changed broadcast", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-notify-test-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-notify-test-"));
     notifySystem = vi.fn<(changes: SystemChangeKind[]) => void>();
     providerRegistry = createProviderRegistryService();
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -1609,7 +1490,7 @@ describe("plugins-changed broadcast", () => {
 
   it("broadcasts plugins-changed on install, reload, and enable/disable", async () => {
     const rootDir = await writePlugin(workDir, {
-      name: "bb-plugin-notifier",
+      name: "cc-plugin-notifier",
       serverSource: `export default function plugin() {}`,
     });
     await service.installPath(rootDir);

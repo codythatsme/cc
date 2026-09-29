@@ -22,7 +22,7 @@ describe("app.commands.register", () => {
       defaultShortcut: PluginCommandRegistration["defaultShortcut"],
     ) =>
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __ccPluginApp: true,
         setup(app) {
           app.commands.register({
             id: "open",
@@ -61,7 +61,7 @@ describe("app.commands.register", () => {
       const run = vi.fn();
       const isAvailable = vi.fn(() => true);
       const collected = collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __ccPluginApp: true,
         setup(app) {
           register(app, entryPoint, {
             id: "open-issue",
@@ -92,7 +92,7 @@ describe("app.commands.register", () => {
   )("rejects duplicate IDs registered through %s then %s", (first, second) => {
     expect(() =>
       collectPluginAppRegistrations({
-        __bbPluginApp: true,
+        __ccPluginApp: true,
         setup(app) {
           const command = {
             id: "open-issue",
@@ -115,7 +115,7 @@ describe("app.commands.register", () => {
       ]) {
         expect(() =>
           collectPluginAppRegistrations({
-            __bbPluginApp: true,
+            __ccPluginApp: true,
             setup: (app) => register(app, entryPoint, command),
           }),
         ).toThrow();

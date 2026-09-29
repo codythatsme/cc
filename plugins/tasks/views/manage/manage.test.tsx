@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 import type { Task } from "../../shared/contract.js";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
 
@@ -47,7 +47,7 @@ const project = {
   nextTaskNumber: 5,
   color: "blue",
   folderId: null,
-  linkedBbProjectId: null,
+  linkedCcProjectId: null,
   createdAt: "2026-07-15T00:00:00.000Z",
 };
 
@@ -328,7 +328,7 @@ describe("NewTaskDialog attachments", () => {
       }
       if (url.includes("/attachments/upload")) {
         fetchCalls.push(url);
-        const query = new URL(url, "http://bb.test").searchParams;
+        const query = new URL(url, "http://cc.test").searchParams;
         if (uploadGate && query.get("fileName") === uploadGate.fileName) {
           await uploadGate.promise;
         }
@@ -404,7 +404,7 @@ describe("NewTaskDialog attachments", () => {
       }),
     );
     expect(fetchCalls).toHaveLength(1);
-    const query = new URL(fetchCalls[0]!, "http://bb.test").searchParams;
+    const query = new URL(fetchCalls[0]!, "http://cc.test").searchParams;
     expect(query.get("taskId")).toBe(TASK_ID);
     expect(query.get("fileName")).toBe("shot.png");
   });
@@ -443,7 +443,7 @@ describe("NewTaskDialog attachments", () => {
         options: { subPath: "task/TSK-5" },
       }),
     );
-    const retryQuery = new URL(fetchCalls.at(-1)!, "http://bb.test")
+    const retryQuery = new URL(fetchCalls.at(-1)!, "http://cc.test")
       .searchParams;
     expect(retryQuery.get("taskId")).toBe(TASK_ID);
     expect(retryQuery.get("fileName")).toBe("bad.bin");
@@ -751,12 +751,12 @@ describe("PresetDialog environment section", () => {
       ).toBe("ultra"),
     );
     expect(
-      slot.getByTestId("bb-provider-model-picker").dataset.routingKind,
+      slot.getByTestId("cc-provider-model-picker").dataset.routingKind,
     ).toBe("host");
-    expect(slot.getByTestId("bb-provider-model-picker").dataset.routingId).toBe(
+    expect(slot.getByTestId("cc-provider-model-picker").dataset.routingId).toBe(
       "mach_1",
     );
-    expect(slot.getByTestId("bb-permission-mode-picker").dataset.align).toBe(
+    expect(slot.getByTestId("cc-permission-mode-picker").dataset.align).toBe(
       "start",
     );
   });
@@ -826,7 +826,7 @@ describe("PresetDialog environment section", () => {
 describe("Manage folders", () => {
   const parentFolder = {
     id: "01HZZZZZZZZZZZZZZZZZZZZZF1",
-    name: "bb",
+    name: "cc",
     parentFolderId: null,
     createdAt: "2026-07-15T00:00:00.000Z",
   };
@@ -871,7 +871,7 @@ describe("Manage folders", () => {
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
     fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
+      await slot.findByRole("button", { name: "Delete folder cc" }),
     );
 
     await slot.findByText(
@@ -904,7 +904,7 @@ describe("Manage folders", () => {
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
     fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
+      await slot.findByRole("button", { name: "Delete folder cc" }),
     );
 
     await slot.findByText("Checking what the folder contains…");
@@ -935,7 +935,7 @@ describe("Manage folders", () => {
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
     fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
+      await slot.findByRole("button", { name: "Delete folder cc" }),
     );
     await slot.findByText(
       "Could not load the folder's contents: projects unavailable",
@@ -961,7 +961,7 @@ describe("Manage folders", () => {
     });
     fireEvent.mouseDown(await slot.findByRole("tab", { name: "Folders" }));
     fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
+      await slot.findByRole("button", { name: "Delete folder cc" }),
     );
     await slot.findByText(
       "1 project and 1 subfolder move to the top level. No tasks are deleted.",
@@ -973,7 +973,7 @@ describe("Manage folders", () => {
       projectId: PROJECT_ID,
     });
     fireEvent.click(
-      await slot.findByRole("button", { name: "Delete folder bb" }),
+      await slot.findByRole("button", { name: "Delete folder cc" }),
     );
     await slot.findByText(
       "Could not load the folder's contents: projects unavailable",
@@ -1065,7 +1065,7 @@ describe("NewProjectDialog", () => {
       name: "Home Lab",
       prefix: "HL",
       folderId: null,
-      linkedBbProjectId: null,
+      linkedCcProjectId: null,
     });
     await waitFor(() =>
       expect(slot.navigateCalls).toContainEqual({
@@ -1097,8 +1097,8 @@ describe("NewProjectDialog", () => {
   it("links the personal project from the discovered project picker", async () => {
     const createCalls: Array<Record<string, unknown>> = [];
     const slot = renderEmptyState({
-      listBbProjects: () => ({
-        bbProjects: [{ id: "proj_personal", name: "Personal" }],
+      listCcProjects: () => ({
+        ccProjects: [{ id: "proj_personal", name: "Personal" }],
       }),
       createProject: (input: Record<string, unknown>) => {
         createCalls.push(input);
@@ -1109,13 +1109,13 @@ describe("NewProjectDialog", () => {
     fireEvent.change(await slot.findByPlaceholderText("e.g. Tasks Plugin"), {
       target: { value: "Personal Tasks" },
     });
-    fireEvent.click(slot.getByLabelText("Linked bb project"));
+    fireEvent.click(slot.getByLabelText("Linked cc project"));
     fireEvent.click(await slot.findByRole("option", { name: "Personal" }));
     fireEvent.click(slot.getByRole("button", { name: "Create project" }));
 
     await waitFor(() => expect(createCalls).toHaveLength(1));
     expect(createCalls[0]).toMatchObject({
-      linkedBbProjectId: "proj_personal",
+      linkedCcProjectId: "proj_personal",
     });
     expect(slot.queryByPlaceholderText("proj_…")).toBeNull();
   });

@@ -1,10 +1,10 @@
-import type { BbSdkAreas } from "@bb/sdk";
+import type { CcSdkAreas } from "@cc/sdk";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import {
   makeEnvironment,
   makeThreadWithRuntime,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@cc/test-helpers/domain-fixtures";
 import {
   environmentQueryKey,
   threadQueryKey,
@@ -40,7 +40,7 @@ function makeSdk() {
   };
   const threadSections = { create: vi.fn(async (args: unknown) => args) };
   return {
-    sdk: { environments, threads, threadSections } as unknown as BbSdkAreas,
+    sdk: { environments, threads, threadSections } as unknown as CcSdkAreas,
     environments,
     queryClient: new QueryClient(),
     threads,

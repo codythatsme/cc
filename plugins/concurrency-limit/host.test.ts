@@ -1,4 +1,4 @@
-import { experimental_createHostEntryHarness } from "@get-bb/plugin-sdk/testing/host";
+import { experimental_createHostEntryHarness } from "@codythatsme/plugin-sdk/testing/host";
 import { describe, expect, it, vi } from "vitest";
 import { createConcurrencyLimitHostEntry } from "./host.js";
 

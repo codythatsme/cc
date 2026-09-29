@@ -2,8 +2,8 @@
 
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PromptMentionSuggestion } from "@bb/client-core";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import type { PromptMentionSuggestion } from "@cc/client-core";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
 import { MentionMenu } from "./MentionMenu";
 

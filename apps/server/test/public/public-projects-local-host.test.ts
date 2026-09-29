@@ -4,8 +4,8 @@ import {
   ensurePersonalProject,
   listPublicProjects,
   setExperiments,
-} from "@bb/db";
-import { defaultExperiments, PERSONAL_PROJECT_ID } from "@bb/domain";
+} from "@cc/db";
+import { defaultExperiments, PERSONAL_PROJECT_ID } from "@cc/domain";
 import {
   reportQueuedCommandSuccess,
   waitForQueuedCommand,
@@ -323,7 +323,7 @@ describe("public project local host routes", () => {
         "private, no-cache",
       );
       expect(fileResponse.headers.get("etag")).toBe(`"${"0".repeat(64)}"`);
-      expect(fileResponse.headers.get("x-bb-content-encoding")).toBe("utf8");
+      expect(fileResponse.headers.get("x-cc-content-encoding")).toBe("utf8");
       await expect(fileResponse.text()).resolves.toBe("console.log('ok');");
 
       const revalidatePromise = harness.app.request(
@@ -348,7 +348,7 @@ describe("public project local host routes", () => {
       const revalidated = await revalidatePromise;
       expect(revalidated.status).toBe(304);
       expect(revalidated.headers.get("etag")).toBe(`"${"0".repeat(64)}"`);
-      expect(revalidated.headers.get("x-bb-content-encoding")).toBe("utf8");
+      expect(revalidated.headers.get("x-cc-content-encoding")).toBe("utf8");
       expect((await revalidated.arrayBuffer()).byteLength).toBe(0);
     });
   });

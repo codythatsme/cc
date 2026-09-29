@@ -8,33 +8,33 @@ import {
 import ReactMarkdown, { type Components } from "react-markdown";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { BbDesktopInfo } from "@bb/desktop-contract";
+import type { CcDesktopInfo } from "@cc/desktop-contract";
 import type {
   SystemAppUpdateResult,
   SystemAppUpdateStatus,
   SystemVersionResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   RETRY_ACTION_ICON,
   UPDATE_ACTION_ICON,
   UPDATE_STATE_PRESENTATION,
   type UpdateState,
-} from "@bb/domain/update-state";
-import { Button, type ButtonProps } from "@bb/shared-ui/button";
-import { usePrefersReducedMotion } from "@bb/shared-ui/hooks/use-media-query";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/domain/update-state";
+import { Button, type ButtonProps } from "@cc/shared-ui/button";
+import { usePrefersReducedMotion } from "@cc/shared-ui/hooks/use-media-query";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
+} from "@cc/shared-ui/tooltip";
 import {
   ResourceActionButton,
   ResourceListState,
   ResourceRow,
-} from "@bb/shared-ui/resource-list";
+} from "@cc/shared-ui/resource-list";
 import {
   hasProviderCliAction,
   isProviderCliUpdateIssue,
@@ -75,7 +75,7 @@ import {
   ConfirmDeleteDialogContent,
 } from "@/components/dialogs/ConfirmDeleteDialog";
 import { appToast } from "@/components/ui/app-toast";
-import { BbLogo } from "@/components/ui/bb-logo";
+import { CcLogo } from "@/components/ui/cc-logo";
 import { OverflowFade } from "@/components/ui/overflow-fade";
 import {
   SettingsBadge,
@@ -117,10 +117,11 @@ const EMPTY_PROVIDER_CLI_FAILURES: ReadonlyMap<
   string,
   ProviderCliInstallFailure
 > = new Map();
-const CHANGELOG_URL = "https://getbb.app/changelog";
+const CHANGELOG_URL =
+  "https://github.com/codythatsme/cc/blob/main/CHANGELOG.md";
 const CHANGELOG_STALE_TIME_MS = 5 * 60_000;
 const CHANGELOG_DISMISSED_VERSION_STORAGE_KEY =
-  "bb.settings.updates.dismissed-changelog-version";
+  "cc.settings.updates.dismissed-changelog-version";
 const CHANGELOG_DISMISS_CONFIRMATION_MS = 2_000;
 const CHANGELOG_DISMISS_EXIT_MS = 180;
 
@@ -616,7 +617,7 @@ export function ChangelogPreviewCard() {
                         variant="ghost"
                         size="icon"
                         className="size-7 text-muted-foreground hover:text-foreground"
-                        aria-label={`Dismiss bb ${entry.version} changelog preview`}
+                        aria-label={`Dismiss cc ${entry.version} changelog preview`}
                         onClick={() => {
                           rawStringLocalStorage.setItem(
                             CHANGELOG_DISMISSED_VERSION_STORAGE_KEY,
@@ -688,7 +689,7 @@ export function ChangelogPreviewCard() {
               <button
                 type="button"
                 disabled={!releaseVisible}
-                aria-label={`Open the full bb ${entry.version} changelog`}
+                aria-label={`Open the full cc ${entry.version} changelog`}
                 onClick={() =>
                   openUrlInExternalBrowser(
                     `${CHANGELOG_URL}#${entry.version.replaceAll(".", "-")}`,
@@ -731,7 +732,7 @@ export function ChangelogPreviewCard() {
                   You're all caught up
                 </h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                  We'll show the next bb release here.
+                  We'll show the next cc release here.
                 </p>
               </div>
             </div>
@@ -742,12 +743,12 @@ export function ChangelogPreviewCard() {
   );
 }
 
-interface BbAppUpdateRowsProps {
+interface CcAppUpdateRowsProps {
   name?: string;
   systemVersion: SystemVersionResponse | undefined;
   appUpdate?: SystemAppUpdateStatus | undefined;
   applyPending?: boolean;
-  desktopInfo: BbDesktopInfo | null;
+  desktopInfo: CcDesktopInfo | null;
   isDesktop: boolean;
   onApplyAppUpdate?: (() => void) | null;
   onRelaunchDesktop: (() => void) | null;
@@ -756,8 +757,8 @@ interface BbAppUpdateRowsProps {
   isChecking?: boolean;
 }
 
-export function BbAppUpdateRows({
-  name: rowName = "bb app",
+export function CcAppUpdateRows({
+  name: rowName = "cc app",
   systemVersion,
   appUpdate,
   applyPending = false,
@@ -768,7 +769,7 @@ export function BbAppUpdateRows({
   onRetryDesktop,
   onShowAppUpdateResult = null,
   isChecking = false,
-}: BbAppUpdateRowsProps) {
+}: CcAppUpdateRowsProps) {
   const settledStatus = isChecking ? (
     <RowStateControl live state="in-progress" />
   ) : (
@@ -777,8 +778,8 @@ export function BbAppUpdateRows({
   const row = (name: ReactNode, indicator: ReactNode, caption?: ReactNode) => (
     <UpdatesRow
       leading={
-        <span data-bb-update-role="app" aria-hidden>
-          <BbLogo className="size-4" />
+        <span data-cc-update-role="app" aria-hidden>
+          <CcLogo className="size-4" />
         </span>
       }
     >
@@ -800,8 +801,22 @@ export function BbAppUpdateRows({
     const pendingVersion =
       desktopInfo.pendingVersion ?? desktopInfo.latestVersion;
     const latest = desktopInfo.updateAvailable ? pendingVersion : null;
+    const homebrewUpgradeCommand = "brew upgrade --cask codythatsme/tap/cc";
+    const homebrewUpdateAvailable =
+      desktopInfo.platform === "macos" && desktopInfo.updateAvailable;
     const name = (
-      <RowName name={rowName} current={desktopInfo.version} latest={latest} />
+      <RowName
+        name={rowName}
+        current={desktopInfo.version}
+        latest={latest}
+        detail={
+          homebrewUpdateAvailable ? (
+            <span className="hidden truncate font-mono text-2xs text-muted-foreground sm:inline">
+              {homebrewUpgradeCommand}
+            </span>
+          ) : undefined
+        }
+      />
     );
 
     if (desktopInfo.updateDownloaded) {
@@ -809,9 +824,9 @@ export function BbAppUpdateRows({
         name,
         <RowStateControl
           state="restart-required"
-          buttonLeading={<BbLogo className="size-3" />}
+          buttonLeading={<CcLogo className="size-3" />}
           buttonLabel="Relaunch"
-          actionLabel="Relaunch bb to finish updating"
+          actionLabel="Relaunch cc to finish updating"
           onClick={() => onRelaunchDesktop?.()}
         />,
       );
@@ -829,6 +844,23 @@ export function BbAppUpdateRows({
           onClick={() => onRetryDesktop?.()}
         />,
         <RowStateCaption state="failed">Download failed</RowStateCaption>,
+      );
+    }
+    if (homebrewUpdateAvailable) {
+      return row(
+        name,
+        <RowStateControl
+          state="update-available"
+          actionIcon="Copy"
+          actionLabel="Copy the Homebrew upgrade command"
+          actionTooltip="Copy command"
+          onClick={() => {
+            void copyToClipboardWithToast(homebrewUpgradeCommand, {
+              successMessage: "Upgrade command copied",
+              errorMessage: "Couldn't copy upgrade command",
+            });
+          }}
+        />,
       );
     }
     if (desktopInfo.updateAvailable) {
@@ -896,7 +928,7 @@ export function BbAppUpdateRows({
   return row(name, settledStatus);
 }
 
-type BbAppRowRenderer = (
+type CcAppRowRenderer = (
   name: ReactNode,
   indicator: ReactNode,
   caption?: ReactNode,
@@ -915,7 +947,7 @@ function InAppUpdateRow({
   status: SystemAppUpdateStatus;
   applyPending: boolean;
   settledStatus: ReactNode;
-  row: BbAppRowRenderer;
+  row: CcAppRowRenderer;
   onApply: (() => void) | null;
   onShowResult: ((result: SystemAppUpdateResult) => void) | null;
 }) {
@@ -953,7 +985,7 @@ function InAppUpdateRow({
       <RowStateControl
         state={failure === null ? "update-available" : "failed"}
         buttonLabel={failure === null ? "Update" : "Retry"}
-        actionLabel="Download the update and restart bb"
+        actionLabel="Download the update and restart cc"
         loading={applyPending}
         onClick={onApply}
       />
@@ -961,7 +993,7 @@ function InAppUpdateRow({
   const detailsButton =
     failure === null || onShowResult === null ? null : (
       <UpdateActionButton
-        label="View the failed bb update"
+        label="View the failed cc update"
         tooltipLabel="View details"
         icon="File"
         onClick={() => onShowResult(failure)}
@@ -1050,7 +1082,7 @@ function visibleInstalledProviderEntries(
   );
 }
 
-export function BbDaemonUpdateRow({
+export function CcDaemonUpdateRow({
   machine,
   now,
   retryUpdatePending,
@@ -1085,11 +1117,11 @@ export function BbDaemonUpdateRow({
       openLabel={`Open ${host.name} settings`}
       onOpen={() => onOpenMachine(host.id)}
       leading={
-        <span data-bb-update-role="daemon" aria-hidden>
-          <BbLogo className="size-4" />
+        <span data-cc-update-role="daemon" aria-hidden>
+          <CcLogo className="size-4" />
         </span>
       }
-      title="bb daemon"
+      title="cc daemon"
       state={daemonCaption}
       trailingMeta={null}
       actions={
@@ -1349,7 +1381,7 @@ export function MachineUpdatesFleetSection({
     <SettingsSection
       action={action}
       bodyClassName="border-0 bg-transparent p-0"
-      description="Manage bb and provider CLI updates across all machines."
+      description="Manage cc and provider CLI updates across all machines."
       title="Machine updates"
     >
       <div className="space-y-6 pt-1.5">{children}</div>
@@ -1513,11 +1545,11 @@ export function UpdatesSettingsSection({
     visibleProviderIssues.length > 0 ||
     stalledMachines.length > 0;
   const fleetIsHealthy = relevantFleetMachines.length === 0;
-  const showFallbackBbStatus =
+  const showFallbackCcStatus =
     !hasUpdateWork && !fleetIsHealthy && isDesktop && desktopInfo === null;
 
   const relaunchDesktop =
-    desktopApi === null || showFallbackBbStatus
+    desktopApi === null || showFallbackCcStatus
       ? null
       : () => {
           void desktopApi.installUpdate().catch((error) => {
@@ -1527,7 +1559,7 @@ export function UpdatesSettingsSection({
           });
         };
   const retryDesktop =
-    desktopApi === null || showFallbackBbStatus
+    desktopApi === null || showFallbackCcStatus
       ? null
       : () => {
           void desktopApi.checkForUpdates().catch((error) => {
@@ -1537,7 +1569,7 @@ export function UpdatesSettingsSection({
           });
         };
   const appRow = (
-    <BbAppUpdateRows
+    <CcAppUpdateRows
       systemVersion={inventory.systemVersion}
       appUpdate={desktopInfo === null ? appUpdate : undefined}
       applyPending={applyAppUpdate.isPending}
@@ -1551,8 +1583,8 @@ export function UpdatesSettingsSection({
     />
   );
   const serverAppRow = (
-    <BbAppUpdateRows
-      name="bb server"
+    <CcAppUpdateRows
+      name="cc server"
       systemVersion={inventory.systemVersion}
       appUpdate={appUpdate}
       applyPending={applyAppUpdate.isPending}
@@ -1566,8 +1598,8 @@ export function UpdatesSettingsSection({
     />
   );
   const desktopClientRow = (
-    <BbAppUpdateRows
-      name="bb desktop"
+    <CcAppUpdateRows
+      name="cc desktop"
       systemVersion={undefined}
       desktopInfo={desktopInfo}
       isDesktop={isDesktop}
@@ -1688,7 +1720,7 @@ export function UpdatesSettingsSection({
                   ? desktopClientRow
                   : null}
                 {showDaemon ? (
-                  <BbDaemonUpdateRow
+                  <CcDaemonUpdateRow
                     machine={machine}
                     now={now}
                     retryUpdatePending={
@@ -1739,7 +1771,7 @@ export function UpdatesSettingsSection({
         }}
       >
         <ConfirmDeleteDialogContent
-          title="Update bb now?"
+          title="Update cc now?"
           description={runningThreadsWarning(confirmingAppUpdateThreads ?? 0)}
           confirmLabel="Update and restart"
           pending={applyAppUpdate.isPending}

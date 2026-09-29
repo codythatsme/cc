@@ -1,8 +1,8 @@
-import { getTerminalBase64DecodedByteLength } from "@bb/domain";
+import { getTerminalBase64DecodedByteLength } from "@cc/domain";
 import {
   terminalServerMessageSchema,
   type TerminalServerMessage,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 
 const SOCKET_OPEN = 1;
 const DEFAULT_INPUT_QUEUE_MAX_BYTES = 1024 * 1024;

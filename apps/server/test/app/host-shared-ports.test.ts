@@ -6,12 +6,12 @@ import {
   openSession,
   updateHost,
   upsertHost,
-} from "@bb/db";
+} from "@cc/db";
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   hostDaemonServerWsMessageSchema,
   hostDaemonSessionOpenResponseSchema,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../../src/errors.js";
 import { HostSharedPortCoordinator } from "../../src/ws/host-shared-ports.js";
@@ -395,12 +395,12 @@ describe("HostSharedPortCoordinator", () => {
     expect(
       sharedPorts.recordTunnelIdentity(host.id, {
         label: "sawyer-air",
-        baseDomain: "getbb.app",
+        baseDomain: "cc.example.invalid",
       }),
-    ).toEqual({ label: "sawyer-air", baseDomain: "getbb.app" });
+    ).toEqual({ label: "sawyer-air", baseDomain: "cc.example.invalid" });
     expect(sharedPorts.getTunnelIdentity(host.id)).toEqual({
       label: "sawyer-air",
-      baseDomain: "getbb.app",
+      baseDomain: "cc.example.invalid",
     });
   });
 });
@@ -515,12 +515,12 @@ describe("daemon session connect shares", () => {
         socket: daemonSocket,
         raw: JSON.stringify({
           type: "connect-tunnel.identity",
-          identity: { label: "sawyer-air", baseDomain: "getbb.app" },
+          identity: { label: "sawyer-air", baseDomain: "cc.example.invalid" },
         }),
       });
       expect(harness.deps.sharedPorts.getTunnelIdentity("host-1")).toEqual({
         label: "sawyer-air",
-        baseDomain: "getbb.app",
+        baseDomain: "cc.example.invalid",
       });
     });
   });
@@ -569,7 +569,7 @@ describe("daemon session connect shares", () => {
           ports: [4173],
         }),
       ).toThrow(
-        'cannot share ports from host "Host" (host-1) because it has no bb connect machine credential; enroll it via Connect in Settings > Machines',
+        'cannot share ports from host "Host" (host-1) because it has no cc connect machine credential; enroll it via Connect in Settings > Machines',
       );
       expect(daemonSocket.messages).toEqual(messagesBeforeDeclaration);
       expect(

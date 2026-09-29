@@ -21,9 +21,9 @@ describe("code theme resolution", () => {
   it("uses a built-in palette's matching Shiki pair", () => {
     const nord = resolveCodeTheme(null, "nord");
     expect(nord.dark).toBe("nord");
-    expect(nord.light).toBe("bb:nord:light");
-    expect(nord.files["bb:nord:light"]).toMatchObject({
-      name: "bb:nord:light",
+    expect(nord.light).toBe("cc:nord:light");
+    expect(nord.files["cc:nord:light"]).toMatchObject({
+      name: "cc:nord:light",
       type: "light",
       colors: { "editor.background": "#eceff4" },
     });
@@ -47,8 +47,8 @@ describe("code theme resolution", () => {
       }
     }
     const dracula = resolveCodeTheme(null, "dracula");
-    expect(dracula.light).toBe("bb:dracula:light");
-    expect(dracula.files["bb:dracula:light"]).toMatchObject({
+    expect(dracula.light).toBe("cc:dracula:light");
+    expect(dracula.files["cc:dracula:light"]).toMatchObject({
       type: "light",
       colors: { "editor.background": "#f8f8f2" },
     });
@@ -58,15 +58,15 @@ describe("code theme resolution", () => {
     expect(
       resolveCodeTheme(
         {
-          dark: { name: "bb:ocean:dark", file: { name: "Ocean Dark" } },
+          dark: { name: "cc:ocean:dark", file: { name: "Ocean Dark" } },
           light: { name: "github-light" },
         },
         "nord",
       ),
     ).toEqual({
-      dark: "bb:ocean:dark",
+      dark: "cc:ocean:dark",
       light: "github-light",
-      files: { "bb:ocean:dark": { name: "bb:ocean:dark" } },
+      files: { "cc:ocean:dark": { name: "cc:ocean:dark" } },
     });
   });
 
@@ -74,11 +74,11 @@ describe("code theme resolution", () => {
     expect(
       resolveCodeTheme({
         dark: {
-          name: "bb:ocean:dark",
+          name: "cc:ocean:dark",
           file: { name: "Ocean Dark", type: "dark" },
         },
-      }).files["bb:ocean:dark"],
-    ).toEqual({ name: "bb:ocean:dark", type: "dark" });
+      }).files["cc:ocean:dark"],
+    ).toEqual({ name: "cc:ocean:dark", type: "dark" });
   });
 
   it("treats a .json or path-shaped declaration as a file", () => {
@@ -87,9 +87,9 @@ describe("code theme resolution", () => {
     expect(isCodeThemeFilePath("github-dark")).toBe(false);
   });
 
-  it("registers custom files under a stable bb: name", () => {
+  it("registers custom files under a stable cc: name", () => {
     expect(formatRegisteredCodeThemeName("midnight", "dark")).toBe(
-      "bb:midnight:dark",
+      "cc:midnight:dark",
     );
   });
 

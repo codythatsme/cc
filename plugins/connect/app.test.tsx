@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 import { CONNECT_REALTIME_CHANNEL, type ConnectStatus } from "@/src/types";
 
 const app = await loadPluginApp(() => import("./app"));
@@ -30,7 +30,7 @@ function status(overrides: Partial<ConnectStatus> = {}): ConnectStatus {
     paired: false,
     handle: null,
     url: null,
-    dashboardUrl: "https://getbb.app/dashboard",
+    dashboardUrl: "https://cc.example.invalid/dashboard",
     lastError: null,
     nextRetryAt: null,
     since: 1_700_000_000_000,
@@ -46,7 +46,7 @@ const connected = (overrides: Partial<ConnectStatus> = {}) =>
     state: "connected",
     paired: true,
     handle: "workstation",
-    url: "https://workstation.getbb.app",
+    url: "https://workstation.cc.example.invalid",
     since: 1_700_000_060_000,
     ...overrides,
   });
@@ -57,7 +57,7 @@ describe("connect settings section", () => {
   });
 
   it("uses the local Cloud dashboard supplied by the server as a native new-tab link", async () => {
-    const dashboardUrl = "http://bb.localhost:42745/dashboard";
+    const dashboardUrl = "http://cc.localhost:42745/dashboard";
     const slot = renderSlot(
       app.settingsSections[0]!,
       {},
@@ -74,8 +74,8 @@ describe("connect settings section", () => {
     expect(link.target).toBe("_blank");
     fireEvent.click(link);
     expect(slot.navigateCalls).toEqual([]);
-    slot.getByText("you.bb.localhost:42745");
-    slot.getByText(/your bb\.localhost:42745 dashboard/);
+    slot.getByText("you.cc.localhost:42745");
+    slot.getByText(/your cc\.localhost:42745 dashboard/);
   });
 
   it("auto-submits a normalized 4-4 code and applies live paired status", async () => {
@@ -102,13 +102,13 @@ describe("connect settings section", () => {
         input: { code: "K7QP-2M4X" },
       }),
     );
-    expect(slot.queryByText("https://workstation.getbb.app")).toBeNull();
+    expect(slot.queryByText("https://workstation.cc.example.invalid")).toBeNull();
 
     currentStatus = connected();
     await slot.emitRealtime(CONNECT_REALTIME_CHANNEL, currentStatus);
 
     await slot.findByText("Connected");
-    slot.getByText("https://workstation.getbb.app");
+    slot.getByText("https://workstation.cc.example.invalid");
     slot.getByRole("button", { name: "Copy URL" });
   });
 
@@ -172,14 +172,14 @@ describe("connect settings section", () => {
           status: () =>
             connected({
               state: "reconnecting",
-              lastError: "can't reach getbb.app — connection refused",
+              lastError: "can't reach cc.example.invalid — connection refused",
               nextRetryAt: null,
             }),
         },
       },
     );
     await slot.findByText("Reconnecting…");
-    await slot.findByText(/can't reach getbb.app — connection refused/);
+    await slot.findByText(/can't reach cc.example.invalid — connection refused/);
     await slot.findByText(/Local access is unaffected/);
     expect(slot.queryByRole("button", { name: "Open" })).toBeNull();
   });
@@ -198,7 +198,7 @@ describe("connect settings section", () => {
                   hostName: "Workstation",
                   port: 3000,
                   createdAt: 1,
-                  url: "https://workstation--3000.getbb.app",
+                  url: "https://workstation--3000.cc.example.invalid",
                 },
               ],
             }),
@@ -279,14 +279,14 @@ describe("connect settings section", () => {
                   hostName: "Workstation",
                   port: 3000,
                   createdAt: 2,
-                  url: "https://workstation--3000.getbb.app",
+                  url: "https://workstation--3000.cc.example.invalid",
                 },
                 {
                   hostId: "host-server",
                   hostName: "Workstation",
                   port: 8080,
                   createdAt: 3,
-                  url: "https://workstation--8080.getbb.app",
+                  url: "https://workstation--8080.cc.example.invalid",
                 },
               ],
             }),
@@ -300,10 +300,10 @@ describe("connect settings section", () => {
 
     expect(
       slot
-        .getByText("workstation--3000.getbb.app")
+        .getByText("workstation--3000.cc.example.invalid")
         .closest("a")
         ?.getAttribute("href"),
-    ).toBe("https://workstation--3000.getbb.app");
+    ).toBe("https://workstation--3000.cc.example.invalid");
     slot.getByText(`Unavailable — ${reason}`);
     expect(
       slot.queryByRole("button", { name: "Copy share URL for port 5173" }),
@@ -328,7 +328,7 @@ describe("connect settings section", () => {
         rpc: {
           status: () => connected({ shares: [] }),
           expose: () => {
-            throw new Error("this bb is not connected to getbb.app");
+            throw new Error("this cc is not connected to cc.example.invalid");
           },
         },
       },
@@ -349,7 +349,7 @@ describe("connect settings section", () => {
         input: { port: 8080 },
       }),
     );
-    await slot.findByText(/this bb is not connected to getbb.app/);
+    await slot.findByText(/this cc is not connected to cc.example.invalid/);
   });
 
   it("hides mobile pairing unless the mobileApp experiment is on", async () => {
@@ -390,7 +390,7 @@ describe("connect settings section", () => {
           createMachineCode: () => ({
             code: "K7QP-2M4X",
             expiresAt,
-            serverUrl: "https://workstation.getbb.app",
+            serverUrl: "https://workstation.cc.example.invalid",
           }),
         },
       },
@@ -412,10 +412,10 @@ describe("connect settings section", () => {
     slot.getByRole("button", { name: "Copy pairing code" });
     slot.getByText(/Code expires in 9:5\d/);
     const qr = (await slot.findByRole("img", {
-      name: "QR code to pair the bb mobile app",
+      name: "QR code to pair the cc mobile app",
     })) as HTMLImageElement;
     expect(qr.src.startsWith("data:image/png")).toBe(true);
-    slot.getByText(/bb connect machine-code/);
+    slot.getByText(/cc connect machine-code/);
   });
 
   it("an expired mobile pairing code offers a fresh one", async () => {
@@ -430,9 +430,9 @@ describe("connect settings section", () => {
           createMachineCode: () => {
             minted += 1;
             return {
-              code: minted === 1 ? "AAAA-1111" : "BBBB-2222",
+              code: minted === 1 ? "AAAA-1111" : "CCBB-2222",
               expiresAt: Date.now() + (minted === 1 ? 1_200 : 600_000),
-              serverUrl: "https://workstation.getbb.app",
+              serverUrl: "https://workstation.cc.example.invalid",
             };
           },
         },
@@ -451,7 +451,7 @@ describe("connect settings section", () => {
     ).toBeNull();
     fireEvent.click(slot.getByRole("button", { name: "Generate a new code" }));
 
-    await slot.findByText("BBBB-2222");
+    await slot.findByText("CCBB-2222");
     expect(slot.queryByText("AAAA-1111")).toBeNull();
     slot.getByText(/Code expires in/);
   });
@@ -480,7 +480,7 @@ describe("connect settings section", () => {
     const link = slot.getByRole("link", {
       name: "Revoke a device you no longer use",
     }) as HTMLAnchorElement;
-    expect(link.href).toBe("https://getbb.app/dashboard");
+    expect(link.href).toBe("https://cc.example.invalid/dashboard");
     expect(slot.queryByText("machine_limit")).toBeNull();
     slot.getByRole("button", { name: "Add mobile device" });
   });

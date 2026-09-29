@@ -3,7 +3,7 @@ import {
   ConnectMachineRedeemError,
   redeemMachineCredential,
   type ConnectCredential,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 import {
   PROFILE_LABEL_MAX_LENGTH,
   type NewServerProfile,
@@ -33,7 +33,7 @@ export function describeEnrollmentError(error: unknown): EnrollmentFailure {
           code: "invalid_code",
           title: "Code not recognized",
           message:
-            "Check the pairing code and the bb connect address. Codes come from bb Settings → Remote access or `bb connect machine-code`.",
+            "Check the pairing code and the cc connect address. Codes come from cc Settings → Remote access or `cc connect machine-code`.",
         };
       case "expired":
         return {
@@ -54,18 +54,18 @@ export function describeEnrollmentError(error: unknown): EnrollmentFailure {
           code: "machine_limit",
           title: "Device limit reached",
           message:
-            "This account already has the maximum number of paired devices (20). Revoke one you no longer use in the getbb.app dashboard under Machines, then pair again.",
+            "This account already has the maximum number of paired devices (20). Revoke one you no longer use in the cc.example.invalid dashboard under Machines, then pair again.",
         };
       case "network":
         return {
           code: "network",
-          title: "Could not reach bb connect",
+          title: "Could not reach cc connect",
           message: `Check your connection and try again. (${error.message})`,
         };
       case "invalid_response":
         return {
           code: "invalid_response",
-          title: "Unexpected answer from bb connect",
+          title: "Unexpected answer from cc connect",
           message: error.message,
         };
     }
@@ -76,12 +76,12 @@ export function describeEnrollmentError(error: unknown): EnrollmentFailure {
         code: "unauthorized",
         title: "Device not authorized",
         message:
-          "bb connect rejected this device's credential. It may have been revoked in the dashboard; pair again with a fresh code.",
+          "cc connect rejected this device's credential. It may have been revoked in the dashboard; pair again with a fresh code.",
       };
     }
     return {
       code: "network",
-      title: "Could not reach bb connect",
+      title: "Could not reach cc connect",
       message: `Check your connection and try again. (${error.message})`,
     };
   }
@@ -90,7 +90,7 @@ export function describeEnrollmentError(error: unknown): EnrollmentFailure {
   if (kind === "network") {
     return {
       code: "network",
-      title: "Could not reach bb connect",
+      title: "Could not reach cc connect",
       message: `Check your connection and try again. (${detail})`,
     };
   }

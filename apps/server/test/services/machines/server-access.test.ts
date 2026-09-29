@@ -1,9 +1,9 @@
-import { createDeferredPromise } from "@bb/test-helpers";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createDeferredPromise } from "@cc/test-helpers";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getHost, setAppSettings, updateHost, upsertHost } from "@bb/db";
-import { defaultAppSettings } from "@bb/domain";
-import type { ServerAccessProviderDeclaration } from "@get-bb/plugin-sdk";
+import { getHost, setAppSettings, updateHost, upsertHost } from "@cc/db";
+import { defaultAppSettings } from "@cc/domain";
+import type { ServerAccessProviderDeclaration } from "@codythatsme/plugin-sdk";
 import {
   serverAccess,
   serverAccessStatus,
@@ -35,7 +35,7 @@ function provider(): ServerAccessProviderDeclaration {
     availability: () => ({ status: "available" }),
     acquire: async ({ hostId }) => ({
       id: hostId,
-      serverUrl: "https://bb.example.com",
+      serverUrl: "https://cc.example.com",
       headers: { "x-access-token": "secret-header" },
     }),
     release: async () => {},
@@ -82,7 +82,7 @@ describe("machine server access", () => {
   });
   it("prefers the first registered provider and respects an explicit direct default", async () => {
     await withTestHarness(async ({ deps }) => {
-      vi.stubEnv("BB_EXTERNAL_URL", "https://direct.example.com");
+      vi.stubEnv("CC_EXTERNAL_URL", "https://direct.example.com");
       expect((await serverAccessStatus(deps)).defaultProviderId).toBe("direct");
       installProvider(provider());
       expect((await serverAccessStatus(deps)).defaultProviderId).toBe("relay");
@@ -109,7 +109,7 @@ describe("machine server access", () => {
 
   it("requires provider setup instead of silently falling back to a configured URL", async () => {
     await withTestHarness(async ({ deps }) => {
-      vi.stubEnv("BB_EXTERNAL_URL", "https://direct.example.com");
+      vi.stubEnv("CC_EXTERNAL_URL", "https://direct.example.com");
       const availability = vi.fn(() => ({
         status: "setup-required" as const,
         message: "Set up the relay",
@@ -143,7 +143,7 @@ describe("machine server access", () => {
 
   it("returns direct access without headers, including on repair", async () => {
     await withTestHarness(async ({ deps }) => {
-      vi.stubEnv("BB_EXTERNAL_URL", "https://direct.example.com");
+      vi.stubEnv("CC_EXTERNAL_URL", "https://direct.example.com");
       const host = upsertHost(deps.db, deps.hub, { name: "direct" })!;
       const args = { key: "direct", hostId: host.id, signal };
       const expected = {
@@ -203,7 +203,7 @@ describe("machine server access", () => {
         });
         return {
           id: "replacement",
-          serverUrl: "https://bb.example.com",
+          serverUrl: "https://cc.example.com",
           headers: { "x-access-token": "new" },
         };
       });
@@ -285,7 +285,7 @@ describe("machine server access", () => {
   });
 
   it("uses the explicit machine URL before the environment fallback", async () => {
-    vi.stubEnv("BB_EXTERNAL_URL", "https://fallback.example.com");
+    vi.stubEnv("CC_EXTERNAL_URL", "https://fallback.example.com");
     await withTestHarness(async ({ deps }) => {
       setAppSettings(deps.db, {
         ...defaultAppSettings,
@@ -298,7 +298,7 @@ describe("machine server access", () => {
       setAppSettings(deps.db, defaultAppSettings);
       expect(await serverAccessStatus(deps)).toMatchObject({
         effectiveUrl: "https://fallback.example.com",
-        urlSource: "BB_EXTERNAL_URL",
+        urlSource: "CC_EXTERNAL_URL",
       });
     });
   });
@@ -450,7 +450,7 @@ it.each([
       if (!real) throw new Error("Test plugin did not load");
       const fake = createFakePluginHost();
       try {
-        for (const api of [real, fake.bb])
+        for (const api of [real, fake.cc])
           expect(() =>
             api.experimental_serverAccess.register({
               ...provider(),
@@ -471,7 +471,7 @@ it("rejects duplicate server-access registrations in real and fake hosts", async
     if (!real) throw new Error("Test plugin did not load");
     const fake = createFakePluginHost();
     try {
-      for (const api of [real, fake.bb]) {
+      for (const api of [real, fake.cc]) {
         api.experimental_serverAccess.register(provider());
         expect(() =>
           api.experimental_serverAccess.register(provider()),

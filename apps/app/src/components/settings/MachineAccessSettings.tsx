@@ -1,12 +1,12 @@
-import type { ServerAccessStatus } from "@bb/server-contract";
+import type { ServerAccessStatus } from "@cc/server-contract";
 import { isLocalOnlyUrl } from "@/lib/loopback-hostname";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { COARSE_POINTER_INPUT_HEIGHT_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
+import { Icon } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
+import { COARSE_POINTER_INPUT_HEIGHT_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
 import { OptionPicker } from "@/components/pickers/OptionPicker";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useUpdateGeneralSettings } from "@/hooks/mutations/settings-mutations";
@@ -136,7 +136,7 @@ export function MachineAccessSettingsContent({
   return (
     <SettingsSection
       title="Machine access"
-      description="Choose how new machines connect to the bb server."
+      description="Choose how new machines connect to the cc server."
       action={<MachineAccessMethodPicker machineAccess={machineAccess} />}
       bodyClassName="space-y-3"
     >
@@ -298,7 +298,7 @@ function MachineAccessDetails({
               aria-label="Server address"
               aria-invalid={error !== null}
               value={draft ?? value}
-              placeholder={access?.effectiveUrl ?? "https://bb.example.com"}
+              placeholder={access?.effectiveUrl ?? "https://cc.example.com"}
               disabled={disabled}
               onChange={(event) => machineAccess.editDraft(event.target.value)}
               onKeyDown={(event) => {

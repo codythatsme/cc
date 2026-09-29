@@ -1,6 +1,6 @@
-import { environments, getThread } from "@bb/db";
-import type { ThreadStatus } from "@bb/domain";
-import { apiErrorSchema } from "@bb/server-contract";
+import { environments, getThread } from "@cc/db";
+import type { ThreadStatus } from "@cc/domain";
+import { apiErrorSchema } from "@cc/server-contract";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { readJson } from "../helpers/json.js";

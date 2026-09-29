@@ -13,8 +13,8 @@ export function SiteNav({ current }: { current?: SiteNavPage }) {
   return (
     <nav className="nav">
       {}
-      <a className="logo" href="/" aria-label="bb">
-        <span className="bb-mark logo-mark" />
+      <a className="logo" href="/" aria-label="cc">
+        <span className="cc-mark logo-mark" />
       </a>
       <div className="nav-links">
         <a
@@ -36,18 +36,10 @@ export function SiteNav({ current }: { current?: SiteNavPage }) {
           Changelog
         </a>
         <a href={DASHBOARD_PATH}>Sign in</a>
-        <GitHubLink
-          placement="nav"
-          className="nav-icon-button"
-          aria-label="GitHub"
-        >
+        <GitHubLink className="nav-icon-button" aria-label="GitHub">
           <HugeiconsIcon icon={GithubIcon} />
         </GitHubLink>
-        <DownloadLink
-          placement="nav"
-          platform={platform}
-          className="btn btn-primary btn-sm"
-        >
+        <DownloadLink platform={platform} className="btn btn-primary btn-sm">
           {DESKTOP_DOWNLOADS[platform].buttonLabel}
         </DownloadLink>
       </div>
@@ -59,7 +51,7 @@ export function SiteFooter() {
   const platform = useDesktopPlatform();
   return (
     <footer className="footer">
-      <span>bb is free and open source (MIT)</span>
+      <span>cc is free and open source (MIT)</span>
       <span>
         <a href="/blog">Blog</a>
         {" · "}
@@ -67,15 +59,13 @@ export function SiteFooter() {
         {" · "}
         <a href="/privacy">Privacy</a>
         {" · "}
-        <GitHubLink placement="footer">GitHub</GitHubLink>
+        <GitHubLink>GitHub</GitHubLink>
         {" · "}
-        <XLink placement="footer">X</XLink>
+        <XLink>X</XLink>
         {" · "}
-        <DiscordLink placement="footer">Discord</DiscordLink>
+        <DiscordLink>Discord</DiscordLink>
         {" · "}
-        <DownloadLink placement="footer" platform={platform}>
-          Download
-        </DownloadLink>
+        <DownloadLink platform={platform}>Download</DownloadLink>
       </span>
     </footer>
   );

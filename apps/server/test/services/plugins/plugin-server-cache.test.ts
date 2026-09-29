@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { resolvePluginBuildToolchain } from "@bb/plugin-build";
+import { resolvePluginBuildToolchain } from "@cc/plugin-build";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildCachedPluginServer,
@@ -20,7 +20,7 @@ describe("plugin server cache", () => {
   });
 
   it("keys the cache from bundled inputs and prunes old artifacts", async () => {
-    const workDir = await mkdtemp(join(tmpdir(), "bb-server-cache-graph-"));
+    const workDir = await mkdtemp(join(tmpdir(), "cc-server-cache-graph-"));
     tempDirs.push(workDir);
     const rootDir = join(workDir, "plugin");
     const dataDir = join(workDir, "data");
@@ -41,10 +41,10 @@ describe("plugin server cache", () => {
         dataDir,
         pluginId: "cache-graph",
         sdkVersion: "0.4.0",
-        bbVersion: "0.9.0",
+        ccVersion: "0.9.0",
         validatedConfig: {
           serverEntry: join(rootDir, "server.ts"),
-          packageName: "bb-plugin-cache-graph",
+          packageName: "cc-plugin-cache-graph",
           pluginVersion: "1.0.0",
         },
         toolchain: () =>
@@ -77,7 +77,7 @@ describe("plugin server cache", () => {
       rootDir: "/plugins/example",
       artifactDigest: "abc",
       sdkVersion: "0.4.0",
-      bbVersion: "0.9.0",
+      ccVersion: "0.9.0",
       nodeVersion: "22.0.0",
     };
     const first = pluginServerCacheDirectory(base);
@@ -90,7 +90,7 @@ describe("plugin server cache", () => {
       pluginServerCacheDirectory({ ...base, sdkVersion: "0.5.0" }),
     ).not.toBe(first);
     expect(
-      pluginServerCacheDirectory({ ...base, bbVersion: "0.10.0" }),
+      pluginServerCacheDirectory({ ...base, ccVersion: "0.10.0" }),
     ).not.toBe(first);
     expect(
       pluginServerCacheDirectory({ ...base, nodeVersion: "23.0.0" }),

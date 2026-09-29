@@ -3,16 +3,16 @@
   "name": "resource-row",
   "type": "registry:ui",
   "title": "resource-row",
-  "description": "BB ui \"resource-row\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"resource-row\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/coarse-pointer-visibility",
-    "@bb/dropdown-menu",
-    "@bb/empty-state",
-    "@bb/icon",
-    "@bb/skeleton",
-    "@bb/tooltip",
-    "@bb/utils"
+    "@cc/button",
+    "@cc/coarse-pointer-visibility",
+    "@cc/dropdown-menu",
+    "@cc/empty-state",
+    "@cc/icon",
+    "@cc/skeleton",
+    "@cc/tooltip",
+    "@cc/utils"
   ],
   "files": [
     {

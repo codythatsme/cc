@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import type { HostDaemonSessionOpenResponse } from "@bb/host-daemon-contract";
+import type { HostDaemonSessionOpenResponse } from "@cc/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostDaemonLogger } from "./logger.js";
 import { ServerResponseError, type ServerClient } from "./server-client.js";
@@ -172,7 +172,7 @@ function createConnectionFixture(args: ConnectionFixtureArgs = {}) {
   });
   const setSession = vi.fn();
   const connection = new ServerConnection({
-    dataDir: "/tmp/bb-server-connection-test",
+    dataDir: "/tmp/cc-server-connection-test",
     hostId: "host-server-connection-test",
     hostKey: "host-key-server-connection-test",
     hostName: "Server Connection Test Host",
@@ -283,14 +283,14 @@ describe("ServerConnection", () => {
       data: JSON.stringify({
         type: "server.moved",
         serverUrl: "https://new-server.example.test",
-        headers: { "x-bb-connect-machine": "bbcm_new" },
+        headers: { "x-cc-connect-machine": "bbcm_new" },
       }),
     });
 
     await vi.waitFor(() => {
       expect(onServerMoved).toHaveBeenCalledWith({
         serverUrl: "https://new-server.example.test",
-        headers: { "x-bb-connect-machine": "bbcm_new" },
+        headers: { "x-cc-connect-machine": "bbcm_new" },
         source: "message",
       });
     });
@@ -301,7 +301,7 @@ describe("ServerConnection", () => {
     const onServerMoved = vi.fn(async () => undefined);
     const movedError = new ServerResponseError({
       action: "open session",
-      bodyMessage: "This bb server moved to studio",
+      bodyMessage: "This cc server moved to studio",
       code: "server_moved",
       retryable: false,
       serverMoved: {
@@ -343,7 +343,7 @@ describe("ServerConnection", () => {
     });
     const movedError = new ServerResponseError({
       action: "open session",
-      bodyMessage: "This bb server moved to studio",
+      bodyMessage: "This cc server moved to studio",
       code: "server_moved",
       retryable: false,
       serverMoved: {
@@ -440,7 +440,7 @@ describe("ServerConnection", () => {
   it("adds the machine credential to WS dial headers only when configured", async () => {
     const configured = createConnectionFixture({
       serverHeaders: {
-        "x-bb-connect-machine": "bbcm_machine",
+        "x-cc-connect-machine": "bbcm_machine",
         "x-test-access": "opaque",
       },
     });
@@ -450,7 +450,7 @@ describe("ServerConnection", () => {
       await plain.connection.start();
       expect(configured.webSocket.headers[0]).toEqual({
         authorization: "Bearer host-key-server-connection-test",
-        "x-bb-connect-machine": "bbcm_machine",
+        "x-cc-connect-machine": "bbcm_machine",
         "x-test-access": "opaque",
       });
       expect(plain.webSocket.headers[0]).toEqual({

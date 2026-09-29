@@ -7,10 +7,10 @@ import {
   type EnvironmentMachineSelection,
   type Thread,
   type JsonValue,
-} from "@bb/domain";
-import type { CreateThreadEnvironmentArgs } from "@bb/server-contract";
+} from "@cc/domain";
+import type { CreateThreadEnvironmentArgs } from "@cc/server-contract";
 import { action, CliUsageError } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliCcSdk } from "../../client.js";
 import { missingProjectHint } from "../../context-hints.js";
 import { requireTextInput, TEXT_FILE_HELP_SUFFIX } from "../../text-input.js";
 import {
@@ -112,7 +112,7 @@ function resolveSpawnParentThreadId(args: {
   if (args.parentSelf) {
     const selfThreadId = resolveContextThreadId();
     if (!selfThreadId) {
-      throw new Error("--parent-self requires BB_THREAD_ID to be set.");
+      throw new Error("--parent-self requires CC_THREAD_ID to be set.");
     }
     return selfThreadId;
   }
@@ -222,7 +222,7 @@ async function buildProviderSpawnEnvironment(args: {
     );
   }
   const requested = args.environmentProvider.trim();
-  const providers = await createCliBbSdk(
+  const providers = await createCliCcSdk(
     args.serverUrl,
   ).environments.listProviders({ projectId: args.projectId });
   const match = providers.find((provider) => provider.id === requested);
@@ -238,7 +238,7 @@ async function buildProviderSpawnEnvironment(args: {
       inputs = {};
     } else {
       throw new Error(
-        `The '${match.id}' environment provider needs --environment-inputs <json>; \`bb environment providers --json\` shows its schema.`,
+        `The '${match.id}' environment provider needs --environment-inputs <json>; \`cc environment providers --json\` shows its schema.`,
       );
     }
   }
@@ -258,7 +258,7 @@ async function buildProviderSpawnEnvironment(args: {
         if (match.machineAcceptsEmptyInputs) machineInputs = {};
         else {
           throw new Error(
-            `The '${match.machineProviderId}' machine provider needs --machine-inputs <json>; \`bb environment providers --json\` shows its schema.`,
+            `The '${match.machineProviderId}' machine provider needs --machine-inputs <json>; \`cc environment providers --json\` shows its schema.`,
           );
         }
       }
@@ -336,7 +336,7 @@ export function registerSpawnCommand(
     )
     .option(
       "--base-branch <branch>",
-      "Exact Git ref; omit for bb's project default (use origin/<branch> for a remote ref)",
+      "Exact Git ref; omit for cc's project default (use origin/<branch> for a remote ref)",
     )
     .option(
       "--machine <id-or-name>",
@@ -352,7 +352,7 @@ export function registerSpawnCommand(
       "Persisted non-secret inputs for --new-machine or a composed --environment-provider; store credentials in plugin settings",
     )
     .option("--parent-thread <id>", "Parent thread ID for worker thread links")
-    .option("--parent-self", "Parent the new thread to BB_THREAD_ID")
+    .option("--parent-self", "Parent the new thread to CC_THREAD_ID")
     .option("--provider <id>", PROVIDER_HELP)
     .option(
       "--model <model>",
@@ -385,11 +385,11 @@ export function registerSpawnCommand(
     )
     .option(
       "--environment-provider <id>",
-      "Run on an environment provider by id (list them with `bb environment providers`)",
+      "Run on an environment provider by id (list them with `cc environment providers`)",
     )
     .option(
       "--environment-inputs <json>",
-      "JSON value for an --environment-provider that declares inputs (`bb environment providers --json` shows the schema)",
+      "JSON value for an --environment-provider that declares inputs (`cc environment providers --json` shows the schema)",
     )
     .option("--send-at <when>", SEND_AT_HELP)
     .option("--origin-kind <kind>", "Thread origin: fork")
@@ -450,7 +450,7 @@ export function registerSpawnCommand(
         }
         const machineProvider = opts.newMachine
           ? (
-              await createCliBbSdk(getUrl()).hosts.experimental_listProviders()
+              await createCliCcSdk(getUrl()).hosts.experimental_listProviders()
             ).find((provider) => provider.id === opts.newMachine?.trim())
           : undefined;
         if (opts.newMachine && machineProvider === undefined) {
@@ -470,7 +470,7 @@ export function registerSpawnCommand(
           if (machineProvider.acceptsEmptyInputs) machineInputs = {};
           else {
             throw new Error(
-              `The '${machineProvider?.id}' machine provider needs --machine-inputs <json>; \`bb machine providers --json\` shows its schema.`,
+              `The '${machineProvider?.id}' machine provider needs --machine-inputs <json>; \`cc machine providers --json\` shows its schema.`,
             );
           }
         }
@@ -563,7 +563,7 @@ export function registerSpawnCommand(
 
         let thread: Thread;
         try {
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           const input = await uploadClientAttachmentInputs({
             input: buildPromptInputs({
               message: prompt,

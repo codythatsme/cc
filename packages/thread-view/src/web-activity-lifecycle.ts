@@ -7,7 +7,7 @@ import {
   type ThreadEventItemStatus,
   type ThreadEventPlanStep,
   type ThreadEventSearchMode,
-} from "@bb/domain";
+} from "@cc/domain";
 import { getEventParentToolCallId } from "./event-decode.js";
 
 interface ItemActivityLifecycleBase {

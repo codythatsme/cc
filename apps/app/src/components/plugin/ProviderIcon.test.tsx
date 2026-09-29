@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { Icon } from "@bb/shared-ui/icon";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import type { PluginAppBuilder } from "@get-bb/plugin-sdk/app";
+import { Icon } from "@cc/shared-ui/icon";
+import { collectPluginAppRegistrations } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
+import type { PluginAppBuilder } from "@codythatsme/plugin-sdk/app";
 import {
   removePluginSlotRegistrations,
   resetPluginSlotStoreForTest,
@@ -19,7 +19,7 @@ function register(setup: (app: PluginAppBuilder) => void) {
   act(() =>
     setPluginSlotRegistrations(
       "acme",
-      collectPluginAppRegistrations({ __bbPluginApp: true, setup }),
+      collectPluginAppRegistrations({ __ccPluginApp: true, setup }),
     ),
   );
 }

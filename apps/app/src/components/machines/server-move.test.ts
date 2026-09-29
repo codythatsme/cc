@@ -1,7 +1,7 @@
-import { SERVER_MOVE_STEP_IDS } from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
-import type { ServerMoveStatus } from "@bb/server-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import { SERVER_MOVE_STEP_IDS } from "@cc/domain";
+import { CcHttpError } from "@cc/sdk/browser";
+import type { ServerMoveStatus } from "@cc/server-contract";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import { describe, expect, it } from "vitest";
 import {
   canMoveServerHere,
@@ -21,7 +21,7 @@ function move(overrides: Partial<ServerMoveStatus> = {}): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.cc.example.invalid",
     destinationStatusUrl: null,
     startedAt: 1,
     finishedAt: null,
@@ -39,21 +39,21 @@ function move(overrides: Partial<ServerMoveStatus> = {}): ServerMoveStatus {
 describe("serverMoveDestinationUrl", () => {
   it("keeps a base path, drops duplicate slashes, and carries the move id", () => {
     expect(
-      serverMoveDestinationUrl("https://example.com/bb/", LOCATION, "move_1"),
-    ).toBe("https://example.com/bb/threads/thr_1?a=1&bbServerMove=move_1#x");
+      serverMoveDestinationUrl("https://example.com/cc/", LOCATION, "move_1"),
+    ).toBe("https://example.com/cc/threads/thr_1?a=1&ccServerMove=move_1#x");
     expect(
       serverMoveDestinationUrl("http://10.0.0.5:38886", LOCATION, "move_1"),
-    ).toBe("http://10.0.0.5:38886/threads/thr_1?a=1&bbServerMove=move_1#x");
+    ).toBe("http://10.0.0.5:38886/threads/thr_1?a=1&ccServerMove=move_1#x");
   });
 
   it("replaces any query or fragment on the server address with the current ones", () => {
     expect(
       serverMoveDestinationUrl(
         "https://example.com/?stale=1#old",
-        { pathname: "/", search: "?bbServerMove=move_0", hash: "" },
+        { pathname: "/", search: "?ccServerMove=move_0", hash: "" },
         "move_1",
       ),
-    ).toBe("https://example.com/?bbServerMove=move_1");
+    ).toBe("https://example.com/?ccServerMove=move_1");
   });
 });
 
@@ -149,12 +149,12 @@ describe("canMoveServerHere", () => {
 });
 
 describe("movedServerUrlFromError", () => {
-  function httpError(status: number, body: unknown): BbHttpError {
+  function httpError(status: number, body: unknown): CcHttpError {
     const code =
       typeof body === "object" && body !== null && "code" in body
         ? String(body.code)
         : null;
-    return new BbHttpError({ status, code, message: "moved", body });
+    return new CcHttpError({ status, code, message: "moved", body });
   }
 
   it("reads the new address from a server_moved answer", () => {
@@ -297,7 +297,7 @@ describe("resolveServerMoveOverlay", () => {
       kind: "redirecting",
       move: switching,
       destination:
-        "https://desk.example.com/threads/thr_1?a=1&bbServerMove=move_1#x",
+        "https://desk.example.com/threads/thr_1?a=1&ccServerMove=move_1#x",
     });
     expect(
       resolveServerMoveOverlay({ ...args, error: null, destination: null })

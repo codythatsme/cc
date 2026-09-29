@@ -1,7 +1,7 @@
 import { usePendingAttachmentUploads } from "./usePendingAttachmentUploads";
 import { useInitialPromptDraft } from "./mentions/initial-prompt-draft";
 import { ProviderRequirementBanner } from "./banner/ProviderRequirementBanner";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   getPluginConfigurationRoutePath,
   getSettingsRoutePath,
@@ -25,19 +25,19 @@ import {
   type ProjectExecutionDefaults,
   type ReasoningLevel,
   type ServiceTier,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ExperimentalComposerSelection,
   NewThreadRequest,
   PluginEnvironmentProviderInputsChange,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import type {
   CreateThreadRequest,
   CreateExecutionInputSources,
   SidebarBootstrapResponse,
   SystemEnvironmentProvider,
   SystemExecutionOptionsModelLoadError,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { ProjectSelectorCreateProjectConfig } from "@/components/pickers/ProjectSelector";
 import {
   encodeReuseValue,
@@ -53,10 +53,10 @@ import {
   type NewThreadPromptBoxProps,
 } from "@/components/promptbox/NewThreadPromptBox";
 import { withAppPromptActions } from "@/components/promptbox/PromptBoxActionsMenu";
-import { buildProviderPromptActionProps } from "@bb/client-core";
+import { buildProviderPromptActionProps } from "@cc/client-core";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import { type PluginComposerHost } from "@/components/plugin/plugin-composer-host";
-import type { ExperimentalComposerSubmitOptions } from "@get-bb/plugin-sdk";
+import type { ExperimentalComposerSubmitOptions } from "@codythatsme/plugin-sdk";
 import {
   readExecutionSelection,
   resolveComposerSelectionDeadline,
@@ -104,7 +104,7 @@ import {
   promptDraftToInput,
   type PromptDraftAttachment,
   type PromptDraftState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   getProjectComposeRoutePath,
   getThreadRoutePath,
@@ -1472,7 +1472,7 @@ export function NewThreadComposer({
   );
   const [commandState, setCommandState] = useState<{
     query: string | null;
-    trigger: import("@bb/domain").PromptMentionCommandTrigger | null;
+    trigger: import("@cc/domain").PromptMentionCommandTrigger | null;
   }>({ query: null, trigger: null });
   const [hasComposerFocused, setHasComposerFocused] = useState(false);
   const handleEditorFocus = useCallback(() => {

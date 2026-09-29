@@ -28,7 +28,7 @@ import {
   type PluginBuildToolchain,
 } from "./toolchain.js";
 
-const LEGACY_PLUGIN_SDK_SPECIFIER = "@bb/plugin-sdk";
+const LEGACY_PLUGIN_SDK_SPECIFIER = "@cc/plugin-sdk";
 
 export const PLUGIN_SERVER_EXTERNALS: readonly string[] = [
   PLUGIN_SDK_PACKAGE_NAME,
@@ -36,12 +36,12 @@ export const PLUGIN_SERVER_EXTERNALS: readonly string[] = [
   "better-sqlite3",
 ];
 
-const PLUGIN_SDK_ROOT_FILTER = /^@get-bb\/plugin-sdk$|^@bb\/plugin-sdk$/;
-const PLUGIN_SDK_SUBPATH_FILTER = /^@get-bb\/plugin-sdk\//;
-const PLUGIN_SDK_SUBPATH_RESOLVE_MARK = "bb-server-sdk-subpath";
-const PLUGIN_RUNTIME_FALLBACK_RESOLVE_MARK = "bb-server-runtime-fallback";
-const PLUGIN_SOURCE_BOUNDARY_RESOLVE_MARK = "bb-server-source-boundary";
-const PLUGIN_BUNDLED_DEPENDENCY_MARK = "bb-server-bundled-dependency";
+const PLUGIN_SDK_ROOT_FILTER = /^@codythatsme\/plugin-sdk$|^@cc\/plugin-sdk$/;
+const PLUGIN_SDK_SUBPATH_FILTER = /^@codythatsme\/plugin-sdk\//;
+const PLUGIN_SDK_SUBPATH_RESOLVE_MARK = "cc-server-sdk-subpath";
+const PLUGIN_RUNTIME_FALLBACK_RESOLVE_MARK = "cc-server-runtime-fallback";
+const PLUGIN_SOURCE_BOUNDARY_RESOLVE_MARK = "cc-server-source-boundary";
+const PLUGIN_BUNDLED_DEPENDENCY_MARK = "cc-server-bundled-dependency";
 const BARE_PACKAGE_FILTER = /^[^./]|^@[^/]+\/[^/]+/;
 const FILE_IMPORT_FILTER = /^(?:\.{1,2}\/|\/)/;
 
@@ -56,9 +56,9 @@ async function readPluginServerConfig(
 ): Promise<PluginServerConfig> {
   const packageJsonPath = join(rootDir, "package.json");
   const json = await readPluginPackageJsonFile(packageJsonPath);
-  if (!isRecord(json) || !isRecord(json.bb) || json.bb.server === undefined) {
+  if (!isRecord(json) || !isRecord(json.cc) || json.cc.server === undefined) {
     throw new Error(
-      `no server entry: ${packageJsonPath} has no "bb": { "server": "./server.ts" } field`,
+      `no server entry: ${packageJsonPath} has no "cc": { "server": "./server.ts" } field`,
     );
   }
   const manifest = await validatePluginBuildManifest(
@@ -68,8 +68,8 @@ async function readPluginServerConfig(
   );
   const serverEntry = await resolveManifestEntryFile(
     rootDir,
-    manifest.bb.server,
-    "bb.server",
+    manifest.cc.server,
+    "cc.server",
   );
   return {
     serverEntry,
@@ -137,7 +137,7 @@ function loaderForSourcePath(path: string): "js" | "jsx" | "ts" | "tsx" {
 
 export async function buildPluginServer(
   rootDir: string,
-  bbVersion: string,
+  ccVersion: string,
   toolchain: PluginBuildToolchain,
   options: PluginServerBuildOptions = {},
 ): Promise<PluginServerBuildResult> {
@@ -191,7 +191,7 @@ export async function buildPluginServer(
         ...(options.preserveSourceModuleLocation === true
           ? [
               {
-                name: "bb-plugin-source-url",
+                name: "cc-plugin-source-url",
                 setup(build: import("esbuild").PluginBuild) {
                   build.onLoad(
                     { filter: /\.(?:[cm]?[jt]s|[jt]sx)$/ },
@@ -209,7 +209,7 @@ export async function buildPluginServer(
             ]
           : []),
         {
-          name: "bb-plugin-sdk-resolution",
+          name: "cc-plugin-sdk-resolution",
           setup(build) {
             for (const [specifier, entry] of Object.entries(runtimeImports)) {
               const escaped = specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -247,7 +247,7 @@ export async function buildPluginServer(
                       text: await describeUnresolvedSdkImport({
                         specifier: args.path,
                         resolveDir: args.resolveDir,
-                        need: `a server entry's "${args.path}" import is bundled from the plugin's own SDK install (bb serves only the bare "${PLUGIN_SDK_PACKAGE_NAME}" at load time), so the plugin needs`,
+                        need: `a server entry's "${args.path}" import is bundled from the plugin's own SDK install (cc serves only the bare "${PLUGIN_SDK_PACKAGE_NAME}" at load time), so the plugin needs`,
                         esbuildErrors: installed.errors,
                       }),
                     },
@@ -340,7 +340,7 @@ export async function buildPluginServer(
     await writeFile(
       stagedMetaPath,
       JSON.stringify(
-        createPluginArtifactMeta({ packageName, pluginVersion, bbVersion }),
+        createPluginArtifactMeta({ packageName, pluginVersion, ccVersion }),
         null,
         2,
       ) + "\n",

@@ -3,14 +3,14 @@
   "name": "branch-picker-primitives",
   "type": "registry:ui",
   "title": "branch-picker-primitives",
-  "description": "BB ui \"branch-picker-primitives\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"branch-picker-primitives\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/coarse-pointer-sizing",
-    "@bb/icon",
-    "@bb/input",
-    "@bb/menu-item-hover",
-    "@bb/motion",
-    "@bb/utils"
+    "@cc/coarse-pointer-sizing",
+    "@cc/icon",
+    "@cc/input",
+    "@cc/menu-item-hover",
+    "@cc/motion",
+    "@cc/utils"
   ],
   "files": [
     {

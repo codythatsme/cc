@@ -11,7 +11,7 @@ import {
 async function marketplaceResource(path: string): Promise<MarketplaceResource> {
   const response = await serveMarketplaceObject({
     bucket: getEnv().MARKETPLACE,
-    request: new Request(`https://getbb.app${path}`),
+    request: new Request(`https://cc.example.invalid${path}`),
   });
   if (!response.ok) {
     throw new Error(`Marketplace resource unavailable: ${response.status}`);

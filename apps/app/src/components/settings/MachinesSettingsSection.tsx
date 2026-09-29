@@ -1,16 +1,16 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { Host, PermissionMode } from "@bb/domain";
-import type { SystemMachineProvider } from "@bb/server-contract";
-import type { HostPlatform } from "@bb/host-daemon-contract";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { Host, PermissionMode } from "@cc/domain";
+import type { SystemMachineProvider } from "@cc/server-contract";
+import type { HostPlatform } from "@cc/host-daemon-contract";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   ResourceOverflowMenu,
   ResourceRowDetailChevron,
   targetsResourceAction,
-} from "@bb/shared-ui/resource-list";
+} from "@cc/shared-ui/resource-list";
 import { AddMachineDialog } from "@/components/dialogs/AddMachineDialog";
 import { appToast } from "@/components/ui/app-toast";
 import { machineActions } from "@/components/machines/machine-actions";
@@ -351,7 +351,7 @@ export function MachinesSettingsSection() {
       >
         <div
           role="note"
-          aria-label="About the bb server"
+          aria-label="About the cc server"
           className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3"
         >
           <Icon
@@ -362,7 +362,7 @@ export function MachinesSettingsSection() {
           <div className="min-w-0 space-y-1 text-xs leading-relaxed text-subtle-foreground">
             <p className="font-medium text-foreground">How machines connect</p>
             <p>
-              All your machines connect to one central bb server, where your
+              All your machines connect to one central cc server, where your
               threads and settings are stored. Choose a machine that can stay
               awake and online to run the server.
             </p>

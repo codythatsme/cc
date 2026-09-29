@@ -1,4 +1,4 @@
-import type { PluginCommandContext } from "@get-bb/plugin-sdk";
+import type { PluginCommandContext } from "@codythatsme/plugin-sdk";
 import type { PluginThreadPanelOpenHandler } from "@/components/plugin/plugin-thread-panel-navigation";
 import type { PluginCommandPaletteActionSlot } from "@/lib/plugin-slots";
 import { getPluginDisplayName } from "@/lib/plugin-logos";

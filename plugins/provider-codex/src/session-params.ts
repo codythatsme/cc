@@ -6,7 +6,7 @@ import {
   type RuntimePermissionPolicy,
   type ServiceTier,
   buildShellEnvOverrides,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 import fs from "node:fs";
 import path from "node:path";
 import type { ReasoningEffort as CodexReasoningEffort } from "./generated/codex-app-server/schema/ReasoningEffort.js";
@@ -18,7 +18,7 @@ import type { ThreadStartParams } from "./generated/codex-app-server/schema/v2/T
 import type { UserInput as CodexUserInput } from "./generated/codex-app-server/schema/v2/UserInput.js";
 import type { AskForApproval } from "./generated/codex-app-server/schema/v2/AskForApproval.js";
 import type { ApprovalsReviewer } from "./generated/codex-app-server/schema/v2/ApprovalsReviewer.js";
-import { mapBbReasoningLevelToCodex } from "./models.js";
+import { mapCcReasoningLevelToCodex } from "./models.js";
 
 export type CodexSessionOptions = {
   model?: string;
@@ -43,12 +43,12 @@ export interface CodexThreadPermissionSettings {
   sandbox: CodexSandboxMode;
 }
 
-export type BbThreadStartParams = ThreadStartParams & {
+export type CcThreadStartParams = ThreadStartParams & {
   experimentalRawEvents?: boolean;
   dynamicTools?: DynamicToolSpec[];
 };
 
-export type BbThreadForkParams = {
+export type CcThreadForkParams = {
   threadId: string;
   lastTurnId?: string | null;
   model?: string | null;
@@ -551,7 +551,7 @@ export function toCodexServiceTier(
 export function toCodexReasoningEffort(
   reasoningLevel: ReasoningLevel,
 ): CodexReasoningEffort {
-  const codexEffort = mapBbReasoningLevelToCodex(reasoningLevel);
+  const codexEffort = mapCcReasoningLevelToCodex(reasoningLevel);
   if (codexEffort == null) {
     throw new Error(
       `Codex does not support the ${reasoningLevel} reasoning level.`,
@@ -597,7 +597,7 @@ export function buildCodexConfig(
 ): { [key in string]?: JsonValue } | undefined {
   const config: { [key in string]?: JsonValue } = {};
   if (args.threadId) {
-    config["shell_environment_policy.set.BB_THREAD_ID"] = args.threadId;
+    config["shell_environment_policy.set.CC_THREAD_ID"] = args.threadId;
   }
   const shellEnvironmentConfig = buildShellEnvironmentPolicyConfig(
     args.options?.envVars,

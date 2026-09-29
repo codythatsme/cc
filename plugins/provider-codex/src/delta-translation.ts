@@ -18,7 +18,7 @@ import {
   experimental_toolPresentation as toolPresentation,
   experimental_webFetchPresentation as webFetchPresentation,
   experimental_webSearchPresentation as webSearchPresentation,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 import {
   codexBridgeEnvelopeSchema,
   codexHandledEventSchema,
@@ -726,7 +726,7 @@ function toolStatusFields(status: CodexItemStatus): {
 
 const PLAN_STEPS_CHANNEL = "planSteps";
 
-const BB_TOOL_SERVER = "bb";
+const CC_TOOL_SERVER = "cc";
 
 function isTerminalCodexItemStatus(status: CodexItemStatus): boolean {
   return status !== "inProgress";
@@ -855,7 +855,7 @@ function translateCodexItemShape(
         kind: "translated",
         shape: {
           type: "tool",
-          ...(injected === undefined ? {} : { server: BB_TOOL_SERVER }),
+          ...(injected === undefined ? {} : { server: CC_TOOL_SERVER }),
           tool: parsedItem.tool,
           ...(parsedItem.arguments === undefined
             ? {}

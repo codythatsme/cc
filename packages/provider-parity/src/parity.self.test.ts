@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   compareParity,
   type ParityAllowlistEntry,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@cc/provider-bridge-protocol/testing";
 import {
   RECORDINGS_ROOT,
   ROW_COUNTS_PATH,
@@ -182,7 +182,7 @@ describe("allowlist", () => {
       {
         kind: "turn",
         id: "#1",
-        children: [{ kind: "work", id: "#3", toolName: "bb:AskUserQuestion" }],
+        children: [{ kind: "work", id: "#3", toolName: "cc:AskUserQuestion" }],
       },
       { kind: "conversation", id: "#5", text: "answer" },
     ];

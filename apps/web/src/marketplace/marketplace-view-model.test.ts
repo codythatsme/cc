@@ -140,7 +140,7 @@ describe("public marketplace view model", () => {
 
   it("builds the install command", () => {
     expect(marketplaceInstallCommand("prompt-library")).toBe(
-      "bb plugin install prompt-library",
+      "cc plugin install prompt-library",
     );
   });
 
@@ -151,7 +151,7 @@ describe("public marketplace view model", () => {
       throw new Error("The fixture needs two plugins");
     }
     expect(marketplaceRepositoryUrl(npmEntry)).toBe(
-      "https://www.npmjs.com/package/@get-bb/plugin-prompt-library",
+      "https://www.npmjs.com/package/@codythatsme/plugin-prompt-library",
     );
     expect(
       marketplaceRepositoryUrl({
@@ -165,7 +165,7 @@ describe("public marketplace view model", () => {
       }),
     ).toBe("https://npm.example.com/custom-tool");
     expect(marketplaceRepositoryUrl(gitEntry)).toBe(
-      "https://github.com/acme/bb-plugins",
+      "https://github.com/acme/cc-plugins",
     );
   });
 

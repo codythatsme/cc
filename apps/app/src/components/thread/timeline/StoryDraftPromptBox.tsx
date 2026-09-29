@@ -1,10 +1,10 @@
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@cc/domain";
 import { useCallback, useMemo, useState } from "react";
 import {
   PromptBoxInternal,
   type HistoryConfig,
 } from "@/components/promptbox/PromptBoxInternal";
-import { appendQuoteToDraftText } from "@bb/client-core";
+import { appendQuoteToDraftText } from "@cc/client-core";
 import {
   makeAttachmentsConfig,
   makeTypeaheadConfig,

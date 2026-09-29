@@ -1,4 +1,4 @@
-import { createHostId } from "@bb/db";
+import { createHostId } from "@cc/db";
 import type { AppDeps } from "../../types.js";
 
 type HostEnrollmentDeps = Pick<AppDeps, "db" | "machineAuth">;

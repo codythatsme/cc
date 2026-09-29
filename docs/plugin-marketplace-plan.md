@@ -6,7 +6,7 @@ Status: draft for review. Related: issue #1097 (collection manifest), PR #636
 ## Goals
 
 1. Define one marketplace manifest format that anyone can host over HTTPS or in
-   a git repository. The BB Official marketplace is the first instance.
+   a git repository. The CC Official marketplace is the first instance.
 2. Let entries link to npm packages or git repositories, including
    subdirectories of multi-plugin repositories.
 3. Let entries carry store branding, including an icon by URL, in the same
@@ -20,7 +20,7 @@ Status: draft for review. Related: issue #1097 (collection manifest), PR #636
 
 | Layer | File / surface | Role |
 | --- | --- | --- |
-| Collection manifest | `.bb/plugins.json` in a repository | Bare index of nested plugins for direct installs and local discovery (issue #1097) |
+| Collection manifest | `.cc/plugins.json` in a repository | Bare index of nested plugins for direct installs and local discovery (issue #1097) |
 | Marketplace manifest | `marketplace.json`, hosted | Catalog with store branding; entries point at npm or git sources |
 | Install pipeline | existing server services | Validates the real package manifest; records source intent and exact resolution |
 
@@ -33,9 +33,9 @@ collection manifest by pinning a ref and pointing each entry at its subdir.
 {
   "$schema": "https://getbb.dev/schemas/marketplace.schema.json",
   "schemaVersion": 1,
-  "name": "bb-official",
-  "displayName": "BB Official",
-  "description": "Plugins built and reviewed by the BB team.",
+  "name": "cc-official",
+  "displayName": "CC Official",
+  "description": "Plugins built and reviewed by the CC team.",
   "plugins": [
     {
       "id": "thread-hover-cards",
@@ -44,9 +44,9 @@ collection manifest by pinning a ref and pointing each entry at its subdir.
       "icon": { "url": "./icons/thread-hover-cards.svg" },
       "tags": ["interface", "threads", "sidebar"],
       "author": {
-        "name": "BB Team",
-        "github": "get-bb",
-        "url": "https://getbb.app"
+        "name": "CC Team",
+        "github": "get-cc",
+        "url": "https://cc.example.invalid"
       },
       "source": {
         "git": {
@@ -62,8 +62,8 @@ collection manifest by pinning a ref and pointing each entry at its subdir.
       "displayName": "Agent Sidebar",
       "description": "Sidebar for agent status.",
       "icon": { "url": "https://plugins.getbb.dev/icons/agent-sidebar.png" },
-      "author": { "name": "BB Team", "github": "get-bb" },
-      "source": { "npm": { "package": "bb-plugin-agent-sidebar", "range": "^1.0.0" } }
+      "author": { "name": "CC Team", "github": "get-cc" },
+      "source": { "npm": { "package": "cc-plugin-agent-sidebar", "range": "^1.0.0" } }
     }
   ]
 }
@@ -90,8 +90,8 @@ Rules:
 - A listing declares no compatibility. There is no `engines` field, and the
   strict schema rejects one. A listing's copy of a range is a second source of
   truth that goes stale as soon as the plugin publishes a new version, and it
-  hid compatible plugins behind an out-of-date manifest. bb reads `engines.bb`
-  and `engines.bbPluginSdk` from the fetched plugin's own `package.json` and
+  hid compatible plugins behind an out-of-date manifest. cc reads `engines.cc`
+  and `engines.ccPluginSdk` from the fetched plugin's own `package.json` and
   refuses the install there instead.
 - Sources are objects, not strings. Strings stay in the CLI; the manifest is a
   machine contract with per-field validation and no parser to reimplement.
@@ -110,7 +110,7 @@ source = { "npm": { package, range?, tag?, registry? } }   // tag = npm dist-tag
 - npm `range` and `tag` are mutually exclusive. `tag` is an npm dist-tag such
   as `beta`, matching the CLI's existing `npm:pkg@beta` support. A dist-tag is
   a mutable pointer, so it gets "tracks" semantics: the install records the
-  exact resolved version, and `bb plugin update` re-resolves the dist-tag.
+  exact resolved version, and `cc plugin update` re-resolves the dist-tag.
 - git `ref` and `range` are mutually exclusive; exactly one is required.
 - `subdir` is a relative path. Reject absolute paths, empty segments, and
   `..`. Enforce symlink containment with `realPathInside` at stage time.
@@ -124,12 +124,12 @@ Entry `icon` accepts the same shapes the plugin manifest supports today:
 
 - A host icon name (string), as `GIT_OFFICIAL_PLUGINS` uses now.
 - `{ "url": ... }` pointing at an `.svg`, `.png`, or `.webp` file — the same
-  format set as `bb.branding.logo`. The URL is absolute `https:` or relative;
+  format set as `cc.branding.logo`. The URL is absolute `https:` or relative;
   a relative URL resolves against the manifest's own URL, which lets a
   git-hosted marketplace keep icons next to the manifest. Plain `http:` is
   rejected.
-- bb masks an SVG icon with the surrounding text color, the same way it
-  renders a plugin's own compact `bb.branding.icon`. Most catalog icons are
+- cc masks an SVG icon with the surrounding text color, the same way it
+  renders a plugin's own compact `cc.branding.icon`. Most catalog icons are
   single-color glyphs, and an unmasked black-on-transparent SVG is invisible
   on a dark theme. PNG and WebP icons keep their own colors: a mask reads
   alpha only and would flatten an opaque image into a solid block. Use a
@@ -159,21 +159,21 @@ This applies the conclusions from the Go modules discussion:
   valid semver, and selects the highest version that satisfies `range`.
   Prereleases are excluded unless the range itself permits them, matching the
   npm resolver's behavior.
-- BB selects highest-satisfying, not Go's Minimal Version Selection. BB
+- CC selects highest-satisfying, not Go's Minimal Version Selection. CC
   installs one plugin at a time; there is no dependency graph to minimize.
 - The exact resolution records the tag name and the commit SHA it pointed at.
   Tags are mutable; commits are not. The artifact cache is already keyed by
   repository plus commit, so installed content stays immutable.
 - If a later resolution finds the recorded tag pointing at a different commit,
-  BB refuses with a security error that names the tag and both commits. Do not
+  CC refuses with a security error that names the tag and both commits. Do not
   silently re-resolve. This is the `go.sum` lesson.
 - Update model: a git range behaves like an npm range — the plugin "tracks
-  compatible". `bb plugin outdated` lists newer satisfying tags from the
-  marketplace's current manifest or from `ls-remote`; `bb plugin update`
+  compatible". `cc plugin outdated` lists newer satisfying tags from the
+  marketplace's current manifest or from `ls-remote`; `cc plugin update`
   applies one manually through the existing staged-activation and rollback
   path.
 - The same capability ships for direct installs. Proposed syntax:
-  `bb plugin install git:github.com/acme/repo@^1.2.0`. A spec that parses as a
+  `cc plugin install git:github.com/acme/repo@^1.2.0`. A spec that parses as a
   semver range and is not a valid single ref name resolves against tags.
   Decision point below.
 
@@ -194,8 +194,8 @@ This applies the conclusions from the Go modules discussion:
 ## Install counts
 
 The curated marketplace publishes a second document beside its manifest,
-`stats.json`, and BB shows the number on the store card, the mobile browse
-row, and in `bb plugin search`:
+`stats.json`, and CC shows the number on the store card, the mobile browse
+row, and in `cc plugin search`:
 
 ```json
 {
@@ -205,12 +205,8 @@ row, and in `bb plugin search`:
 }
 ```
 
-- The counts are BB's own measurement, from the `plugin_installed` telemetry
-  event (`apps/server/src/services/system/telemetry.ts`), which already
-  carries a `plugin_id` for bundled plugins and `bb-community` entries and
-  null for everything private. A daily job in the registry repo queries
-  PostHog and uploads the file to the same R2 prefix as the manifest; a run
-  that finds no counts fails without uploading rather than zeroing the store.
+- Counts are optional, read-only metadata supplied by a marketplace publisher.
+  CC does not collect or report plugin installation events.
 - A sidecar, not a manifest field. The manifest schema is strict, so an
   unknown field there would reject the whole catalog on an older desktop and
   need a `schemaVersion` bump; and the counts move daily while the manifest
@@ -223,17 +219,16 @@ row, and in `bb plugin search`:
   failure keeps the counts already stored, exactly as a failed manifest read
   keeps the last-known-good catalog.
 - Only the curated marketplace is asked for a sidecar. A number beside a
-  third-party listing would be that publisher's claim wearing BB's label, so
-  those entries report `installs: null` and BB does not request the file.
-- The count undercounts by construction: telemetry is opt-out and only
-  production builds report. Present it as installs BB heard about.
+  third-party listing would be that publisher's claim wearing CC's label, so
+  those entries report `installs: null` and CC does not request the file.
+- Counts describe the publisher's dataset, not CC user activity.
 
 ## Provenance
 
 Generalize the current `builtin | direct | catalog` enum: keep `catalog` as
-the stored kind, add a marketplace name column, and make `bb-official` a
+the stored kind, add a marketplace name column, and make `cc-official` a
 reserved marketplace name. Existing rows with `catalog` provenance migrate to
-`bb-official`. Phase 3 then needs no further migration. Persisted git state
+`cc-official`. Phase 3 then needs no further migration. Persisted git state
 gains the range, tag prefix, and resolved-tag fields next to the existing
 `sourceGitSubdirectory` column.
 
@@ -256,29 +251,29 @@ get-bb/marketplace/
   the published schema, validate icons (SVG sanitizer, magic bytes, size cap),
   and check source liveness (`git ls-remote`, npm registry lookup).
 - CI runs the build on every PR. Merge to main publishes `marketplace.json`
-  and the icon files to getbb.app: `https://getbb.app/marketplace/v1/
+  and the icon files to cc.example.invalid: `https://cc.example.invalid/marketplace/v1/
   marketplace.json` and `/marketplace/v1/icons/<id>.svg`, served with ETags so
   the app's conditional refresh works. Entry icons reference the local files
   relatively, which the relative-URL rule already supports.
 
-  Deployment: getbb.app is the `bb-web` Cloudflare Worker, deployed from the
+  Deployment: cc.example.invalid is the `cc-web` Cloudflare Worker, deployed from the
   main repo — so the catalog cannot live in the site bundle, or every listing
   merge would need a site deploy. Instead:
 
   1. Registry CI uploads the built files to an R2 bucket
-     (`bb-marketplace`) with a Cloudflare API token scoped to that bucket,
+     (`cc-marketplace`) with a Cloudflare API token scoped to that bucket,
      stored as a registry-repo secret. Icons upload first, the manifest
      last, so a reader never sees a manifest that references a missing icon.
-  2. `bb-web` adds an `r2_buckets` binding and one route: `/marketplace/v1/*`
+  2. `cc-web` adds an `r2_buckets` binding and one route: `/marketplace/v1/*`
      reads the object from R2 and serves it with the R2 ETag,
      `content-type`, and cache headers. Icons get long-lived caching; the
      manifest gets a short TTL plus conditional revalidation.
   3. The site deploys once to add the route; every publish after that is a
      registry-repo action only. A staging bucket bound to the staging worker
-     (vibecodethis.site) mirrors the flow for testing.
+     (cc-staging.example.invalid) mirrors the flow for testing.
 
   Serving through the worker (rather than a public R2 custom domain) keeps
-  the catalog on the getbb.app origin and keeps header control in one place.
+  the catalog on the cc.example.invalid origin and keeps header control in one place.
 - The schema is the cross-repo contract. This repo publishes it at the
   `$schema` URL (and the icon validator as a small package); the registry CI
   consumes it. Nothing else couples the repos.
@@ -289,7 +284,7 @@ Why a separate repo instead of this one:
   data-only CI with no secrets and no app code paths. PRs against the main
   monorepo would run heavy CI and widen the supply-chain surface.
 - Curation rights differ from app commit rights. Registry maintainers can
-  review and merge listings without write access to BB itself.
+  review and merge listings without write access to CC itself.
 - Listing changes publish on merge, on the registry's own cadence. No app
   release, no main-repo CI queue, and the registry's git history is the
   catalog's audit log — a revert is a de-listing.
@@ -299,7 +294,7 @@ Why a separate repo instead of this one:
 The costs — schema version sync across repos and one more repo to watch — are
 covered by the published-schema contract and by CI ownership.
 
-`brsbl/bb-plugins` stays what it is: the source repo for BB's own plugins.
+`brsbl/bb-plugins` stays what it is: the source repo for CC's own plugins.
 The registry's official entries point at it; third-party entries point at
 their authors' repos or npm packages. The registry never hosts plugin code.
 
@@ -308,13 +303,13 @@ their authors' repos or npm packages. The registry never hosts plugin code.
 Submission uses the built-in `submit-a-plugin` skill. The skill completes the
 release and marketplace pull request without a product-specific form.
 
-1. **Read what BB already knows.** For a locally developed plugin, the agent
+1. **Read what CC already knows.** For a locally developed plugin, the agent
    reads the package manifest and Git remote: plugin id, display
    name, description, icon, repository URL, subdir from the collection
    manifest, and current version tags. The author reviews and completes the
    entry — tags, `url`, the range — rather than typing it from scratch.
 2. **Create the PR as the author.** The agent composes `entries/<id>.json` and uses
-   the author's own GitHub credentials — `gh` auth on the host, which BB's
+   the author's own GitHub credentials — `gh` auth on the host, which CC's
    audience overwhelmingly has — to fork the registry repo, push a branch,
    and open the PR from their account. This makes `author.github`
    self-verifying: the listing's owner is the account that opened the PR.
@@ -374,7 +369,7 @@ change.
 
 Safety nets that remain in the high-trust model:
 
-- The client never auto-installs. A refresh feeds `bb plugin outdated`;
+- The client never auto-installs. A refresh feeds `cc plugin outdated`;
   applying an update is a manual, staged, rollback-protected action.
 - The moved-tag check records tag-to-commit resolutions and refuses a tag
   that later points elsewhere.
@@ -394,12 +389,12 @@ catalog is small and authors are known.
 **Phase 0 — collection manifest and nested installs (issue #1097).**
 Fill `sourceGitSubdirectory` at install time (the update pipeline already
 honors it). Add `--subdirectory` as the primitive and `--plugin` to resolve a
-name from `.bb/plugins.json`. Publish the collection schema.
+name from `.cc/plugins.json`. Publish the collection schema.
 
-**Phase 1 — the BB Official marketplace.**
+**Phase 1 — the CC Official marketplace.**
 Publish the marketplace schema. Create the registry repo with per-plugin entry
 files, the compose-and-validate build, and publishing to
-`getbb.app/marketplace/v1/`. Seed it with the current `GIT_OFFICIAL_PLUGINS`
+`cc.example.invalid/marketplace/v1/`. Seed it with the current `GIT_OFFICIAL_PLUGINS`
 entries. The app bundles a seed snapshot as offline fallback. Restore the
 refresh loop. Replace `GIT_OFFICIAL_PLUGINS` with catalog rows; the Browse tab
 reads the catalog. Generalize provenance. Server-side icon fetch and
@@ -412,11 +407,11 @@ detection, and the direct-install range syntax. Marketplace git entries may
 then use `range` instead of a pinned `ref`.
 
 **Phase 3 — third-party marketplaces.**
-`bb marketplace add | list | remove` for `https:`, `git:`, and `path:`
+`cc marketplace add | list | remove` for `https:`, `git:`, and `path:`
 sources. `id@marketplace` install routing. Browse sections per marketplace.
 Trust UX: true-source confirmation on first install from a new marketplace.
 
-Each phase ships its CLI, SDK, `bb guide`, and skill-doc surfaces in the same
+Each phase ships its CLI, SDK, `cc guide`, and skill-doc surfaces in the same
 change, per the repository guidelines. Database changes go through Drizzle
 schema plus regenerated migrations. The work is server-side; no
 `HOST_DAEMON_PROTOCOL_VERSION` bump is expected, but verify whenever a session
@@ -429,13 +424,13 @@ payload changes.
    better; explicit is unambiguous when a tag is literally named `^1.2.0`.
    Recommendation: implicit, with a loud error if the spec matches both a
    range and an existing ref name.
-2. **Bare `bb plugin install <id>`.** Resolve across marketplaces only when
+2. **Bare `cc plugin install <id>`.** Resolve across marketplaces only when
    exactly one match exists; otherwise fail and list matches. Recommendation:
    yes, matches the #636 behavior.
 3. **Icon size cap.** 256 KB proposed; confirm against real logo assets.
 4. **No hosted submission service.** Decided: the in-app `gh` flow is the
    submission path, and the no-`gh` fallback is the generated entry file
-   plus manual PR steps. No form ships on getbb.app.
+   plus manual PR steps. No form ships on cc.example.invalid.
 5. **Sandboxed install check in registry CI.** Running a submitted plugin's
    build in CI improves review but executes third-party code; if added, it
    needs an isolated runner with no secrets.
@@ -452,7 +447,7 @@ payload changes.
   selects a tag range.
 - Browse categories come from entry tags. The marketplace manifest has no
   category field.
-- Published schemas use `https://getbb.app/schemas/` URLs.
+- Published schemas use `https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/` URLs.
 - This stack adds the R2 reader and its binding. The registry repository,
   publication credentials, and publication workflow remain future work.
 - The submission skill creates registry pull requests. No hosted submission

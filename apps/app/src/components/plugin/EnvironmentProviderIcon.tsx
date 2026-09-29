@@ -1,4 +1,4 @@
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import type { SystemEnvironmentProvider } from "@cc/server-contract";
 import { ProviderIcon } from "./ProviderIcon";
 
 export function EnvironmentProviderIcon({

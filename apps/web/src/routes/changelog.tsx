@@ -7,7 +7,6 @@ import type { ReactNode } from "react";
 
 import changelogMd from "../../../../CHANGELOG.md?raw";
 import { RELEASE_META } from "../../../../changelog-metadata";
-import { useInitAnalytics } from "../landing/analytics";
 import {
   parseChangelog,
   type ChangelogBlock,
@@ -23,9 +22,9 @@ import { pageMeta, siteHeadLinks } from "../landing/page-head";
 import { SiteFooter, SiteNav } from "../landing/site-chrome";
 import changelogCss from "../landing/changelog.css?url";
 
-const PAGE_TITLE = "Changelog — bb";
+const PAGE_TITLE = "Changelog — cc";
 const PAGE_DESCRIPTION =
-  "New features, improvements, and fixes in every bb release.";
+  "New features, improvements, and fixes in every cc release.";
 
 export const Route = createFileRoute("/changelog")({
   head: () => ({
@@ -36,7 +35,6 @@ export const Route = createFileRoute("/changelog")({
 });
 
 function ChangelogRoute() {
-  useInitAnalytics();
   return <ChangelogPage />;
 }
 
@@ -53,7 +51,7 @@ function ByMachineSidebar() {
         <div
           className="sidebar-card"
           role="img"
-          aria-label="bb sidebar grouped by machine, with threads running on two computers"
+          aria-label="cc sidebar grouped by machine, with threads running on two computers"
         >
           <div className="side-label">Sawyer&rsquo;s MacBook Air</div>
           <ul className="threads">

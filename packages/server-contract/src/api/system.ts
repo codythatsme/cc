@@ -18,9 +18,9 @@ import {
   permissionModeSchema,
   pluginThemeMetaSchema,
   providerInfoSchema,
-} from "@bb/domain";
-import { providerHealthSchema as providerHealthSchema } from "@bb/provider-bridge-protocol/provider-maintenance";
-import { hostPlatformSchema } from "@bb/host-daemon-contract/local";
+} from "@cc/domain";
+import { providerHealthSchema as providerHealthSchema } from "@cc/provider-bridge-protocol/provider-maintenance";
+import { hostPlatformSchema } from "@cc/host-daemon-contract/local";
 import { machineEnvironmentSetSchema } from "./machine-environment.js";
 
 const machineEnvironmentReplacementVariableSchema =
@@ -118,8 +118,8 @@ export interface SystemVoiceTranscriptionForm {
   [key: string]: string | Blob;
 }
 
-export { providerInfoSchema as systemProviderInfoSchema } from "@bb/domain";
-export type { ProviderInfo as SystemProviderInfo } from "@bb/domain";
+export { providerInfoSchema as systemProviderInfoSchema } from "@cc/domain";
+export type { ProviderInfo as SystemProviderInfo } from "@cc/domain";
 
 export const systemVoiceTranscriptionResponseSchema = z.object({
   text: z.string(),
@@ -215,7 +215,7 @@ export const serverAccessStatusSchema = z.object({
   ),
   defaultProviderId: z.string(),
   effectiveUrl: z.string().nullable(),
-  urlSource: z.enum(["setting", "BB_EXTERNAL_URL"]).nullable(),
+  urlSource: z.enum(["setting", "CC_EXTERNAL_URL"]).nullable(),
 });
 export type ServerAccessStatus = z.infer<typeof serverAccessStatusSchema>;
 
@@ -260,7 +260,7 @@ export type ThemeCatalogResponse = z.infer<typeof themeCatalogResponseSchema>;
 export const systemVersionResponseSchema = z.object({
   currentVersion: z.string(),
   latestVersion: z.string().nullable(),
-  source: z.literal("npm"),
+  source: z.enum(["homebrew", "npm"]),
   updateAvailable: z.boolean(),
   isDevelopment: z.boolean(),
   upgradeCommand: z.string(),

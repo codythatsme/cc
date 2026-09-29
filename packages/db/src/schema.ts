@@ -10,11 +10,11 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
-import { threadStatusValues } from "@bb/domain/thread-status";
-import { startedOnBehalfOfInitiatorValues } from "@bb/domain/started-on-behalf-of";
-import { threadCreateOriginValues } from "@bb/domain/thread-create-origin";
-import { threadOriginKindValues } from "@bb/domain/thread-origin-kind";
-import { threadVisibilityValues } from "@bb/domain/thread-visibility";
+import { threadStatusValues } from "@cc/domain/thread-status";
+import { startedOnBehalfOfInitiatorValues } from "@cc/domain/started-on-behalf-of";
+import { threadCreateOriginValues } from "@cc/domain/thread-create-origin";
+import { threadOriginKindValues } from "@cc/domain/thread-origin-kind";
+import { threadVisibilityValues } from "@cc/domain/thread-visibility";
 import type {
   EnvironmentProviderSelection,
   JsonValue,
@@ -36,7 +36,7 @@ import type {
   ThreadEventScopeKind,
   ThreadEventType,
   ProjectKind,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { RetainedEventOutputPath } from "./retained-event-output.js";
 
 export const authUsers = sqliteTable(
@@ -411,7 +411,7 @@ export const pluginStateSnapshots = sqliteTable(
     }).notNull(),
     rollbackCandidateVersion: text("rollback_candidate_version"),
     rollbackSourceFingerprint: text("rollback_source_fingerprint"),
-    rollbackBbVersion: text("rollback_bb_version"),
+    rollbackCcVersion: text("rollback_cc_version"),
     rollbackSdkVersion: text("rollback_sdk_version"),
     rollbackDetail: text("rollback_detail"),
     createdAt: integer("created_at").notNull(),

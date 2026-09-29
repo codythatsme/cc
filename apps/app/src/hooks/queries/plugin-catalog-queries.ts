@@ -10,7 +10,7 @@ import type {
   PluginMarketplaceRefreshResult,
   PluginSourceDetail as SdkPluginSourceDetail,
   PluginUpdateCheckEntry,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { invalidatePluginList } from "../cache-owners/plugin-cache-owner";
 import { createPluginsClient } from "./plugin-client";
@@ -30,7 +30,7 @@ interface PluginSourceDetail {
   resolved: string;
   integrity: string | null;
   registry: string | null;
-  engines: { bb: string | null; bbPluginSdk: string | null };
+  engines: { cc: string | null; ccPluginSdk: string | null };
   installedAt: number | null;
   history: { version: string; activatedAt: number | null }[];
 }
@@ -44,8 +44,8 @@ function toPluginSourceDetail(
     integrity: source.integrity ?? null,
     registry: source.registry ?? null,
     engines: {
-      bb: source.engines.bb ?? null,
-      bbPluginSdk: source.engines.bbPluginSdk ?? null,
+      cc: source.engines.cc ?? null,
+      ccPluginSdk: source.engines.ccPluginSdk ?? null,
     },
     installedAt: toEpochMs(source.installedAt),
     history: source.history.map((entry) => ({

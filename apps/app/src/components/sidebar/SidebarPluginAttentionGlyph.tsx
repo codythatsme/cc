@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { Link } from "react-router-dom";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { getToolsOwnedCollectionRoutePath } from "@/components/tools/tools-navigation";
 import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar.js";
 import { usePluginList } from "@/hooks/queries/plugin-settings-queries";
@@ -14,7 +14,7 @@ import {
 import { createJsonLocalStorage } from "@/lib/browser-storage";
 
 const acknowledgedAttentionKeyAtom = atomWithStorage<string | null>(
-  "bb.sidebar.pluginAttentionAcknowledged",
+  "cc.sidebar.pluginAttentionAcknowledged",
   null,
   createJsonLocalStorage<string | null>(),
   { getOnInit: true },

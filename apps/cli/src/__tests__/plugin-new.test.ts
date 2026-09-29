@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
-import { RESERVED_BB_CLI_COMMANDS } from "@bb/domain/plugin-cli";
+import { BUNDLED_PLUGIN_SDK_SPECIFIER } from "../plugin-sdk-package.js";
+import { RESERVED_CC_CLI_COMMANDS } from "@cc/domain/plugin-cli";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -13,9 +13,9 @@ import { installFakeNpm } from "./helpers/fake-npm.js";
 
 describe("resolveNewPluginTarget", () => {
   it.each([
-    ["hello", "bb-plugin-hello", "bb-plugin-hello"],
-    ["bb-plugin-hello", "bb-plugin-hello", "bb-plugin-hello"],
-    ["@acme/bb-plugin-hello", "@acme/bb-plugin-hello", "bb-plugin-hello"],
+    ["hello", "cc-plugin-hello", "cc-plugin-hello"],
+    ["cc-plugin-hello", "cc-plugin-hello", "cc-plugin-hello"],
+    ["@acme/cc-plugin-hello", "@acme/cc-plugin-hello", "cc-plugin-hello"],
   ])("resolves %s", (name, expectedPackageName, expectedDirectoryName) => {
     expect(resolveNewPluginTarget(name)).toEqual({
       packageName: expectedPackageName,
@@ -25,29 +25,29 @@ describe("resolveNewPluginTarget", () => {
 
   it.each([
     "Hello",
-    "bb-plugin-",
+    "cc-plugin-",
     "@acme/hello",
-    "@acme/bb-plugin-Hello",
-    "@acme/team/bb-plugin-hello",
+    "@acme/cc-plugin-Hello",
+    "@acme/team/cc-plugin-hello",
   ])("rejects %s", (name) => {
     expect(resolveNewPluginTarget(name)).toBeNull();
   });
 
-  it.each(RESERVED_BB_CLI_COMMANDS)("rejects reserved id %s", (id) => {
+  it.each(RESERVED_CC_CLI_COMMANDS)("rejects reserved id %s", (id) => {
     expect(resolveNewPluginTarget(id)).toBeNull();
-    expect(resolveNewPluginTarget(`bb-plugin-${id}`)).toBeNull();
-    expect(resolveNewPluginTarget(`@acme/bb-plugin-${id}`)).toBeNull();
+    expect(resolveNewPluginTarget(`cc-plugin-${id}`)).toBeNull();
+    expect(resolveNewPluginTarget(`@acme/cc-plugin-${id}`)).toBeNull();
   });
 });
 
-describe.sequential("bb plugin new dependency install", () => {
+describe.sequential("cc plugin new dependency install", () => {
   const originalCwd = process.cwd();
   let workDir: string;
   let logged: string[];
   let warned: string[];
 
   beforeEach(async () => {
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-new-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-new-"));
     process.chdir(workDir);
     await installFakeNpm(workDir);
     vi.stubEnv("NODE_ENV", "production");
@@ -72,7 +72,7 @@ describe.sequential("bb plugin new dependency install", () => {
     const program = new Command();
     program.exitOverride();
     registerPluginCommands(program, () => "http://localhost");
-    await program.parseAsync(["node", "bb", "plugin", "new", ...args]);
+    await program.parseAsync(["node", "cc", "plugin", "new", ...args]);
   }
 
   async function isInstalled(
@@ -87,9 +87,9 @@ describe.sequential("bb plugin new dependency install", () => {
   it("installs the packages the plugin needs to build under NODE_ENV=production", async () => {
     await runPluginNew(["prod-env"]);
 
-    expect(await isInstalled("bb-plugin-prod-env", "zod")).toBe(true);
-    expect(await isInstalled("bb-plugin-prod-env", "typescript")).toBe(true);
-    expect(await isInstalled("bb-plugin-prod-env", "clsx")).toBe(true);
+    expect(await isInstalled("cc-plugin-prod-env", "zod")).toBe(true);
+    expect(await isInstalled("cc-plugin-prod-env", "typescript")).toBe(true);
+    expect(await isInstalled("cc-plugin-prod-env", "clsx")).toBe(true);
     expect(warned).toEqual([]);
     expect(logged).toContain("Installed dependencies (npm install).");
     expect(logged).not.toContain("  npm install --include=dev");
@@ -100,21 +100,21 @@ describe.sequential("bb plugin new dependency install", () => {
       join(workDir, "package.json"),
       JSON.stringify({ name: "host", private: true, workspaces: ["*"] }),
     );
-    vi.stubEnv("BB_TEST_NPM_HOIST_TO", workDir);
+    vi.stubEnv("CC_TEST_NPM_HOIST_TO", workDir);
 
     await runPluginNew(["hoisted"]);
 
-    expect(await isInstalled("bb-plugin-hoisted", "zod")).toBe(false);
+    expect(await isInstalled("cc-plugin-hoisted", "zod")).toBe(false);
     expect(warned).toEqual([]);
     expect(logged).toContain("Installed dependencies (npm install).");
   });
 
   it("does not report success when npm exits 0 without installing the tree", async () => {
-    vi.stubEnv("BB_TEST_NPM_ALWAYS_OMIT_DEV", "1");
+    vi.stubEnv("CC_TEST_NPM_ALWAYS_OMIT_DEV", "1");
 
     await runPluginNew(["silent-omit"]);
 
-    expect(await isInstalled("bb-plugin-silent-omit", "typescript")).toBe(
+    expect(await isInstalled("cc-plugin-silent-omit", "typescript")).toBe(
       false,
     );
     expect(logged).not.toContain("Installed dependencies (npm install).");
@@ -124,58 +124,56 @@ describe.sequential("bb plugin new dependency install", () => {
     expect(logged).toContain("  npm install --include=dev");
   });
 
-  it("pins the scaffold to this bb's SDK version", async () => {
+  it("pins the scaffold to this cc's SDK version", async () => {
     await runPluginNew(["pinned"]);
 
     const manifest: { devDependencies: Record<string, string> } = JSON.parse(
-      await readFile(join(workDir, "bb-plugin-pinned", "package.json"), "utf8"),
+      await readFile(join(workDir, "cc-plugin-pinned", "package.json"), "utf8"),
     );
-    expect(manifest.devDependencies["@get-bb/plugin-sdk"]).toBe(
-      PLUGIN_SDK_VERSION,
+    expect(manifest.devDependencies["@codythatsme/plugin-sdk"]).toBe(
+      BUNDLED_PLUGIN_SDK_SPECIFIER,
     );
-    expect(await isInstalled("bb-plugin-pinned", "@get-bb/plugin-sdk")).toBe(
-      true,
-    );
+    expect(
+      await isInstalled("cc-plugin-pinned", "@codythatsme/plugin-sdk"),
+    ).toBe(true);
     expect(warned).toEqual([]);
   });
 
-  it("warns, without failing, when this bb's SDK version is not on npm yet", async () => {
-    vi.stubEnv("BB_TEST_NPM_VIEW", "missing");
-
-    await runPluginNew(["unpublished"]);
-
-    expect(logged).toContain(
-      "Created bb-plugin-unpublished/ (bb-plugin-unpublished).",
-    );
-    const warnings = warned.join("\n");
-    expect(warnings).toContain(
-      `@get-bb/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
-    );
-    expect(warnings).toContain("npm pack");
-  });
-
-  it("treats a 404 for the package itself as a positive miss", async () => {
-    vi.stubEnv("BB_TEST_NPM_VIEW", "e404");
-
-    await runPluginNew(["missing-package"]);
-
-    expect(warned.join("\n")).toContain(
-      `@get-bb/plugin-sdk ${PLUGIN_SDK_VERSION} — this bb's SDK version — was not found on npm`,
-    );
-  });
-
-  it("warns rather than failing when the registry cannot be reached", async () => {
-    vi.stubEnv("BB_TEST_NPM_VIEW", "error");
-
-    await runPluginNew(["offline"]);
-
-    expect(logged).toContain("Created bb-plugin-offline/ (bb-plugin-offline).");
-    expect(warned.join("\n")).toContain("could not reach the npm registry");
-    expect(warned.join("\n")).not.toContain("was not found on npm");
-  });
+  it.each(["missing", "e404", "error"])(
+    "uses its bundled SDK even when registry probing would return %s",
+    async (result) => {
+      vi.stubEnv("CC_TEST_NPM_VIEW", result);
+      await runPluginNew(["local-sdk"]);
+      expect(warned).toEqual([]);
+      const manifest = JSON.parse(
+        await readFile(
+          join(workDir, "cc-plugin-local-sdk", "package.json"),
+          "utf8",
+        ),
+      );
+      expect(manifest.devDependencies["@codythatsme/plugin-sdk"]).toBe(
+        BUNDLED_PLUGIN_SDK_SPECIFIER,
+      );
+      const sdk = JSON.parse(
+        await readFile(
+          join(
+            workDir,
+            "cc-plugin-local-sdk",
+            BUNDLED_PLUGIN_SDK_SPECIFIER.slice(7),
+            "package.json",
+          ),
+          "utf8",
+        ),
+      );
+      expect(sdk.name).toBe("@codythatsme/plugin-sdk");
+      expect(sdk.devDependencies).toBeUndefined();
+      expect(sdk.scripts).toBeUndefined();
+      expect(sdk.exports["."].source).toBeUndefined();
+    },
+  );
 
   it("passes npm's own reason through when the install fails", async () => {
-    vi.stubEnv("BB_TEST_NPM_INSTALL", "fail");
+    vi.stubEnv("CC_TEST_NPM_INSTALL", "fail");
 
     await runPluginNew(["npm-broken"]);
 
@@ -186,7 +184,7 @@ describe.sequential("bb plugin new dependency install", () => {
   });
 
   it("keeps stderr details when a failed install also writes stdout", async () => {
-    vi.stubEnv("BB_TEST_NPM_INSTALL", "fail-noisy-stdout");
+    vi.stubEnv("CC_TEST_NPM_INSTALL", "fail-noisy-stdout");
 
     await runPluginNew(["npm-noisy"]);
 
@@ -202,7 +200,7 @@ describe.sequential("bb plugin new dependency install", () => {
 
     expect(warned.join("\n")).toContain("Could not run npm install");
     expect(logged).toContain("  npm install --include=dev");
-    expect(warned.join("\n")).toContain("could not reach the npm registry");
+    expect(warned.join("\n")).not.toContain("npm registry");
     expect(warned.join("\n")).not.toContain("was not found on npm");
   });
 });

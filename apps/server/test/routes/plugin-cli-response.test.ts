@@ -1,4 +1,4 @@
-import type { PluginCliExecutionResult } from "@get-bb/plugin-sdk";
+import type { PluginCliExecutionResult } from "@codythatsme/plugin-sdk";
 import { describe, expect, it } from "vitest";
 import { pluginCliResponse } from "../../src/routes/plugins.js";
 

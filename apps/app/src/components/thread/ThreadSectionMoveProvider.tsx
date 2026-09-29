@@ -3,10 +3,10 @@ import { useAtomValue } from "jotai";
 import {
   buildSidebarEntitySectionId,
   type SidebarSectionDefinition,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import { sidebarOrganizationModeAtom } from "@/components/sidebar/sidebarCollapsedAtoms";
 import { useSidebarModeSectionOrder } from "@/components/sidebar/useSidebarModeSectionOrder";
-import type { Thread } from "@bb/domain";
+import type { Thread } from "@cc/domain";
 import { useMoveThreadToSection } from "@/hooks/mutations/thread-state-mutations";
 
 export interface ThreadSectionMoveDestination {

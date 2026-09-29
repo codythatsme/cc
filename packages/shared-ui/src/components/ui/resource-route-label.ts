@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-export const RESOURCE_ROUTE_LABEL_EVENT = "bb:resource-route-label";
+export const RESOURCE_ROUTE_LABEL_EVENT = "cc:resource-route-label";
 
 export function useResourceRouteLabel(label: string | null | undefined) {
   useEffect(() => {

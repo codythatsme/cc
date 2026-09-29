@@ -1,14 +1,14 @@
-# Moving the bb server to another machine
+# Moving the cc server to another machine
 
 Status: built on this branch behind the default-off `serverMove` experiment
-(`bb settings experiment serverMove true`). The server-machine wording, badge,
-explainer, add-machine notice, and the Role column in `bb machine list` ship
+(`cc settings experiment serverMove true`). The server-machine wording, badge,
+explainer, add-machine notice, and the Role column in `cc machine list` ship
 without the experiment. Implementation contracts live in the code; this document
 records the product decisions.
 
 ## Goal
 
-Today one computer runs the bb server and every other machine connects to it,
+Today one computer runs the cc server and every other machine connects to it,
 but nothing lets a user make a different computer the server. Someone who
 started on a laptop and later bought an always-on desktop has no path except
 starting over. "Move server here" copies the server to another machine, points
@@ -18,7 +18,7 @@ everything at it, and keeps the old computer working as a regular machine.
 
 ### Model
 
-- The server is a role, not "the main computer". The server machine runs the bb
+- The server is a role, not "the main computer". The server machine runs the cc
   server: the database, thread history, settings, plugin state, and remote
   access. Every machine, including the server machine, can run agents.
 - A move copies server-owned data only. Every machine keeps its host ID and its
@@ -39,15 +39,15 @@ everything at it, and keeps the old computer working as a regular machine.
   suspend and remove are disabled, the provider's periodic sweeps skip it, and
   its provider plugin cannot be uninstalled. Ephemeral sandboxes cannot be
   targets.
-- Both bb connect and direct-address setups are supported.
+- Both cc connect and direct-address setups are supported.
 
 ### What moves
 
-Moved: `bb.db` (consistent snapshot), `config.json`, `env.json`, `auth-secret`,
+Moved: `cc.db` (consistent snapshot), `config.json`, `env.json`, `auth-secret`,
 `machine-environment-key`, `attachments/`, `plugins/<id>/data.db`,
 `plugins/<id>/secrets/`, plugin-owned server files such as automation scripts
 and task blobs, installed npm/git plugin packages, plugin state snapshots,
-`skills/`, `theme/`, `AGENTS.md`, and `telemetry-id`.
+`skills/`, `theme/`, and `AGENTS.md`.
 
 Not moved: logs, caches (`install-cache/`, `plugin-host-artifacts/`,
 `skills-generated/`, toolchains), runtime files, and every host-owned file
@@ -56,7 +56,7 @@ Not moved: logs, caches (`install-cache/`, `plugin-host-artifacts/`,
 
 ### Flow
 
-1. **Checklist** (`bb server move --to <machine> --check`, and the first screen
+1. **Checklist** (`cc server move --to <machine> --check`, and the first screen
    of the dialog). It never copies personal CLI logins between machines. It
    lists:
    - running turns and scheduled automations;
@@ -65,22 +65,22 @@ Not moved: logs, caches (`install-cache/`, `plugin-host-artifacts/`,
    - Docs vaults with no machine binding;
    - `gh` and Codex logins and local tools the server uses that the target lacks;
    - a timezone difference that shifts core plugin schedules;
-   - existing bb server data on the target, which is archived to
-     `~/.bb.before-move-<date>` after confirmation and never merged;
+   - existing cc server data on the target, which is archived to
+     `~/.cc.before-move-<date>` after confirmation and never merged;
    - free disk space in the target's data directory for the export, its
-     unpacked copy, and the bb update, with headroom (a blocker when it is
+     unpacked copy, and the cc update, with headroom (a blocker when it is
      short, a warning when it is tight);
    - free disk space in the server's own data directory for the export work
-     files (database snapshots, the archive, and the bb update package), with
+     files (database snapshots, the archive, and the cc update package), with
      the same headroom, blocker, and warning;
-   - a target that runs a newer bb than the server, which blocks the move until
+   - a target that runs a newer cc than the server, which blocks the move until
      the server is updated;
    - the server's custom models, ACP agents, and shared skill roots, which
      replace the target's own.
 2. **Confirm** once, in the app or CLI that starts the move. The target does not
    confirm; the server can already run commands on any enrolled machine.
    "Stop all and move" interrupts running turns and pauses schedules.
-3. **Align versions:** install the server's exact bb version on the target
+3. **Align versions:** install the server's exact cc version on the target
    through the existing machine update artifact. The update stays on the
    target even if the move is cancelled.
 4. **Freeze and copy:** the old server stops accepting writes and streams an
@@ -90,28 +90,28 @@ Not moved: logs, caches (`install-cache/`, `plugin-host-artifacts/`,
    runs server and daemon and starts on boot, and must pass a health check
    before anything switches.
 6. **Switch:**
-   - bb connect: the connect credential travels in the database. The old server
+   - cc connect: the connect credential travels in the database. The old server
      drops its tunnel before the new server connects it, and machines and apps
      keep using the same URL.
    - Direct address: the dialog asks for the new server address. Connected
      machines verify they can reach it, then switch before cutover.
-7. **Lock the old copy:** bb on the old computer refuses to start a server from
+7. **Lock the old copy:** cc on the old computer refuses to start a server from
    that data and restarts as a regular machine connected to the new server.
 
 Every connected app shows a full-screen "Moving server to <machine>" with the
 steps and reconnects when done. The move continues if the app that started it
-closes; `bb server move status` shows the same steps.
+closes; `cc server move status` shows the same steps.
 
 ### Addresses and clients
 
 - Offline machines (direct address): the old computer keeps answering at the old
-  address with the new one for as long as bb runs there, so they switch when
+  address with the new one for as long as cc runs there, so they switch when
   they come back. If that cannot work, Settings → Machines shows a one-line
   command to run on that machine.
 - On the old computer, the desktop app and CLI point at the new server
   automatically and show a one-time "Your server moved to <machine>" notice.
   Browser tabs on the old local address redirect.
-- Mobile and desktop profiles on other devices keep working unchanged with bb
+- Mobile and desktop profiles on other devices keep working unchanged with cc
   connect. With a direct address, they learn the new address from the old one
   the same way machines do.
 
@@ -123,31 +123,31 @@ closes; `bb server move status` shows the same steps.
   move. Until it confirms, the move waits in `recovery_required` and can be
   abandoned.
 - The locked old copy stays until the user deletes it from that machine's page
-  or with `bb server delete-old-copy` on that computer.
-- `bb server unlock` on the old computer restarts the old copy as a last resort.
+  or with `cc server delete-old-copy` on that computer.
+- `cc server unlock` on the old computer restarts the old copy as a last resort.
   It warns that everything since the move is lost and that the new server must
   be stopped first.
-- `bb server import` writes `server-connect-hold.json`, so the imported server
-  starts without bb connect and can't take the original server's tunnel.
-  `bb server allow-connect` removes the hold after the original server is
+- `cc server import` writes `server-connect-hold.json`, so the imported server
+  starts without cc connect and can't take the original server's tunnel.
+  `cc server allow-connect` removes the hold after the original server is
   stopped. A move never writes the hold.
 - An imported server applies its fixups (path fixups and machine roles) at its
   first boot without checking the `serverMove` experiment. The import is
   already gated: export needs the experiment on the source server, and
-  `bb server import` refuses a manifest that records it as off.
+  `cc server import` refuses a manifest that records it as off.
 - A server refuses to start on an interrupted import
   (`server-import-journal.json` that no `server-import.json` records) and logs
-  that rerunning `bb server import` into that directory rolls it back first.
+  that rerunning `cc server import` into that directory rolls it back first.
 
 ### Export files
 
-`bb server export` works on a running server through an online SQLite snapshot,
+`cc server export` works on a running server through an online SQLite snapshot,
 so backups need no downtime. Exports are gzip tar archives and are not
 encrypted: they hold the server's credentials and plugin secrets. The CLI writes
 them with mode 0600, keeps the file only when it matches the SHA-256 digest the
-server sent, and warns that the file must stay private. `bb server import` runs
+server sent, and warns that the file must stay private. `cc server import` runs
 locally on a machine with no server running, tells the user to re-export an
-archive encrypted by an older bb, and refuses, before installing anything, an
+archive encrypted by an older cc, and refuses, before installing anything, an
 export whose manifest records the `serverMove` experiment as off on the server
 that wrote it.
 
@@ -168,25 +168,25 @@ UI:
 - The old computer's machine page shows the locked old server copy with a Delete
   action.
 
-CLI (`bb server`):
+CLI (`cc server`):
 
 ```
-bb server move --to <machine> [--address <url>] [--check] [--archive-existing-data] [--yes] [--json]
-bb server move status [--json]
-bb server move cancel [--yes] [--json]
-bb server export --out <file> [--json]
-bb server import <file> [--data-dir <dir>] [--yes] [--json]
-bb server unlock [--data-dir <dir>] [--force] [--yes] [--json]
-bb server allow-connect [--data-dir <dir>] [--yes] [--json]
-bb server delete-old-copy [--data-dir <dir>] [--yes] [--json]
-bb server install-machine-service [--data-dir <dir>] [--yes] [--json]
+cc server move --to <machine> [--address <url>] [--check] [--archive-existing-data] [--yes] [--json]
+cc server move status [--json]
+cc server move cancel [--yes] [--json]
+cc server export --out <file> [--json]
+cc server import <file> [--data-dir <dir>] [--yes] [--json]
+cc server unlock [--data-dir <dir>] [--force] [--yes] [--json]
+cc server allow-connect [--data-dir <dir>] [--yes] [--json]
+cc server delete-old-copy [--data-dir <dir>] [--yes] [--json]
+cc server install-machine-service [--data-dir <dir>] [--yes] [--json]
 ```
 
 `import`, `unlock`, `allow-connect`, and `delete-old-copy` run locally and do
 not call a server. `install-machine-service` runs locally on the computer a
-server moved away from: it stops bb there and runs
+server moved away from: it stops cc there and runs
 `install-machine.sh --adopt --data-dir <dir>`, which downloads the new server's
-bb-app package and installs the persistent, self-updating machine service with
+cc-app package and installs the persistent, self-updating machine service with
 the same machine ID. When the old server ran in the desktop app, the app runs
 the same installer itself after the move and on later launches while the
 service is missing, then keeps only the old-address responder running.
@@ -207,23 +207,23 @@ All refuse requests authenticated by a machine credential.
 ## How it works
 
 - **Where the new server lives:** the target's existing daemon data directory
-  (for example `~/.bb-machines/<old-server-host>`). The target keeps its host id,
+  (for example `~/.cc-machines/<old-server-host>`). The target keeps its host id,
   worktrees, and thread storage; its service definition switches from
-  `bb-app host-daemon` to `bb-app start --data-dir <dir>`, or a detached
-  `bb-app start` when there is no service manager. The `host-id` file in that
+  `cc-app host-daemon` to `cc-app start --data-dir <dir>`, or a detached
+  `cc-app start` when there is no service manager. The `host-id` file in that
   directory makes it the server machine.
 - **Markers:** `server-import-journal.json` while an import installs files,
   `server-import.json` on the target while the imported server is
-  pending (no plugins, sweeps, telemetry, or daemon sessions), `server-moved.json`
+  pending (no plugins, sweeps, or daemon sessions), `server-moved.json`
   on the old computer after the switch, `last-server-move.json` on the new
   server, and `server-connect-hold.json` after a manual import until
-  `bb server allow-connect`. The journal lists the entries the import will
+  `cc server allow-connect`. The journal lists the entries the import will
   install and which of them already existed. When an import is interrupted, the
-  next prepare on that machine or the next `bb server import` into that directory
+  next prepare on that machine or the next `cc server import` into that directory
   rolls it back from the journal: it restores `server-import-backup/` and removes
   the imported files it created.
 - **At the freeze:** running turns stop, plugin schedules pause, and every
-  plugin except bb connect is suspended before the target is updated, so
+  plugin except cc connect is suspended before the target is updated, so
   nothing writes during the update or after the snapshot. Suspending and the
   later plugin shutdown are each time-boxed at 30 seconds; on expiry the move
   logs a warning and continues, and retirement's forced exit covers a hung
@@ -243,7 +243,7 @@ All refuse requests authenticated by a machine credential.
 - **Unconfirmed activation (`recovery_required`):** when activation gets no
   answer (a lost reply, or the target dropped after the request), the move
   waits in `recovery_required` in both modes. The old server stays up and
-  frozen, keeps bb connect running, keeps `server-moved.json` and the rewritten
+  frozen, keeps cc connect running, keeps `server-moved.json` and the rewritten
   `config.json`, sends no `server.moved`, does not retire, and keeps reporting
   no moved address to daemons. It retries `server_move.activate` whenever the
   target daemon is connected (already-activated counts as confirmed) and every
@@ -255,7 +255,7 @@ All refuse requests authenticated by a machine credential.
   backup, unfreezes, resumes plugins, and aborts the target once it is
   reachable. If the target already took over, abandoning leaves two servers
   holding the same data, so the CLI asks before abandoning and the app shows
-  the warning before its Abandon button. `bb server unlock` stays the exit when
+  the warning before its Abandon button. `cc server unlock` stays the exit when
   the old copy has stopped.
 - **Durable move state:** the old server writes `server-move-run.json` to its
   data directory on every step transition, persists the `config.json` backup
@@ -269,28 +269,28 @@ All refuse requests authenticated by a machine credential.
   - locked and never confirmed: the move comes back as `recovery_required`;
   - locked and confirmed: the server republishes `completed`, skips plugin
     startup, and retires again;
-  - confirmed but unlocked with `bb server unlock`: the run is forgotten.
+  - confirmed but unlocked with `cc server unlock`: the run is forgotten.
 
-  The `bb-app` launcher refuses to start a server from a locked data directory,
+  The `cc-app` launcher refuses to start a server from a locked data directory,
   so the locked branches apply only when the server starts some other way. If
   the old server crashes while recovery is required, the launcher enters moved
-  mode and `bb server unlock` is the exit.
+  mode and `cc server unlock` is the exit.
 - **Progress while the old server is down:** every server's `/health` answers
   any origin, and a new server reports `serverMove: { moveId, state }` there:
   `pending` while it waits for activation, `activating` once the target
   recorded the move but the import marker is still present, and `ready` after
   it restarted as the activated server. In direct mode the move status carries
-  `destinationStatusUrl` (`<serverUrl>/health`), and it is null for bb connect.
+  `destinationStatusUrl` (`<serverUrl>/health`), and it is null for cc connect.
   When the old server stops answering during `switching` or `completed`, the
   app polls that URL, shows "Starting the server on <machine>", and opens the
   new address only once the destination reports `ready` for this move. The
-  redirect carries `bbServerMove=<moveId>`, so the new origin shows the arrival
-  toast and then drops the parameter. bb connect keeps the same URL, so the app
+  redirect carries `ccServerMove=<moveId>`, so the new origin shows the arrival
+  toast and then drops the parameter. cc connect keeps the same URL, so the app
   waits for that address to answer with the finished move instead.
 - **Retrying a start:** `startMove` for the same target returns the move
   already underway, including one still passing its checks; a different target
   still gets 409 `server_move_in_progress`.
-- **The old computer:** the `bb-app` launcher sees the lock, runs the daemon
+- **The old computer:** the `cc-app` launcher sees the lock, runs the daemon
   against the new address, and answers the old port with 410 `server_moved`
   (HTML requests redirect in direct mode). Moving the server back releases that
   port while the import is pending and returns to a normal start once the lock
@@ -310,13 +310,13 @@ Done on this branch:
 - Unit and integration suites for every touched package, including fail-before
   mutations of the key guards (activation ordering, freeze, allowlists, systemd
   escaping, launcher moved mode).
-- An end-to-end run with packaged `bb-app` installs in isolated homes on one
+- An end-to-end run with packaged `cc-app` installs in isolated homes on one
   Linux host, direct addresses, no service manager: experiment refusal, move
   A→B, remote old-copy deletion, launcher restart in moved mode, and a move back
   B→A.
 
 Not verified yet:
-- A bb connect move against the real gate.
+- A cc connect move against the real gate.
 - launchd and systemd service swaps on real machines, and the desktop and mobile
   apps switching over.
 - Offline machines switching through the old address, and provider-managed

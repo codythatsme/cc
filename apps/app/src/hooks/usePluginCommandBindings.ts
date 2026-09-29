@@ -4,11 +4,11 @@ import {
   pluginCommandId,
   type AppDefaultKeybindings,
   type AppKeybindingOverrides,
-} from "@bb/domain";
+} from "@cc/domain";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { usePluginSlots } from "@/lib/plugin-slots";
 import { browserPlatform } from "@/lib/app-keybindings";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getCcDesktopInfo } from "@/lib/cc-desktop";
 import { resolvePluginCommandDefaults } from "@/lib/plugin-command-keybindings";
 
 const EMPTY_DEFAULTS: AppDefaultKeybindings = [];
@@ -19,7 +19,7 @@ export function usePluginCommandBindings() {
   const { commandPaletteActions } = usePluginSlots();
   const builtInDefaults = data?.defaultKeybindings ?? EMPTY_DEFAULTS;
   const overrides = data?.keybindingOverrides ?? EMPTY_OVERRIDES;
-  const isDesktop = getBbDesktopInfo() !== null;
+  const isDesktop = getCcDesktopInfo() !== null;
   const platform = browserPlatform();
   return useMemo(() => {
     const pluginDefaults: AppDefaultKeybindings = commandPaletteActions.map(

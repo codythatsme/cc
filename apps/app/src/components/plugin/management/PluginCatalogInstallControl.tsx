@@ -1,12 +1,12 @@
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/tooltip";
+import { cn } from "@cc/shared-ui/lib/utils";
 
 type PluginCatalogInstallControlProps = {
   displayName: string;
@@ -32,11 +32,11 @@ export function PluginCatalogInstallControl(
     ? included || props.onUninstall === undefined
     : props.disabled;
   const tooltip = included
-    ? "Included with BB; cannot be uninstalled."
+    ? "Included with CC; cannot be uninstalled."
     : installed
       ? "Installed"
       : disabled
-        ? (props.unavailableReason ?? "Unavailable for this version of BB.")
+        ? (props.unavailableReason ?? "Unavailable for this version of CC.")
         : `Install ${displayName}`;
 
   return (

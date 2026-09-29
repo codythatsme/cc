@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import type { BbPluginApi, PluginAiServiceStatus } from "@get-bb/plugin-sdk";
+import type { CcPluginApi, PluginAiServiceStatus } from "@codythatsme/plugin-sdk";
 import {
   codexAiHostContract,
   type CodexAiFailureCode,
@@ -18,11 +18,11 @@ const RETRY_WITH_NEXT_MODEL: ReadonlySet<CodexAiFailureCode> = new Set([
   "invalid_response",
 ]);
 
-export function registerCodexAiService(bb: BbPluginApi): void {
-  const host = bb.hosts.experimental_client({ contract: codexAiHostContract });
+export function registerCodexAiService(cc: CcPluginApi): void {
+  const host = cc.hosts.experimental_client({ contract: codexAiHostContract });
 
   async function primaryHostId(): Promise<string | null> {
-    return (await bb.sdk.system.config()).primaryHostId;
+    return (await cc.sdk.system.config()).primaryHostId;
   }
 
   async function requirePrimaryHostId(): Promise<string> {
@@ -38,7 +38,7 @@ export function registerCodexAiService(bb: BbPluginApi): void {
     throw new Error(result.message);
   }
 
-  bb.experimental_aiServices.register({
+  cc.experimental_aiServices.register({
     id: "codex",
     displayName: "Codex",
     async complete(prompt, { signal }) {

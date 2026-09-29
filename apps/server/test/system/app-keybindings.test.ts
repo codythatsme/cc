@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAppKeybindingOverrides } from "@bb/db";
+import { getAppKeybindingOverrides } from "@cc/db";
 import {
   PANE_FOCUS_APP_COMMAND_IDS,
   THREAD_JUMP_APP_COMMAND_IDS,
@@ -7,8 +7,8 @@ import {
   appKeybindingOverridesSchema,
   isAppKeybindingAvailableForClient,
   matchesAppShortcut,
-} from "@bb/domain";
-import { systemConfigResponseSchema } from "@bb/server-contract";
+} from "@cc/domain";
+import { systemConfigResponseSchema } from "@cc/server-contract";
 import { DEFAULT_APP_KEYBINDINGS } from "../../src/services/system/app-keybindings.js";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";

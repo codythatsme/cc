@@ -3,7 +3,7 @@ import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ApprovalPendingInteractionResolution,
   ClientTurnRequestId,
@@ -24,8 +24,8 @@ import type {
   TurnRequestTarget,
   SystemMessageKind,
   SystemMessageSubject,
-} from "@bb/domain";
-import type { TimelineRow } from "@bb/server-contract";
+} from "@cc/domain";
+import type { TimelineRow } from "@cc/server-contract";
 import type {
   BuildEventProjectionOptions,
   EventProjection,

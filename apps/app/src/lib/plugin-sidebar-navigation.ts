@@ -5,7 +5,7 @@ import type {
   ExperimentalSidebarNavigationSplitOptions,
   ExperimentalSidebarNavigationState,
   PluginSidebarSplitPane,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   useSidebarNavigationModel,
   useSidebarNavigationRowContent,

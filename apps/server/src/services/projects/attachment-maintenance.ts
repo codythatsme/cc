@@ -12,7 +12,7 @@ import {
   threads,
   updateAttachmentBackfill,
   type DbConnection,
-} from "@bb/db";
+} from "@cc/db";
 import type { AppDeps } from "../../types.js";
 import {
   inventoryAttachmentReference,

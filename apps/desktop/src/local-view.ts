@@ -1,8 +1,8 @@
 import { stripVTControlCharacters } from "node:util";
-import { escapeHtmlText } from "@bb/text-utils";
+import { escapeHtmlText } from "@cc/text-utils";
 import { z } from "zod";
 
-export const STARTUP_ACTION_CHANNEL = "bb-desktop:startup-action";
+export const STARTUP_ACTION_CHANNEL = "cc-desktop:startup-action";
 
 export const startupActionIdSchema = z.enum([
   "choose-server",
@@ -85,7 +85,7 @@ function renderLocalView(viewModel: LocalViewModel): string {
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>bb</title>
+  <title>cc</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -207,7 +207,7 @@ function renderLocalView(viewModel: LocalViewModel): string {
   </style>
 </head>
 <body>
-<div class="titlebar-drag-region" data-testid="bb-local-view-window-drag-region" aria-hidden="true"></div>
+<div class="titlebar-drag-region" data-testid="cc-local-view-window-drag-region" aria-hidden="true"></div>
 ${body}
 </body>
 </html>`;

@@ -2,13 +2,13 @@ import { atom } from "jotai";
 import type {
   SidebarChronologicalSort,
   SidebarOrganizationMode,
-} from "@bb/domain";
+} from "@cc/domain";
 import { createSyncedPreferenceAtom } from "@/lib/ui-preferences/synced-preference-atom";
 
 export type {
   CollapsibleSidebarSectionId,
   SidebarSectionId,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 export type { SidebarChronologicalSort, SidebarOrganizationMode };
 

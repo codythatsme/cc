@@ -10,11 +10,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { buildPluginApp, resolvePluginBuildToolchain } from "@bb/plugin-build";
+import { buildPluginApp, resolvePluginBuildToolchain } from "@cc/plugin-build";
 
 function testToolchain() {
   return resolvePluginBuildToolchain(
-    path.join(os.tmpdir(), "bb-toolchain-unused"),
+    path.join(os.tmpdir(), "cc-toolchain-unused"),
   );
 }
 
@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 
 describe("plugin component registry", () => {
-  it("every item vendors into a plugin that bb plugin build compiles", async () => {
+  it("every item vendors into a plugin that cc plugin build compiles", async () => {
     const itemNames: string[] = [];
     for (const fileName of (await readdir(registryDir)).sort()) {
       if (fileName === "index.json") continue;
@@ -82,10 +82,10 @@ describe("plugin component registry", () => {
       path.join(fixtureDir, "package.json"),
       JSON.stringify(
         {
-          name: "bb-plugin-registry-fixture",
+          name: "cc-plugin-registry-fixture",
           version: "0.0.0",
           type: "module",
-          bb: {
+          cc: {
             name: "Registry vendor fixture",
             description:
               "Verify every registry item can be vendored and bundled.",
@@ -124,7 +124,7 @@ describe("plugin component registry", () => {
     );
 
     const js = await readFile(result.jsPath, "utf8");
-    expect(js).toContain("globalThis.__bbPluginRuntime");
+    expect(js).toContain("globalThis.__ccPluginRuntime");
     for (const slot of ["radixDialog", "radixAlertDialog", "vaul"]) {
       expect(js).toContain(`.${slot}`);
     }
@@ -132,7 +132,7 @@ describe("plugin component registry", () => {
 
     const css = await readFile(result.cssPath, "utf8");
     expect(css).toContain(
-      ":where([data-bb-plugin=registry-fixture],[data-bb-plugin-root]:not([data-bb-plugin]))",
+      ":where([data-cc-plugin=registry-fixture],[data-cc-plugin-root]:not([data-cc-plugin]))",
     );
     expect(css).toMatch(/var\(--background\)/);
   });

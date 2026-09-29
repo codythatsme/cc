@@ -8,10 +8,10 @@ import type {
   PendingInteractionCreate,
   PendingInteractionResolution,
   ThreadEvent,
-} from "@bb/domain";
+} from "@cc/domain";
 import { promptTextInput } from "./test/prompt-input.js";
-import { parseJsonRpcLine } from "@bb/provider-bridge-protocol/bridge-kit";
-import type { JsonRpcMessage } from "@bb/provider-bridge-protocol/bridge-kit";
+import { parseJsonRpcLine } from "@cc/provider-bridge-protocol/bridge-kit";
+import type { JsonRpcMessage } from "@cc/provider-bridge-protocol/bridge-kit";
 import { createProviderForId } from "./provider-registry.js";
 import { handleRuntimeProviderRequest } from "./runtime-provider-requests.js";
 import {
@@ -106,7 +106,7 @@ async function answerDirectRequest(args: {
   try {
     handleRuntimeProviderRequest({
       toolCalls: new RuntimeToolCalls(),
-      getActiveTurnId: args.getActiveTurnId ?? (() => "bb-turn-1"),
+      getActiveTurnId: args.getActiveTurnId ?? (() => "cc-turn-1"),
       getThreadExecutionOptions:
         args.getThreadExecutionOptions ?? (() => undefined),
       onInteractiveRequest: args.onInteractiveRequest,
@@ -134,7 +134,7 @@ describe("createAgentRuntime interactive requests", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), "bb-runtime-test-"));
+    tmpDir = mkdtempSync(join(tmpdir(), "cc-runtime-test-"));
   });
 
   afterEach(() => {

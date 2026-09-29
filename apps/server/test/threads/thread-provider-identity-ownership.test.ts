@@ -1,5 +1,5 @@
-import { listEvents, listQueuedThreadMessages } from "@bb/db";
-import { threadScope, turnScope, type PromptInput } from "@bb/domain";
+import { listEvents, listQueuedThreadMessages } from "@cc/db";
+import { threadScope, turnScope, type PromptInput } from "@cc/domain";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../src/errors.js";
 import { runQueuedMessageDispatch } from "../../src/services/threads/queued-message-dispatch.js";
@@ -190,7 +190,7 @@ async function expectProviderSessionUnavailable(
     details,
   });
   expect(error.body.message).toContain(
-    "Clear context (/clear or bb thread clear) for a new session; history is kept.",
+    "Clear context (/clear or cc thread clear) for a new session; history is kept.",
   );
 }
 
@@ -456,7 +456,7 @@ describe("provider session ownership on dispatch", () => {
       const [row] = listQueuedThreadMessages(harness.db, early.id);
       expect(row?.id).toBe(queued.id);
       expect(row?.failureReason).toBe(
-        "Another thread claimed this thread's provider session in the same millisecond, so bb will not guess whose it is. Clear context (/clear or bb thread clear) for a new session; history is kept.",
+        "Another thread claimed this thread's provider session in the same millisecond, so cc will not guess whose it is. Clear context (/clear or cc thread clear) for a new session; history is kept.",
       );
       for (const type of ["thread.start", "turn.submit"] as const) {
         expect(listQueuedThreadCommands(harness, type, early.id)).toEqual([]);

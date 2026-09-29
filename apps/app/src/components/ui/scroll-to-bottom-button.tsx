@@ -1,5 +1,5 @@
-import { cn } from "@bb/shared-ui/lib/utils";
-import { Icon } from "@bb/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { Icon } from "@cc/shared-ui/icon";
 
 interface ScrollToBottomButtonProps {
   visible: boolean;

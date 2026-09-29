@@ -3,7 +3,7 @@ import {
   useQueryClient,
   type QueryObserverResult,
 } from "@tanstack/react-query";
-import type { ThreadTimelineResponse, TimelineRow } from "@bb/server-contract";
+import type { ThreadTimelineResponse, TimelineRow } from "@cc/server-contract";
 import {
   areTimelinePaginationCursorsEqual,
   buildLoadedTimelineState,
@@ -12,12 +12,12 @@ import {
   recoverLoadedTimelineAfterStaleCursor,
   resolveLoadedTimelineSurfaceKey,
   type LoadedTimelineState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import { useConnectionAwareQueryState } from "@/hooks/queries/connection-aware-query-state";
 import { threadTimelineQueryKey } from "@/hooks/queries/query-keys";
 import { isTransientReadError } from "@/hooks/queries/query-helpers";
 import { useThreadTimeline } from "@/hooks/queries/thread-queries";
-import { BbHttpError, sdk } from "@/lib/sdk";
+import { CcHttpError, sdk } from "@/lib/sdk";
 
 type TimelineQueryResultProp =
   keyof QueryObserverResult<ThreadTimelineResponse>;
@@ -69,7 +69,7 @@ interface ReconcileLoadedTimelineArgs {
 
 function isStaleTimelinePaginationCursorError(error: Error): boolean {
   return (
-    error instanceof BbHttpError &&
+    error instanceof CcHttpError &&
     error.status === 400 &&
     error.code === "invalid_request"
   );

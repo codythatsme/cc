@@ -39,5 +39,5 @@ export function jsonShapeHelp(commandPath: string): string | null {
   const shape = JSON_SHAPE_BY_COMMAND_PATH[commandPath];
   return shape === undefined
     ? null
-    : `\nJSON (--json): ${shape}\nErrors with --json: {"ok": false, "error": {code, message, hint?}} on stdout. Run \`bb guide json\` for every shape.`;
+    : `\nJSON (--json): ${shape}\nErrors with --json: {"ok": false, "error": {code, message, hint?}} on stdout. Run \`cc guide json\` for every shape.`;
 }

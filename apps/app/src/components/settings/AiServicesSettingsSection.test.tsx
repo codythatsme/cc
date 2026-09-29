@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SystemAiServicesResponse } from "@bb/server-contract";
+import type { SystemAiServicesResponse } from "@cc/server-contract";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {
   AiServicesSettingsSection,
@@ -29,9 +29,9 @@ const VIEW: SystemAiServicesResponse = {
       status: { ready: false, message: "Run `codex login` to sign in" },
     },
     {
-      id: "bb",
-      displayName: "bb cloud",
-      pluginId: "bb-ai",
+      id: "cc",
+      displayName: "cc cloud",
+      pluginId: "cc-ai",
       tasks: ["thread-title", "commit-message"],
       automaticRank: 1,
       status: { ready: true },
@@ -63,9 +63,9 @@ function jsonResponse(body: unknown, status = 200): Response {
 const TEST_SUCCESS = (): Response =>
   jsonResponse({
     ok: true,
-    pluginId: "bb-ai",
-    serviceId: "bb",
-    displayName: "bb cloud",
+    pluginId: "cc-ai",
+    serviceId: "cc",
+    displayName: "cc cloud",
     text: "Add a dark mode toggle",
     durationMs: 412,
   });
@@ -80,7 +80,7 @@ function stubFetch(
       const request =
         input instanceof Request
           ? input
-          : new Request(new URL(String(input), "http://bb.test"), init);
+          : new Request(new URL(String(input), "http://cc.test"), init);
       const url = new URL(request.url).pathname;
       const text = await request.text();
       requests.push({ url, method: request.method, body: text });
@@ -107,8 +107,8 @@ afterEach(() => {
 });
 
 describe("AiServicesSettingsSection", () => {
-  it("resolves Automatic to the first ready service bb ships", () => {
-    expect(automaticServiceFor(VIEW, "thread-title")?.id).toBe("bb");
+  it("resolves Automatic to the first ready service cc ships", () => {
+    expect(automaticServiceFor(VIEW, "thread-title")?.id).toBe("cc");
     expect(automaticServiceFor(VIEW, "voice")).toBeNull();
   });
 
@@ -125,7 +125,7 @@ describe("AiServicesSettingsSection", () => {
     expect(
       screen.getByRole("button", { name: "Voice input" }).textContent,
     ).toContain("Unavailable plugin");
-    expect(screen.getByText(/Using bb cloud\./u)).toBeTruthy();
+    expect(screen.getByText(/Using cc cloud\./u)).toBeTruthy();
   });
 
   it("offers only services that handle the task and saves the choice", async () => {
@@ -141,7 +141,7 @@ describe("AiServicesSettingsSection", () => {
     expect(
       await screen.findByRole("menuitem", { name: /^Codex/u }),
     ).toBeTruthy();
-    expect(screen.queryByRole("menuitem", { name: /^bb cloud/u })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /^cc cloud/u })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: /^OpenRouter/u })).toBeNull();
     fireEvent.click(screen.getByRole("menuitem", { name: /^Off/u }));
 
@@ -167,7 +167,7 @@ describe("AiServicesSettingsSection", () => {
     );
     expect(
       await screen.findByText(
-        /Test: “Add a dark mode toggle” from bb cloud in 412 ms\./u,
+        /Test: “Add a dark mode toggle” from cc cloud in 412 ms\./u,
       ),
     ).toBeTruthy();
   });

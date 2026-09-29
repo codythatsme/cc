@@ -15,8 +15,8 @@ import {
   type HostDaemonSettledCommandType,
   type ProviderCliInstallEvent,
   type WorkspaceResolutionFailure,
-} from "@bb/host-daemon-contract";
-import type { AgentRuntimeBridgeLaunch } from "@bb/agent-runtime";
+} from "@cc/host-daemon-contract";
+import type { AgentRuntimeBridgeLaunch } from "@cc/agent-runtime";
 import semver from "semver";
 import {
   ExpectedCommandDispatchError,
@@ -67,7 +67,7 @@ import {
 import type {
   ProviderInstallationStatus,
   ProviderInstallationVerification,
-} from "@bb/provider-bridge-protocol";
+} from "@cc/provider-bridge-protocol";
 import {
   discardThreadRewind,
   deleteThreadStorage,
@@ -76,7 +76,7 @@ import {
   startThread,
   submitTurn,
 } from "./command-handlers/thread.js";
-import { WorkspaceError, type HostWorkspace } from "@bb/host-workspace";
+import { WorkspaceError, type HostWorkspace } from "@cc/host-workspace";
 import {
   cloneProject,
   inspectProjectPath,
@@ -619,7 +619,7 @@ const onlineRpcHandlers: OnlineRpcHandlerMap = {
   "desktop.browser.import_cookies": forwardDesktopBrowserCommand,
   "connect-tunnel.ensure-identity": async (_command, options) => {
     if (!options.ensureConnectTunnelIdentity) {
-      throw new Error("bb connect tunnel identity is unavailable");
+      throw new Error("cc connect tunnel identity is unavailable");
     }
     return options.ensureConnectTunnelIdentity();
   },

@@ -11,7 +11,7 @@ import { readFile, stat } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { extname, join, resolve } from "node:path";
 import { Hono } from "hono";
-import { terminalWebSocketQuerySchema } from "@bb/server-contract";
+import { terminalWebSocketQuerySchema } from "@cc/server-contract";
 import { compress } from "hono/compress";
 import { cors } from "hono/cors";
 import type { ServerAppDeps } from "./types.js";
@@ -62,10 +62,8 @@ import {
 } from "./internal/auth.js";
 import {
   captureTrustedRemoteAddress,
-  resolveRequestAppSurface,
 } from "./request-context.js";
 import { runEventLoopWork } from "./services/system/event-loop-work.js";
-import { runWithTelemetryAppSurface } from "./services/system/telemetry.js";
 import {
   onClientSocketClose,
   onClientSocketMessage,
@@ -77,17 +75,17 @@ import {
   onDaemonSocketOpen,
   validateDaemonWebSocket,
 } from "./ws/daemon-protocol.js";
-import { roundDurationMs } from "@bb/process-utils";
+import { roundDurationMs } from "@cc/process-utils";
 import {
   onTerminalSocketClose,
   onTerminalSocketMessage,
   onTerminalSocketOpen,
 } from "./ws/terminal-protocol.js";
 import {
-  createBbAppArtifactService,
-  type BbAppArtifactService,
-} from "./services/install/bb-app-artifact.js";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+  createCcAppArtifactService,
+  type CcAppArtifactService,
+} from "./services/install/cc-app-artifact.js";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
 import {
   createPluginCatalogService,
   type PluginCatalogService,
@@ -106,8 +104,8 @@ import {
 const PLUGIN_WIRE_HTTP_PATH = /^\/api\/v1\/plugins\/[^/]+\/http(?:\/|$)/u;
 import { rankAcceptedAssetEncodings } from "./asset-content-encoding.js";
 import { apiJsonCompression } from "./api-response-compression.js";
-import { APP_SURFACE_WEB, type AppSurface } from "@bb/config/app-surface";
-import type { ServerBindHost } from "@bb/config/server";
+import { APP_SURFACE_WEB, type AppSurface } from "@cc/config/app-surface";
+import type { ServerBindHost } from "@cc/config/server";
 import { registerServerMoveRoutes } from "./routes/server-move.js";
 import {
   INTERNAL_SERVER_MOVE_PENDING_PATH,
@@ -176,7 +174,7 @@ export interface ServerMoveAppOptions {
 }
 
 interface CreateAppOptions {
-  bbAppArtifactService?: BbAppArtifactService;
+  ccAppArtifactService?: CcAppArtifactService;
   serverMove?: ServerMoveAppOptions;
   slowApiRequestLogThresholdMs?: number;
   staticDir?: string;
@@ -453,9 +451,9 @@ export function createApp(
   });
   const slowApiRequestLogThresholdMs =
     options?.slowApiRequestLogThresholdMs ?? SLOW_API_REQUEST_LOG_THRESHOLD_MS;
-  const bbAppArtifactService =
-    options?.bbAppArtifactService ??
-    createBbAppArtifactService({
+  const ccAppArtifactService =
+    options?.ccAppArtifactService ??
+    createCcAppArtifactService({
       dataDir: deps.config.dataDir,
       serverEntryUrl: import.meta.url,
     });
@@ -476,7 +474,7 @@ export function createApp(
 
   app.use("*", async (context, next) => {
     captureTrustedRemoteAddress(context);
-    return runWithTelemetryAppSurface(resolveRequestAppSurface(context), next);
+    return next();
   });
   app.use("*", async (context, next) => {
     const path = context.req.path;
@@ -527,7 +525,7 @@ export function createApp(
   });
   app.get("/install.sh", async (context) => {
     const script = await readFile(INSTALL_MACHINE_SCRIPT_PATH, "utf8");
-    const credential = context.req.header("X-BB-Enrollment");
+    const credential = context.req.header("X-CC-Enrollment");
     let bootstrap =
       credential === undefined
         ? null
@@ -540,7 +538,7 @@ export function createApp(
       } catch (error) {
         deps.logger.warn({ error }, "Could not refresh machine access");
         return new Response(
-          "echo 'Could not refresh machine access. Run the command again, or generate a new one in bb.' >&2\nexit 1\n",
+          "echo 'Could not refresh machine access. Run the command again, or generate a new one in cc.' >&2\nexit 1\n",
           {
             status: 503,
             headers: {
@@ -553,7 +551,7 @@ export function createApp(
     }
     if (credential !== undefined && bootstrap === null) {
       return new Response(
-        "echo 'This enrollment command has already been used, replaced, or expired. Generate a new command in bb.' >&2\nexit 1\n",
+        "echo 'This enrollment command has already been used, replaced, or expired. Generate a new command in cc.' >&2\nexit 1\n",
         {
           status: 403,
           headers: {
@@ -575,19 +573,19 @@ export function createApp(
   });
   app.get("/install/version", async (context) => {
     return context.json({
-      version: await bbAppArtifactService.getVersion(),
+      version: await ccAppArtifactService.getVersion(),
       protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
     });
   });
-  app.get("/install/bb-app.tgz", async (context) => {
+  app.get("/install/cc-app.tgz", async (context) => {
     try {
-      const artifact = await bbAppArtifactService.getArtifact();
+      const artifact = await ccAppArtifactService.getArtifact();
       const etag = `"sha256-${artifact.digest}"`;
       const headers = {
         "cache-control": "public, max-age=300",
         "content-type": "application/gzip",
         etag,
-        "x-bb-artifact-sha256": artifact.digest,
+        "x-cc-artifact-sha256": artifact.digest,
       };
       if (context.req.header("if-none-match") === etag) {
         return new Response(null, { headers, status: 304 });
@@ -682,7 +680,6 @@ export function createApp(
     db: deps.db,
     hub: deps.hub,
     logger: deps.logger,
-    telemetry: deps.telemetry,
     pendingInteractions: deps.pendingInteractions,
     dataDir: deps.config.dataDir,
     appVersion: deps.config.appVersion,
@@ -711,7 +708,7 @@ export function createApp(
         pluginId,
       });
     },
-    // `bb.experimental_hooks.recheck()`: a plugin whose wait condition
+    // `cc.experimental_hooks.recheck()`: a plugin whose wait condition
     // may have changed asks core to re-attempt the plugin-queued rows. Core
     // owns the walk, the coalescing and the pacing; the plugin owns knowing
     // when to ask.
@@ -719,7 +716,7 @@ export function createApp(
       requestQueuedMessageDispatch(deps, { kind: "plugin-recheck" });
     },
     watchBuiltinPluginSources:
-      process.env.BB_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD === "1",
+      process.env.CC_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD === "1",
   });
   // Messages queued while a thread awaited user interaction stop waiting once
   // that interaction settles (#1650); the idle drain then delivers them.
@@ -946,7 +943,7 @@ export function createApp(
   if (options?.staticDir) {
     registerStaticAppRoutes(app, options.staticDir);
   } else {
-    app.get("/", (context) => context.text("bb server"));
+    app.get("/", (context) => context.text("cc server"));
   }
 
   return {

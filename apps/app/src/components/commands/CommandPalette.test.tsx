@@ -22,10 +22,10 @@ import {
   type AppKeybinding,
   type AppKeybindingOverrides,
   type ThreadListEntry,
-} from "@bb/domain";
-import type { ThreadSearchResponse } from "@bb/server-contract";
+} from "@cc/domain";
+import type { ThreadSearchResponse } from "@cc/server-contract";
 import type { ThreadArchiveFilter } from "@/lib/thread-lifecycle-filter";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { AppCommandProvider, useAppCommandHandler } from "./AppCommandProvider";
 import {
   removePluginSlotRegistrations,
@@ -41,7 +41,7 @@ import {
   setPluginThreadRowStatus,
 } from "@/lib/plugin-thread-row-status";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
-import { collectPluginAppRegistrations } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
+import { collectPluginAppRegistrations } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
 
 const PALETTE_SHORTCUT = {
   key: "p",
@@ -190,8 +190,8 @@ vi.mock("@/hooks/queries/system-queries", () => ({
   }),
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => null,
+vi.mock("@/lib/cc-desktop", () => ({
+  getCcDesktopInfo: () => null,
 }));
 
 vi.mock("@/hooks/useHostDaemon", () => ({
@@ -647,7 +647,7 @@ describe("CommandPalette", () => {
       setPluginSlotRegistrations(
         "linear",
         collectPluginAppRegistrations({
-          __bbPluginApp: true,
+          __ccPluginApp: true,
           setup(app) {
             app.commands.register({
               id: "open-issue",
@@ -1200,7 +1200,7 @@ describe("CommandPalette", () => {
     const match = rows[0].querySelector("mark");
     expectText(match, "Matching");
     expectClasses(match, "bg-[var(--sidebar-search-match)]", "text-foreground");
-    expectClasses(match?.closest(".bb-thread-title"), "text-foreground");
+    expectClasses(match?.closest(".cc-thread-title"), "text-foreground");
     expect(
       within(rows[1]).getByRole("img", { name: "Unread thread succeeded" }),
     ).toBeTruthy();
@@ -1850,7 +1850,7 @@ describe("CommandPalette", () => {
       setPluginSlotRegistrations(
         "linear",
         collectPluginAppRegistrations({
-          __bbPluginApp: true,
+          __ccPluginApp: true,
           setup(app) {
             const registration = {
               id: "open-issue",
@@ -1881,7 +1881,7 @@ describe("CommandPalette", () => {
     let available = true;
     const run = vi.fn();
     const registrations = collectPluginAppRegistrations({
-      __bbPluginApp: true,
+      __ccPluginApp: true,
       setup(app) {
         app.commands.register({
           id: "open-issue",

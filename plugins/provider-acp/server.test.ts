@@ -1,21 +1,21 @@
 import { getEventListeners } from "node:events";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { experimental_acpAgentProbeSchema } from "@get-bb/plugin-sdk/provider-bridge/acp";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { experimental_acpAgentProbeSchema } from "@codythatsme/plugin-sdk/provider-bridge/acp";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import { z } from "zod";
 import { acpHostContract } from "./src/contract.js";
 import { KNOWN_ACP_AGENTS } from "./src/known-agents.js";
 import acpProvidersPlugin from "./server.js";
 
-const NO_LEGACY_CONFIG = "/tmp/bb-acp-plugin-test-no-config";
+const NO_LEGACY_CONFIG = "/tmp/cc-acp-plugin-test-no-config";
 
 const PLUGIN_ID = "provider-acp";
 
 const DECLARED_ICON_NAMES = Object.keys(
   z
     .object({
-      bb: z.object({
+      cc: z.object({
         branding: z.object({
           experimental_icons: z.record(z.string(), z.string()),
         }),
@@ -25,7 +25,7 @@ const DECLARED_ICON_NAMES = Object.keys(
       JSON.parse(
         readFileSync(new URL("./package.json", import.meta.url), "utf8"),
       ),
-    ).bb.branding.experimental_icons,
+    ).cc.branding.experimental_icons,
 );
 
 function customAgents(...agents: unknown[]): string {
@@ -73,7 +73,7 @@ async function loadPlugin(options: {
   host.harness.sdk.stub("hosts.list", () =>
     Promise.resolve(options.hosts ?? []),
   );
-  await acpProvidersPlugin(host.bb);
+  await acpProvidersPlugin(host.cc);
   return host;
 }
 
@@ -168,7 +168,7 @@ describe("the ACP plugin's registration bookkeeping", () => {
     });
     host.harness.sdk.stub("hosts.list", () => Promise.resolve([]));
 
-    const loading = acpProvidersPlugin(host.bb);
+    const loading = acpProvidersPlugin(host.cc);
     expect(registeredIds(host)).toContain("acp-cursor");
     await loading;
   });

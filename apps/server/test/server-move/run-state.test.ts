@@ -2,14 +2,14 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { upsertHost } from "@bb/db";
-import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@bb/domain";
-import type { HostDaemonOnlineRpcRequestMessage } from "@bb/host-daemon-contract";
-import { writeServerMovedFile } from "@bb/server-archive";
+import { upsertHost } from "@cc/db";
+import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@cc/domain";
+import type { HostDaemonOnlineRpcRequestMessage } from "@cc/host-daemon-contract";
+import { writeServerMovedFile } from "@cc/server-archive";
 import type {
   ServerMoveStatus,
   ServerMoveStepStatus,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { afterEach, describe, expect, it } from "vitest";
 import { createServerMoveCoordinator } from "../../src/services/server-move/coordinator.js";
 import {
@@ -49,7 +49,7 @@ const BOOT_TIMINGS = {
   ...TEST_SERVER_MOVE_TIMINGS,
   recoveryProbeIntervalMs: 20,
 };
-const ORIGINAL_CONFIG = '{"config":{"BB_LOG_LEVEL":"info"}}\n';
+const ORIGINAL_CONFIG = '{"config":{"CC_LOG_LEVEL":"info"}}\n';
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -146,7 +146,7 @@ async function lockDataDir(harness: TestAppHarness): Promise<void> {
     serverUrl: DIRECT_URL,
     mode: "direct",
     connectHandle: null,
-    oldCopyEntries: ["bb.db"],
+    oldCopyEntries: ["cc.db"],
   });
 }
 
@@ -154,7 +154,7 @@ async function writeMovedConfig(harness: TestAppHarness): Promise<string> {
   const path = join(harness.config.dataDir, "config.json");
   await writeFile(
     path,
-    `${JSON.stringify({ config: { BB_LOG_LEVEL: "info" }, serverUrl: DIRECT_URL })}\n`,
+    `${JSON.stringify({ config: { CC_LOG_LEVEL: "info" }, serverUrl: DIRECT_URL })}\n`,
   );
   return path;
 }
@@ -391,7 +391,7 @@ describe("server move boot reconciliation", () => {
         runFile(harness, "switching", ALL_THROUGH_SWITCH, {
           configBackup: {
             path: configPath,
-            originalText: '{"config":{"BB_LOG_LEVEL":"debug"}}\n',
+            originalText: '{"config":{"CC_LOG_LEVEL":"debug"}}\n',
           },
           movedAt: 5_000,
           activationRequestedAt: 5_100,
@@ -407,7 +407,7 @@ describe("server move boot reconciliation", () => {
 
   it("never deletes a recorded work directory outside the data directory's move directory", () =>
     withTestHarness(async (harness) => {
-      const outside = await mkdtemp(join(tmpdir(), "bb-server-move-outside-"));
+      const outside = await mkdtemp(join(tmpdir(), "cc-server-move-outside-"));
       tempDirs.push(outside);
       await writeFile(join(outside, "keep.txt"), "keep");
       await writeServerMoveRunFile(

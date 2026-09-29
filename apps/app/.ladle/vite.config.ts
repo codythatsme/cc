@@ -1,7 +1,7 @@
 import path from "path";
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
-import { resolveCurrentDevInstanceConfig } from "@bb/config/runtime";
+import { resolveCurrentDevInstanceConfig } from "@cc/config/runtime";
 import { forkablePluginPaths } from "../vite-forkable-plugin-paths.js";
 import { sharedUiEnvSeam } from "../vite-shared-ui-seam.js";
 
@@ -25,7 +25,7 @@ export default defineConfig({
     conditions: ["source"],
     dedupe: ["react", "react-dom"],
     alias: {
-      "@get-bb/plugin-sdk/app": path.resolve(__dirname, "./plugin-sdk-app.ts"),
+      "@codythatsme/plugin-sdk/app": path.resolve(__dirname, "./plugin-sdk-app.ts"),
       "@": path.resolve(__dirname, "../src"),
     },
   },
@@ -37,7 +37,7 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: [".getbb.app"],
+    allowedHosts: [".cc.example.invalid"],
     proxy: {
       "/api": {
         target: devInstance.serverUrl,

@@ -202,7 +202,7 @@ describe("guide fixture boundaries", () => {
     );
   });
 
-  it("mirrors bb's fixed Info/Diff tabs before plugin-owned content tabs", () => {
+  it("mirrors cc's fixed Info/Diff tabs before plugin-owned content tabs", () => {
     const markup = renderWireframe(
       createElement(AppShellRightPanel, {
         activeTab: "thread-panel",

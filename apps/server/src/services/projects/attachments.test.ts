@@ -1,4 +1,4 @@
-import { createConnection, migrate, projects } from "@bb/db";
+import { createConnection, migrate, projects } from "@cc/db";
 import { beforeEach } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "bb-attachments-"));
+  const dir = await mkdtemp(join(tmpdir(), "cc-attachments-"));
   tempDirs.push(dir);
   return dir;
 }

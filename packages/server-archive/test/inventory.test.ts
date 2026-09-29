@@ -13,7 +13,7 @@ import {
 const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "bb-server-inventory-"));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "cc-server-inventory-"));
   tempDirs.push(tempDir);
   return tempDir;
 }
@@ -27,6 +27,18 @@ afterEach(async () => {
 });
 
 describe("listServerOwnedEntries", () => {
+  it("does not include an old installation tracking identifier in an archive", async () => {
+    const dataDir = await makeTempDir();
+    await writeFixtureFile(dataDir, "telemetry-id", "old-installation-id");
+    await writeFixtureFile(dataDir, "AGENTS.md", "Local instructions");
+    const inventory = await listServerOwnedEntries(dataDir);
+    expect(
+      inventory.entries
+        .flatMap((entry) => entry.files)
+        .map((file) => file.path),
+    ).toEqual(["AGENTS.md"]);
+  });
+
   it("includes server-owned files and excludes host-owned, cache, and unknown entries", async () => {
     const dataDir = await makeTempDir();
     for (const relativePath of [
@@ -46,7 +58,7 @@ describe("listServerOwnedEntries", () => {
       "AGENTS.md",
       "attachments",
       "auth-secret",
-      "bb.db",
+      "cc.db",
       "config.json",
       "env.json",
       "machine-environment-key",
@@ -58,7 +70,6 @@ describe("listServerOwnedEntries", () => {
       "plugins/npm",
       "plugins/snapshots",
       "skills",
-      "telemetry-id",
       "theme",
     ]);
     expect(
@@ -66,10 +77,10 @@ describe("listServerOwnedEntries", () => {
         .filter((file) => file.sqliteDatabase)
         .map((file) => file.path)
         .sort(),
-    ).toEqual(["bb.db", "plugins/docs/data.db"]);
-    const database = files.find((file) => file.path === "bb.db");
-    expect(database?.absolutePath).toBe(path.join(dataDir, "bb.db"));
-    expect(database?.sizeBytes).toBe(fixtureBody("bb.db").length);
+    ).toEqual(["cc.db", "plugins/docs/data.db"]);
+    const database = files.find((file) => file.path === "cc.db");
+    expect(database?.absolutePath).toBe(path.join(dataDir, "cc.db"));
+    expect(database?.sizeBytes).toBe(fixtureBody("cc.db").length);
     expect(inventory.skippedPaths).toEqual([]);
   });
 
@@ -79,7 +90,7 @@ describe("listServerOwnedEntries", () => {
     await writeFixtureFile(outside, "secret.txt", "x");
     await writeFixtureFile(outside, "vault/notes.md", "x");
     await writeFixtureFile(dataDir, "attachments/real.png", "x");
-    await writeFixtureFile(dataDir, "bb.db/nested", "x");
+    await writeFixtureFile(dataDir, "cc.db/nested", "x");
     await symlink(
       path.join(outside, "secret.txt"),
       path.join(dataDir, "attachments", "linked.png"),
@@ -114,7 +125,7 @@ describe("listServerOwnedEntries", () => {
     expect(inventory.skippedPaths).toEqual([
       "attachments/linked.png",
       "auth-secret",
-      "bb.db",
+      "cc.db",
       "plugins/dev-plugin",
       "skills",
     ]);

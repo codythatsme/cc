@@ -1,4 +1,13 @@
-import { chmod, copyFile, mkdir, rm, stat } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  cp,
+  mkdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -54,6 +63,33 @@ async function main() {
     const bundleStats = await stat(target.outfile);
     console.log(`${target.label}: ${bundleStats.size} bytes`);
   }
+
+  const sdkSource = resolve(workspaceRoot, "packages", "plugin-sdk");
+  const sdkTarget = resolve(packageRoot, "dist", "plugin-sdk");
+  await rm(sdkTarget, { recursive: true, force: true });
+  await mkdir(sdkTarget, { recursive: true });
+  const sdkManifest = JSON.parse(
+    await readFile(resolve(sdkSource, "package.json"), "utf8"),
+  );
+  delete sdkManifest.devDependencies;
+  delete sdkManifest.scripts;
+  for (const entry of Object.values(sdkManifest.exports)) delete entry.source;
+  await Promise.all([
+    cp(resolve(sdkSource, "dist"), resolve(sdkTarget, "dist"), {
+      recursive: true,
+    }),
+    cp(
+      resolve(sdkSource, "bundled-types"),
+      resolve(sdkTarget, "bundled-types"),
+      { recursive: true },
+    ),
+    copyFile(resolve(sdkSource, "README.md"), resolve(sdkTarget, "README.md")),
+    copyFile(resolve(workspaceRoot, "LICENSE"), resolve(sdkTarget, "LICENSE")),
+    writeFile(
+      resolve(sdkTarget, "package.json"),
+      `${JSON.stringify(sdkManifest, null, 2)}\n`,
+    ),
+  ]);
 
   const titleCommandPath = resolve(
     workspaceRoot,

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   definePluginApp,
   type PluginFileOpenerProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import { loadPdfBlob, resolvePdfReadTarget } from "./pdf-source.js";
 
 type PreviewState =

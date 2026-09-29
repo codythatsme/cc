@@ -6,7 +6,7 @@ import type {
   ThreadListEntry,
   ThreadQueuedMessage,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@cc/domain";
 
 type ProviderInfoOverrides = Omit<
   Partial<ProviderInfo>,

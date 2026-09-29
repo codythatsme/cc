@@ -24,7 +24,7 @@ import {
 const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "bb-server-markers-"));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "cc-server-markers-"));
   tempDirs.push(tempDir);
   return tempDir;
 }
@@ -44,10 +44,10 @@ const MOVED_FILE: ServerMovedFile = {
   fromHostId: "host-old",
   toHostId: "host-new",
   toHostName: "desktop",
-  serverUrl: "https://bb.example",
+  serverUrl: "https://cc.example",
   mode: "connect",
   connectHandle: "sawyer",
-  oldCopyEntries: ["bb.db", "attachments", "plugins/docs/data.db"],
+  oldCopyEntries: ["cc.db", "attachments", "plugins/docs/data.db"],
 };
 
 const IMPORT_FILE: ServerImportFile = {
@@ -55,11 +55,11 @@ const IMPORT_FILE: ServerImportFile = {
   kind: "move",
   moveId: "move-1",
   activationToken: "activation-token-0123456789",
-  sourceDataDir: "/home/old/.bb",
+  sourceDataDir: "/home/old/.cc",
   sourceServerHostId: "host-old",
   targetHostId: "host-new",
   serverUrl: null,
-  importedEntries: ["bb.db", "config.json"],
+  importedEntries: ["cc.db", "config.json"],
   createdAt: 1_757_000_000_000,
   fixupsAppliedAt: null,
 };
@@ -102,7 +102,7 @@ describe("server move marker files", () => {
     }
   });
 
-  it("round trips the bb connect hold with mode 0600 and removes it once", async () => {
+  it("round trips the cc connect hold with mode 0600 and removes it once", async () => {
     const dataDir = await makeTempDir();
     expect(SERVER_CONNECT_HOLD_FILE_NAME).toBe("server-connect-hold.json");
     expect(await readServerConnectHoldFile(dataDir)).toBeNull();

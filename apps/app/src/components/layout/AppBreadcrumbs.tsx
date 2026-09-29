@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { MACOS_WINDOW_NO_DRAG_CLASS } from "@/lib/bb-desktop";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { MACOS_WINDOW_NO_DRAG_CLASS } from "@/lib/cc-desktop";
 
 interface AppBreadcrumbSegment {
   label: string;

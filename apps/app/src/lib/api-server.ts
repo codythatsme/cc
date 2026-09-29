@@ -1,10 +1,11 @@
-import { createApiClient } from "@bb/server-contract";
-import { fetchWithAppSurface } from "./app-surface";
+import { createApiClient } from "@cc/server-contract";
 
 const BASE_URL =
   typeof window === "undefined" ? "http://localhost" : window.location.origin;
 
-const client = createApiClient(BASE_URL, { fetch: fetchWithAppSurface });
+const client = createApiClient(BASE_URL, {
+  fetch: (input, init) => globalThis.fetch(input, init),
+});
 
 export const apiClient = client.api.v1;
 

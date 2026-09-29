@@ -1,16 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { PluginSourceSelection } from "@bb/server-contract";
+import type { PluginSourceSelection } from "@cc/server-contract";
 import {
   normalizePluginSubdirectory,
   realPathInside,
 } from "./install-sources.js";
 import { readPluginManifest } from "./manifest.js";
 
-const COLLECTION_MANIFEST_PATH = ".bb/plugins.json";
+const COLLECTION_MANIFEST_PATH = ".cc/plugins.json";
 export const COLLECTION_SCHEMA_URL =
-  "https://getbb.app/schemas/plugins.schema.json";
+  "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/plugins.schema.json";
 
 const COLLECTION_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -101,7 +101,7 @@ export async function readPluginCollectionManifest(
   try {
     realPath = await realPathInside(
       checkoutDir,
-      join(checkoutDir, ".bb", "plugins.json"),
+      join(checkoutDir, ".cc", "plugins.json"),
       COLLECTION_MANIFEST_PATH,
     );
   } catch (error) {

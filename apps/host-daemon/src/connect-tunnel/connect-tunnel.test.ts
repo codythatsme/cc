@@ -5,10 +5,10 @@ import {
   encodeFrame,
   type Frame,
   type OpenHttpFrame,
-} from "@bb/tunnel-contract";
+} from "@cc/tunnel-contract";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
-import type { HostDaemonConnectTunnelIdentity } from "@bb/host-daemon-contract";
+import type { HostDaemonConnectTunnelIdentity } from "@cc/host-daemon-contract";
 import type { HostDaemonLogger } from "../logger.js";
 import {
   buildMachineSharePublicOrigin,
@@ -96,7 +96,7 @@ function labelFetch(
   return async (input, init) => {
     requests.push({
       body: JSON.parse(String(init?.body ?? "null")),
-      credential: new Headers(init?.headers).get("x-bb-connect-machine"),
+      credential: new Headers(init?.headers).get("x-cc-connect-machine"),
       url: input.toString(),
     });
     return Response.json({ label });
@@ -122,28 +122,28 @@ afterEach(async () => {
 describe("ConnectTunnelClient", () => {
   it("allows HTTP only for a local machine gate and derives ws URLs", () => {
     expect(
-      resolveTrustedConnectGate("http://owner.bb.localhost:42745"),
+      resolveTrustedConnectGate("http://owner.cc.localhost:42745"),
     ).toEqual({
-      apiOrigin: "http://owner.bb.localhost:42745",
-      baseDomain: "bb.localhost:42745",
+      apiOrigin: "http://owner.cc.localhost:42745",
+      baseDomain: "cc.localhost:42745",
     });
     expect(
       buildMachineTunnelUrl({
         label: "sawyer-air",
-        baseDomain: "bb.localhost:42745",
+        baseDomain: "cc.localhost:42745",
       }),
-    ).toBe("ws://sawyer-air.bb.localhost:42745/__tunnel?v=1");
+    ).toBe("ws://sawyer-air.cc.localhost:42745/__tunnel?v=1");
     expect(
       buildMachineSharePublicOrigin(
-        { label: "sawyer-air", baseDomain: "bb.localhost:42745" },
+        { label: "sawyer-air", baseDomain: "cc.localhost:42745" },
         4173,
       ),
-    ).toBe("http://sawyer-air--4173.bb.localhost:42745");
-    expect(() => resolveTrustedConnectGate("http://owner.getbb.app")).toThrow(
+    ).toBe("http://sawyer-air--4173.cc.localhost:42745");
+    expect(() => resolveTrustedConnectGate("http://owner.cc.example.invalid")).toThrow(
       "require HTTPS",
     );
     expect(() =>
-      resolveTrustedConnectGate("https://owner.bb.localhost:42745"),
+      resolveTrustedConnectGate("https://owner.cc.localhost:42745"),
     ).toThrow("HTTP for a local *.localhost");
   });
 
@@ -162,7 +162,7 @@ describe("ConnectTunnelClient", () => {
     });
 
     const client = new ConnectTunnelClient({
-      serverUrl: "https://owner.getbb.app",
+      serverUrl: "https://owner.cc.example.invalid",
       hostName: "Sawyer Air",
       machineCredential: "bbcm_machine-secret",
       fetchFn: labelFetch(labelRequests),
@@ -178,13 +178,13 @@ describe("ConnectTunnelClient", () => {
       {
         body: { desiredName: "Sawyer Air" },
         credential: "bbcm_machine-secret",
-        url: "https://owner.getbb.app/api/connect/machine-label",
+        url: "https://owner.cc.example.invalid/api/connect/machine-label",
       },
     ]);
     expect(identities).toEqual([
-      { label: "sawyer-air", baseDomain: "getbb.app" },
+      { label: "sawyer-air", baseDomain: "cc.example.invalid" },
     ]);
-    expect(requestedUrls).toEqual(["wss://sawyer-air.getbb.app/__tunnel?v=1"]);
+    expect(requestedUrls).toEqual(["wss://sawyer-air.cc.example.invalid/__tunnel?v=1"]);
     expect(credentials).toEqual(["Bearer bbcm_machine-secret"]);
     await waitFor(() => client.status().state === "connected", "connected");
 
@@ -234,7 +234,7 @@ describe("ConnectTunnelClient", () => {
     });
 
     const client = new ConnectTunnelClient({
-      serverUrl: "https://owner.getbb.app",
+      serverUrl: "https://owner.cc.example.invalid",
       hostName: "Machine A",
       machineCredential: "bbcm_machine-secret",
       fetchFn: labelFetch([], "machine-a"),
@@ -338,7 +338,7 @@ describe("ConnectTunnelClient", () => {
 
     const statuses: ConnectTunnelStatus[] = [];
     const client = new ConnectTunnelClient({
-      serverUrl: "https://owner.getbb.app",
+      serverUrl: "https://owner.cc.example.invalid",
       hostName: "Machine A",
       machineCredential: "bbcm_machine-secret",
       fetchFn: labelFetch([], "machine-a"),
@@ -376,7 +376,7 @@ describe("ConnectTunnelClient", () => {
       );
     });
     const client = new ConnectTunnelClient({
-      serverUrl: "https://owner.getbb.app",
+      serverUrl: "https://owner.cc.example.invalid",
       hostName: "Machine A",
       machineCredential: "bbcm_machine-secret",
       fetchFn: labelFetch([], "machine-a"),
@@ -424,7 +424,7 @@ describe("ConnectTunnelClient", () => {
       });
     });
     const client = new ConnectTunnelClient({
-      serverUrl: "https://owner.getbb.app",
+      serverUrl: "https://owner.cc.example.invalid",
       hostName: "Machine A",
       machineCredential: "bbcm_machine-secret",
       fetchFn: labelFetch([], "machine-a"),
@@ -459,7 +459,7 @@ describe("ConnectTunnelClient", () => {
 
   it("accepts a new low generation after an authoritative session reopen", () => {
     const client = new ConnectTunnelClient({
-      serverUrl: "https://owner.getbb.app",
+      serverUrl: "https://owner.cc.example.invalid",
       hostName: "Machine A",
       logger,
     });
@@ -474,7 +474,7 @@ describe("ConnectTunnelClient", () => {
     let dialCount = 0;
     let fetchCount = 0;
     const client = new ConnectTunnelClient({
-      serverUrl: "https://owner.getbb.app",
+      serverUrl: "https://owner.cc.example.invalid",
       hostName: "Machine A",
       logger,
       fetchFn: async () => {

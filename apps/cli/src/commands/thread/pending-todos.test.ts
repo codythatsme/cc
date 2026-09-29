@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ThreadTimelinePendingTodos } from "@bb/domain";
-import type { ThreadTimelineResponse } from "@bb/server-contract";
+import type { ThreadTimelinePendingTodos } from "@cc/domain";
+import type { ThreadTimelineResponse } from "@cc/server-contract";
 import {
-  createNodeBbSdk,
-  type BbSdk,
+  createNodeCcSdk,
+  type CcSdk,
   type FetchImplementation,
-} from "@bb/sdk/node";
+} from "@cc/sdk/node";
 
 import { fetchThreadPendingTodos, printPendingTodos } from "./pending-todos.js";
 
@@ -128,7 +128,7 @@ describe("fetchThreadPendingTodos", () => {
 
   interface SdkOverHttpBoundary {
     requestUrls: string[];
-    sdk: BbSdk;
+    sdk: CcSdk;
   }
 
   function makeSdkOverHttpBoundary(
@@ -142,7 +142,7 @@ describe("fetchThreadPendingTodos", () => {
     };
     return {
       requestUrls,
-      sdk: createNodeBbSdk({ baseUrl: "http://bb.test", fetch: fetchMock }),
+      sdk: createNodeCcSdk({ baseUrl: "http://cc.test", fetch: fetchMock }),
     };
   }
 
@@ -161,7 +161,7 @@ describe("fetchThreadPendingTodos", () => {
     });
     expect(result).toEqual(snapshot);
     expect(requestUrls).toEqual([
-      "http://bb.test/api/v1/threads/thread-1/timeline?summaryOnly=true",
+      "http://cc.test/api/v1/threads/thread-1/timeline?summaryOnly=true",
     ]);
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { isRawThreadId } from "@bb/domain";
+import { isRawThreadId } from "@cc/domain";
 import { createConnection } from "../../src/connection.js";
 import { noopNotifier } from "../../src/notifier.js";
 import type { DbNotifier } from "../../src/notifier.js";
@@ -809,7 +809,7 @@ describe("threads", () => {
       projectId: project.id,
       hostId: host.id,
       name: "Review workspace",
-      branchName: "bb/worktree",
+      branchName: "cc/worktree",
       environmentProvider: {
         environmentProviderId: "git-worktree",
         instanceKey: null,
@@ -851,7 +851,7 @@ describe("threads", () => {
       environmentName: null,
     });
     expect(environmentIdentityByThreadId.get(worktreeThread.id)).toEqual({
-      environmentBranchName: "bb/worktree",
+      environmentBranchName: "cc/worktree",
       environmentProviderId: "git-worktree",
       environmentHostId: host.id,
       environmentName: "Review workspace",

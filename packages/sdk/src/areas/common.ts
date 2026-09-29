@@ -1,11 +1,11 @@
 import type {
   SystemExecutionOptionsQuery,
   SystemExecutionOptionsResponse,
-} from "@bb/server-contract";
-import type { BbSdkTransport } from "../transport.js";
+} from "@cc/server-contract";
+import type { CcSdkTransport } from "../transport.js";
 
 export interface CreateSdkAreaArgs {
-  transport: BbSdkTransport;
+  transport: CcSdkTransport;
 }
 
 type SignalRequestOptions = { init: { signal: AbortSignal } };
@@ -17,7 +17,7 @@ export function signalRequestArgs(
 }
 
 export async function readExecutionOptions(
-  transport: BbSdkTransport,
+  transport: CcSdkTransport,
   input: SystemExecutionOptionsQuery & { signal?: AbortSignal },
 ): Promise<SystemExecutionOptionsResponse> {
   return transport.readJson(

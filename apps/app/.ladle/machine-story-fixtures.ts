@@ -1,7 +1,7 @@
 import type {
   ServerAccessStatus,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { machineServerAccessBlockedReason } from "../src/components/machines/machine-server-access";
 import type { MachineAccessState } from "../src/components/settings/MachineAccessSettings";
 import modalLogoUrl from "../../../plugins/environment-modal-sandbox/modal-logo.svg";
@@ -13,12 +13,12 @@ export const CONNECT_UNPAIRED: ServerAccessStatus = {
   providers: [
     {
       id: "connect",
-      displayName: "bb connect",
-      description: "Use a private getbb.app address.",
+      displayName: "cc connect",
+      description: "Use a private cc.example.invalid address.",
       pluginId: "connect",
       availability: {
         status: "setup-required",
-        message: "Pair with bb connect",
+        message: "Pair with cc connect",
       },
     },
     {
@@ -42,7 +42,7 @@ export const CONNECT_PAIRED: ServerAccessStatus = {
           ...provider,
           availability: {
             status: "available",
-            serverUrl: "https://bb.example.com",
+            serverUrl: "https://cc.example.com",
           },
         }
       : provider,

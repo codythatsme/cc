@@ -5,7 +5,6 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { POSTS } from "../blog/posts";
 import { PostHeader, PostLede } from "../blog/post-body";
-import { useInitAnalytics } from "../landing/analytics";
 import {
   focusSubscribeEmail,
   SUBSCRIBE_EMAIL_ID,
@@ -15,7 +14,7 @@ import { pageMeta, siteHeadLinks } from "../landing/page-head";
 import { SiteFooter, SiteNav } from "../landing/site-chrome";
 import blogCss from "../blog/blog.css?url";
 
-const PAGE_TITLE = "Blog — bb";
+const PAGE_TITLE = "Blog — cc";
 const PAGE_DESCRIPTION = "Notes on building the IDE that builds itself.";
 
 export const Route = createFileRoute("/blog")({
@@ -27,8 +26,6 @@ export const Route = createFileRoute("/blog")({
 });
 
 function BlogIndexRoute() {
-  useInitAnalytics();
-
   return (
     <div className="wrap">
       <SiteNav current="blog" />

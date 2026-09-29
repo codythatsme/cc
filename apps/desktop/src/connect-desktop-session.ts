@@ -3,7 +3,7 @@ import {
   ConnectListError,
   fetchDesktopSession,
   type ConnectCredential,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 
 const rpcSuccessSchema = z.object({
   ok: z.literal(true),
@@ -161,7 +161,7 @@ export function createAccountCookieSource(args: {
       return failure("network", errorMessage(error));
     }
     if (serversResponse.status === 401 || serversResponse.status === 403) {
-      return failure("unauthorized", "bb Connect sign-in is no longer valid");
+      return failure("unauthorized", "cc Connect sign-in is no longer valid");
     }
     if (!serversResponse.ok) {
       return failure("request_rejected", `HTTP ${serversResponse.status}`);
@@ -202,7 +202,7 @@ export function createAccountCookieSource(args: {
       return failure("network", errorMessage(error));
     }
     if (response.status === 401 || response.status === 403) {
-      return failure("unauthorized", "bb Connect sign-in is no longer valid");
+      return failure("unauthorized", "cc Connect sign-in is no longer valid");
     }
     if (!response.ok) {
       return failure("request_rejected", `HTTP ${response.status}`);

@@ -1,6 +1,6 @@
-import type { IconName } from "@bb/shared-ui/icon";
+import type { IconName } from "@cc/shared-ui/icon";
 import { PLUGINS_BROWSE_DESCRIPTION } from "@/components/plugin/plugins-collection-copy";
-import { CREATE_PLUGIN_PROMPT } from "@bb/client-core";
+import { CREATE_PLUGIN_PROMPT } from "@cc/client-core";
 import {
   ShowcaseHeroCarousel,
   type ShowcaseHeroComposerConfig,
@@ -16,12 +16,12 @@ const PLUGIN_RAIL: readonly IconName[] = [
 ];
 
 const PLUGIN_HERO_COPY: ShowcaseHeroCopy = {
-  ariaLabel: "What you can build with bb plugins",
-  headlineLead: "Turn bb into",
+  ariaLabel: "What you can build with cc plugins",
+  headlineLead: "Turn cc into",
   composingNoun: "whatever you need",
   description: PLUGINS_BROWSE_DESCRIPTION,
   tablistLabel: "Plugin examples",
-  frameTitlePrefix: "bb — ",
+  frameTitlePrefix: "cc — ",
   frameBadge: "Plugin",
 };
 

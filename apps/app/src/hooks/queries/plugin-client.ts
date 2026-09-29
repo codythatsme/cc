@@ -1,10 +1,9 @@
-import { createBrowserBbSdk } from "@bb/sdk/browser";
-import { appSurfaceRequestInit } from "@/lib/app-surface";
+import { createBrowserCcSdk } from "@cc/sdk/browser";
 
 type FetchLike = typeof fetch;
 
 export function createPluginsClient(fetchImpl: FetchLike) {
-  const fetchWithAppSurface: FetchLike = (input, init) =>
-    fetchImpl.call(globalThis, input, appSurfaceRequestInit(init));
-  return createBrowserBbSdk({ fetch: fetchWithAppSurface }).plugins;
+  const boundFetch: FetchLike = (input, init) =>
+    fetchImpl.call(globalThis, input, init);
+  return createBrowserCcSdk({ fetch: boundFetch }).plugins;
 }

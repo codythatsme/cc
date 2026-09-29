@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPluginEditThreadPrompt,
   buildSkillEditThreadPrompt,
-} from "@bb/shared-ui/resource-edit-prompt";
+} from "@cc/shared-ui/resource-edit-prompt";
 
 describe("resource edit thread prompts", () => {
   it("gives the thread an unambiguous writable resource locator", () => {
@@ -12,16 +12,16 @@ describe("resource edit thread prompts", () => {
         path: "/Users/me/plugins/pattern-atlas",
       }),
     ).toBe(
-      'Edit the bb plugin "Pattern Atlas" at /Users/me/plugins/pattern-atlas. I want to ',
+      'Edit the cc plugin "Pattern Atlas" at /Users/me/plugins/pattern-atlas. I want to ',
     );
     expect(
       buildSkillEditThreadPrompt({
         id: "skill_abc123",
         name: "Review PR",
-        path: "/Users/me/.bb/skills/review-pr/SKILL.md",
+        path: "/Users/me/.cc/skills/review-pr/SKILL.md",
       }),
     ).toBe(
-      'Edit the bb skill "Review PR" (ID skill_abc123) at /Users/me/.bb/skills/review-pr/SKILL.md. Inspect it with bb skill show skill_abc123 --json and pass that revision to bb skill update when saving. I want to ',
+      'Edit the cc skill "Review PR" (ID skill_abc123) at /Users/me/.cc/skills/review-pr/SKILL.md. Inspect it with cc skill show skill_abc123 --json and pass that revision to cc skill update when saving. I want to ',
     );
   });
 });

@@ -1,11 +1,11 @@
-import { prependOlderTimelineRows } from "@bb/client-core";
+import { prependOlderTimelineRows } from "@cc/client-core";
 import { describe, expect, it } from "vitest";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
   turnScope,
-} from "@bb/domain";
-import type { ClientTurnRequestId, Thread } from "@bb/domain";
+} from "@cc/domain";
+import type { ClientTurnRequestId, Thread } from "@cc/domain";
 import {
   createConnection,
   createProject,
@@ -16,13 +16,13 @@ import {
   migrateNextLegacyImageGenerationOutput,
   noopNotifier,
   upsertHost,
-} from "@bb/db";
-import { LOCAL_WORKFLOW_TASK_TYPE } from "@bb/domain";
-import type { DbConnection } from "@bb/db";
+} from "@cc/db";
+import { LOCAL_WORKFLOW_TASK_TYPE } from "@cc/domain";
+import type { DbConnection } from "@cc/db";
 import type {
   TimelinePaginationCursor,
   TimelineRow,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   buildTimelineTurnSummaryDetails as buildTurnDetailsPage,
   buildThreadTimelineWithProfile,

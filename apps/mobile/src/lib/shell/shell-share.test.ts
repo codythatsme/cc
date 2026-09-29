@@ -6,12 +6,12 @@ describe("buildBridgeSharePayload", () => {
     expect(
       buildBridgeSharePayload("ios", {
         title: "Fix the flaky test",
-        url: "https://bee.getbb.app/threads/thr_1",
+        url: "https://bee.cc.example.invalid/threads/thr_1",
       }),
     ).toEqual({
       content: {
         title: "Fix the flaky test",
-        url: "https://bee.getbb.app/threads/thr_1",
+        url: "https://bee.cc.example.invalid/threads/thr_1",
       },
       options: {
         dialogTitle: "Share Fix the flaky test",
@@ -23,12 +23,12 @@ describe("buildBridgeSharePayload", () => {
   it("gives Android one message, because it ignores url", () => {
     expect(
       buildBridgeSharePayload("android", {
-        title: "bb",
-        url: "https://bee.getbb.app/threads/thr_1",
+        title: "cc",
+        url: "https://bee.cc.example.invalid/threads/thr_1",
       }).content,
     ).toEqual({
-      title: "bb",
-      message: "https://bee.getbb.app/threads/thr_1",
+      title: "cc",
+      message: "https://bee.cc.example.invalid/threads/thr_1",
     });
   });
 
@@ -36,16 +36,16 @@ describe("buildBridgeSharePayload", () => {
     expect(
       buildBridgeSharePayload("ios", {
         text: "Look at this run",
-        url: "https://bee.getbb.app/threads/thr_1",
+        url: "https://bee.cc.example.invalid/threads/thr_1",
       }).content,
     ).toEqual({
       title: undefined,
-      message: "Look at this run\n\nhttps://bee.getbb.app/threads/thr_1",
+      message: "Look at this run\n\nhttps://bee.cc.example.invalid/threads/thr_1",
     });
   });
 
   it("does not repeat a url the text already carries", () => {
-    const url = "https://bee.getbb.app/threads/thr_1";
+    const url = "https://bee.cc.example.invalid/threads/thr_1";
     expect(buildBridgeSharePayload("ios", { text: url, url }).content).toEqual({
       title: undefined,
       message: url,

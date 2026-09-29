@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import type {
   ProviderCliStatus,
   ProviderCliStatusResponse,
-} from "@bb/host-daemon-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+} from "@cc/host-daemon-contract";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import type {
   SystemAppUpdateStatus,
   SystemVersionResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   buildUpdateInventoryProviderIssues,
   resolveAppUpdateAvailable,
@@ -82,7 +82,7 @@ describe("resolveAppUpdateAvailable", () => {
     latestVersion: "1.1.0",
     source: "npm",
     updateAvailable: true,
-    upgradeCommand: "npx bb-app@latest",
+    upgradeCommand: "npx cc-app@latest",
   };
 
   function status(

@@ -37,11 +37,11 @@ import type { SidebarThread } from "../model/sidebar-thread.js";
 import { toast } from "sonner";
 import {
   experimental_useSidebarThreadActions,
-  useBbNavigate,
+  useCcNavigate,
   useEnvironmentProviders,
   useSdk,
   useSidebarThreadDraftIds,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import {
   findEnvironmentDisplayProvider,
   getEnvironmentLabelIconName,
@@ -705,7 +705,7 @@ function useArchiveEnvironmentThreadGroupAction({
   selectedThreadId,
   threads,
 }: UseArchiveEnvironmentThreadGroupActionArgs): UseArchiveEnvironmentThreadGroupActionResult {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const sdk = useSdk();
   const [archiveThreadsPending, setArchiveThreadsPending] = useState(false);
   const onArchiveThreads = useCallback(() => {
@@ -2454,7 +2454,7 @@ function ProjectRowComponent({
       >
         <ConfirmDeleteDialogContent
           title={`Remove ${project.name}?`}
-          description="The project and its threads are removed from bb. This cannot be undone."
+          description="The project and its threads are removed from cc. This cannot be undone."
           confirmLabel="Remove project"
           pending={isRemovePending}
           onConfirm={confirmRemove}

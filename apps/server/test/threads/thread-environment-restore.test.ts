@@ -4,9 +4,9 @@ import {
   listEvents,
   environments,
   updateHost,
-} from "@bb/db";
-import { apiErrorSchema, threadResponseSchema } from "@bb/server-contract";
-import { validatePluginEnvironmentProviderDeclaration } from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@cc/db";
+import { apiErrorSchema, threadResponseSchema } from "@cc/server-contract";
+import { validatePluginEnvironmentProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { sweepProviderEnvironment } from "../../src/services/environments/environment-engine.js";
@@ -24,7 +24,7 @@ import {
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
 
 const PROVIDER_ID = "test-worktree";
-const BRANCH_NAME = "bb/important-work";
+const BRANCH_NAME = "cc/important-work";
 
 function registerProvider(
   options: { pluginId?: string; restorable?: boolean } = {},

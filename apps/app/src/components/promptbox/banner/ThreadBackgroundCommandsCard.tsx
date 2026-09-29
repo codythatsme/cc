@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { isBackgroundAgentTaskType } from "@bb/domain";
-import type { TimelineWorkflowWorkRow } from "@bb/server-contract";
+import { isBackgroundAgentTaskType } from "@cc/domain";
+import type { TimelineWorkflowWorkRow } from "@cc/server-contract";
 import { useResizeObserver } from "usehooks-ts";
 import { AnimatedBody } from "@/components/promptbox/banner/AnimatedBody";
 import {
@@ -10,15 +10,15 @@ import {
   PromptStackCardChevron,
 } from "@/components/promptbox/banner/PromptStackCard";
 import { LiveDurationText } from "@/components/thread/timeline/LiveDurationText";
-import { Icon } from "@bb/shared-ui/icon";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@cc/shared-ui/icon";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   activityIconClass,
   activityMetaClass,
   activityRowClass,
   activityTextClass,
-} from "@bb/shared-ui/activity-row-styles";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/activity-row-styles";
+import { cn } from "@cc/shared-ui/lib/utils";
 
 const BODY_ID = "thread-background-commands-card-body";
 const TOGGLE_ID = "thread-background-commands-card-toggle";

@@ -13,7 +13,7 @@ import type { ThreadArchiveFilter } from "@/lib/thread-lifecycle-filter";
 import { ThreadLifecycleFilter } from "./ThreadLifecycleFilter";
 
 const viewport = vi.hoisted(() => ({ compact: false }));
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", () => ({
+vi.mock("@cc/shared-ui/hooks/use-compact-viewport", () => ({
   useIsCompactViewport: () => viewport.compact,
 }));
 

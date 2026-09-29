@@ -1,9 +1,9 @@
 import type {
   HostDaemonEnvironmentChangePayload,
   HostDaemonEnvironmentMetadataChangePayload,
-} from "@bb/host-daemon-contract";
-import { getEnvironment, type DbNotifier } from "@bb/db";
-import { recordProvisionedEnvironmentWorkspace } from "@bb/db/internal-environment-lifecycle";
+} from "@cc/host-daemon-contract";
+import { getEnvironment, type DbNotifier } from "@cc/db";
+import { recordProvisionedEnvironmentWorkspace } from "@cc/db/internal-environment-lifecycle";
 import type { AppDeps } from "../types.js";
 
 interface EnvironmentChangeNotificationDeps {

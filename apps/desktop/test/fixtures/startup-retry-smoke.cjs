@@ -4,12 +4,12 @@ const { writeFile } = require("node:fs/promises");
 const { join } = require("node:path");
 const { app, ipcMain } = require("electron");
 
-app.setName("bb-dev");
+app.setName("cc-dev");
 
-const desktopRoot = process.env.BB_STARTUP_SMOKE_APP_PATH;
+const desktopRoot = process.env.CC_STARTUP_SMOKE_APP_PATH;
 app.setVersion(require(join(desktopRoot, "package.json")).version);
-const scenario = process.env.BB_STARTUP_SMOKE_SCENARIO ?? "custom";
-const channel = "bb-desktop:startup-action";
+const scenario = process.env.CC_STARTUP_SMOKE_SCENARIO ?? "custom";
+const channel = "cc-desktop:startup-action";
 const loads = [];
 let contents;
 let recovered = false;
@@ -52,7 +52,7 @@ async function run() {
               cookie: {
                 domain: "127.0.0.1",
                 expiresAt: Date.now() + 3600_000,
-                name: "bb_session",
+                name: "cc_session",
                 value: "synthetic-retry-cookie",
               },
             },
@@ -73,7 +73,7 @@ async function run() {
   if (scenario === "custom") {
     await new Promise((resolve) => server.close(resolve));
   }
-  process.env.BB_SERVER_PORT = String(port);
+  process.env.CC_SERVER_PORT = String(port);
   await writeFile(
     join(app.getPath("userData"), "server-target.json"),
     JSON.stringify(
@@ -106,8 +106,8 @@ async function run() {
     scenario === "fatal"
       ? "Port conflict"
       : scenario === "connect"
-        ? "Could not authenticate with bb Connect"
-        : "Could not reach this bb server";
+        ? "Could not authenticate with cc Connect"
+        : "Could not reach this cc server";
   const hasError = () =>
     contents?.getURL().startsWith("data:") &&
     contents.executeJavaScript(
@@ -135,7 +135,7 @@ async function run() {
     return;
   }
   assert.equal(
-    await contents.executeJavaScript("typeof window.bbDesktop"),
+    await contents.executeJavaScript("typeof window.ccDesktop"),
     "object",
   );
   assert.deepEqual(
@@ -222,7 +222,7 @@ async function run() {
     );
     const cookies = await contents.session.cookies.get({
       url: serverUrl,
-      name: "bb_session",
+      name: "cc_session",
     });
     assert.equal(cookies[0]?.value, "synthetic-retry-cookie");
   }

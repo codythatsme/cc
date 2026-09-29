@@ -11,51 +11,51 @@ import {
 import type {
   SystemExecutionOptionsModelLoadError,
   SystemProvidersQuery,
-} from "@bb/server-contract";
-import type { ReasoningLevel } from "@bb/domain";
+} from "@cc/server-contract";
+import type { ReasoningLevel } from "@cc/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   stripModelBrandPrefix,
   type ProviderPickerOption,
 } from "./model-brand-prefix";
 import { fastServiceTierLabel } from "@/lib/reasoning-labels";
-import { Button } from "@bb/shared-ui/button";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
+import { Button } from "@cc/shared-ui/button";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
 import {
   COARSE_POINTER_ICON_SIZE_CLASS,
   COARSE_POINTER_ICON_SIZE_SHRINK_CLASS,
   COARSE_POINTER_PROVIDER_TAB_SIZE_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
+} from "@cc/shared-ui/coarse-pointer-sizing";
 import {
   Popover,
   PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
-} from "@bb/shared-ui/popover";
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { Switch } from "@bb/shared-ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@bb/shared-ui/toggle-group";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+} from "@cc/shared-ui/popover";
+import { Skeleton } from "@cc/shared-ui/skeleton";
+import { Switch } from "@cc/shared-ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@cc/shared-ui/toggle-group";
+import { LIST_HOVER_TRANSITION } from "@cc/shared-ui/motion";
 import {
   MENU_ITEM_LAST_HOVERED_CLASS,
   MenuHoverProvider,
   useMenuItemHover,
-} from "@bb/shared-ui/menu-item-hover";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/menu-item-hover";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   prefetchSystemExecutionOptions,
   useSystemExecutionOptions,
 } from "@/hooks/queries/system-queries";
 import { resolveModelCatalogSelection } from "@/hooks/thread-creation-options/model-catalog-selection";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
+} from "@cc/shared-ui/option-display";
 import { type PickerOption } from "./OptionPicker";
 import { PickerLoadingRows } from "./PickerLoadingRows";
 import type { ModelPickerOption } from "./model-picker-option";

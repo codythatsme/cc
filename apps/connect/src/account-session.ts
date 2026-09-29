@@ -41,7 +41,7 @@ export async function refreshAccountSessionCookies(
     const setCookies = getSetCookies(response.headers);
     return setCookies.length === 0 ? null : setCookies;
   } catch (error) {
-    console.error("bb connect: session refresh failed", error);
+    console.error("cc connect: session refresh failed", error);
     return null;
   }
 }

@@ -2,12 +2,12 @@
 import { cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { UsageProvider } from "./usage-schema.js";
-import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
+import type { PluginSidebarThread } from "@codythatsme/plugin-sdk/app";
 import {
   loadPluginApp,
   mountPluginContentScripts,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk/testing/app";
 
 afterEach(() => {
   cleanup();
@@ -272,7 +272,7 @@ describe("provider usage footer disclosure", () => {
     expect(slot.getByRole("heading", { name: "Codex" })).toBeTruthy();
     expect(slot.getByText("codex@example.com")).toBeTruthy();
     expect(slot.getByText("97%")).toBeTruthy();
-    expect(localStorage.getItem("bb.test-plugin.selected-machine.v1")).toBe(
+    expect(localStorage.getItem("cc.test-plugin.selected-machine.v1")).toBe(
       "host-m5",
     );
 
@@ -391,8 +391,8 @@ describe("provider usage footer disclosure", () => {
       .spyOn(console, "warn")
       .mockImplementation(() => undefined);
     for (const failure of [
-      () => new Response("bb connect temporarily unavailable", { status: 503 }),
-      () => new Response("bb connect is not JSON", { status: 200 }),
+      () => new Response("cc connect temporarily unavailable", { status: 503 }),
+      () => new Response("cc connect is not JSON", { status: 200 }),
       () => Response.json({ ok: true, result: { machines: "invalid" } }),
     ]) {
       await waitFor(() =>
@@ -415,7 +415,7 @@ describe("provider usage footer disclosure", () => {
       );
       expect(slot.getByText("claude-team@example.com")).toBeTruthy();
       expect(
-        slot.queryByText(/Unexpected token|bb connect|invalid JSON/i),
+        slot.queryByText(/Unexpected token|cc connect|invalid JSON/i),
       ).toBeNull();
       fireEvent.click(
         slot.getByRole("button", { name: "Reload provider usage" }),

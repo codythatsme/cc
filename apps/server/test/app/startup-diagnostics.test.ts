@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadServerConfig } from "@bb/config/server";
+import { loadServerConfig } from "@cc/config/server";
 import { describe, expect, it } from "vitest";
 import { startHttpListener } from "../../src/start-server.js";
 
@@ -50,16 +50,16 @@ describe("server startup diagnostics", () => {
   ])("$name", async ({ bindHost, expectedAddress }) => {
     const serverConfig = loadServerConfig({
       env: {
-        BB_DATA_DIR: "/tmp/bb-server-listener-test",
-        BB_HOST_DAEMON_PORT: "49162",
-        ...(bindHost === undefined ? {} : { BB_SERVER_BIND_HOST: bindHost }),
-        BB_SERVER_PORT: "49161",
+        CC_DATA_DIR: "/tmp/cc-server-listener-test",
+        CC_HOST_DAEMON_PORT: "49162",
+        ...(bindHost === undefined ? {} : { CC_SERVER_BIND_HOST: bindHost }),
+        CC_SERVER_PORT: "49161",
         NODE_ENV: "development",
       },
     });
     const server = startHttpListener({
       fetch: () => new Response("ok"),
-      serverConfig: { ...serverConfig, BB_SERVER_PORT: 0 },
+      serverConfig: { ...serverConfig, CC_SERVER_PORT: 0 },
     });
 
     try {

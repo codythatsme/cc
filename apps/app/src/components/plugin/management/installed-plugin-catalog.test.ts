@@ -9,7 +9,7 @@ const community = {
 };
 const official = {
   ...community,
-  marketplace: "bb-official",
+  marketplace: "cc-official",
   source: "builtin:notes",
 };
 

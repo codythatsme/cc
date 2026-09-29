@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   PluginMessageDirectiveProps,
   PluginThreadPanelProps,
-} from "@get-bb/plugin-sdk";
-import { useBbNavigate, useRealtime } from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk";
+import { useCcNavigate, useRealtime } from "@codythatsme/plugin-sdk/app";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,7 +89,7 @@ function OpenInTasksButton({
   label: string;
   subPath?: string;
 }) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   return (
     <Button
       className="size-8 shrink-0"
@@ -140,7 +140,7 @@ function embedAriaLabel(task: Task): string {
 }
 
 export function TaskDirectiveCard({ attributes }: PluginMessageDirectiveProps) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const taskKey = attributes.key?.trim() ?? "";
   const fallbackTitle = attributes.title?.trim() || null;
   const validKey = TASK_KEY_PATTERN.test(taskKey);

@@ -1,7 +1,7 @@
 import { assertEnvironmentPathAvailable } from "../environments/path-admission.js";
-import type { EnvironmentRow } from "@bb/db";
-import type { Thread } from "@bb/domain";
-import type { DbConnection } from "@bb/db";
+import type { EnvironmentRow } from "@cc/db";
+import type { Thread } from "@cc/domain";
+import type { DbConnection } from "@cc/db";
 import type { WorkSessionDeps } from "../../types.js";
 import { requireEnvironment } from "../lib/entity-lookup.js";
 import {

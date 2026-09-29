@@ -9,8 +9,8 @@ import {
   type AppUpdateTarget,
   type LauncherAppUpdateStatus,
   type SourceUpdateCheck,
-} from "@bb/config/app-update";
-import type { AppSurface } from "@bb/config/app-surface";
+} from "@cc/config/app-update";
+import type { AppSurface } from "@cc/config/app-surface";
 import type {
   SystemAppUpdateActivity,
   SystemAppUpdateAvailable,
@@ -18,7 +18,7 @@ import type {
   SystemAppUpdateRevision,
   SystemAppUpdateStatus,
   SystemAppUpdateSupport,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { ApiError } from "../../errors.js";
 import type { ServerLogger, ServerRuntimeConfig } from "../../types.js";
 import type { AppVersionService } from "./app-version.js";
@@ -112,7 +112,7 @@ function unsupportedMessage(support: SystemAppUpdateSupport): string {
     case "desktop":
       return "The desktop app updates itself; use its update controls.";
     case "unmanaged":
-      return "In-app updates are off. Start bb with `npx bb-app start --in-app-updates` or `pnpm start --in-app-updates` to turn them on.";
+      return "Update cc with `brew upgrade --cask codythatsme/tap/cc`. Source checkouts can use `pnpm start --in-app-updates`.";
   }
 }
 
@@ -142,7 +142,7 @@ export function createAppUpdateService(
         ? {
             message: `${String(runningThreadCount)} thread${
               runningThreadCount === 1 ? "" : "s"
-            } started while bb was downloading the update. Update again to restart.`,
+            } started while cc was downloading the update. Update again to restart.`,
             type: "cancel",
           }
         : { type: "restart" };
@@ -359,7 +359,7 @@ export function createAppUpdateService(
         throw new ApiError(
           409,
           "app_update_unavailable",
-          "bb is already up to date.",
+          "cc is already up to date.",
         );
       }
       if (status.runningThreadCount > 0 && !confirmInterruptingThreads) {
@@ -368,7 +368,7 @@ export function createAppUpdateService(
           "threads_running",
           `${String(status.runningThreadCount)} thread${
             status.runningThreadCount === 1 ? " is" : "s are"
-          } running. Updating restarts bb and interrupts ${
+          } running. Updating restarts cc and interrupts ${
             status.runningThreadCount === 1 ? "it" : "them"
           }.`,
           { details: { runningThreadCount: status.runningThreadCount } },
@@ -384,7 +384,7 @@ export function createAppUpdateService(
         throw new ApiError(
           409,
           "app_update_unavailable",
-          "bb is already up to date.",
+          "cc is already up to date.",
         );
       }
       confirmedInterruptingThreads = confirmInterruptingThreads;
@@ -399,7 +399,7 @@ export function createAppUpdateService(
       }
       args.logger.info(
         { targetVersion: available.version, targetCommit: available.commit },
-        "In-app bb update requested",
+        "In-app cc update requested",
       );
       return getStatus({ forceRefresh: false });
     },

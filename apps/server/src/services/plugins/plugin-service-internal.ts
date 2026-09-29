@@ -1,22 +1,21 @@
 import type { MachineEnrollmentService } from "../machines/machine-services.js";
 import type { AiServiceRegistry } from "../ai/ai-service-registry.js";
-import type { DbConnection, HostRow } from "@bb/db";
+import type { DbConnection, HostRow } from "@cc/db";
 import type {
   DynamicTool,
   PendingInteraction,
   Thread,
   ThreadQueuedMessage,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   HostDaemonConnectTunnelIdentity,
   HostDaemonContributedEnvEntry,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type {
   PluginApplyUpdateResult,
   PluginRuntimeStatus,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { ServerLogger } from "../../types.js";
-import type { TelemetryService } from "../system/telemetry.js";
 import type { NotificationHub } from "../../ws/hub.js";
 import type { BundledPluginRegistration } from "./builtin-registry.js";
 import type { PluginManifest } from "./manifest.js";
@@ -80,7 +79,7 @@ export interface PluginServiceDeps {
    */
   onPluginUnregistered?: (pluginId: string) => void;
   /**
-   * Backs `bb.experimental_hooks.recheck()`: schedules a re-attempt of
+   * Backs `cc.experimental_hooks.recheck()`: schedules a re-attempt of
    * every plugin-queued row. Omitted only by isolated plugin tests, which have
    * no thread queue — the call is then a no-op, exactly as it was when core
    * drove this signal itself and no app had registered a listener.
@@ -93,7 +92,6 @@ export interface PluginServiceDeps {
     "getDaemonSessionIdForHost" | "notifyPluginSignal" | "notifySystem"
   >;
   logger: ServerLogger;
-  telemetry: TelemetryService;
   pendingInteractions?: Pick<
     import("../interactions/pending-interactions.js").PendingInteractionLifecycle,
     | "requestPluginInteraction"
@@ -106,7 +104,7 @@ export interface PluginServiceDeps {
   bundledPlugins?: readonly BundledPluginRegistration[];
   watchBuiltinPluginSources?: boolean;
   loadTimeoutMs?: number;
-  /** How long an install waits for `bb.onInstall` handlers. Defaults to 30s. */
+  /** How long an install waits for `cc.onInstall` handlers. Defaults to 30s. */
   installHandlerTimeoutMs?: number;
   serviceStopTimeoutMs?: number;
   serviceRestartBaseMs?: number;
@@ -136,7 +134,7 @@ export interface PluginServiceDeps {
   onArtifactMaterialize?: (args: { path: string }) => void;
   callPluginHost?: (args: {
     pluginId: string;
-    contract: import("@get-bb/plugin-sdk").PluginRpcContract;
+    contract: import("@codythatsme/plugin-sdk").PluginRpcContract;
     method: string;
     input: unknown;
     hostId: string;
@@ -211,7 +209,7 @@ export type PluginMentionResolveResult =
 export interface PluginThreadEventEmitter {
   emitThreadEvents(threadId: string): void;
   emitTerminalInput(
-    terminal: import("@bb/server-contract").TerminalSession,
+    terminal: import("@cc/server-contract").TerminalSession,
   ): void;
   emitHostDeleted(host: HostRow): void;
   emitThreadCreated(thread: Thread): void;

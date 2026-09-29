@@ -3,15 +3,15 @@
   "name": "resource-toolbar",
   "type": "registry:ui",
   "title": "resource-toolbar",
-  "description": "BB ui \"resource-toolbar\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"resource-toolbar\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/dropdown-menu",
-    "@bb/icon",
-    "@bb/input",
-    "@bb/tooltip",
-    "@bb/use-compact-viewport",
-    "@bb/utils"
+    "@cc/button",
+    "@cc/dropdown-menu",
+    "@cc/icon",
+    "@cc/input",
+    "@cc/tooltip",
+    "@cc/use-compact-viewport",
+    "@cc/utils"
   ],
   "files": [
     {

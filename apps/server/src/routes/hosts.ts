@@ -1,12 +1,12 @@
 import { serverAccess } from "../services/machines/server-access.js";
-import { getNonDestroyedHost, updateHost } from "@bb/db";
+import { getNonDestroyedHost, updateHost } from "@cc/db";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { Hono } from "hono";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
 import type { AppDeps } from "../types.js";
 import {
   getProviderInstallations,
@@ -112,7 +112,7 @@ async function revokeConnectMachineCredential(
   } catch (error) {
     deps.logger.error(
       { err: error, machineId },
-      "Host was removed locally, but its bb connect machine credential could not be revoked. Revoke this machine manually from the getbb.app dashboard.",
+      "Host was removed locally, but its cc connect machine credential could not be revoked. Revoke this machine manually from the cc.example.invalid dashboard.",
     );
   }
 }

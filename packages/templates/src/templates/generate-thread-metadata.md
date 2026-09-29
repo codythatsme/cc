@@ -3,7 +3,7 @@ kind: prompt
 title: Thread Metadata Generator
 summary: Prompt for deriving short thread metadata from the user's task prompt.
 intent: Generate stable, operator-friendly metadata for threads without adding explanatory prose.
-editingNotes: Callers expect plain text. bb strips think blocks, quotes, labels, and extra lines, then clamps the title to 48 columns.
+editingNotes: Callers expect plain text. cc strips think blocks, quotes, labels, and extra lines, then clamps the title to 48 columns.
 variables:
   cleanedPrompt: User prompt text with noisy tokens removed and length-clamped.
   invokedCommands?: Comma-separated slash commands or skills the prompt invokes, when it invokes any.

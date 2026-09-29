@@ -22,7 +22,7 @@ describe("public marketplace route rendering", () => {
         onStateChange={() => {}}
       />,
     );
-    expect(html).toContain('aria-label="Make bb yours"');
+    expect(html).toContain('aria-label="Make cc yours"');
     expect(html).toContain(
       "Themes, providers, workflows, and tools, installed with one command.",
     );
@@ -32,8 +32,8 @@ describe("public marketplace route rendering", () => {
     expect(html).toContain("Popular");
     expect(html).toContain("marketplace-shelf-notable");
     expect(html).toContain("marketplace-new-chip");
-    expect(html).toContain("https://github.com/get-bb.png?size=32");
-    expect(html).toContain("https://getbb.app/marketplace/v1/icons");
+    expect(html).toContain("https://github.com/get-cc.png?size=32");
+    expect(html).toContain("https://cc.example.invalid/marketplace/v1/icons");
     expect(html).toContain('aria-label="Category: All categories"');
     expect(html).toContain('role="group" aria-label="Category"');
     expect(html).toContain(
@@ -100,17 +100,17 @@ describe("public marketplace route rendering", () => {
     expect(html).toContain("Marketplace</a>");
     expect(html).toContain("Thread Content</a>");
     expect(html).toContain(
-      'aria-label="Copy bb plugin install prompt-library"',
+      'aria-label="Copy cc plugin install prompt-library"',
     );
     expect(html).toContain("cmd-btn cmd-compact");
-    expect(html).toContain("bb plugin install prompt-library");
+    expect(html).toContain("cc plugin install prompt-library");
     expect(html).toContain("Get it for macOS");
     expect(html).not.toContain("marketplace-install-command");
-    expect(html).not.toContain("Don&#x27;t have bb?");
-    expect(html).not.toContain("Runs in bb");
+    expect(html).not.toContain("Don&#x27;t have cc?");
+    expect(html).not.toContain("Runs in cc");
     expect(html).not.toContain("Listed");
     expect(html).toContain(
-      'href="https://www.npmjs.com/package/@get-bb/plugin-prompt-library"',
+      'href="https://www.npmjs.com/package/@codythatsme/plugin-prompt-library"',
     );
     expect(html).toContain("View source");
     expect(html).not.toContain("Details");
@@ -119,7 +119,7 @@ describe("public marketplace route rendering", () => {
     expect(html).not.toContain("<aside");
     expect(html).toContain('loading="lazy"');
     expect(html).toContain('referrerPolicy="no-referrer"');
-    expect(html).not.toContain("More from BB Labs");
+    expect(html).not.toContain("More from CC Labs");
     expect(html).toContain(
       `<p class="marketplace-overview-lead">${entry.description}</p>`,
     );
@@ -189,7 +189,7 @@ describe("public marketplace route rendering", () => {
     expect(html).toContain("More from Acme");
     expect(html).toContain("Review Notes");
     expect(html).toContain("More in Code &amp; Reviews");
-    expect(html).toContain('href="https://github.com/acme/bb-plugins"');
+    expect(html).toContain('href="https://github.com/acme/cc-plugins"');
     expect(html.indexOf("More from Acme")).toBeLessThan(
       html.indexOf("More in Code &amp; Reviews"),
     );

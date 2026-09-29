@@ -3,10 +3,10 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type CcPluginApi,
   type PluginCliContext,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import type { AutomationService } from "./service.js";
 import type {
@@ -59,7 +59,7 @@ const hostListSchema = z.array(
 
 const DESCRIPTION = `Automations run agent prompts or server-side scripts on a schedule.
 
-Scripts run on the bb server host. New standard-project scripts use the
+Scripts run on the cc server host. New standard-project scripts use the
 project source on that host when one exists; Personal and projects without a
 server-host source run in the plugin's shared script storage directory.
 Existing scripts without a saved policy also run there. Select
@@ -75,12 +75,12 @@ const PROJECT_OPTION = {
   type: "string",
   placeholder: "id",
   description:
-    "Required. Project that owns the automation; `bb project list --include-personal --json` lists ids",
+    "Required. Project that owns the automation; `cc project list --include-personal --json` lists ids",
 } as const;
 
 const AUTOMATION_ID_POSITIONAL = {
   name: "automationId",
-  description: "Automation id from `bb automation list`",
+  description: "Automation id from `cc automation list`",
   required: true,
 } as const;
 
@@ -206,7 +206,7 @@ const SCRIPT_OPTIONS = {
     type: "string",
     placeholder: "automation-storage|project|path",
     description:
-      "Where the script runs: automation-storage, project, or an absolute path on the bb server host",
+      "Where the script runs: automation-storage, project, or an absolute path on the cc server host",
   },
 } as const;
 
@@ -280,7 +280,7 @@ function requireProjectId(
     code: "missing_required",
     hint:
       known === undefined
-        ? "Pass --project <id>; `bb project list --include-personal --json` lists project ids."
+        ? "Pass --project <id>; `cc project list --include-personal --json` lists project ids."
         : `This thread's project is ${known}; re-run with --project ${known}`,
   });
 }
@@ -375,7 +375,7 @@ function parseScriptWorkingDirectory(
   }
   if (isAbsolute(value)) return { type: "path", path: value };
   throw cliError(
-    "Invalid --working-directory. Expected automation-storage, project, or an absolute path on the bb server host.",
+    "Invalid --working-directory. Expected automation-storage, project, or an absolute path on the cc server host.",
     "invalid_value",
   );
 }
@@ -436,9 +436,9 @@ function looksLikePath(value: string): boolean {
 }
 
 async function resolveConnectedHostId(
-  bb: Pick<BbPluginApi, "sdk">,
+  cc: Pick<CcPluginApi, "sdk">,
 ): Promise<string> {
-  const hosts = hostListSchema.parse(await bb.sdk.hosts.list());
+  const hosts = hostListSchema.parse(await cc.sdk.hosts.list());
   const host =
     hosts.find((candidate) => candidate.connected === true) ??
     hosts.find((candidate) => candidate.status === "connected") ??
@@ -450,7 +450,7 @@ async function resolveConnectedHostId(
 }
 
 async function buildAgentEnvironment(
-  bb: Pick<BbPluginApi, "sdk">,
+  cc: Pick<CcPluginApi, "sdk">,
   options: AgentOptionValues,
 ): Promise<AgentEnvironment> {
   const environment = options.environment?.trim();
@@ -465,7 +465,7 @@ async function buildAgentEnvironment(
   if (newEnvironment) {
     return {
       type: "host",
-      hostId: await resolveConnectedHostId(bb),
+      hostId: await resolveConnectedHostId(cc),
       workspace: {
         type: "managed-worktree",
         baseBranch: baseBranch
@@ -478,7 +478,7 @@ async function buildAgentEnvironment(
   if (looksLikePath(environment)) {
     return {
       type: "host",
-      hostId: await resolveConnectedHostId(bb),
+      hostId: await resolveConnectedHostId(cc),
       workspace: { type: "unmanaged", path: environment },
     };
   }
@@ -499,7 +499,7 @@ const threadEnvironmentHostSchema = z
   .passthrough();
 
 async function resolveScriptFileHostId(
-  bb: Pick<BbPluginApi, "sdk">,
+  cc: Pick<CcPluginApi, "sdk">,
   ctx: Pick<PluginCliContext, "threadId">,
   override: string | undefined,
 ): Promise<string | undefined> {
@@ -508,7 +508,7 @@ async function resolveScriptFileHostId(
     if (query.length === 0) {
       throw cliError("--host requires a name or id.", "invalid_value");
     }
-    const hosts = scriptFileHostListSchema.parse(await bb.sdk.hosts.list());
+    const hosts = scriptFileHostListSchema.parse(await cc.sdk.hosts.list());
     const idMatch = hosts.find((host) => host.id === query);
     if (idMatch) return idMatch.id;
     const nameMatches = hosts.filter(
@@ -524,13 +524,13 @@ async function resolveScriptFileHostId(
       );
     }
     throw cliError(
-      `Unknown host "${query}"; run \`bb machine list\` to list hosts.`,
+      `Unknown host "${query}"; run \`cc machine list\` to list hosts.`,
       "invalid_value",
     );
   }
   if (ctx.threadId === undefined) return undefined;
   const thread = threadEnvironmentHostSchema.parse(
-    await bb.sdk.threads.get({
+    await cc.sdk.threads.get({
       threadId: ctx.threadId,
       include: "environment",
     }),
@@ -551,7 +551,7 @@ type ScriptFileSource = {
 };
 
 async function loadScriptFileSource(
-  bb: Pick<BbPluginApi, "sdk">,
+  cc: Pick<CcPluginApi, "sdk">,
   options: ScriptOptionValues,
   ctx: Pick<PluginCliContext, "cwd" | "threadId">,
 ): Promise<ScriptFileSource | undefined> {
@@ -575,8 +575,8 @@ async function loadScriptFileSource(
     }
     path = resolve(ctx.cwd, scriptFile);
   }
-  const hostId = await resolveScriptFileHostId(bb, ctx, hostOverride);
-  const file = await bb.sdk.files.read({
+  const hostId = await resolveScriptFileHostId(cc, ctx, hostOverride);
+  const file = await cc.sdk.files.read({
     ...(hostId !== undefined ? { hostId } : {}),
     path,
   });
@@ -592,7 +592,7 @@ type BuiltExecution = {
 };
 
 async function buildExecution(
-  bb: Pick<BbPluginApi, "sdk">,
+  cc: Pick<CcPluginApi, "sdk">,
   options: ExecutionOptionValues,
   ctx: Pick<PluginCliContext, "cwd" | "threadId">,
 ): Promise<BuiltExecution> {
@@ -635,7 +635,7 @@ async function buildExecution(
       );
     }
     validateAgentTargetOptions(options);
-    const environment = await buildAgentEnvironment(bb, options);
+    const environment = await buildAgentEnvironment(cc, options);
     const serviceTier = options["service-tier"];
     return {
       execution: {
@@ -648,7 +648,7 @@ async function buildExecution(
           ? {}
           : { serviceTier }),
         permissionMode: await resolvePermissionMode(
-          bb,
+          cc,
           provider,
           options["permission-mode"],
           providerRoutingForEnvironment(environment),
@@ -689,7 +689,7 @@ async function buildExecution(
     workingDirectoryOption === undefined
       ? undefined
       : parseScriptWorkingDirectory(workingDirectoryOption);
-  const scriptSource = await loadScriptFileSource(bb, options, ctx);
+  const scriptSource = await loadScriptFileSource(cc, options, ctx);
   const content = scriptSource ? scriptSource.content : script;
   if (!content) throw cliError("Missing script content.", "invalid_value");
   const interpreter =
@@ -718,7 +718,7 @@ const COMPLETE_EXECUTION_OPTION_NAMES = [
 ] as const;
 
 async function buildAgentExecutionUpdate(
-  bb: Pick<BbPluginApi, "sdk">,
+  cc: Pick<CcPluginApi, "sdk">,
   options: AgentOptionValues,
 ): Promise<AgentExecutionUpdate | undefined> {
   const agentOptionNames = [
@@ -767,14 +767,14 @@ async function buildAgentExecutionUpdate(
   ) {
     update.target = {
       type: "environment",
-      environment: await buildAgentEnvironment(bb, options),
+      environment: await buildAgentEnvironment(cc, options),
     };
   }
   return update;
 }
 
 async function buildUpdateRequest(
-  bb: Pick<BbPluginApi, "sdk">,
+  cc: Pick<CcPluginApi, "sdk">,
   options: UpdateOptionValues,
   automationId: string,
   ctx: Pick<PluginCliContext, "cwd" | "projectId" | "threadId">,
@@ -802,11 +802,11 @@ async function buildUpdateRequest(
     replacesAgentExecution ||
     COMPLETE_EXECUTION_OPTION_NAMES.some((name) => options[name] !== undefined)
   ) {
-    const built = await buildExecution(bb, options, ctx);
+    const built = await buildExecution(cc, options, ctx);
     request.execution = built.execution;
     scriptSource = built.scriptSource;
   } else {
-    const agentUpdate = await buildAgentExecutionUpdate(bb, options);
+    const agentUpdate = await buildAgentExecutionUpdate(cc, options);
     if (agentUpdate !== undefined) {
       request.agent = agentUpdate;
     }
@@ -911,7 +911,7 @@ function refreshScriptFileCommand(
 ): string {
   if (automation.execution.mode !== "script") return "";
   const argv = [
-    "bb",
+    "cc",
     "automation",
     "update",
     automation.id,
@@ -1040,11 +1040,11 @@ function printRunTable(runs: AutomationRunResponse[]): string {
 }
 
 export function registerAutomationCli(args: {
-  bb: Pick<BbPluginApi, "cli" | "sdk">;
+  cc: Pick<CcPluginApi, "cli" | "sdk">;
   service: AutomationService;
 }): void {
-  const { bb, service } = args;
-  bb.cli.register(
+  const { cc, service } = args;
+  cc.cli.register(
     defineCli({
       name: "automation",
       summary: "Inspect and manage automations (scheduled agent/script runs)",
@@ -1102,7 +1102,7 @@ export function registerAutomationCli(args: {
             attempt(async () => {
               const projectId = requireProjectId(input.options.project, ctx);
               const { execution, scriptSource } = await buildExecution(
-                bb,
+                cc,
                 input.options,
                 ctx,
               );
@@ -1169,7 +1169,7 @@ export function registerAutomationCli(args: {
           run: (input, ctx) =>
             attempt(async () => {
               const { request, scriptSource } = await buildUpdateRequest(
-                bb,
+                cc,
                 input.options,
                 input.positionals.automationId,
                 ctx,

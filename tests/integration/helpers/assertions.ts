@@ -6,8 +6,8 @@ import type {
   Thread,
   ThreadEventRow,
   ThreadStatus,
-} from "@bb/domain";
-import { createPublicApiClient } from "@bb/server-contract";
+} from "@cc/domain";
+import { createPublicApiClient } from "@cc/server-contract";
 import {
   previewThreadText,
   stringifyThreadEventData,

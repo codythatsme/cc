@@ -228,7 +228,7 @@ export function describePushStatus(input: {
   lastOutcome: PushSyncOutcome | null;
 }): string {
   if (!isPushRegistrationAllowed(input.profile)) {
-    return "Push needs HTTPS or bb connect";
+    return "Push needs HTTPS or cc connect";
   }
   if (input.projectId === null) {
     return "Push unavailable until the app is built with EAS";

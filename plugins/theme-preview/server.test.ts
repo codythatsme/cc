@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import plugin, {
   buildCatalog,
   classifySelector,
@@ -86,7 +86,7 @@ describe("createCatalogLoader", () => {
     const catalogBlocked = new Promise<void>((resolve) => {
       releaseCatalog = resolve;
     });
-    const bb = {
+    const cc = {
       sdk: {
         theme: {
           catalog: async () => {
@@ -98,9 +98,9 @@ describe("createCatalogLoader", () => {
         plugins: { list: async () => ({ plugins: [] }) },
       },
       log: { info() {}, warn() {} },
-    } as unknown as BbPluginApi;
+    } as unknown as CcPluginApi;
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(cc);
     const first = catalogLoader.catalog();
     const second = catalogLoader.catalog();
 
@@ -115,7 +115,7 @@ describe("createCatalogLoader", () => {
       let catalogCalls = 0;
       let firstSignal: AbortSignal | undefined;
       const warn = vi.fn();
-      const bb = {
+      const cc = {
         sdk: {
           theme: {
             catalog: ({ signal }: { signal?: AbortSignal } = {}) => {
@@ -134,9 +134,9 @@ describe("createCatalogLoader", () => {
           plugins: { list: async () => ({ plugins: [] }) },
         },
         log: { info() {}, warn },
-      } as unknown as BbPluginApi;
+      } as unknown as CcPluginApi;
 
-      const catalogLoader = createCatalogLoader(bb);
+      const catalogLoader = createCatalogLoader(cc);
       const failed = catalogLoader.catalog().catch((error: unknown) => error);
       await vi.advanceTimersByTimeAsync(5_000);
 
@@ -166,7 +166,7 @@ describe("createCatalogLoader", () => {
       let pluginListCalls = 0;
       let firstSignal: AbortSignal | undefined;
       const warn = vi.fn();
-      const bb = {
+      const cc = {
         sdk: {
           theme: {
             catalog: async () => ({
@@ -187,9 +187,9 @@ describe("createCatalogLoader", () => {
           },
         },
         log: { info() {}, warn },
-      } as unknown as BbPluginApi;
+      } as unknown as CcPluginApi;
 
-      const catalogLoader = createCatalogLoader(bb);
+      const catalogLoader = createCatalogLoader(cc);
       const degraded = catalogLoader.catalog();
       await vi.advanceTimersByTimeAsync(5_000);
       expect(warn).toHaveBeenCalledWith(
@@ -220,7 +220,7 @@ describe("createCatalogLoader", () => {
     const pluginListBlocked = new Promise<void>((resolve) => {
       releasePluginList = resolve;
     });
-    const bb = {
+    const cc = {
       sdk: {
         theme: {
           catalog: async () => ({
@@ -240,9 +240,9 @@ describe("createCatalogLoader", () => {
         },
       },
       log: { info() {}, warn() {} },
-    } as unknown as BbPluginApi;
+    } as unknown as CcPluginApi;
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(cc);
     await catalogLoader.catalog();
     blockPluginList = true;
 
@@ -272,7 +272,7 @@ describe("createCatalogLoader", () => {
     const firstStarted = new Promise<void>((resolve) => {
       markFirstStarted = resolve;
     });
-    const bb = {
+    const cc = {
       sdk: {
         theme: {
           catalog: async () => ({
@@ -292,9 +292,9 @@ describe("createCatalogLoader", () => {
         plugins: { list: async () => ({ plugins: [] }) },
       },
       log: { info() {}, warn() {} },
-    } as unknown as BbPluginApi;
+    } as unknown as CcPluginApi;
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(cc);
     const first = catalogLoader.setTheme("theme-a");
     await firstStarted;
     const second = catalogLoader.setTheme("theme-b");
@@ -324,7 +324,7 @@ describe("createCatalogLoader", () => {
       resumeFirstPluginList = resolve;
     });
     const setCalls: string[] = [];
-    const bb = {
+    const cc = {
       sdk: {
         theme: {
           catalog: async () => ({
@@ -346,9 +346,9 @@ describe("createCatalogLoader", () => {
         },
       },
       log: { info() {}, warn() {} },
-    } as unknown as BbPluginApi;
+    } as unknown as CcPluginApi;
 
-    const catalogLoader = createCatalogLoader(bb);
+    const catalogLoader = createCatalogLoader(cc);
     const stale = catalogLoader.catalog();
     const latest = await catalogLoader.setTheme("theme-b");
     expect(latest.activeThemeId).toBe("theme-b");
@@ -368,7 +368,7 @@ describe("createCatalogLoader", () => {
     await mkdir(themeDirectory);
     await writeFile(filePath, ":root { --canvas: #ffffff; }");
     const setCalls: string[] = [];
-    const bb = {
+    const cc = {
       sdk: {
         theme: {
           catalog: async () => ({
@@ -383,10 +383,10 @@ describe("createCatalogLoader", () => {
         plugins: { list: async () => ({ plugins: [] }) },
       },
       log: { info() {}, warn() {} },
-    } as unknown as BbPluginApi;
+    } as unknown as CcPluginApi;
 
     try {
-      const loader = createCatalogLoader(bb);
+      const loader = createCatalogLoader(cc);
       expect((await loader.catalog()).revision).toBe(0);
 
       await writeFile(
@@ -409,7 +409,7 @@ describe("theme watcher", () => {
       markCatalogStarted = resolve;
     });
     let catalogSignal: AbortSignal | undefined;
-    const bb = {
+    const cc = {
       background: {
         service(
           _name: string,
@@ -433,9 +433,9 @@ describe("theme watcher", () => {
       },
       rpc: { register() {} },
       log: { info() {}, warn() {} },
-    } as unknown as BbPluginApi;
+    } as unknown as CcPluginApi;
 
-    await plugin(bb);
+    await plugin(cc);
     const controller = new AbortController();
     const running = start(controller.signal);
     await catalogStarted;
@@ -449,7 +449,7 @@ describe("theme watcher", () => {
 describe("RPC registration", () => {
   it("exposes only catalog loading and theme selection", async () => {
     let handlerNames: string[] = [];
-    const bb = {
+    const cc = {
       background: { service() {} },
       rpc: {
         register(_contract: unknown, handlers: object) {
@@ -457,9 +457,9 @@ describe("RPC registration", () => {
         },
       },
       log: { info() {}, warn() {} },
-    } as unknown as BbPluginApi;
+    } as unknown as CcPluginApi;
 
-    await plugin(bb);
+    await plugin(cc);
 
     expect(handlerNames).toEqual(["setTheme", "themeCatalog"]);
   });

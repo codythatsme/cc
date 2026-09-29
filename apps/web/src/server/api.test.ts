@@ -14,7 +14,7 @@ import {
   server,
   sha256Hex,
   user,
-} from "@bb/connect-db";
+} from "@cc/connect-db";
 import {
   type Deps,
   checkAvailability,
@@ -53,28 +53,28 @@ beforeEach(() => {
   closeTunnel = vi.fn<(subdomain: string) => Promise<void>>(async () => {});
   deps = {
     db,
-    appUrl: "https://getbb.app",
-    serverUrlTemplate: "https://{label}.getbb.app",
+    appUrl: "https://cc.example.invalid",
+    serverUrlTemplate: "https://{label}.cc.example.invalid",
     closeTunnel,
   };
 });
 
 describe("resolveServerUrlTemplate", () => {
   it("accepts the local HTTP port without changing production defaults", () => {
-    expect(resolveServerUrlTemplate(undefined, "getbb.app")).toBe(
-      "https://{label}.getbb.app",
+    expect(resolveServerUrlTemplate(undefined, "cc.example.invalid")).toBe(
+      "https://{label}.cc.example.invalid",
     );
     expect(
       resolveServerUrlTemplate(
-        "http://{label}.bb.localhost:8787",
-        "bb.localhost",
+        "http://{label}.cc.localhost:8787",
+        "cc.localhost",
       ),
-    ).toBe("http://{label}.bb.localhost:8787");
+    ).toBe("http://{label}.cc.localhost:8787");
     expect(() =>
       resolveServerUrlTemplate("https://example.com/{label}", "example.com"),
     ).toThrow("under BASE_DOMAIN");
     expect(() =>
-      resolveServerUrlTemplate("https://{label}.attacker.example", "getbb.app"),
+      resolveServerUrlTemplate("https://{label}.attacker.example", "cc.example.invalid"),
     ).toThrow("under BASE_DOMAIN");
   });
 });
@@ -155,7 +155,7 @@ describe("checkAvailability", () => {
   });
 });
 
-describe("createServer (connect another bb)", () => {
+describe("createServer (connect another cc)", () => {
   it("claims a new label and holds it as an offline row", async () => {
     seedUser("u1");
     await claimHandle(deps, "u1", "sawyer");
@@ -165,7 +165,7 @@ describe("createServer (connect another bb)", () => {
       expect(r.server.subdomain).toBe("sawyer-desktop");
       expect(r.server.isPrimary).toBe(false);
       expect(r.server.connected).toBe(false);
-      expect(r.server.serverUrl).toBe("https://sawyer-desktop.getbb.app");
+      expect(r.server.serverUrl).toBe("https://sawyer-desktop.cc.example.invalid");
     }
   });
 
@@ -215,7 +215,7 @@ describe("createConnectCode (per-server minting + reuse)", () => {
       serverId: desktop.server.id,
     });
     if ("error" in r) throw new Error(r.error);
-    expect(r.serverUrl).toBe("https://sawyer-desktop.getbb.app");
+    expect(r.serverUrl).toBe("https://sawyer-desktop.cc.example.invalid");
     expect(r.serverId).toBe(desktop.server.id);
 
     const row = db
@@ -282,7 +282,7 @@ describe("redeemConnectCode (multi-server routing label)", () => {
 
     expect(result.handle).toBe("sawyer-desktop");
     expect(result.serverId).toBe(desktop.server.id);
-    expect(result.tunnelUrl).toBe("wss://sawyer-desktop.getbb.app/__tunnel");
+    expect(result.tunnelUrl).toBe("wss://sawyer-desktop.cc.example.invalid/__tunnel");
     expect(result.credential.startsWith("bbcred_")).toBe(true);
 
     const second = db
@@ -319,11 +319,11 @@ describe("redeemConnectCode (multi-server routing label)", () => {
       throw new Error(`${result.error} (${result.status})`);
 
     expect(result.handle).toBe("sawyer");
-    expect(result.tunnelUrl).toBe("wss://sawyer.getbb.app/__tunnel");
+    expect(result.tunnelUrl).toBe("wss://sawyer.cc.example.invalid/__tunnel");
   });
 
   it("returns a ws tunnel URL for local Cloud", async () => {
-    deps.serverUrlTemplate = "http://{label}.bb.localhost:42745";
+    deps.serverUrlTemplate = "http://{label}.cc.localhost:42745";
     seedUser("u1");
     await claimHandle(deps, "u1", "sawyer");
     const primary = db
@@ -338,7 +338,7 @@ describe("redeemConnectCode (multi-server routing label)", () => {
 
     const result = await redeemConnectCode(deps, minted.code);
     if ("error" in result) throw new Error(result.error);
-    expect(result.tunnelUrl).toBe("ws://sawyer.bb.localhost:42745/__tunnel");
+    expect(result.tunnelUrl).toBe("ws://sawyer.cc.localhost:42745/__tunnel");
   });
 });
 
@@ -482,7 +482,7 @@ describe("getAccountState (adaptive single / multi)", () => {
       isPrimary: true,
       connected: false,
       online: false,
-      serverUrl: "https://sawyer.getbb.app",
+      serverUrl: "https://sawyer.cc.example.invalid",
     });
   });
 
@@ -541,7 +541,7 @@ describe("server-authenticated machine-code round trip", () => {
       serverCredential,
     );
     if ("status" in minted) throw new Error(minted.error);
-    expect(minted.serverUrl).toBe("https://sawyer-desktop.getbb.app");
+    expect(minted.serverUrl).toBe("https://sawyer-desktop.cc.example.invalid");
 
     expect(
       await lookupMachineCodeForServerCredential(
@@ -576,7 +576,7 @@ describe("server-authenticated machine-code round trip", () => {
       ),
     ).toMatchObject({ status: 404 });
     expect(redeemed.credential.startsWith("bbcm_")).toBe(true);
-    expect(redeemed.serverUrl).toBe("https://sawyer-desktop.getbb.app");
+    expect(redeemed.serverUrl).toBe("https://sawyer-desktop.cc.example.invalid");
     expect(db.select().from(machine).all()).toHaveLength(1);
     await expect(
       revokeMachineForServerCredential(

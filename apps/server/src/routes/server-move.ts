@@ -3,17 +3,17 @@ import { createReadStream } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { getExperiments } from "@bb/db";
-import type { LastServerMove } from "@bb/domain";
+import { getExperiments } from "@cc/db";
+import type { LastServerMove } from "@cc/domain";
 import {
   readLastServerMoveFile,
   writeLastServerMoveFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { Hono } from "hono";
 import { ApiError } from "../errors.js";
 import {
@@ -46,7 +46,7 @@ function assertServerManagementAllowed(context: GateAuthHeaderReader): void {
 }
 
 export const SERVER_MOVE_EXPERIMENT_DISABLED_MESSAGE =
-  'Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, then try again.';
+  'Moving the server is off. Turn on the "Server move" experiment in Settings → Experiments, or run cc settings experiment serverMove true, then try again.';
 
 function assertServerMoveExperimentEnabled(deps: AppDeps): void {
   if (!getExperiments(deps.db).serverMove) {
@@ -70,7 +70,7 @@ export async function readLastServerMove(
 }
 
 function serverExportFileName(now: Date): string {
-  return `bb-server-${now.toISOString().slice(0, 10)}.tar.gz`;
+  return `cc-server-${now.toISOString().slice(0, 10)}.tar.gz`;
 }
 
 export function registerServerMoveRoutes(
@@ -162,7 +162,7 @@ export function registerServerMoveRoutes(
         "content-disposition": `attachment; filename="${fileName}"`,
         "content-length": String(archive.sizeBytes),
         "content-type": "application/gzip",
-        "x-bb-archive-sha256": archive.sha256,
+        "x-cc-archive-sha256": archive.sha256,
       },
     });
   });

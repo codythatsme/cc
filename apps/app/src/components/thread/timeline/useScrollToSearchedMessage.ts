@@ -50,7 +50,7 @@ interface SeqRange {
   max: number;
 }
 
-const FLASH_CLASS_NAME = "bb-search-flash";
+const FLASH_CLASS_NAME = "cc-search-flash";
 const FLASH_DURATION_MS = 1700;
 const POST_WINDOW_SETTLE_REVEAL_MS = 800;
 

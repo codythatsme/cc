@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
-import { derivePluginId } from "@bb/domain";
+import { derivePluginId } from "@cc/domain";
 import type { Metafile, Plugin } from "esbuild";
 import {
   PLUGIN_THEME_CSS,
@@ -74,7 +74,7 @@ let freshFacadeImportSequence = 0;
 async function freshModuleExports(moduleUrl: string): Promise<string[]> {
   const freshUrl = new URL(moduleUrl);
   freshUrl.searchParams.set(
-    "bb-plugin-build",
+    "cc-plugin-build",
     String(++freshFacadeImportSequence),
   );
   const moduleNamespace = await import(freshUrl.href);
@@ -119,10 +119,10 @@ async function shimModuleSource(
 ): Promise<string> {
   const names = await shimExportsOf(specifier, pluginSdkAppModuleUrl);
   return [
-    `const runtime = globalThis.__bbPluginRuntime;`,
+    `const runtime = globalThis.__ccPluginRuntime;`,
     `if (runtime == null || runtime.${slot} == null) {`,
     `  throw new Error(${JSON.stringify(
-      `Cannot load "${specifier}": this bundle must be loaded by the BB app, which provides the shared plugin runtime (globalThis.__bbPluginRuntime).`,
+      `Cannot load "${specifier}": this bundle must be loaded by the CC app, which provides the shared plugin runtime (globalThis.__ccPluginRuntime).`,
     )});`,
     `}`,
     `const mod = runtime.${slot};`,
@@ -134,7 +134,7 @@ async function shimModuleSource(
   ].join("\n");
 }
 
-const SHIM_NAMESPACE = "bb-plugin-runtime-shim";
+const SHIM_NAMESPACE = "cc-plugin-runtime-shim";
 const SHIM_FILTER = new RegExp(
   `^(${Object.keys(RUNTIME_SLOT_BY_SPECIFIER)
     .map((specifier) => specifier.replace(/[/@.-]/g, "\\$&"))
@@ -143,7 +143,7 @@ const SHIM_FILTER = new RegExp(
 
 export function runtimeShimPlugin(pluginSdkAppModuleUrl?: string): Plugin {
   return {
-    name: "bb-plugin-runtime-shims",
+    name: "cc-plugin-runtime-shims",
     setup(build) {
       build.onResolve({ filter: SHIM_FILTER }, (args) => ({
         path: args.path,
@@ -214,17 +214,17 @@ function readTailwindContentPatterns(
   pkg: Record<string, unknown>,
   packageJsonPath: string,
 ): string[] {
-  const bb = pkg.bb;
-  if (!isRecord(bb) || bb.pluginTailwindContent === undefined) {
+  const cc = pkg.cc;
+  if (!isRecord(cc) || cc.pluginTailwindContent === undefined) {
     return [];
   }
-  const patterns = bb.pluginTailwindContent;
+  const patterns = cc.pluginTailwindContent;
   if (
     !Array.isArray(patterns) ||
     !patterns.every((pattern) => typeof pattern === "string")
   ) {
     throw new Error(
-      `bb.pluginTailwindContent must be an array of strings in ${packageJsonPath}`,
+      `cc.pluginTailwindContent must be an array of strings in ${packageJsonPath}`,
     );
   }
   return patterns;
@@ -284,13 +284,13 @@ async function readPluginAppConfig(rootDir: string): Promise<PluginAppConfig> {
     rootDir,
     packageJsonPath,
   );
-  const app = manifest.bb.app;
+  const app = manifest.cc.app;
   if (app === undefined) {
     throw new Error(
-      `no frontend entry: ${packageJsonPath} has no "bb": { "app": "./app.tsx" } field (only plugins with an app entry can be built)`,
+      `no frontend entry: ${packageJsonPath} has no "cc": { "app": "./app.tsx" } field (only plugins with an app entry can be built)`,
     );
   }
-  const appEntry = await resolveManifestEntryFile(rootDir, app, "bb.app");
+  const appEntry = await resolveManifestEntryFile(rootDir, app, "cc.app");
   return {
     appEntry,
     packageName: manifest.name,
@@ -404,7 +404,7 @@ interface PluginAppBuildOptions {
 
 export async function buildPluginApp(
   rootDir: string,
-  bbVersion: string,
+  ccVersion: string,
   toolchain: PluginBuildToolchain,
   options: PluginAppBuildOptions = { minify: true },
 ): Promise<PluginAppBuildResult> {
@@ -442,7 +442,7 @@ export async function buildPluginApp(
       jsxDev: false,
       define: {
         "process.env.NODE_ENV": '"production"',
-        __BB_PLUGIN_ID__: JSON.stringify(pluginId),
+        __CC_PLUGIN_ID__: JSON.stringify(pluginId),
       },
       logLevel: "error",
       plugins: [zodLocaleStubPlugin(), runtimeShimPlugin()],
@@ -482,7 +482,7 @@ export async function buildPluginApp(
     await writeFile(
       stagedMetaPath,
       JSON.stringify(
-        createPluginArtifactMeta({ packageName, pluginVersion, bbVersion }),
+        createPluginArtifactMeta({ packageName, pluginVersion, ccVersion }),
         null,
         2,
       ) + "\n",

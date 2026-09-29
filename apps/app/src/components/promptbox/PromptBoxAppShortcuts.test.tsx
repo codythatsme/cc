@@ -3,8 +3,8 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultAppSettings, type AppShortcut } from "@bb/domain";
-import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@bb/client-core";
+import { defaultAppSettings, type AppShortcut } from "@cc/domain";
+import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@cc/client-core";
 import {
   AppCommandProvider,
   useAppCommandHandler,
@@ -71,8 +71,8 @@ vi.mock("@/hooks/queries/system-queries", () => ({
   }),
 }));
 
-vi.mock("@/lib/bb-desktop", () => ({
-  getBbDesktopInfo: () => null,
+vi.mock("@/lib/cc-desktop", () => ({
+  getCcDesktopInfo: () => null,
 }));
 
 vi.mock("@/lib/plugin-sdk-hooks", async (importOriginal) => ({

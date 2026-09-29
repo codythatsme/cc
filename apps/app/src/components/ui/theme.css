@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @source "..";
-/* The UI kit's component source lives in @bb/shared-ui (a workspace package
+/* The UI kit's component source lives in @cc/shared-ui (a workspace package
    resolved via a node_modules symlink, which Tailwind v4 does not auto-scan).
    Without this, utility classes used only by moved components — row-height,
    overlay, icon sizing — get purged from the app's CSS. */
@@ -147,39 +147,39 @@
      * SidebarContent owns scrolling. This stack owns sticky padding, row
      * sizing, gaps, and derived offsets for its descendant sticky tiers.
      */
-    --bb-sidebar-sticky-stack-padding: 0.5rem;
-    --bb-sidebar-sticky-stack-padding-top: var(
-      --bb-sidebar-sticky-stack-padding
+    --cc-sidebar-sticky-stack-padding: 0.5rem;
+    --cc-sidebar-sticky-stack-padding-top: var(
+      --cc-sidebar-sticky-stack-padding
     );
-    --bb-sidebar-sticky-label-height: 1.5rem;
-    --bb-sidebar-sticky-label-gap: 0.25rem;
-    --bb-sidebar-sticky-row-height: var(--bb-sidebar-row-height);
-    --bb-sidebar-sticky-row-gap: 0.25rem;
-    --bb-sidebar-sticky-child-row-gap: 0.125rem;
-    --bb-sidebar-sticky-label-top: var(--bb-sidebar-sticky-stack-padding-top);
-    --bb-sidebar-sticky-project-top: calc(
-      var(--bb-sidebar-sticky-label-top) +
-        var(--bb-sidebar-sticky-label-height) +
-        var(--bb-sidebar-sticky-label-gap)
+    --cc-sidebar-sticky-label-height: 1.5rem;
+    --cc-sidebar-sticky-label-gap: 0.25rem;
+    --cc-sidebar-sticky-row-height: var(--cc-sidebar-row-height);
+    --cc-sidebar-sticky-row-gap: 0.25rem;
+    --cc-sidebar-sticky-child-row-gap: 0.125rem;
+    --cc-sidebar-sticky-label-top: var(--cc-sidebar-sticky-stack-padding-top);
+    --cc-sidebar-sticky-project-top: calc(
+      var(--cc-sidebar-sticky-label-top) +
+        var(--cc-sidebar-sticky-label-height) +
+        var(--cc-sidebar-sticky-label-gap)
     );
     /* The first pinned parent level (a parent thread or worktree
        group header) sits directly below the project row. Deeper levels stack
-       from this base via --bb-sidebar-sticky-parent-level (set inline per row),
+       from this base via --cc-sidebar-sticky-parent-level (set inline per row),
        capped in JS so a deep chain can't pin more ancestors than the viewport
        affords. The section variant (no project row) overrides the base below. */
-    --bb-sidebar-sticky-parent-base-top: calc(
-      var(--bb-sidebar-sticky-project-top) +
-        var(--bb-sidebar-sticky-row-height) + var(--bb-sidebar-sticky-row-gap)
+    --cc-sidebar-sticky-parent-base-top: calc(
+      var(--cc-sidebar-sticky-project-top) +
+        var(--cc-sidebar-sticky-row-height) + var(--cc-sidebar-sticky-row-gap)
     );
-    --bb-sidebar-sticky-parent-stride: calc(
-      var(--bb-sidebar-sticky-row-height) +
-        var(--bb-sidebar-sticky-child-row-gap)
+    --cc-sidebar-sticky-parent-stride: calc(
+      var(--cc-sidebar-sticky-row-height) +
+        var(--cc-sidebar-sticky-child-row-gap)
     );
-    --bb-sidebar-sticky-parent-base-z: 40;
+    --cc-sidebar-sticky-parent-base-z: 40;
 
-    padding: var(--bb-sidebar-sticky-stack-padding-top)
-      var(--bb-sidebar-sticky-stack-padding)
-      var(--bb-sidebar-sticky-stack-padding);
+    padding: var(--cc-sidebar-sticky-stack-padding-top)
+      var(--cc-sidebar-sticky-stack-padding)
+      var(--cc-sidebar-sticky-stack-padding);
   }
 
   /* The stack's top padding is inside the scrollport, so rows stay visible as
@@ -192,13 +192,13 @@
     top: 0;
     z-index: 55;
     display: block;
-    height: var(--bb-sidebar-sticky-stack-padding-top);
-    margin-top: calc(-1 * var(--bb-sidebar-sticky-stack-padding-top));
+    height: var(--cc-sidebar-sticky-stack-padding-top);
+    margin-top: calc(-1 * var(--cc-sidebar-sticky-stack-padding-top));
     background-color: var(--sidebar);
   }
 
   [data-sidebar-sticky-stack][data-sidebar-sticky-density="compact-actions"] {
-    --bb-sidebar-sticky-stack-padding-top: 0.5rem;
+    --cc-sidebar-sticky-stack-padding-top: 0.5rem;
   }
 
   [data-sidebar-sticky-tier] {
@@ -207,10 +207,10 @@
 
   [data-sidebar-sticky-stack] [data-sidebar-sticky-tier] {
     position: sticky;
-    top: var(--bb-sidebar-sticky-tier-top);
-    height: var(--bb-sidebar-sticky-tier-height);
-    min-height: var(--bb-sidebar-sticky-tier-height);
-    z-index: var(--bb-sidebar-sticky-tier-z-index);
+    top: var(--cc-sidebar-sticky-tier-top);
+    height: var(--cc-sidebar-sticky-tier-height);
+    min-height: var(--cc-sidebar-sticky-tier-height);
+    z-index: var(--cc-sidebar-sticky-tier-z-index);
     isolation: isolate;
   }
 
@@ -227,19 +227,19 @@
 
   [data-sidebar-sticky-stack] [data-sidebar-sticky-tier]::before {
     bottom: 100%;
-    height: var(--bb-sidebar-sticky-tier-shield-top-height, 0);
+    height: var(--cc-sidebar-sticky-tier-shield-top-height, 0);
   }
 
   [data-sidebar-sticky-stack] [data-sidebar-sticky-tier]::after {
     top: 100%;
-    height: var(--bb-sidebar-sticky-tier-shield-bottom-height, 0);
+    height: var(--cc-sidebar-sticky-tier-shield-bottom-height, 0);
   }
 
   /* The shared active-context surface is translucent so it can tint tabs and
      other content surfaces. A sticky sidebar row needs an opaque sidebar layer
      beneath that tint, or scrolled descendant text paints through the row. */
   [data-sidebar-sticky-stack]
-    [data-sidebar-sticky-tier].bb-sidebar-selected-row {
+    [data-sidebar-sticky-tier].cc-sidebar-selected-row {
     background-image:
       linear-gradient(var(--state-active), var(--state-active)),
       linear-gradient(var(--sidebar), var(--sidebar));
@@ -248,27 +248,27 @@
   /* This state is sidebar-only, so resolve its quiet accent tint against the
      sidebar up front. Keeping it opaque prevents an unfocused split's sticky
      parent-thread row from revealing descendants that scroll underneath it. */
-  .bb-sidebar-open-in-split-row {
-    --bb-sidebar-open-in-split-background: color-mix(
+  .cc-sidebar-open-in-split-row {
+    --cc-sidebar-open-in-split-background: color-mix(
       in oklch,
       var(--sidebar-accent) 50%,
       var(--sidebar)
     );
-    background-color: var(--bb-sidebar-open-in-split-background);
+    background-color: var(--cc-sidebar-open-in-split-background);
   }
 
   /* Utility-layer bg-sidebar owns the sticky tier's base background-color, so
      paint the state above it as an image just like the selected-row treatment. */
   [data-sidebar-sticky-stack]
-    [data-sidebar-sticky-tier].bb-sidebar-open-in-split-row {
+    [data-sidebar-sticky-tier].cc-sidebar-open-in-split-row {
     background-image: linear-gradient(
-      var(--bb-sidebar-open-in-split-background),
-      var(--bb-sidebar-open-in-split-background)
+      var(--cc-sidebar-open-in-split-background),
+      var(--cc-sidebar-open-in-split-background)
     );
   }
 
   [data-sidebar-sticky-stack]
-    [data-sidebar-sticky-tier].bb-sidebar-open-in-split-row:is(
+    [data-sidebar-sticky-tier].cc-sidebar-open-in-split-row:is(
       :hover,
       :has([data-state="open"])
     ) {
@@ -278,16 +278,16 @@
     );
   }
 
-  .bb-sidebar-hover-actions {
+  .cc-sidebar-hover-actions {
     pointer-events: none;
     opacity: 0;
     transition-property: opacity;
     transition-duration: 0ms;
   }
 
-  .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-    .bb-sidebar-hover-actions,
-  .bb-sidebar-hover-actions[data-sidebar-hover-actions-open="true"] {
+  .cc-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+    .cc-sidebar-hover-actions,
+  .cc-sidebar-hover-actions[data-sidebar-hover-actions-open="true"] {
     pointer-events: auto;
     opacity: 1;
   }
@@ -297,87 +297,87 @@
    * their width, one action unless the row sets the inset variable, under the
    * same row states that reveal the overlay, so the title truncates instead of
    * running under the buttons. */
-  .bb-sidebar-hover-actions-inset {
+  .cc-sidebar-hover-actions-inset {
     transition-property: padding;
     transition-duration: 0ms;
   }
 
-  .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-    .bb-sidebar-hover-actions-inset,
-  .bb-sidebar-hover-actions-row:has(
-      .bb-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
+  .cc-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+    .cc-sidebar-hover-actions-inset,
+  .cc-sidebar-hover-actions-row:has(
+      .cc-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
     )
-    .bb-sidebar-hover-actions-inset {
+    .cc-sidebar-hover-actions-inset {
     padding-right: var(
-      --bb-sidebar-hover-actions-inset,
+      --cc-sidebar-hover-actions-inset,
       calc(var(--spacing) * 7.5)
     );
   }
 
-  .bb-sidebar-hover-actions-fade {
+  .cc-sidebar-hover-actions-fade {
     opacity: 1;
     transition-property: opacity;
     transition-duration: 0ms;
   }
 
-  .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-    .bb-sidebar-hover-actions-fade,
-  .bb-sidebar-hover-actions-fade[data-sidebar-hover-actions-open="true"] {
+  .cc-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+    .cc-sidebar-hover-actions-fade,
+  .cc-sidebar-hover-actions-fade[data-sidebar-hover-actions-open="true"] {
     opacity: 0;
   }
 
   @media (max-width: 767px) and (pointer: coarse) {
     /* The overlay is hidden on coarse phones, so no room is reserved. */
-    .bb-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
-      .bb-sidebar-hover-actions-inset,
-    .bb-sidebar-hover-actions-row:has(
-        .bb-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
+    .cc-sidebar-hover-actions-row:is(:hover, :has(:focus-visible))
+      .cc-sidebar-hover-actions-inset,
+    .cc-sidebar-hover-actions-row:has(
+        .cc-sidebar-hover-actions[data-sidebar-hover-actions-open="true"]
       )
-      .bb-sidebar-hover-actions-inset {
+      .cc-sidebar-hover-actions-inset {
       padding-right: 0;
     }
 
-    .bb-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
-      .bb-sidebar-hover-actions:not(
+    .cc-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
+      .cc-sidebar-hover-actions:not(
         [data-sidebar-hover-actions-open="true"]
       ):not([data-sidebar-hover-actions-mobile="always"]) {
       pointer-events: none;
       opacity: 0;
     }
 
-    .bb-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
-      .bb-sidebar-hover-actions-fade:not(
+    .cc-sidebar-hover-actions-row:hover:not(:has(:focus-visible))
+      .cc-sidebar-hover-actions-fade:not(
         [data-sidebar-hover-actions-open="true"]
       ) {
       opacity: 1;
     }
 
-    .bb-sidebar-hover-actions[data-sidebar-hover-actions-mobile="always"] {
+    .cc-sidebar-hover-actions[data-sidebar-hover-actions-mobile="always"] {
       pointer-events: auto;
       opacity: 1;
     }
   }
 
   [data-sidebar-sticky-stack] [data-sidebar-sticky-tier="label"] {
-    --bb-sidebar-sticky-tier-top: var(--bb-sidebar-sticky-label-top);
-    --bb-sidebar-sticky-tier-height: var(--bb-sidebar-sticky-label-height);
-    --bb-sidebar-sticky-tier-z-index: 60;
-    --bb-sidebar-sticky-tier-shield-top-height: var(
-      --bb-sidebar-sticky-stack-padding
+    --cc-sidebar-sticky-tier-top: var(--cc-sidebar-sticky-label-top);
+    --cc-sidebar-sticky-tier-height: var(--cc-sidebar-sticky-label-height);
+    --cc-sidebar-sticky-tier-z-index: 60;
+    --cc-sidebar-sticky-tier-shield-top-height: var(
+      --cc-sidebar-sticky-stack-padding
     );
-    --bb-sidebar-sticky-tier-shield-bottom-height: var(
-      --bb-sidebar-sticky-label-gap
+    --cc-sidebar-sticky-tier-shield-bottom-height: var(
+      --cc-sidebar-sticky-label-gap
     );
 
-    margin-bottom: var(--bb-sidebar-sticky-label-gap);
+    margin-bottom: var(--cc-sidebar-sticky-label-gap);
   }
 
   [data-sidebar-sticky-stack] [data-sidebar-sticky-tier="project"] {
-    --bb-sidebar-sticky-tier-top: var(--bb-sidebar-sticky-project-top);
-    --bb-sidebar-sticky-tier-height: var(--bb-sidebar-sticky-row-height);
-    --bb-sidebar-sticky-tier-z-index: 50;
-    --bb-sidebar-sticky-tier-shield-bottom-height: var(
-      --bb-sidebar-sticky-row-gap
+    --cc-sidebar-sticky-tier-top: var(--cc-sidebar-sticky-project-top);
+    --cc-sidebar-sticky-tier-height: var(--cc-sidebar-sticky-row-height);
+    --cc-sidebar-sticky-tier-z-index: 50;
+    --cc-sidebar-sticky-tier-shield-bottom-height: var(
+      --cc-sidebar-sticky-row-gap
     );
   }
 
@@ -386,21 +386,21 @@
        chain of nested parents stacks without per-level CSS. The level is set
        inline per row (see SidebarStickyTier); JS caps how many levels get the
        tier at all. */
-    --bb-sidebar-sticky-tier-top: calc(
-      var(--bb-sidebar-sticky-parent-base-top) +
-        var(--bb-sidebar-sticky-parent-level, 0) *
-        var(--bb-sidebar-sticky-parent-stride)
+    --cc-sidebar-sticky-tier-top: calc(
+      var(--cc-sidebar-sticky-parent-base-top) +
+        var(--cc-sidebar-sticky-parent-level, 0) *
+        var(--cc-sidebar-sticky-parent-stride)
     );
-    --bb-sidebar-sticky-tier-height: var(--bb-sidebar-sticky-row-height);
+    --cc-sidebar-sticky-tier-height: var(--cc-sidebar-sticky-row-height);
     /* Shallower ancestors win the overlap, so z-index descends with depth. */
-    --bb-sidebar-sticky-tier-z-index: calc(
-      var(--bb-sidebar-sticky-parent-base-z) -
-        var(--bb-sidebar-sticky-parent-level, 0)
+    --cc-sidebar-sticky-tier-z-index: calc(
+      var(--cc-sidebar-sticky-parent-base-z) -
+        var(--cc-sidebar-sticky-parent-level, 0)
     );
     /* Parent rows and worktree group headers butt against their first child
        with the compact child gap; the wider project row gap would clip it. */
-    --bb-sidebar-sticky-tier-shield-bottom-height: var(
-      --bb-sidebar-sticky-child-row-gap
+    --cc-sidebar-sticky-tier-shield-bottom-height: var(
+      --cc-sidebar-sticky-child-row-gap
     );
   }
 
@@ -408,7 +408,7 @@
     [data-sidebar-sticky-project-item]
     > :not([hidden])
     ~ :not([hidden]) {
-    margin-top: var(--bb-sidebar-sticky-row-gap);
+    margin-top: var(--cc-sidebar-sticky-row-gap);
   }
 
   /* A section header that scrolls with its contents (Pinned) pins no label, so
@@ -416,7 +416,7 @@
      label slot is the origin both deeper offsets derive from, so collapsing it
      here covers the project tier and every parent level at once. */
   [data-sidebar-sticky-stack] [data-sidebar-sticky-header="false"] {
-    --bb-sidebar-sticky-project-top: var(--bb-sidebar-sticky-stack-padding-top);
+    --cc-sidebar-sticky-project-top: var(--cc-sidebar-sticky-stack-padding-top);
   }
 
   /* Section-variant trees (Pinned, projectless Threads) have no project tier:
@@ -424,12 +424,12 @@
      first parent pins directly under the section label instead of reserving an
      empty project-row slot. One base override covers every depth. */
   [data-sidebar-sticky-stack] [data-sidebar-sticky-section] {
-    --bb-sidebar-sticky-parent-base-top: var(--bb-sidebar-sticky-project-top);
+    --cc-sidebar-sticky-parent-base-top: var(--cc-sidebar-sticky-project-top);
   }
 
   @media (max-width: 767px) and (pointer: coarse) {
     [data-sidebar-sticky-stack] {
-      --bb-sidebar-sticky-row-height: var(--bb-sidebar-row-height-coarse);
+      --cc-sidebar-sticky-row-height: var(--cc-sidebar-row-height-coarse);
     }
   }
 }
@@ -599,8 +599,8 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
   --radius: 0.5rem;
-  --bb-sidebar-row-height: 1.75rem;
-  --bb-sidebar-row-height-coarse: 2.5rem;
+  --cc-sidebar-row-height: 1.75rem;
+  --cc-sidebar-row-height-coarse: 2.5rem;
   --shadow-x: 0px;
   --shadow-y: 2px;
   --shadow-blur: 0px;
@@ -909,7 +909,7 @@
     touch-action: manipulation;
   }
 
-  .bb-icon-stroke {
+  .cc-icon-stroke {
     stroke-width: var(--icon-stroke-width);
   }
 }
@@ -941,17 +941,17 @@ body.sidebar-resizing [data-sidebar="panel"] {
  * every interactive portaled surface out of an underlying drag strip so a
  * menu/select/dialog that crosses split chrome keeps its visible hit target.
  */
-[data-bb-portaled-overlay] {
+[data-cc-portaled-overlay] {
   app-region: no-drag;
   -webkit-app-region: no-drag;
 }
 
 @layer utilities {
-  .bb-thread-title {
+  .cc-thread-title {
     @apply flex min-w-0 items-baseline;
   }
 
-  .bb-thread-title .prompt-mention-pill {
+  .cc-thread-title .prompt-mention-pill {
     @apply min-w-10;
     flex: 1 1 0%;
     max-width: max-content;

@@ -121,13 +121,13 @@ describe("theme.css neutral ramp", () => {
     );
 
     expect(mobileRules).toMatch(
-      /\.bb-sidebar-hover-actions-row:is\(:hover, :has\(:focus-visible\)\)\s+\.bb-sidebar-hover-actions-inset,\s+\.bb-sidebar-hover-actions-row:has\(\s+\.bb-sidebar-hover-actions\[data-sidebar-hover-actions-open="true"\]\s+\)\s+\.bb-sidebar-hover-actions-inset\s*\{\s*padding-right:\s*0;/,
+      /\.cc-sidebar-hover-actions-row:is\(:hover, :has\(:focus-visible\)\)\s+\.cc-sidebar-hover-actions-inset,\s+\.cc-sidebar-hover-actions-row:has\(\s+\.cc-sidebar-hover-actions\[data-sidebar-hover-actions-open="true"\]\s+\)\s+\.cc-sidebar-hover-actions-inset\s*\{\s*padding-right:\s*0;/,
     );
   });
 
   it("backs selected sticky sidebar rows with an opaque sidebar layer", () => {
     const rule = css.match(
-      /\[data-sidebar-sticky-tier\]\.bb-sidebar-selected-row\s*\{([^}]*)\}/s,
+      /\[data-sidebar-sticky-tier\]\.cc-sidebar-selected-row\s*\{([^}]*)\}/s,
     )?.[1];
 
     expect(rule).toContain(
@@ -145,10 +145,10 @@ describe("theme.css neutral ramp", () => {
     expect(rule).toContain("top: 0");
     expect(rule).toContain("background-color: var(--sidebar)");
     expect(rule).toContain(
-      "height: var(--bb-sidebar-sticky-stack-padding-top)",
+      "height: var(--cc-sidebar-sticky-stack-padding-top)",
     );
     expect(rule).toContain(
-      "margin-top: calc(-1 * var(--bb-sidebar-sticky-stack-padding-top))",
+      "margin-top: calc(-1 * var(--cc-sidebar-sticky-stack-padding-top))",
     );
   });
 
@@ -162,7 +162,7 @@ describe("theme.css neutral ramp", () => {
       Number(
         css.match(
           new RegExp(
-            `\\[data-sidebar-sticky-tier="${name}"\\]\\s*\\{[^}]*--bb-sidebar-sticky-tier-z-index:\\s*(\\d+)`,
+            `\\[data-sidebar-sticky-tier="${name}"\\]\\s*\\{[^}]*--cc-sidebar-sticky-tier-z-index:\\s*(\\d+)`,
           ),
         )?.[1],
       );
@@ -181,20 +181,20 @@ describe("theme.css neutral ramp", () => {
         '\\[data-sidebar-sticky-stack\\] \\[data-sidebar-sticky-header="false"\\]',
       ),
     ).toContain(
-      "--bb-sidebar-sticky-project-top: var(--bb-sidebar-sticky-stack-padding-top)",
+      "--cc-sidebar-sticky-project-top: var(--cc-sidebar-sticky-stack-padding-top)",
     );
     expect(
       declarations(
         "\\[data-sidebar-sticky-stack\\] \\[data-sidebar-sticky-section\\]",
       ),
     ).toContain(
-      "--bb-sidebar-sticky-parent-base-top: var(--bb-sidebar-sticky-project-top)",
+      "--cc-sidebar-sticky-parent-base-top: var(--cc-sidebar-sticky-project-top)",
     );
   });
 
   it("resolves the open-in-split thread tint to an opaque sidebar color", () => {
     const rule = css.match(
-      /\.bb-sidebar-open-in-split-row\s*\{([^}]*)\}/s,
+      /\.cc-sidebar-open-in-split-row\s*\{([^}]*)\}/s,
     )?.[1];
 
     expect(rule).toContain("color-mix(");
@@ -204,15 +204,15 @@ describe("theme.css neutral ramp", () => {
     expect(rule).not.toContain("transparent");
 
     const stickyRule = css.match(
-      /\[data-sidebar-sticky-tier\]\.bb-sidebar-open-in-split-row\s*\{([^}]*)\}/s,
+      /\[data-sidebar-sticky-tier\]\.cc-sidebar-open-in-split-row\s*\{([^}]*)\}/s,
     )?.[1];
     expect(stickyRule).toContain("background-image: linear-gradient(");
     expect(
-      stickyRule?.match(/var\(--bb-sidebar-open-in-split-background\)/g),
+      stickyRule?.match(/var\(--cc-sidebar-open-in-split-background\)/g),
     ).toHaveLength(2);
 
     const interactiveRule = css.match(
-      /\[data-sidebar-sticky-tier\]\.bb-sidebar-open-in-split-row:is\([^{]+\)\s*\{([^}]*)\}/s,
+      /\[data-sidebar-sticky-tier\]\.cc-sidebar-open-in-split-row:is\([^{]+\)\s*\{([^}]*)\}/s,
     )?.[1];
     expect(interactiveRule).toContain("background-image: linear-gradient(");
     expect(interactiveRule?.match(/var\(--sidebar-accent\)/g)).toHaveLength(2);
@@ -352,7 +352,7 @@ describe("theme.css semantic update surfaces", () => {
 
 describe("theme.css desktop portal hit testing", () => {
   it("carves portaled overlays out of native window drag regions", () => {
-    const rule = css.match(/\[data-bb-portaled-overlay\]\s*\{([^}]*)\}/)?.[1];
+    const rule = css.match(/\[data-cc-portaled-overlay\]\s*\{([^}]*)\}/)?.[1];
 
     expect(rule).toBeDefined();
     expect(rule).toMatch(/(?:^|\s)app-region:\s*no-drag;/);

@@ -1,5 +1,5 @@
-import { closeSecondaryPanelTabInState } from "@bb/client-core";
-import type { TerminalSession } from "@bb/server-contract";
+import { closeSecondaryPanelTabInState } from "@cc/client-core";
+import type { TerminalSession } from "@cc/server-contract";
 import {
   createTerminalFixedPanelTab,
   type FixedPanelTabsState,

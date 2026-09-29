@@ -1,11 +1,11 @@
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   type HostDaemonInternalSchema,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import { describe, expect, it } from "vitest";
-import { getHost, updateHost, upsertHost } from "@bb/db";
+import { getHost, updateHost, upsertHost } from "@cc/db";
 import {
   createTestDaemonHostKey,
   startTestServer,

@@ -15,7 +15,7 @@ import {
   type HeaderPair,
   type OpenHttpFrame,
   type OpenWsFrame,
-} from "@bb/tunnel-contract";
+} from "@cc/tunnel-contract";
 import { headersForLoopbackRequest } from "./headers.js";
 import type { TunnelClientLogger } from "./logger.js";
 
@@ -76,14 +76,14 @@ function isInitialThreadLoad(path: string): boolean {
   if (!INITIAL_THREAD_LOAD_PATH.test(path)) {
     return false;
   }
-  return !new URL(path, "http://bb.local").searchParams.has("afterSequence");
+  return !new URL(path, "http://cc.local").searchParams.has("afterSequence");
 }
 
 function roundDurationMs(durationMs: number): number {
   return Math.round(durationMs * 10) / 10;
 }
 
-export function isBareBbRealtimeWs(
+export function isBareCcRealtimeWs(
   path: string,
   target: string | undefined,
 ): boolean {
@@ -321,7 +321,7 @@ export class TunnelSession {
       if (initialThreadLoad) {
         respHeaders.push([
           "server-timing",
-          `bb_connect_origin;dur=${roundDurationMs(originTtfbMs)}`,
+          `cc_connect_origin;dur=${roundDurationMs(originTtfbMs)}`,
         ]);
       }
       this.send({
@@ -342,7 +342,7 @@ export class TunnelSession {
         const totalMs = performance.now() - startedAt;
         this.options.log.info?.(
           [
-            "bb connect thread load",
+            "cc connect thread load",
             `path=${meta.path}`,
             `status=${res.statusCode ?? 502}`,
             `originTtfbMs=${roundDurationMs(originTtfbMs)}`,
@@ -385,7 +385,7 @@ export class TunnelSession {
       loopbackOrigin: new URL(resolved.origin).origin,
       ...(resolved.host !== undefined ? { host: resolved.host } : {}),
     });
-    const countsAsRemoteClient = isBareBbRealtimeWs(frame.path, frame.target);
+    const countsAsRemoteClient = isBareCcRealtimeWs(frame.path, frame.target);
     let socket: NodeWebSocket;
     try {
       socket = new NodeWebSocket(`${wsOrigin}${frame.path}`, frame.protocols, {

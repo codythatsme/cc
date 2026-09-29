@@ -1,5 +1,5 @@
-import { getProjectSourceByHost } from "@bb/db";
-import { isLocalPathProjectSource, PERSONAL_PROJECT_ID } from "@bb/domain";
+import { getProjectSourceByHost } from "@cc/db";
+import { isLocalPathProjectSource, PERSONAL_PROJECT_ID } from "@cc/domain";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { WorkSessionDeps } from "../../types.js";
 import { callHostRetryableOnlineRpc } from "../hosts/online-rpc.js";
@@ -20,7 +20,7 @@ import {
 import type {
   PluginEnvironmentProviderAvailability,
   PluginEnvironmentProviderAvailabilityContext,
-} from "@get-bb/plugin-sdk/environment-provider";
+} from "@codythatsme/plugin-sdk/environment-provider";
 import { decideWithinBox } from "../threads/dispatch-hooks.js";
 
 type GitCheckoutAvailability =

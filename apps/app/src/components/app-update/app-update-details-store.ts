@@ -1,4 +1,4 @@
-import type { SystemAppUpdateResult } from "@bb/server-contract";
+import type { SystemAppUpdateResult } from "@cc/server-contract";
 
 type Listener = () => void;
 

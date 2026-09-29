@@ -1,22 +1,22 @@
-import { dynamicToolSchema } from "@bb/domain";
-import type { DynamicTool } from "@bb/domain";
+import { dynamicToolSchema } from "@cc/domain";
+import type { DynamicTool } from "@cc/domain";
 import {
   buildBridgeToolCallContent as experimental_buildBridgeToolCallContent,
   providerToolCallCancellationSchema,
   PROVIDER_TOOL_CALL_CANCELLED_METHOD,
-} from "@bb/provider-bridge-protocol/bridge-kit";
+} from "@cc/provider-bridge-protocol/bridge-kit";
 import { createConnection } from "node:net";
 import { createInterface } from "node:readline";
 import { z } from "zod";
 
-export const ACP_BRIDGE_MCP_SERVER_NAME = "bb-bridge";
+export const ACP_BRIDGE_MCP_SERVER_NAME = "cc-bridge";
 
-const ENV_HOST = "BB_ACP_DYNAMIC_TOOL_HOST";
-const ENV_PORT = "BB_ACP_DYNAMIC_TOOL_PORT";
-const ENV_TOKEN = "BB_ACP_DYNAMIC_TOOL_TOKEN";
-const ENV_THREAD_ID = "BB_ACP_DYNAMIC_TOOL_THREAD_ID";
-const ENV_TOOLS = "BB_ACP_DYNAMIC_TOOLS";
-const ENV_PROGRESS_INTERVAL_MS = "BB_ACP_DYNAMIC_TOOL_PROGRESS_INTERVAL_MS";
+const ENV_HOST = "CC_ACP_DYNAMIC_TOOL_HOST";
+const ENV_PORT = "CC_ACP_DYNAMIC_TOOL_PORT";
+const ENV_TOKEN = "CC_ACP_DYNAMIC_TOOL_TOKEN";
+const ENV_THREAD_ID = "CC_ACP_DYNAMIC_TOOL_THREAD_ID";
+const ENV_TOOLS = "CC_ACP_DYNAMIC_TOOLS";
+const ENV_PROGRESS_INTERVAL_MS = "CC_ACP_DYNAMIC_TOOL_PROGRESS_INTERVAL_MS";
 
 export interface AcpMcpServerConfig {
   name: string;
@@ -275,7 +275,7 @@ async function handleRequest(
         toolCount: env.tools.length,
       }).catch((error) => {
         process.stderr.write(
-          `bb-bridge MCP: failed to report initialize: ${
+          `cc-bridge MCP: failed to report initialize: ${
             error instanceof Error ? error.message : String(error)
           }\n`,
         );

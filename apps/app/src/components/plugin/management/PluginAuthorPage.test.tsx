@@ -32,10 +32,10 @@ function catalogEntry(
     publishedAt: "2026-08-01T00:00:00Z",
     source: `npm:${pluginId}`,
     repositoryUrl: null,
-    marketplace: "bb-community",
-    marketplaceDisplayName: "BB Community",
-    publisherKey: "bb-community",
-    publisherLabel: "BB Community",
+    marketplace: "cc-community",
+    marketplaceDisplayName: "CC Community",
+    publisherKey: "cc-community",
+    publisherLabel: "CC Community",
     official: true,
     author: {
       name: "Pat Lee",
@@ -134,7 +134,7 @@ function renderPage(
   render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <PluginAuthorPage
-        authorKey="12:bb-community:github:patlee"
+        authorKey="12:cc-community:github:patlee"
         onInstall={() => undefined}
         onOpenPlugin={onOpenPlugin}
       />

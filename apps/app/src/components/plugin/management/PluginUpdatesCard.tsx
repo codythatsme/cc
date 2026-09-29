@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { UPDATE_ACTION_ICON } from "@bb/domain/update-state";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+import { UPDATE_ACTION_ICON } from "@cc/domain/update-state";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
 import { pluginToast } from "@/components/plugin/PluginNotificationDescription";
 import { invalidatePluginList } from "@/hooks/cache-owners/plugin-cache-owner";
 import { applyPluginUpdate } from "@/hooks/queries/plugin-catalog-queries";
@@ -148,7 +148,7 @@ export function PluginDetailReleaseStatus({
           aria-hidden
         />
         <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
-          bb couldn&rsquo;t activate {displayPluginVersion(failure.version)}. It
+          cc couldn&rsquo;t activate {displayPluginVersion(failure.version)}. It
           restored {displayPluginVersion(plugin.version)} and its data.
         </p>
       </div>
@@ -203,7 +203,7 @@ export function PluginDetailReleaseStatus({
       <div className="min-w-0">
         <p className="text-xs leading-relaxed text-muted-foreground">
           {blockedReasons[0] === undefined
-            ? `${displayPluginVersion(blockedVersion)} isn’t compatible with this bb.`
+            ? `${displayPluginVersion(blockedVersion)} isn’t compatible with this cc.`
             : sentence(blockedReasons[0])}{" "}
           {displayPluginVersion(plugin.version)} remains installed. Keep using
           it and check again when a compatible plugin version is available.

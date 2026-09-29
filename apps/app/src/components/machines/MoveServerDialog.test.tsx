@@ -8,13 +8,13 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { SERVER_MOVE_STEP_IDS } from "@bb/domain";
-import { BbHttpError } from "@bb/sdk/browser";
+import { SERVER_MOVE_STEP_IDS } from "@cc/domain";
+import { CcHttpError } from "@cc/sdk/browser";
 import type {
   ServerMoveCheckResponse,
   ServerMoveStatus,
-} from "@bb/server-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+} from "@cc/server-contract";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
@@ -41,7 +41,7 @@ function checkResponse(
     mode: "connect",
     serverUrl: null,
     requiresServerUrl: false,
-    targetDataDir: "/home/sawyer/.bb-machines/laptop",
+    targetDataDir: "/home/sawyer/.cc-machines/laptop",
     existingTargetServerData: null,
     items: [],
     canMove: true,
@@ -56,7 +56,7 @@ function startedMove(): ServerMoveStatus {
     mode: "connect",
     targetHostId: TARGET.id,
     targetHostName: TARGET.name,
-    serverUrl: "https://sawyer.getbb.app",
+    serverUrl: "https://sawyer.cc.example.invalid",
     destinationStatusUrl: null,
     startedAt: 1,
     finishedAt: null,
@@ -89,7 +89,7 @@ afterEach(() => {
 });
 
 describe("MoveServerDialog", () => {
-  it("checks the machine, groups the results by severity, and starts a bb connect move", async () => {
+  it("checks the machine, groups the results by severity, and starts a cc connect move", async () => {
     vi.mocked(sdk.experimental_server.checkMove).mockResolvedValue(
       checkResponse({
         items: [
@@ -150,7 +150,7 @@ describe("MoveServerDialog", () => {
     });
   });
 
-  it("asks for the new address when the server has no bb connect handle and re-checks with it", async () => {
+  it("asks for the new address when the server has no cc connect handle and re-checks with it", async () => {
     vi.mocked(sdk.experimental_server.checkMove)
       .mockResolvedValueOnce(
         checkResponse({
@@ -276,18 +276,18 @@ describe("MoveServerDialog", () => {
     ).toHaveBeenLastCalledWith({ targetHostId: TARGET.id, serverUrl: null });
   });
 
-  it("requires confirming that the existing bb data on the machine gets archived", async () => {
+  it("requires confirming that the existing cc data on the machine gets archived", async () => {
     vi.mocked(sdk.experimental_server.checkMove).mockResolvedValue(
       checkResponse({
         existingTargetServerData: {
-          path: "/Users/sawyer/.bb",
+          path: "/Users/sawyer/.cc",
           sizeBytes: 5 * 1024 * 1024,
         },
         items: [
           {
             id: "existing-server-data",
             severity: "warning",
-            title: "desk already has bb server data",
+            title: "desk already has cc server data",
             detail: null,
           },
         ],
@@ -299,7 +299,7 @@ describe("MoveServerDialog", () => {
     renderDialog();
 
     const confirmation = await screen.findByRole("checkbox", {
-      name: /Archive the existing bb data at \/Users\/sawyer\/\.bb/u,
+      name: /Archive the existing cc data at \/Users\/sawyer\/\.cc/u,
     });
     expect(screen.getByText(/^5\.0 MB\./u)).toBeDefined();
     expect(startButton().hasAttribute("disabled")).toBe(true);
@@ -323,7 +323,7 @@ describe("MoveServerDialog", () => {
   it("surfaces a failed check inline and lets the user check again", async () => {
     vi.mocked(sdk.experimental_server.checkMove)
       .mockRejectedValueOnce(
-        new BbHttpError({
+        new CcHttpError({
           status: 500,
           code: "host_rpc_timeout",
           message: "desk did not answer in time",
@@ -357,7 +357,7 @@ describe("MoveServerDialog", () => {
       checkResponse(),
     );
     vi.mocked(sdk.experimental_server.startMove).mockRejectedValue(
-      new BbHttpError({
+      new CcHttpError({
         status: 400,
         code: "server_move_blocked",
         message: "The move is blocked",

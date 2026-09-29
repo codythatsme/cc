@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MOBILE_APP_SURFACE_HEADER } from "../sdk/app-surface";
 import { isLoopbackHost } from "./direct-url";
 
 export type ProbeStage = "health" | "config";
@@ -48,7 +47,6 @@ async function getJson(
   try {
     const response = await fetchImpl(url, {
       headers: {
-        [MOBILE_APP_SURFACE_HEADER.name]: MOBILE_APP_SURFACE_HEADER.value,
       },
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -84,7 +82,7 @@ export async function probeServer(
       ok: false,
       serverUrl: base,
       stage: "health",
-      error: "Not a bb server (unexpected /health response)",
+      error: "Not a cc server (unexpected /health response)",
     };
   }
 
@@ -102,7 +100,7 @@ export async function probeServer(
       ok: false,
       serverUrl: base,
       stage: "config",
-      error: "Not a bb server (unexpected /system/config response)",
+      error: "Not a cc server (unexpected /system/config response)",
     };
   }
 

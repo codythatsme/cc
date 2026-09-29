@@ -5,7 +5,7 @@ import {
   type HostDaemonOnlineRpcResponseMessage,
   type ServerMovedMessage,
   type ServerMoveInspectResult,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type {
   ServerMoveEnvironment,
   ServerMoveTimings,
@@ -52,10 +52,10 @@ export function inspectResult(
   overrides: Partial<ServerMoveInspectResult> = {},
 ): ServerMoveInspectResult {
   return {
-    dataDir: "/home/me/.bb-machines/laptop",
+    dataDir: "/home/me/.cc-machines/laptop",
     platform: "linux",
     timeZone: "UTC",
-    bbAppVersion: "0.0.0-test",
+    ccAppVersion: "0.0.0-test",
     serverEntryAvailable: true,
     serviceManager: "systemd-user",
     existingServerData: null,
@@ -178,10 +178,10 @@ export function createTestServerMoveEnvironment(
     fullArtifact: {
       availability: async () => ({
         available: false,
-        reason: "The test server has no packaged bb-app.",
+        reason: "The test server has no packaged cc-app.",
       }),
       build: async () => {
-        throw new Error("The test server has no packaged bb-app.");
+        throw new Error("The test server has no packaged cc-app.");
       },
     },
     now: Date.now,

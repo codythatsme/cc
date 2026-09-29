@@ -45,12 +45,12 @@ describe("Plugin Guide agent references", () => {
     const context = pluginSurfaceAgentContext("composer-actions");
     expect(context).toContain("Inline actions (composer-actions)");
     expect(context).toContain("PluginComposerApi");
-    expect(context).toContain("bb-plugin-authoring skill");
+    expect(context).toContain("cc-plugin-authoring skill");
     expect(context?.split("\n")).toHaveLength(3);
     expect(pluginSurfaceAgentContext("missing-surface")).toBeNull();
   });
 
-  it("serializes one surface as bb's existing structured composer pill", () => {
+  it("serializes one surface as cc's existing structured composer pill", () => {
     const surface = SURFACES_BY_ID.get("composer-actions");
     if (!surface) throw new Error("composer-actions surface missing");
 

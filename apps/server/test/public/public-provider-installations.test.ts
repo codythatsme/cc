@@ -1,15 +1,15 @@
-import { getHost, updateHost } from "@bb/db";
+import { getHost, updateHost } from "@cc/db";
 import { setPluginMachineProviderBridge } from "../../src/services/plugins/plugin-machine-provider-registry.js";
 import type {
   HostDaemonOnlineRpcRequestMessage,
   ProviderCliStatusResponse,
-} from "@bb/host-daemon-contract";
-import { systemProviderInfoSchema } from "@bb/server-contract";
-import { DEFAULT_BB_REQUEST_TIMEOUT_MS } from "@bb/sdk";
+} from "@cc/host-daemon-contract";
+import { systemProviderInfoSchema } from "@cc/server-contract";
+import { DEFAULT_CC_REQUEST_TIMEOUT_MS } from "@cc/sdk";
 import {
   validatePluginProviderDeclaration,
   validatePluginMachineProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk/internal/host-policy";
 import { describe, expect, it, vi } from "vitest";
 import { COMMAND_TIMEOUT_MS } from "../../src/constants.js";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
@@ -389,7 +389,7 @@ describe("public provider installation routes", () => {
 
     await expect(responsePromise).resolves.toEqual({});
     expect(now).toBe(PROVIDER_INSTALLATION_STATUS_TIMEOUT_MS);
-    expect(now).toBeLessThan(DEFAULT_BB_REQUEST_TIMEOUT_MS);
+    expect(now).toBeLessThan(DEFAULT_CC_REQUEST_TIMEOUT_MS);
     expect(statusTimeouts).toHaveLength(expectedStatusRequestCount);
     expect(statusTimeouts.some((timeout) => timeout < COMMAND_TIMEOUT_MS)).toBe(
       true,

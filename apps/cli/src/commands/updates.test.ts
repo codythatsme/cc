@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { UPDATE_STATE_PRESENTATION } from "@bb/domain/update-state";
-import type { HostProviderCliStatusResponse } from "@bb/server-contract";
+import { UPDATE_STATE_PRESENTATION } from "@cc/domain/update-state";
+import type { HostProviderCliStatusResponse } from "@cc/server-contract";
 import { providerState } from "./updates.js";
 
 type ProviderCliStatus = HostProviderCliStatusResponse[string];

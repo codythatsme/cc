@@ -6,12 +6,12 @@ describe("bridge runtime env", () => {
     const sourceEnv = {
       ELECTRON_RUN_AS_NODE: "1",
       PATH: "/usr/bin",
-      BB_THREAD_ID: "thr_123",
+      CC_THREAD_ID: "thr_123",
     };
 
     expect(withoutBridgeRuntimeEnv(sourceEnv)).toEqual({
       PATH: "/usr/bin",
-      BB_THREAD_ID: "thr_123",
+      CC_THREAD_ID: "thr_123",
     });
     expect(sourceEnv.ELECTRON_RUN_AS_NODE).toBe("1");
   });
@@ -19,9 +19,9 @@ describe("bridge runtime env", () => {
   it("keeps the record-mode directory out of provider children", () => {
     expect(
       withoutBridgeRuntimeEnv({
-        BB_PROVIDER_BRIDGE_RECORD_DIR: "/tmp/recordings/codex",
-        BB_CLI: "/usr/local/bin/bb",
+        CC_PROVIDER_BRIDGE_RECORD_DIR: "/tmp/recordings/codex",
+        CC_CLI: "/usr/local/bin/cc",
       }),
-    ).toEqual({ BB_CLI: "/usr/local/bin/bb" });
+    ).toEqual({ CC_CLI: "/usr/local/bin/cc" });
   });
 });

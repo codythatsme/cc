@@ -4,25 +4,25 @@ import {
   BranchPickerRow,
   BranchPickerSearch,
   BranchPickerSectionHeader,
-} from "@bb/shared-ui/branch-picker-primitives";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { LIST_HOVER_TRANSITION } from "@bb/shared-ui/motion";
-import { MenuHoverProvider } from "@bb/shared-ui/menu-item-hover";
+} from "@cc/shared-ui/branch-picker-primitives";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
+import { LIST_HOVER_TRANSITION } from "@cc/shared-ui/motion";
+import { MenuHoverProvider } from "@cc/shared-ui/menu-item-hover";
 import {
   COARSE_POINTER_COMPACT_ICON_SIZE_CLASS,
   COARSE_POINTER_COMPACT_ICON_SIZE_SHRINK_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { blurActiveKeyboardInputWithin } from "@bb/shared-ui/overlay-trigger";
-import { Popover, PopoverContent, PopoverTrigger } from "@bb/shared-ui/popover";
+} from "@cc/shared-ui/coarse-pointer-sizing";
+import { blurActiveKeyboardInputWithin } from "@cc/shared-ui/overlay-trigger";
+import { Popover, PopoverContent, PopoverTrigger } from "@cc/shared-ui/popover";
 import {
   OPTION_BASE_CLASS_NAME,
   OPTION_INTERACTIVE_CLASS_NAME,
   OPTION_MUTED_CLASS_NAME,
   OPTION_TRIGGER_CONTENT_CLASS_NAME,
-} from "@bb/shared-ui/option-display";
-import { cn } from "@bb/shared-ui/lib/utils";
-import type { GitBranchRefClassification } from "@bb/domain";
+} from "@cc/shared-ui/option-display";
+import { cn } from "@cc/shared-ui/lib/utils";
+import type { GitBranchRefClassification } from "@cc/domain";
 import { searchPickerOptions } from "./picker-search";
 import { useResetPickerScroll } from "./useResetPickerScroll";
 

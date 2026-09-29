@@ -4,12 +4,12 @@ import type {
   ReasoningLevel,
   ServiceTier,
   ThreadRuntimeDisplayStatus,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   CreateQueuedMessageRequest,
   ExistingThreadExecutionInputSources,
   SendMessageRequest,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { FollowUpSubmitMode } from "./follow-up-submit-mode.js";
 
 export interface SendMessageMutationRequest extends SendMessageRequest {

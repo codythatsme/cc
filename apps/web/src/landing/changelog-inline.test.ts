@@ -20,14 +20,14 @@ describe("ChangelogInline", () => {
   });
 
   it("renders inline code inside bold text", () => {
-    expect(render("**Run `bb plugin install` now.**")).toBe(
-      "<strong>Run <code>bb plugin install</code> now.</strong>",
+    expect(render("**Run `cc plugin install` now.**")).toBe(
+      "<strong>Run <code>cc plugin install</code> now.</strong>",
     );
   });
 
   it("renders italic and bold italic article text without visible markers", () => {
-    expect(render("***bb*** is a *software factory.*")).toBe(
-      "<strong><em>bb</em></strong> is a <em>software factory.</em>",
+    expect(render("***cc*** is a *software factory.*")).toBe(
+      "<strong><em>cc</em></strong> is a <em>software factory.</em>",
     );
   });
 

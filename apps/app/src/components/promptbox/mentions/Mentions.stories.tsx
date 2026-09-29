@@ -5,7 +5,7 @@ import type {
   ProviderCommandSuggestion,
   PromptMentionSuggestion,
   TypeaheadMenuState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import { orderPromptMentionSuggestions } from "@/hooks/promptMentionCandidates";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 
@@ -80,7 +80,7 @@ const threadSuggestions: PromptMentionSuggestion[] = [
     kind: "thread",
     path: "thread:thr_qfk8ksbxkk",
     replacement: "thread:thr_qfk8ksbxkk",
-    projectId: "proj_bb",
+    projectId: "proj_cc",
     threadId: "thr_qfk8ksbxkk",
     title: "Wire up promptbox stories and trim FollowUp API",
     relation: null,
@@ -89,7 +89,7 @@ const threadSuggestions: PromptMentionSuggestion[] = [
     kind: "thread",
     path: "thread:thr_mgr_kj4n2x",
     replacement: "thread:thr_mgr_kj4n2x",
-    projectId: "proj_bb",
+    projectId: "proj_cc",
     threadId: "thr_mgr_kj4n2x",
     title: "Parent: app/timeline cleanup sprint",
     relation: null,
@@ -111,7 +111,7 @@ const relatedThreadSuggestions: PromptMentionSuggestion[] = [
     kind: "thread",
     path: "thread:thr_parent_9dk2",
     replacement: "thread:thr_parent_9dk2",
-    projectId: "proj_bb",
+    projectId: "proj_cc",
     threadId: "thr_parent_9dk2",
     title: "Explain issue 3694",
     relation: "parent",
@@ -120,7 +120,7 @@ const relatedThreadSuggestions: PromptMentionSuggestion[] = [
     kind: "thread",
     path: "thread:thr_child_7fq1",
     replacement: "thread:thr_child_7fq1",
-    projectId: "proj_bb",
+    projectId: "proj_cc",
     threadId: "thr_child_7fq1",
     title: "Review exchange for concerns",
     relation: "child",
@@ -129,7 +129,7 @@ const relatedThreadSuggestions: PromptMentionSuggestion[] = [
     kind: "thread",
     path: "thread:thr_sibling_2xm8",
     replacement: "thread:thr_sibling_2xm8",
-    projectId: "proj_bb",
+    projectId: "proj_cc",
     threadId: "thr_sibling_2xm8",
     title: "Explain issue 3964 opus",
     relation: "same-parent",
@@ -138,7 +138,7 @@ const relatedThreadSuggestions: PromptMentionSuggestion[] = [
     kind: "thread",
     path: "thread:thr_roommate_5te3",
     replacement: "thread:thr_roommate_5te3",
-    projectId: "proj_bb",
+    projectId: "proj_cc",
     threadId: "thr_roommate_5te3",
     title: "Explain branch behavior",
     relation: "same-environment",
@@ -160,7 +160,7 @@ const longRelatedThreadSuggestions: PromptMentionSuggestion[] = [
     kind: "thread",
     path: "thread:thr_long_title",
     replacement: "thread:thr_long_title",
-    projectId: "proj_bb",
+    projectId: "proj_cc",
     threadId: "thr_long_title",
     title:
       "Reconcile daemon turns the server lost track of on an explicit stop request",

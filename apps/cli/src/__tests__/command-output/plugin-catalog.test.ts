@@ -22,10 +22,10 @@ const searchResult = {
   collections: [],
   source: "builtin:linear",
   repositoryUrl: null,
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "cc-official",
+  marketplaceDisplayName: "CC Official",
+  publisherKey: "cc-official",
+  publisherLabel: "CC Official",
   official: true,
   author: null,
   installed: false,
@@ -77,7 +77,7 @@ const installedPlugin = {
   provenance: "catalog",
   isOrphanedBuiltin: false,
   catalogEntryId: "linear",
-  publisherLabel: "BB Community",
+  publisherLabel: "CC Community",
   sourceDisplay: "builtin · linear",
   updateState: {},
   enabled: true,
@@ -109,7 +109,7 @@ function json(value: object, status = 200): Response {
   });
 }
 
-describe("bb plugin catalog", () => {
+describe("cc plugin catalog", () => {
   setupCommandOutputTestEnvironment();
   const register: CommandRegistrar = (program) =>
     registerPluginCommands(program, () => "http://server");
@@ -153,7 +153,7 @@ describe("bb plugin catalog", () => {
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(output).toContain("Marketplace");
     expect(output).toContain("Acme Plugins");
-    expect(output).toContain("BB Official");
+    expect(output).toContain("CC Official");
   });
 
   it("adds an Installs column only once a listing reports counts", async () => {
@@ -200,7 +200,7 @@ describe("bb plugin catalog", () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       json({ ok: true, plugin: installedPlugin }),
     );
-    const source = "https://github.com/acme/bb-plugin-linear";
+    const source = "https://github.com/acme/cc-plugin-linear";
 
     await runCommand(["plugin", "install", source, "--yes"], register);
 
@@ -217,7 +217,7 @@ describe("bb plugin catalog", () => {
     vi.mocked(fetch).mockImplementation(async () =>
       json({ ok: true, plugin: installedPlugin }),
     );
-    const source = "git:github.com/acme/bb-plugins@main";
+    const source = "git:github.com/acme/cc-plugins@main";
 
     await runCommand(
       ["plugin", "install", source, "--plugin", "linear", "--yes"],
@@ -257,7 +257,7 @@ describe("bb plugin catalog", () => {
       [
         "plugin",
         "install",
-        "git:github.com/acme/bb-plugins@^1.2.0",
+        "git:github.com/acme/cc-plugins@^1.2.0",
         "--tag-prefix",
         "linear/",
         "--yes",
@@ -271,15 +271,15 @@ describe("bb plugin catalog", () => {
           (call) =>
             (JSON.parse(String(call[1]?.body)) as { source: string }).source,
         ),
-    ).toEqual(["git:github.com/acme/bb-plugins@semver:linear/:^1.2.0"]);
+    ).toEqual(["git:github.com/acme/cc-plugins@semver:linear/:^1.2.0"]);
 
     const errorSpy = vi.mocked(console.error);
     for (const args of [
-      ["plugin", "install", "git:github.com/acme/bb-plugins", "--yes"],
+      ["plugin", "install", "git:github.com/acme/cc-plugins", "--yes"],
       [
         "plugin",
         "install",
-        "git:github.com/acme/bb-plugins@semver:^1.2.0",
+        "git:github.com/acme/cc-plugins@semver:^1.2.0",
         "--yes",
       ],
     ]) {
@@ -300,7 +300,7 @@ describe("bb plugin catalog", () => {
         [
           "plugin",
           "install",
-          "git:github.com/acme/bb-plugins@main",
+          "git:github.com/acme/cc-plugins@main",
           "--plugin",
           "linear",
           "--subdirectory",
@@ -353,7 +353,7 @@ describe("bb plugin catalog", () => {
       entryId: "linear",
     });
     expect(collectLogPayloads(vi.mocked(console.log)).join("\n")).toContain(
-      "bundled with BB",
+      "bundled with CC",
     );
   });
 
@@ -395,10 +395,10 @@ describe("bb plugin catalog", () => {
         json({
           plan: {
             ...thirdPartyPlan,
-            source: "npm:bb-plugin-notes@beta",
+            source: "npm:cc-plugin-notes@beta",
             resolvedSource: {
               kind: "npm",
-              package: "bb-plugin-notes",
+              package: "cc-plugin-notes",
               tag: "beta",
               registry: "https://npm.acme.test",
             },
@@ -413,7 +413,7 @@ describe("bb plugin catalog", () => {
     );
 
     const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("npm package: bb-plugin-notes@beta");
+    expect(output).toContain("npm package: cc-plugin-notes@beta");
     expect(output).toContain("registry: https://npm.acme.test");
   });
 
@@ -465,12 +465,12 @@ describe("bb plugin catalog", () => {
       .mockResolvedValueOnce(json({ ok: true, plugin: installedPlugin }));
 
     await runCommand(
-      ["plugin", "install", "linear@bb-official", "--yes"],
+      ["plugin", "install", "linear@cc-official", "--yes"],
       register,
     );
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "http://server/api/v1/plugin-catalog/install-plan?entryId=linear&marketplace=bb-official",
+      "http://server/api/v1/plugin-catalog/install-plan?entryId=linear&marketplace=cc-official",
     );
   });
 

@@ -8,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   installTestPluginRuntime,
   renderSlot,
-} from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk/testing/app";
 import {
   makePluginProject,
   makeSidebarThread,

@@ -1,12 +1,12 @@
 import { useId, useState, type FormEvent, type RefObject } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Input } from "@bb/shared-ui/input";
+} from "@cc/shared-ui/dialog";
+import { Input } from "@cc/shared-ui/input";
 import { RenameDialog } from "./RenameDialog";
 import { useNameValidation } from "./useNameValidation.js";
 

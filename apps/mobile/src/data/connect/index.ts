@@ -1,5 +1,4 @@
 export {
-  DEFAULT_CONNECT_APEX_URL,
   parseConnectPairingPayload,
   resolveEnrollmentTarget,
   type ConnectPairingInput,

@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import type { ExperimentalSidebarNavigationRegistration } from "@get-bb/plugin-sdk";
+import type { ExperimentalSidebarNavigationRegistration } from "@codythatsme/plugin-sdk";
 import {
   collectPluginAppRegistrations,
   isPluginAppDefinition,

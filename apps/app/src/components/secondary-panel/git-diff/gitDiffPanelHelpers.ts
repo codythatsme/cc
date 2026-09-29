@@ -1,5 +1,5 @@
-import type { WorkspaceCommitSummary, WorkspaceDiffTarget } from "@bb/domain";
-import type { DiffFileEntry } from "@bb/server-contract";
+import type { WorkspaceCommitSummary, WorkspaceDiffTarget } from "@cc/domain";
+import type { DiffFileEntry } from "@cc/server-contract";
 import picomatch from "picomatch/posix";
 import type { GitDiffSelectionOption } from "../GitDiffToolbar";
 

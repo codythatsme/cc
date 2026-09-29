@@ -6,11 +6,11 @@ import type {
   ExperimentalPluginBrowserPageEvaluateOptions,
   ExperimentalPluginBrowserToolbarActionProps,
   JsonValue,
-} from "@get-bb/plugin-sdk/app";
-import { loadPluginApp, renderSlot } from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk/app";
+import { loadPluginApp, renderSlot } from "@codythatsme/plugin-sdk/testing/app";
 
 const app = await loadPluginApp(() => import("./app"));
-const { useComposer } = await import("@get-bb/plugin-sdk/app");
+const { useComposer } = await import("@codythatsme/plugin-sdk/app");
 
 afterEach(cleanup);
 
@@ -109,7 +109,7 @@ describe("AnnotateAction", () => {
     });
     expect(
       fake.evaluate.mock.calls.some(([expression]) =>
-        expression.includes("__bbAgentAnnotations.activate()"),
+        expression.includes("__ccAgentAnnotations.activate()"),
       ),
     ).toBe(true);
 

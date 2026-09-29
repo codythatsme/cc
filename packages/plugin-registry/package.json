@@ -1,5 +1,5 @@
 {
-  "name": "@bb/plugin-registry",
+  "name": "@cc/plugin-registry",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,9 +9,9 @@
     "test": "node ./scripts/build-registry.mjs --check && vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "@bb/plugin-build": "workspace:*",
-    "@bb/tsconfig": "workspace:*",
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@cc/plugin-build": "workspace:*",
+    "@cc/tsconfig": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.16",
     "@radix-ui/react-alert-dialog": "^1.1.19",
     "@radix-ui/react-aspect-ratio": "^1.1.11",

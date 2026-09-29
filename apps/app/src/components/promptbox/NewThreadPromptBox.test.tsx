@@ -2,13 +2,13 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import type { Host } from "@bb/domain";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+import type { Host } from "@cc/domain";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   SystemEnvironmentProvider,
   SystemMachineProvider,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { EnvironmentSlot, ProjectlessMachineSlot } from "./NewThreadPromptBox";
 
 const host = makeHost({

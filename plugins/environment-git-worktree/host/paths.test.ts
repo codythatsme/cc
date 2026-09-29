@@ -1,4 +1,4 @@
-import { WorkspaceError } from "bb-environment-provider-host/git";
+import { WorkspaceError } from "cc-environment-provider-host/git";
 import { describe, expect, it } from "vitest";
 import {
   deriveRepoDirName,
@@ -83,12 +83,12 @@ describe("managed worktree paths", () => {
   it("keeps derived targets inside their validated attempt root", () => {
     expect(
       resolveWorktreeTargetPath({
-        dataDir: "/Users/me/.bb/plugin-data",
+        dataDir: "/Users/me/.cc/plugin-data",
         pathKey: "thr_123-2",
         sourcePath: "/Users/me/code/Repo With Space",
       }),
     ).toBe(
-      "/Users/me/.bb/plugin-data/worktrees/thr_123-2/Repo-With-Space-7373994537587106",
+      "/Users/me/.cc/plugin-data/worktrees/thr_123-2/Repo-With-Space-7373994537587106",
     );
   });
 

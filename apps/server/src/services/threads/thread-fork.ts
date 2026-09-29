@@ -1,7 +1,7 @@
-import { getEnvironment, getThread } from "@bb/db";
-import type { EnvironmentRow } from "@bb/db";
-import type { PromptInput, Thread } from "@bb/domain";
-import type { ForkThreadRequest } from "@bb/server-contract";
+import { getEnvironment, getThread } from "@cc/db";
+import type { EnvironmentRow } from "@cc/db";
+import type { PromptInput, Thread } from "@cc/domain";
+import type { ForkThreadRequest } from "@cc/server-contract";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import { resolveExistingThreadPermissionMode } from "./thread-execution-plan.js";

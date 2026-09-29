@@ -1,6 +1,6 @@
 import { defineWorkspaceTestConfig } from "../../vitest.shared.js";
 
-const parsedTimeoutScale = Number(process.env.BB_TEST_TIMEOUT_SCALE ?? 1);
+const parsedTimeoutScale = Number(process.env.CC_TEST_TIMEOUT_SCALE ?? 1);
 const timeoutScale =
   Number.isFinite(parsedTimeoutScale) && parsedTimeoutScale > 0
     ? parsedTimeoutScale
@@ -10,10 +10,10 @@ export default defineWorkspaceTestConfig({
   test: {
     hookTimeout: Math.ceil(60_000 * timeoutScale),
     env: {
-      BB_DATA_DIR: "/tmp/bb-integration-test",
-      BB_SERVER_PORT: "49161",
-      BB_SERVER_URL: "http://127.0.0.1:49161",
-      BB_HOST_DAEMON_PORT: "49162",
+      CC_DATA_DIR: "/tmp/cc-integration-test",
+      CC_SERVER_PORT: "49161",
+      CC_SERVER_URL: "http://127.0.0.1:49161",
+      CC_HOST_DAEMON_PORT: "49162",
       SCRIPTED_ECHO_OPTIONS: JSON.stringify({ uniqueProviderThreadIds: true }),
     },
     silent: "passed-only",
@@ -22,7 +22,7 @@ export default defineWorkspaceTestConfig({
       {
         extends: true,
         test: {
-          name: "@bb/integration-tests",
+          name: "@cc/integration-tests",
           fileParallelism: true,
           isolate: false,
           globalSetup: ["./global-setup.ts"],
@@ -32,7 +32,7 @@ export default defineWorkspaceTestConfig({
       {
         extends: true,
         test: {
-          name: "@bb/integration-tests:native-roots-golden",
+          name: "@cc/integration-tests:native-roots-golden",
           include: ["native-roots-golden/**/*.test.ts"],
         },
       },

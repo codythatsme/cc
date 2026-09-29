@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { PromptMentionResource } from "@bb/domain";
+import type { PromptMentionResource } from "@cc/domain";
 
 export type PromptMentionLinkResolver = (
   resource: PromptMentionResource,

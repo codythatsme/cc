@@ -5,15 +5,15 @@ import type {
   UiPreferenceEntry,
   UiPreferenceKey,
   UiPreferenceValue,
-} from "@bb/domain";
-import type { UiPreferencesResponse } from "@bb/server-contract";
+} from "@cc/domain";
+import type { UiPreferencesResponse } from "@cc/server-contract";
 import { appToast } from "@/components/ui/app-toast";
 import {
   getCachedUiPreferences,
   invalidateCachedUiPreferences,
   setCachedUiPreferences,
 } from "@/hooks/cache-owners/ui-preferences-cache-owner";
-import { BbHttpError, sdk } from "../sdk";
+import { CcHttpError, sdk } from "../sdk";
 import {
   clearLegacyLocalUiPreference,
   readLegacyLocalUiPreference,
@@ -191,7 +191,7 @@ async function refetchUiPreferences(
 }
 
 function isUiPreferenceConflict(error: unknown): boolean {
-  return error instanceof BbHttpError && error.status === 409;
+  return error instanceof CcHttpError && error.status === 409;
 }
 
 function recordServerEntry<Key extends UiPreferenceKey>(

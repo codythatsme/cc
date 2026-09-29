@@ -1,4 +1,4 @@
-import type { BbPluginApi, PluginRpcHandlers } from "@get-bb/plugin-sdk";
+import type { CcPluginApi, PluginRpcHandlers } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import type {
   Attachment,
@@ -79,7 +79,7 @@ function formatAttachments(
     .map(
       (attachment) =>
         `- ${attachment.fileName} · ${attachment.id}\n` +
-        `  Fetch with: bb tasks attachment get ${attachment.id} --out <path>`,
+        `  Fetch with: cc tasks attachment get ${attachment.id} --out <path>`,
     )
     .join("\n");
 }
@@ -103,14 +103,14 @@ export function buildSeedPrompt(input: SeedPromptInput): string {
     ),
     markdownSection(
       "Project context",
-      `- Name: ${input.project.name}\n- Linked bb project: ${input.project.linkedBbProjectId ?? "Not linked"}`,
+      `- Name: ${input.project.name}\n- Linked cc project: ${input.project.linkedCcProjectId ?? "Not linked"}`,
     ),
     markdownSection("Sub-tasks", formatSubtasks(input.subtasks)),
     markdownSection("Attachments", formatAttachments(input.attachments)),
     markdownSection("Recent comments", formatComments(input.recentComments)),
     markdownSection(
       "Report-back contract",
-      `You are working on task ${input.task.key}. Use the bb tasks CLI: comment substantive updates (bb tasks comment ${input.task.key} --body ...), attach result artifacts, set status when done (bb tasks update ${input.task.key} --status in_review) or explain blockage in a comment. Your thread is already attached to the task.`,
+      `You are working on task ${input.task.key}. Use the cc tasks CLI: comment substantive updates (cc tasks comment ${input.task.key} --body ...), attach result artifacts, set status when done (cc tasks update ${input.task.key} --status in_review) or explain blockage in a comment. Your thread is already attached to the task.`,
     ),
   ];
 
@@ -156,11 +156,11 @@ function requirePreset(store: TasksStore, presetId: string): Preset {
   return preset;
 }
 
-function requireLinkedBbProject(project: Project): string {
-  if (project.linkedBbProjectId) return project.linkedBbProjectId;
+function requireLinkedCcProject(project: Project): string {
+  if (project.linkedCcProjectId) return project.linkedCcProjectId;
   throw new DelegationError(
     "project_not_linked",
-    `Task project "${project.name}" is not linked to a bb project`,
+    `Task project "${project.name}" is not linked to a cc project`,
   );
 }
 
@@ -182,11 +182,11 @@ function collectAttachments(
 }
 
 type SpawnEnvironment = Parameters<
-  BbPluginApi["sdk"]["threads"]["spawn"]
+  CcPluginApi["sdk"]["threads"]["spawn"]
 >[0]["environment"];
 
 async function presetSpawnEnvironment(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   preset: Preset,
 ): Promise<SpawnEnvironment> {
   if (preset.environmentKind === "project-default") {
@@ -194,11 +194,11 @@ async function presetSpawnEnvironment(
   }
 
   const hostId =
-    preset.machineId ?? (await bb.sdk.system.config()).primaryHostId;
+    preset.machineId ?? (await cc.sdk.system.config()).primaryHostId;
   if (hostId === null) {
     throw new DelegationError(
       "spawn_target_invalid",
-      "Could not create a worktree because BB has no default machine",
+      "Could not create a worktree because CC has no default machine",
     );
   }
   return {
@@ -214,7 +214,7 @@ async function presetSpawnEnvironment(
   };
 }
 
-function isBbHttpError(
+function isCcHttpError(
   error: unknown,
 ): error is Error & { code: string | null; status: number } {
   return (
@@ -238,7 +238,7 @@ const SPAWN_TARGET_ERROR_CODES = new Set([
 function mapSpawnTargetError(error: unknown, preset: Preset): never {
   if (
     preset.environmentKind === "new-worktree" &&
-    isBbHttpError(error) &&
+    isCcHttpError(error) &&
     error.code !== null &&
     SPAWN_TARGET_ERROR_CODES.has(error.code)
   ) {
@@ -273,12 +273,12 @@ export function createSystemComment(
   });
 }
 
-export function publishThreadsChanged(bb: BbPluginApi, taskId: string): void {
+export function publishThreadsChanged(cc: CcPluginApi, taskId: string): void {
   const payload: ThreadsChangedEvent = { taskId };
-  bb.realtime.publish("threads:changed", payload);
+  cc.realtime.publish("threads:changed", payload);
 }
 
-type SdkThread = Awaited<ReturnType<BbPluginApi["sdk"]["threads"]["get"]>>;
+type SdkThread = Awaited<ReturnType<CcPluginApi["sdk"]["threads"]["get"]>>;
 
 function taskThreadLiveStatus(thread: SdkThread): TaskThreadLiveStatus {
   if (thread.deletedAt != null) return "completed";
@@ -297,14 +297,14 @@ function taskThreadLiveStatus(thread: SdkThread): TaskThreadLiveStatus {
 }
 
 export function handlers(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   store: TasksApiStore,
 ): PluginRpcHandlers<typeof delegationRpcContract> {
   return {
     async delegate(input) {
       const task = requireTask(store.tasks, input.taskId);
       const project = requireProject(store.tasks, task.projectId);
-      const linkedBbProjectId = requireLinkedBbProject(project);
+      const linkedCcProjectId = requireLinkedCcProject(project);
       const preset = requirePreset(store.tasks, input.presetId);
       const comments = store.tasks.listComments(task.id);
       const recentComments = comments.slice(-5);
@@ -326,10 +326,10 @@ export function handlers(
         extraInstructions: input.extraInstructions,
       });
 
-      const environment = await presetSpawnEnvironment(bb, preset);
-      const thread = await bb.sdk.threads
+      const environment = await presetSpawnEnvironment(cc, preset);
+      const thread = await cc.sdk.threads
         .spawn({
-          projectId: linkedBbProjectId,
+          projectId: linkedCcProjectId,
           environment,
           providerId: execution.providerId,
           model: execution.model,
@@ -372,28 +372,28 @@ export function handlers(
       });
 
       try {
-        const currentThread = await bb.sdk.threads.get({ threadId: thread.id });
+        const currentThread = await cc.sdk.threads.get({ threadId: thread.id });
         const currentLiveStatus = taskThreadLiveStatus(currentThread);
         if (currentLiveStatus !== taskThread.liveStatus) {
           store.tasks.updateTaskThreadStatus(taskThread.id, currentLiveStatus);
         }
       } catch (error) {
-        bb.log.warn(
+        cc.log.warn(
           `Could not read delegated thread ${thread.id} after attach: ${errorMessage(
             error,
           )}`,
         );
       }
 
-      publishThreadsChanged(bb, task.id);
-      publishTasksChanged(bb, task.id, task.projectId);
-      publishCommentsChanged(bb, task.id);
+      publishThreadsChanged(cc, task.id);
+      publishTasksChanged(cc, task.id, task.projectId);
+      publishCommentsChanged(cc, task.id);
       return { threadId: thread.id };
     },
 
     async taskThreadsAttach(input) {
       const task = requireTask(store.tasks, input.taskId);
-      const thread = await bb.sdk.threads.get({ threadId: input.threadId });
+      const thread = await cc.sdk.threads.get({ threadId: input.threadId });
       const title = truncateToWidth(
         thread.title ?? thread.titleFallback ?? delegatedThreadTitle(task),
         MAX_DELEGATED_THREAD_TITLE_WIDTH,
@@ -407,8 +407,8 @@ export function handlers(
         liveStatus: taskThreadLiveStatus(thread),
       });
 
-      publishThreadsChanged(bb, task.id);
-      publishTasksChanged(bb, task.id, task.projectId);
+      publishThreadsChanged(cc, task.id);
+      publishTasksChanged(cc, task.id, task.projectId);
       return { threadId: thread.id };
     },
 
@@ -425,16 +425,16 @@ export function handlers(
       }
       store.tasks.deleteTaskThread(taskThread.id);
 
-      publishThreadsChanged(bb, task.id);
-      publishTasksChanged(bb, task.id, task.projectId);
+      publishThreadsChanged(cc, task.id);
+      publishTasksChanged(cc, task.id, task.projectId);
       return { threadId: taskThread.threadId };
     },
   };
 }
 
 export function registerDelegation(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   store: TasksApiStore,
 ): void {
-  bb.rpc.register(delegationRpcContract, handlers(bb, store));
+  cc.rpc.register(delegationRpcContract, handlers(cc, store));
 }

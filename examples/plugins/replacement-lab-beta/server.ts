@@ -1,5 +1,5 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 
-export default function replacementLabBeta(bb: BbPluginApi) {
-  bb.log.info("Replacement Lab Beta loaded");
+export default function replacementLabBeta(cc: CcPluginApi) {
+  cc.log.info("Replacement Lab Beta loaded");
 }

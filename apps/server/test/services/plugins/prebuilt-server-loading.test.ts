@@ -9,20 +9,19 @@ import {
   setExperiments,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
+} from "@cc/db";
 import {
   defaultExperiments,
   PLUGIN_SDK_MAJOR,
   PLUGIN_SDK_VERSION,
-} from "@bb/domain";
-import type { Logger } from "@bb/logger";
+} from "@cc/domain";
+import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
   createPluginService,
   type PluginService,
 } from "../../../src/services/plugins/plugin-service.js";
 import { testLogger } from "../../helpers/test-app.js";
-import { createNoopTelemetryService } from "../../../src/services/system/telemetry.js";
 
 const logger = testLogger as unknown as Logger;
 
@@ -52,8 +51,8 @@ function gitPersistence(url: string, requestedRef: string) {
 
 const THROWING_SERVER_TS = `throw new Error("source must not load");\n`;
 
-const PREBUILT_SERVER_JS = `export default async function plugin(bb) {
-  bb.log.info("dist");
+const PREBUILT_SERVER_JS = `export default async function plugin(cc) {
+  cc.log.info("dist");
   globalThis.__prebuiltDistLoads = (globalThis.__prebuiltDistLoads ?? 0) + 1;
 }
 `;
@@ -66,10 +65,9 @@ describe("prebuilt server bundle loading", () => {
   beforeEach(async () => {
     db = createConnection(":memory:");
     migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "bb-plugin-prebuilt-"));
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-prebuilt-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
-      telemetry: createNoopTelemetryService(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
@@ -100,7 +98,7 @@ describe("prebuilt server bundle loading", () => {
         name,
         version: "0.1.0",
         type: "commonjs",
-        bb: {
+        cc: {
           name: "Prebuilt server fixture",
           description: "Prebuilt plugin server fixture.",
           branding: { icon: "Zap" },
@@ -121,11 +119,11 @@ describe("prebuilt server bundle loading", () => {
   }
 
   it("loads a compatible ESM prebuild from a CommonJS plugin package", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-gitdist");
+    const rootDir = await writePrebuiltPlugin("cc-plugin-gitdist");
     upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/bb-plugin-gitdist", "v1"),
+      ...gitPersistence("https://github.com/acme/cc-plugin-gitdist", "v1"),
       id: "gitdist",
-      source: "git:github.com/acme/bb-plugin-gitdist@v1",
+      source: "git:github.com/acme/cc-plugin-gitdist@v1",
       rootDir,
       version: "0.1.0",
       enabled: true,
@@ -150,14 +148,14 @@ describe("prebuilt server bundle loading", () => {
   });
 
   it("never prefers dist for path installs — edited source must win", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-pathsrc");
+    const rootDir = await writePrebuiltPlugin("cc-plugin-pathsrc");
     const entry = await service.installPath(rootDir);
     expect(entry.status).toBe("error");
     expect(entry.statusDetail).toContain("source must not load");
   });
 
   it("compiles path source into a reusable cache and rebuilds after edits", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-pathcache");
+    const rootDir = await writePrebuiltPlugin("cc-plugin-pathcache");
     const sourcePath = join(rootDir, "server.ts");
     await writeFile(
       sourcePath,
@@ -208,7 +206,7 @@ export default function plugin() {
   });
 
   it("uses JITI on the next load when the legacy loader experiment is enabled", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-legacy-loader");
+    const rootDir = await writePrebuiltPlugin("cc-plugin-legacy-loader");
     const sourcePath = join(rootDir, "server.ts");
     await writeFile(
       sourcePath,
@@ -257,7 +255,7 @@ export default function plugin() {
   });
 
   it("bounds compiled artifacts and evicts loaded source modules", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-reload-retention");
+    const rootDir = await writePrebuiltPlugin("cc-plugin-reload-retention");
     const sourcePath = join(rootDir, "server.ts");
     const cacheRoot = join(workDir, "data", "plugins", "runtime", "server");
     for (let generation = 0; generation < 8; generation += 1) {
@@ -284,14 +282,14 @@ export default function plugin() {
   });
 
   it("pre-1.0: falls back to source when the dist SDK version differs within major 0", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-minordist", {
+    const rootDir = await writePrebuiltPlugin("cc-plugin-minordist", {
       sdkMajor: PLUGIN_SDK_MAJOR,
       sdkVersion: `${PLUGIN_SDK_MAJOR}.999.0`,
     });
     upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/bb-plugin-minordist", "v1"),
+      ...gitPersistence("https://github.com/acme/cc-plugin-minordist", "v1"),
       id: "minordist",
-      source: "git:github.com/acme/bb-plugin-minordist@v1",
+      source: "git:github.com/acme/cc-plugin-minordist@v1",
       rootDir,
       version: "0.1.0",
       enabled: true,
@@ -304,14 +302,14 @@ export default function plugin() {
   });
 
   it("falls back to source when the dist meta's SDK major mismatches", async () => {
-    const rootDir = await writePrebuiltPlugin("bb-plugin-staledist", {
+    const rootDir = await writePrebuiltPlugin("cc-plugin-staledist", {
       sdkMajor: 999,
       sdkVersion: "999.0.0",
     });
     upsertInstalledPlugin(db, {
-      ...gitPersistence("https://github.com/acme/bb-plugin-staledist", "v1"),
+      ...gitPersistence("https://github.com/acme/cc-plugin-staledist", "v1"),
       id: "staledist",
-      source: "git:github.com/acme/bb-plugin-staledist@v1",
+      source: "git:github.com/acme/cc-plugin-staledist@v1",
       rootDir,
       version: "0.1.0",
       enabled: true,

@@ -1,15 +1,15 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   COARSE_POINTER_COMPACT_ICON_BUTTON_CLASS,
   COARSE_POINTER_COMPACT_ICON_SIZE_CLASS,
   COARSE_POINTER_TEXT_SM_CLASS,
-} from "@bb/shared-ui/coarse-pointer-sizing";
-import { EmptyState } from "@bb/shared-ui/empty-state";
-import { Icon } from "@bb/shared-ui/icon";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/coarse-pointer-sizing";
+import { EmptyState } from "@cc/shared-ui/empty-state";
+import { Icon } from "@cc/shared-ui/icon";
+import { usePointerCoarse } from "@cc/shared-ui/hooks/use-pointer-coarse";
+import { Input } from "@cc/shared-ui/input";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   describeLifecycleError,
   formatLifecycleErrorDescription,

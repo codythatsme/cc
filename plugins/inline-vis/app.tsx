@@ -4,11 +4,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   definePluginApp,
   Markdown,
-  useBbNavigate,
+  useCcNavigate,
   useRpc,
   type PluginMessageDirectiveProps,
   type MarkdownProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import type { inlineVisRpcContract } from "./server.js";
 
 type PreviewSource = "workspace" | "thread-storage";
@@ -47,7 +47,7 @@ type LoadState =
 const DEFAULT_HEIGHT_PX = 224;
 const MIN_HEIGHT_PX = 120;
 const MAX_HEIGHT_PX = 1_200;
-const COLLAPSED_STORAGE_KEY = "bb.inline-vis.collapsed";
+const COLLAPSED_STORAGE_KEY = "cc.inline-vis.collapsed";
 
 function readCollapsedPreference(): boolean {
   try {
@@ -141,7 +141,7 @@ function InlineVisDirective({
   message,
 }: PluginMessageDirectiveProps) {
   const rpc = useRpc<typeof inlineVisRpcContract>();
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const fileAttr = attributes.file?.trim() ?? "";
   const sourceAttr = attributes.source;
   const heightAttr = attributes.height;

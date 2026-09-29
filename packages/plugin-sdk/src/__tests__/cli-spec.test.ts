@@ -124,9 +124,9 @@ describe("defineCli help", () => {
     for (const argv of [["--help"], ["-h"], ["help"]]) {
       const result = await run(cli, argv);
       expect(result.exitCode, argv.join(" ")).toBe(0);
-      expect(result.stdout).toContain("bb memory catalog");
+      expect(result.stdout).toContain("cc memory catalog");
       expect(result.stdout).toContain("List compact memory summaries");
-      expect(result.stdout).toContain("bb memory add");
+      expect(result.stdout).toContain("cc memory add");
       expect(result.stderr).toBeUndefined();
     }
     expect(ran).not.toHaveBeenCalled();
@@ -136,7 +136,7 @@ describe("defineCli help", () => {
     const cli = memoryLikeCli();
     const result = await run(cli, ["add", "--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("bb memory add --scope <project|global>");
+    expect(result.stdout).toContain("cc memory add --scope <project|global>");
     expect(result.stdout).toContain("--summary <TEXT>");
     expect(result.stdout).toContain("at most 400 characters (required)");
     expect(result.stdout).toContain("--tag <TAG>");
@@ -180,14 +180,14 @@ describe("defineCli help", () => {
 
   it("documents positional arguments", async () => {
     const result = await run(memoryLikeCli(), ["search", "--help"]);
-    expect(result.stdout).toContain("bb memory search <query...>");
+    expect(result.stdout).toContain("cc memory search <query...>");
     expect(result.stdout).toContain("Words to search for (required)");
   });
 
   it("shows help with exit 1 when no command is named", async () => {
     const result = await run(memoryLikeCli(), []);
     expect(result.exitCode).toBe(1);
-    expect(result.stdout).toContain("bb memory catalog");
+    expect(result.stdout).toContain("cc memory catalog");
     expect(ran).not.toHaveBeenCalled();
   });
 });
@@ -198,7 +198,7 @@ describe("defineCli errors", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("unknown command 'catlog'");
     expect(result.stderr).toContain("(Did you mean catalog?)");
-    expect(result.stderr).toContain("bb memory search");
+    expect(result.stderr).toContain("cc memory search");
     expect(result.stdout).toBeUndefined();
   });
 
@@ -232,7 +232,7 @@ describe("defineCli errors", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("unknown option '--limits'");
     expect(result.stderr).toContain("(Did you mean --limit?)");
-    expect(result.stderr).toContain("Usage:\n  bb memory catalog");
+    expect(result.stderr).toContain("Usage:\n  cc memory catalog");
     expect(ran).not.toHaveBeenCalled();
   });
 
@@ -249,7 +249,7 @@ describe("defineCli errors", () => {
     expect(result.stderr).toContain(
       "missing required options: --name, --summary, --details",
     );
-    expect(result.stderr).toContain("Usage:\n  bb memory add");
+    expect(result.stderr).toContain("Usage:\n  cc memory add");
   });
 
   it("reports missing positionals together with missing options", async () => {
@@ -609,21 +609,21 @@ describe("defineCli parsing", () => {
         name: "account-add",
         summary: "Add an account",
         usage:
-          "bb pool account add --provider <claude|codex> [--api-key <value>]",
+          "cc pool account add --provider <claude|codex> [--api-key <value>]",
       },
       {
         name: "account-list",
         summary: "List accounts",
-        usage: "bb pool account list",
+        usage: "cc pool account list",
       },
     ]);
     const help = await run(cli, ["account", "add", "--help"]);
     expect(help.exitCode).toBe(0);
-    expect(help.stdout).toContain("bb pool account add");
+    expect(help.stdout).toContain("cc pool account add");
 
     const stdin = await run(cli, ["account", "add", "--api-key-stdin"]);
     expect(stdin.exitCode).toBe(1);
-    expect(stdin.stderr).toContain("--api-key-stdin is read by the bb CLI");
+    expect(stdin.stderr).toContain("--api-key-stdin is read by the cc CLI");
   });
 
   it("runs a root command when no command word is given", async () => {
@@ -631,9 +631,9 @@ describe("defineCli parsing", () => {
     const cli = defineCli({
       name: "connect",
       summary: "Remote access",
-      description: "Pair from https://getbb.app",
+      description: "Pair from https://cc.example.invalid",
       root: cliCommand({
-        summary: "Pair this bb",
+        summary: "Pair this cc",
         options: {
           code: { type: "string", description: "Pairing code" },
           json: { type: "boolean", description: "Emit JSON" },
@@ -655,8 +655,8 @@ describe("defineCli parsing", () => {
     });
     const bare = await run(cli, []);
     expect(bare.exitCode).toBe(0);
-    expect(bare.stdout).toContain("Pair from https://getbb.app");
-    expect(bare.stdout).toContain("bb connect status");
+    expect(bare.stdout).toContain("Pair from https://cc.example.invalid");
+    expect(bare.stdout).toContain("cc connect status");
     expect(bare.stdout).toContain("--code <value>");
 
     expect((await run(cli, ["--code", "ABCD"])).stdout).toBe("paired");
@@ -665,7 +665,7 @@ describe("defineCli parsing", () => {
       "unknown command 'bogus'",
     );
     expect(cli.commands).toEqual([
-      { name: "status", summary: "Show status", usage: "bb connect status" },
+      { name: "status", summary: "Show status", usage: "cc connect status" },
     ]);
   });
 });
@@ -822,7 +822,7 @@ describe("defineCli json failures", () => {
       error: {
         code: "missing_required",
         message: "missing required options: --name, --summary, --details",
-        hint: expect.stringContaining("bb memory add"),
+        hint: expect.stringContaining("cc memory add"),
       },
     });
     expect(result.stderr).toContain(
@@ -903,14 +903,14 @@ describe("PluginCliError", () => {
     const cli = failing(
       new PluginCliError("Session stopped or expired", {
         code: "session_unavailable",
-        hint: "Reopen with `bb demo open`",
+        hint: "Reopen with `cc demo open`",
         exitCode: 3,
       }),
     );
     const text = await run(cli, ["go"]);
     expect(text.exitCode).toBe(3);
     expect(text.stderr).toContain(
-      "Session stopped or expired (Reopen with `bb demo open`)",
+      "Session stopped or expired (Reopen with `cc demo open`)",
     );
     expect(text.stdout).toBeUndefined();
 
@@ -921,7 +921,7 @@ describe("PluginCliError", () => {
       error: {
         code: "session_unavailable",
         message: "Session stopped or expired",
-        hint: "Reopen with `bb demo open`",
+        hint: "Reopen with `cc demo open`",
       },
     });
     expect(json.stderr).toContain("Session stopped or expired");
@@ -953,18 +953,18 @@ describe("defineCli registration", () => {
         name: "catalog",
         summary: "List compact memory summaries",
         usage:
-          "bb memory catalog [--scope <all|project|global>] [--limit <1-100>] [--json]",
+          "cc memory catalog [--scope <all|project|global>] [--limit <1-100>] [--json]",
       },
       {
         name: "search",
         summary: "Search memory summaries",
-        usage: "bb memory search <query...> [--json]",
+        usage: "cc memory search <query...> [--json]",
       },
       {
         name: "add",
         summary: "Save a project or global memory",
         usage:
-          "bb memory add --scope <project|global> --name <NAME> --summary <TEXT> --details <TEXT> [--tag <TAG>]... [--importance <0-100>] [--pinned] [--json]",
+          "cc memory add --scope <project|global> --name <NAME> --summary <TEXT> --details <TEXT> [--tag <TAG>]... [--importance <0-100>] [--pinned] [--json]",
       },
     ]);
     for (const command of cli.commands ?? []) {
@@ -1045,9 +1045,9 @@ describe("defineCli review regressions", () => {
 
     const help = await run(cli, ["project", "--help"]);
     expect(help.exitCode).toBe(0);
-    expect(help.stdout).toContain("bb tasks project list");
-    expect(help.stdout).toContain("bb tasks project create");
-    expect(help.stdout).not.toContain("bb tasks status");
+    expect(help.stdout).toContain("cc tasks project list");
+    expect(help.stdout).toContain("cc tasks project create");
+    expect(help.stdout).not.toContain("cc tasks status");
 
     const unknown = await run(cli, ["projcet", "--help"]);
     expect(unknown.exitCode).toBe(1);
@@ -1092,7 +1092,7 @@ describe("defineCli review regressions", () => {
           }),
         },
       }),
-    ).toThrow("bb docs pull: --dir is declared by both --into and --folder");
+    ).toThrow("cc docs pull: --dir is declared by both --into and --folder");
   });
 
   it("emits the JSON envelope for --json=true and not for --json=false", async () => {

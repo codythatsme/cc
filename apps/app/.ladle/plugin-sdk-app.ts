@@ -1,6 +1,6 @@
 import { pluginSdkAppImplementation } from "../src/lib/plugin-sdk-app-impl";
 
-export type * from "@get-bb/plugin-sdk";
+export type * from "@codythatsme/plugin-sdk";
 
 export const {
   experimental_Icon,
@@ -22,8 +22,8 @@ export const {
   useRealtime,
   useRealtimeConnectionState,
   useSettings,
-  useBbContext,
-  useBbNavigate,
+  useCcContext,
+  useCcNavigate,
   experimental_useAppPanel,
   experimental_useFixedTabTarget,
   useComposer,

@@ -5,7 +5,7 @@ import {
 } from "./upstream-transport.js";
 import path from "node:path";
 import { z } from "zod";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { registerPoolCli } from "./cli.js";
 import {
   accountPoolConfigSchema,
@@ -87,9 +87,9 @@ export function helloResponse(): Response {
 export function createAccountPoolPlugin(
   options: AccountPoolPluginOptions = {},
 ) {
-  return async function accountPoolPlugin(bb: BbPluginApi): Promise<void> {
+  return async function accountPoolPlugin(cc: CcPluginApi): Promise<void> {
     const storedConfig = z.record(z.string(), z.unknown()).parse(
-      (await bb.storage.kv.get("config")) ?? {},
+      (await cc.storage.kv.get("config")) ?? {},
     );
     const hasRemovedSettings =
       "cacheMissDebug" in storedConfig || "cacheMissMinTokens" in storedConfig;
@@ -97,7 +97,7 @@ export function createAccountPoolPlugin(
     delete storedConfig.cacheMissMinTokens;
     let currentSettings = accountPoolConfigSchema.parse(storedConfig);
     if (hasRemovedSettings) {
-      await bb.storage.kv.set("config", currentSettings);
+      await cc.storage.kv.set("config", currentSettings);
     }
     const config: AccountPoolConfigController = {
       get: () => currentSettings,
@@ -107,34 +107,34 @@ export function createAccountPoolPlugin(
           ...currentSettings,
           ...update,
         });
-        await bb.storage.kv.set("config", next);
+        await cc.storage.kv.set("config", next);
         currentSettings = next;
-        bb.realtime.publish(ACCOUNT_POOL_CONFIG_CHANGED, {});
+        cc.realtime.publish(ACCOUNT_POOL_CONFIG_CHANGED, {});
         return next;
       },
     };
     const secretDir = path.join(
-      bb.server.experimental_dataDir,
+      cc.server.experimental_dataDir,
       "plugins",
-      bb.pluginId,
+      cc.pluginId,
       "secrets",
       "accounts",
     );
-    const accounts = new AccountStore(bb.storage.kv, secretDir);
+    const accounts = new AccountStore(cc.storage.kv, secretDir);
     await accounts.initialize();
     const now = options.now ?? Date.now;
     const hubTokens = new HubTokenStore(secretDir, now);
     await hubTokens.initialize();
-    const enrolledHosts = await bb.sdk.hosts.list();
+    const enrolledHosts = await cc.sdk.hosts.list();
     await hubTokens.prune(enrolledHosts.map((host) => host.id));
-    const routing = new RoutingStore(bb.storage.kv, now);
+    const routing = new RoutingStore(cc.storage.kv, now);
     const parentPool = readParentPool(options.env ?? process.env);
     const proxyingParent = (): ParentPool | null =>
       parentPool !== null && currentSettings.parentMode === "proxy"
         ? parentPool
         : null;
-    const db = bb.storage.database();
-    bb.storage.migrate(db, QUOTA_MIGRATIONS);
+    const db = cc.storage.database();
+    cc.storage.migrate(db, QUOTA_MIGRATIONS);
     const quotas = new QuotaStore(db);
     const transport =
       options.fetch === undefined ? createUpstreamTransport() : null;
@@ -158,14 +158,14 @@ export function createAccountPoolPlugin(
       maxAffinityBindings: options.maxAffinityBindings,
       getParentRoute: proxyingParent,
       onUpstreamError: (provider, error) =>
-        bb.log.warn(
+        cc.log.warn(
           `Account Pooler ${provider} transport failed: ${transportErrorCode(error)}.`,
         ),
       onAccountsChanged: () =>
-        bb.realtime.publish(ACCOUNT_POOL_ACCOUNTS_CHANGED, {}),
+        cc.realtime.publish(ACCOUNT_POOL_ACCOUNTS_CHANGED, {}),
     });
     if (transport !== null) {
-      bb.onDispose(async () => {
+      cc.onDispose(async () => {
         await hub.stop();
         await transport.destroy();
       });
@@ -181,7 +181,7 @@ export function createAccountPoolPlugin(
               ? {}
               : { ttlMs: options.availabilityTtlMs }),
             onError: (error) =>
-              bb.log.warn(
+              cc.log.warn(
                 `Account Pooler could not read parent availability: ${error instanceof Error ? error.message : String(error)}.`,
               ),
           });
@@ -199,11 +199,11 @@ export function createAccountPoolPlugin(
       hub,
       hubTokens,
       routing,
-      () => bb.sdk.hosts.list(),
+      () => cc.sdk.hosts.list(),
       async (hostId) =>
-        (await bb.sdk.system.providerStates({ hostId })).providers,
+        (await cc.sdk.system.providerStates({ hostId })).providers,
       now,
-      () => bb.realtime.publish(ACCOUNT_POOL_ACCOUNTS_CHANGED, {}),
+      () => cc.realtime.publish(ACCOUNT_POOL_ACCOUNTS_CHANGED, {}),
       (accountId) => hub.refreshUsage(accountId, true),
       parentStatus,
     );
@@ -222,16 +222,16 @@ export function createAccountPoolPlugin(
       addAccount: (authenticated) => operations.addCodexOAuth(authenticated),
     });
     if ((await accounts.list()).every((account) => !account.enabled)) {
-      bb.status.needsConfiguration(
-        "Add and enable a Claude or Codex account with `bb pool account add`.",
+      cc.status.needsConfiguration(
+        "Add and enable a Claude or Codex account with `cc pool account add`.",
       );
     }
-    registerUsageSource(bb, hub);
-    bb.rpc.register(
+    registerUsageSource(cc, hub);
+    cc.rpc.register(
       accountPoolRpcContract,
       createRpcHandlers(operations, login, codexLogin, config),
     );
-    registerPoolCli(bb, operations, login, codexLogin, config);
+    registerPoolCli(cc, operations, login, codexLogin, config);
     const canServe = async (provider: PoolProvider): Promise<boolean> => {
       if (!(await operations.isRoutingEnabled(provider))) return false;
       if (proxyingParent() !== null && availability !== null) {
@@ -243,7 +243,7 @@ export function createAccountPoolPlugin(
       {
         name: PARENT_URL_ENV,
         value: { serverPath: HUB_BASE_PATH },
-        reason: "Account Pooler hub for nested bb servers on this machine",
+        reason: "Account Pooler hub for nested cc servers on this machine",
       },
       {
         name: PARENT_TOKEN_ENV,
@@ -256,7 +256,7 @@ export function createAccountPoolPlugin(
         name,
         value: "",
         reason:
-          "Account Pooler is isolated from the parent bb server's pool on this instance",
+          "Account Pooler is isolated from the parent cc server's pool on this instance",
       }));
     const contributeFor =
       (provider: PoolProvider, serving: (token: string) => PoolEnvEntry[]) =>
@@ -278,10 +278,10 @@ export function createAccountPoolPlugin(
             statusMessage:
               proxyingParent() === null
                 ? "Credentials are provided by the Account Pooler hub."
-                : "Credentials are proxied to the parent bb server's Account Pooler.",
+                : "Credentials are proxied to the parent cc server's Account Pooler.",
           }
         : null;
-    bb.providers.experimental_contributeEnv(
+    cc.providers.experimental_contributeEnv(
       "claude-code",
       contributeFor("claude", (token) => [
         {
@@ -302,10 +302,10 @@ export function createAccountPoolPlugin(
         },
       ]),
     );
-    bb.providers.experimental_contributeEnvHealth("claude-code", () =>
+    cc.providers.experimental_contributeEnvHealth("claude-code", () =>
       proxiedHealth("claude"),
     );
-    bb.providers.experimental_contributeEnv(
+    cc.providers.experimental_contributeEnv(
       "codex",
       contributeFor("codex", (token) => [
         {
@@ -320,14 +320,14 @@ export function createAccountPoolPlugin(
         },
       ]),
     );
-    bb.providers.experimental_contributeEnvHealth("codex", () =>
+    cc.providers.experimental_contributeEnvHealth("codex", () =>
       proxiedHealth("codex"),
     );
-    bb.onDispose(async () => {
+    cc.onDispose(async () => {
       codexLogin.dispose();
       let timer: ReturnType<typeof setTimeout> | null = null;
       try {
-        const inspection = inspectDisableState(bb, operations);
+        const inspection = inspectDisableState(cc, operations);
         const timeout = new Promise<typeof DISPOSE_INSPECTION_TIMEOUT>(
           (resolve) => {
             timer = setTimeout(
@@ -339,12 +339,12 @@ export function createAccountPoolPlugin(
         );
         const result = await Promise.race([inspection, timeout]);
         if (result === DISPOSE_INSPECTION_TIMEOUT) {
-          bb.log.debug("Account Pooler disable inspection timed out.");
+          cc.log.debug("Account Pooler disable inspection timed out.");
           return;
         }
-        if (result !== null) bb.log.warn(result);
+        if (result !== null) cc.log.warn(result);
       } catch (error) {
-        bb.log.debug(
+        cc.log.debug(
           `Account Pooler disable inspection skipped: ${error instanceof Error ? error.message : String(error)}`,
         );
       } finally {
@@ -352,7 +352,7 @@ export function createAccountPoolPlugin(
       }
     });
     for (const route of ["/v1/messages", "/v1/messages/count_tokens"]) {
-      bb.http.route(
+      cc.http.route(
         "POST",
         route,
         (context) => hub.handle(context.req.raw, "claude", route),
@@ -365,20 +365,20 @@ export function createAccountPoolPlugin(
       "/v1/images/edits",
       "/v1/alpha/search",
     ]) {
-      bb.http.route(
+      cc.http.route(
         "POST",
         route,
         (context) => hub.handle(context.req.raw, "codex", route),
         { auth: "none" },
       );
     }
-    bb.http.route(
+    cc.http.route(
       "GET",
       "/v1/models",
       (context) => hub.handle(context.req.raw, "codex", "/v1/models"),
       { auth: "none" },
     );
-    bb.http.route(
+    cc.http.route(
       "GET",
       AVAILABILITY_PATH,
       async (context) => {
@@ -394,27 +394,27 @@ export function createAccountPoolPlugin(
       },
       { auth: "none" },
     );
-    bb.http.route("HEAD", "/api/hello", () => helloResponse(), {
+    cc.http.route("HEAD", "/api/hello", () => helloResponse(), {
       auth: "none",
     });
-    bb.background.service("hub", {
+    cc.background.service("hub", {
       start: (signal) => hub.start(signal),
     });
   };
 }
 
 async function inspectDisableState(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   operations: PoolOperations,
 ): Promise<string | null> {
-  const installed = await bb.sdk.plugins.list();
+  const installed = await cc.sdk.plugins.list();
   const disabled =
-    installed.plugins.find((plugin) => plugin.id === bb.pluginId)?.enabled ===
+    installed.plugins.find((plugin) => plugin.id === cc.pluginId)?.enabled ===
     false;
   if (!disabled) return null;
   const warnings = await operations.routedThreadsWithoutLocalLogin();
   if (warnings.length === 0) return null;
-  return `Account Pooler disabled with ${warnings.length} recently routed thread${warnings.length === 1 ? "" : "s"} on machines without a local Claude login. Run bb pool status before disabling to inspect them.`;
+  return `Account Pooler disabled with ${warnings.length} recently routed thread${warnings.length === 1 ? "" : "s"} on machines without a local Claude login. Run cc pool status before disabling to inspect them.`;
 }
 
 export default createAccountPoolPlugin();

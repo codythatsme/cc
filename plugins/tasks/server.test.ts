@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
+import { createFakePluginHost } from "@codythatsme/plugin-sdk/testing";
 import plugin, { TASKS_PLUGIN_VERSION } from "./server";
 
 describe("Tasks plugin scaffold", () => {
   it("registers the CLI and RPC surfaces after opening plugin storage", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
 
-    await plugin(bb);
+    await plugin(cc);
 
     expect(harness.logEntries).toEqual([
       {

@@ -10,12 +10,12 @@ import {
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { readCcAppRuntimeFile } from "@cc/config/app-runtime-file";
 import {
   readServerMovedFile,
   type ServerMovedFile,
   writeServerMovedFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -40,11 +40,11 @@ data_dir=$3
 case "$(uname -s)" in
   Darwin)
     mkdir -p "$HOME/Library/LaunchAgents"
-    printf '<plist><dict><key>EnvironmentVariables</key><dict><key>BB_DATA_DIR</key><string>%s</string></dict></dict></plist>\\n' "$data_dir" >"$HOME/Library/LaunchAgents/app.getbb.host-daemon.test.plist"
+    printf '<plist><dict><key>EnvironmentVariables</key><dict><key>CC_DATA_DIR</key><string>%s</string></dict></dict></plist>\\n' "$data_dir" >"$HOME/Library/LaunchAgents/io.github.codythatsme.cc.host-daemon.test.plist"
     ;;
   *)
     mkdir -p "$HOME/.config/systemd/user"
-    printf '[Service]\\nEnvironment="BB_DATA_DIR=%s"\\n' "$data_dir" >"$HOME/.config/systemd/user/bb-host-daemon-test.service"
+    printf '[Service]\\nEnvironment="CC_DATA_DIR=%s"\\n' "$data_dir" >"$HOME/.config/systemd/user/cc-host-daemon-test.service"
     ;;
 esac
 exit "\${FAKE_INSTALLER_EXIT:-0}"
@@ -65,15 +65,15 @@ function movedLock(): ServerMovedFile {
     fromHostId: "host-laptop",
     toHostId: "host-desktop",
     toHostName: "desktop",
-    serverUrl: "https://me.getbb.app",
+    serverUrl: "https://me.cc.example.invalid",
     mode: "connect",
     connectHandle: "me",
-    oldCopyEntries: ["bb.db"],
+    oldCopyEntries: ["cc.db"],
   };
 }
 
 async function createFixture(): Promise<Fixture> {
-  const root = await mkdtemp(join(tmpdir(), "bb-cli-machine-service-"));
+  const root = await mkdtemp(join(tmpdir(), "cc-cli-machine-service-"));
   tempDirs.push(root);
   const dataDir = join(root, "data");
   const homeDir = join(root, "home");
@@ -87,27 +87,27 @@ async function createFixture(): Promise<Fixture> {
   await writeFile(
     join(dataDir, "config.json"),
     JSON.stringify({
-      serverUrl: "https://me.getbb.app",
-      serverHeaders: { "x-bb-connect-machine": "grant-secret" },
+      serverUrl: "https://me.cc.example.invalid",
+      serverHeaders: { "x-cc-connect-machine": "grant-secret" },
     }),
   );
   const installerPath = join(root, "install-machine.sh");
   await writeFile(installerPath, FAKE_INSTALLER);
   const installerLog = join(root, "installer.log");
   vi.stubEnv("HOME", homeDir);
-  vi.stubEnv("BB_MACHINE_INSTALLER", installerPath);
+  vi.stubEnv("CC_MACHINE_INSTALLER", installerPath);
   vi.stubEnv("FAKE_INSTALLER_LOG", installerLog);
   return { dataDir, homeDir, installerLog, root };
 }
 
-async function startRecordedBb(fixture: Fixture): Promise<ChildProcess> {
-  const entryPath = join(fixture.root, "bb-app.js");
+async function startRecordedCc(fixture: Fixture): Promise<ChildProcess> {
+  const entryPath = join(fixture.root, "cc-app.js");
   await writeFile(entryPath, "setInterval(() => {}, 1000);\n");
   const startedAt = new Date().toISOString();
   const child = spawn(process.execPath, [entryPath], { stdio: "ignore" });
   children.push(child);
   await writeFile(
-    join(fixture.dataDir, "bb-app-runtime.json"),
+    join(fixture.dataDir, "cc-app-runtime.json"),
     JSON.stringify({
       entryPath,
       pid: child.pid,
@@ -129,14 +129,14 @@ afterAll(async () => {
   );
 });
 
-describe("bb server install-machine-service", () => {
+describe("cc server install-machine-service", () => {
   setupCommandOutputTestEnvironment();
 
-  it("stops the bb running from the data directory and installs the service for it", async () => {
+  it("stops the cc running from the data directory and installs the service for it", async () => {
     const fixture = await createFixture();
-    const bb = await startRecordedBb(fixture);
-    const bbExit = new Promise<NodeJS.Signals | null>((resolvePromise) => {
-      bb.once("exit", (_code, signal) => resolvePromise(signal));
+    const cc = await startRecordedCc(fixture);
+    const ccExit = new Promise<NodeJS.Signals | null>((resolvePromise) => {
+      cc.once("exit", (_code, signal) => resolvePromise(signal));
     });
 
     await runCommand(
@@ -151,20 +151,20 @@ describe("bb server install-machine-service", () => {
       register,
     );
 
-    await expect(bbExit).resolves.toBe("SIGTERM");
-    await expect(readBbAppRuntimeFile(fixture.dataDir)).resolves.toBeNull();
+    await expect(ccExit).resolves.toBe("SIGTERM");
+    await expect(readCcAppRuntimeFile(fixture.dataDir)).resolves.toBeNull();
     expect(
       (await readFile(fixture.installerLog, "utf8")).trim().split("\n"),
     ).toEqual(["--adopt", "--data-dir", fixture.dataDir]);
     const result = JSON.parse(collectLogPayloads(vi.mocked(console.log))[0]!);
     expect(result).toEqual({
       dataDir: fixture.dataDir,
-      serverUrl: "https://me.getbb.app",
+      serverUrl: "https://me.cc.example.invalid",
       serviceFile: expect.stringContaining(fixture.homeDir),
       toHostName: "desktop",
     });
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      `Stopped bb on this computer (pid ${String(bb.pid)}).`,
+      `Stopped cc on this computer (pid ${String(cc.pid)}).`,
     ]);
     expect(await readServerMovedFile(fixture.dataDir)).toEqual(movedLock());
   });
@@ -187,14 +187,14 @@ describe("bb server install-machine-service", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      `Error: ${fixture.dataDir} is not locked by a server move. This command keeps a computer connected as a machine after its bb server moved to another machine.`,
+      `Error: ${fixture.dataDir} is not locked by a server move. This command keeps a computer connected as a machine after its cc server moved to another machine.`,
     ]);
     await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
   });
 
-  it("leaves bb running when node on the PATH is too old for the service", async () => {
+  it("leaves cc running when node on the PATH is too old for the service", async () => {
     const fixture = await createFixture();
-    const bb = await startRecordedBb(fixture);
+    const cc = await startRecordedCc(fixture);
     const binDir = join(fixture.root, "bin");
     await mkdir(binDir);
     await writeFile(
@@ -218,10 +218,10 @@ describe("bb server install-machine-service", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The background service runs bb with the node on your PATH, which is Node.js 20.18.1. Install Node.js 22.19 or newer, then run this command again.",
+      "Error: The background service runs cc with the node on your PATH, which is Node.js 20.18.1. Install Node.js 22.19 or newer, then run this command again.",
     ]);
-    expect(bb.exitCode).toBeNull();
-    expect(bb.signalCode).toBeNull();
+    expect(cc.exitCode).toBeNull();
+    expect(cc.signalCode).toBeNull();
     await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
   });
 
@@ -238,15 +238,15 @@ describe("bb server install-machine-service", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(readlineMocks.question).toHaveBeenCalledWith(
-      "Stop bb on this computer and install a background service that keeps it connected to desktop? [y/N] ",
+      "Stop cc on this computer and install a background service that keeps it connected to desktop? [y/N] ",
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: The background service install failed; see the installer output above. Until it succeeds, this computer stays connected only while the bb desktop app or npx bb-app runs, so start one of them to reconnect it now.",
+      "Error: The background service install failed; see the installer output above. Until it succeeds, this computer stays connected only while the cc desktop app or pnpm start runs, so start one of them to reconnect it now.",
     ]);
   });
 });
 
-describe("bb server unlock with a machine service", () => {
+describe("cc server unlock with a machine service", () => {
   setupCommandOutputTestEnvironment();
 
   it("refuses while a background service runs this computer as a machine", async () => {

@@ -4,15 +4,15 @@ import {
   getPluginSettingsValues,
   setPluginSettingsValues,
   type DbConnection,
-} from "@bb/db";
+} from "@cc/db";
 import type {
   PluginSettingDescriptor,
   PluginSettingDescriptors,
   PluginSettingValue,
-} from "@get-bb/plugin-sdk";
-import { coerceStoredPluginSettingValue } from "@get-bb/plugin-sdk/internal/host-policy";
-import type { PluginSettingDescriptor as PublicPluginSettingDescriptor } from "@bb/server-contract";
-import { deleteSecretFile, writeSecretFile } from "@bb/secret-storage";
+} from "@codythatsme/plugin-sdk";
+import { coerceStoredPluginSettingValue } from "@codythatsme/plugin-sdk/internal/host-policy";
+import type { PluginSettingDescriptor as PublicPluginSettingDescriptor } from "@cc/server-contract";
+import { deleteSecretFile, writeSecretFile } from "@cc/secret-storage";
 
 export class PluginSettingsValidationError extends Error {
   constructor(message: string) {

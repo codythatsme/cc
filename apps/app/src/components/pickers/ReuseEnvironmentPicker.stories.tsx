@@ -30,18 +30,18 @@ function makeOption(
 }
 
 const fewOptions: readonly ReuseThreadOption[] = [
-  makeOption("bb/payment-retry", ["Fix the payment retry", "Add a regression"]),
-  makeOption("bb/sidebar-perf", ["Profile the sidebar"]),
-  makeOption("bb/release-1.2", []),
+  makeOption("cc/payment-retry", ["Fix the payment retry", "Add a regression"]),
+  makeOption("cc/sidebar-perf", ["Profile the sidebar"]),
+  makeOption("cc/release-1.2", []),
 ];
 
 const manyOptions: readonly ReuseThreadOption[] = [
   ...fewOptions,
-  makeOption("bb/composer-reuse", ["Restore the reuse row"], "Michael-M4"),
-  makeOption("bb/machine-picker", ["Group by machine"], "studio-mac-mini"),
-  makeOption("bb/plugin-guide", ["Document the slots"], "Michael-M4"),
-  makeOption("bb/acp-provider", ["Custom models"], "build-box"),
-  makeOption("bb/timeline-qa", ["Timeline smoke pass"], "build-box"),
+  makeOption("cc/composer-reuse", ["Restore the reuse row"], "Michael-M4"),
+  makeOption("cc/machine-picker", ["Group by machine"], "studio-mac-mini"),
+  makeOption("cc/plugin-guide", ["Document the slots"], "Michael-M4"),
+  makeOption("cc/acp-provider", ["Custom models"], "build-box"),
+  makeOption("cc/timeline-qa", ["Timeline smoke pass"], "build-box"),
 ];
 
 export function Overview() {

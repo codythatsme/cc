@@ -6,50 +6,50 @@ describe("connect return-to URLs", () => {
   it("accepts immediate connect subdomains for the current app domain", () => {
     expect(
       connectReturnTo(
-        "https://sawyer.getbb.app/projects?tab=threads",
-        "https://getbb.app",
+        "https://sawyer.cc.example.invalid/projects?tab=threads",
+        "https://cc.example.invalid",
       ),
-    ).toBe("https://sawyer.getbb.app/projects?tab=threads");
+    ).toBe("https://sawyer.cc.example.invalid/projects?tab=threads");
   });
 
   it("accepts staging connect subdomains", () => {
     expect(
       connectReturnTo(
-        "https://sawyer.vibecodethis.site/",
-        "https://vibecodethis.site",
+        "https://sawyer.cc-staging.example.invalid/",
+        "https://cc-staging.example.invalid",
       ),
-    ).toBe("https://sawyer.vibecodethis.site/");
+    ).toBe("https://sawyer.cc-staging.example.invalid/");
   });
 
   it("accepts local Cloud handles under the shared cookie domain", () => {
     expect(
       connectReturnTo(
-        "http://sawyer.bb.localhost:42745/threads/thr_1",
-        "http://bb.localhost:42745",
+        "http://sawyer.cc.localhost:42745/threads/thr_1",
+        "http://cc.localhost:42745",
       ),
-    ).toBe("http://sawyer.bb.localhost:42745/threads/thr_1");
+    ).toBe("http://sawyer.cc.localhost:42745/threads/thr_1");
   });
 
   it("rejects nested subdomains and off-domain return targets", () => {
     expect(
-      connectReturnTo("https://a.b.getbb.app/", "https://getbb.app"),
+      connectReturnTo("https://a.b.cc.example.invalid/", "https://cc.example.invalid"),
     ).toBeNull();
     expect(
-      connectReturnTo("https://evil.test/", "https://getbb.app"),
+      connectReturnTo("https://evil.test/", "https://cc.example.invalid"),
     ).toBeNull();
   });
 
   it("rejects protocol downgrades", () => {
     expect(
-      connectReturnTo("http://sawyer.getbb.app/", "https://getbb.app"),
+      connectReturnTo("http://sawyer.cc.example.invalid/", "https://cc.example.invalid"),
     ).toBeNull();
   });
 
   it("treats absent and the literal 'null'/'undefined' strings as no return target", () => {
-    expect(connectReturnTo(null, "https://getbb.app")).toBeNull();
-    expect(connectReturnTo(undefined, "https://getbb.app")).toBeNull();
-    expect(connectReturnTo("", "https://getbb.app")).toBeNull();
-    expect(connectReturnTo("null", "https://getbb.app")).toBeNull();
-    expect(connectReturnTo("undefined", "https://getbb.app")).toBeNull();
+    expect(connectReturnTo(null, "https://cc.example.invalid")).toBeNull();
+    expect(connectReturnTo(undefined, "https://cc.example.invalid")).toBeNull();
+    expect(connectReturnTo("", "https://cc.example.invalid")).toBeNull();
+    expect(connectReturnTo("null", "https://cc.example.invalid")).toBeNull();
+    expect(connectReturnTo("undefined", "https://cc.example.invalid")).toBeNull();
   });
 });

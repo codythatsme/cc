@@ -1,5 +1,5 @@
 import type { PluginMentionSearchGroup } from "./queries/plugin-contribution-queries";
-import type { PromptMentionSuggestion } from "@bb/client-core";
+import type { PromptMentionSuggestion } from "@cc/client-core";
 
 type PluginMentionSuggestion = Extract<
   PromptMentionSuggestion,

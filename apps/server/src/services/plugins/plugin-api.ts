@@ -3,7 +3,7 @@ import {
   validateServerAccessProviderDeclaration,
   type NormalizedPluginEnvironmentComposition,
   type NormalizedPluginInteractionRequest,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk/internal/host-policy";
 import { createMachineBootstrapApi } from "../machines/bootstrap.js";
 import type { MachineEnrollments } from "../machines/enrollments.js";
 import { listServerAccessProviders } from "./plugin-server-access-registry.js";
@@ -20,15 +20,15 @@ import {
   listPluginKvKeys,
   setPluginKvValue,
   type DbConnection,
-} from "@bb/db";
-import type { ThreadEventItemPresentation } from "@bb/domain";
+} from "@cc/db";
+import type { ThreadEventItemPresentation } from "@cc/domain";
 import type {
-  BbPluginApi,
+  CcPluginApi,
   PluginAgentConfiguration,
   PluginAgentConfigurationContext,
   PluginAgentToolContext,
   PluginRowPresentation,
-  PluginBbSdk,
+  PluginCcSdk,
   PluginAgentToolResult,
   PluginAgents,
   PluginBackground,
@@ -75,7 +75,7 @@ import type {
   PluginUi,
   StandardSchemaV1,
   PluginRpcContract,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   KV_VALUE_MAX_BYTES,
   normalizeAgentToolRegistration,
@@ -105,20 +105,20 @@ import {
   validateSettingsUpdate,
   validatePluginAiServiceDeclaration,
   validatePluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk/internal/host-policy";
 import type {
   NormalizedPluginAiService,
   NormalizedPluginEnvironmentProvider,
   NormalizedPluginMachineProvider,
   NormalizedPluginProviderDeclaration,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk/internal/host-policy";
 import type {
-  BbSdk,
+  CcSdk,
   ThreadForkArgs,
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadSpawnArgs,
-} from "@bb/sdk";
+} from "@cc/sdk";
 import { requestEnvironmentProviderRecheck } from "./plugin-environment-provider-registry.js";
 import { requestServerAccessRecheck } from "./plugin-server-access-registry.js";
 import type { ServerLogger } from "../../types.js";
@@ -130,7 +130,7 @@ import {
 } from "./plugin-settings.js";
 
 export type {
-  BbPluginApi,
+  CcPluginApi,
   PluginAgentConfigurationContext,
   PluginAgentToolContext,
   PluginCliCommandInfo,
@@ -138,7 +138,7 @@ export type {
   PluginMentionTrigger,
   PluginThreadEventName,
   PluginThreadEventPayloads,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 
 class PluginContextStaleError extends Error {
   constructor(pluginId: string) {
@@ -164,7 +164,7 @@ export type PluginHookRecords = {
   [K in PluginHookName]: PluginHookHandler<K> | null;
 };
 
-/** Per-event handler lists recorded by `bb.events.on`; dropped with the handle. */
+/** Per-event handler lists recorded by `cc.events.on`; dropped with the handle. */
 type PluginThreadEventHandlers = {
   [E in PluginThreadEventName]: Array<PluginThreadEventHandler<E>>;
 };
@@ -244,9 +244,9 @@ type PluginSettingsListener = (
 ) => void;
 
 export interface PluginApiHandle {
-  api: BbPluginApi;
+  api: CcPluginApi;
   disposeHooks: Array<() => void | Promise<void>>;
-  /** Handlers recorded by `bb.onInstall`; run once after a fresh install. */
+  /** Handlers recorded by `cc.onInstall`; run once after a fresh install. */
   installHandlers: Array<() => void | Promise<void>>;
   settings: {
     descriptors: PluginSettingDescriptors;
@@ -254,16 +254,16 @@ export interface PluginApiHandle {
   };
   databaseHandles: Database.Database[];
   threadEventHandlers: PluginThreadEventHandlers;
-  /** Hook handlers recorded by `bb.experimental_hooks.on`. */
+  /** Hook handlers recorded by `cc.experimental_hooks.on`. */
   hooks: PluginHookRecords;
   environmentCompositions: Map<string, NormalizedPluginEnvironmentComposition>;
   environmentProviders: Map<string, NormalizedPluginEnvironmentProvider>;
   machineProviders: Map<string, NormalizedPluginMachineProvider>;
   serverAccessProviders: Map<
     string,
-    import("@get-bb/plugin-sdk").ServerAccessProviderDeclaration
+    import("@codythatsme/plugin-sdk").ServerAccessProviderDeclaration
   >;
-  /** HTTP routes recorded by `bb.http.route`; dropped with the handle. */
+  /** HTTP routes recorded by `cc.http.route`; dropped with the handle. */
   httpRoutes: PluginHttpRouteRecord[];
   websocketRoutes: PluginWebSocketRouteRecord[];
   rpcHandlers: Map<string, PluginRpcHandler>;
@@ -334,7 +334,7 @@ function withPluginThreadAttribution<
   return { ...args, ...attribution };
 }
 
-function wrapSdkForPlugin(sdk: BbSdk, pluginId: string): PluginBbSdk {
+function wrapSdkForPlugin(sdk: CcSdk, pluginId: string): PluginCcSdk {
   return {
     ...sdk,
     threads: {
@@ -453,7 +453,7 @@ export function createPluginApi(options: {
   logger: ServerLogger;
   db: DbConnection;
   dataDir: string;
-  getSdk: () => BbSdk | undefined;
+  getSdk: () => CcSdk | undefined;
   getMachineEnrollments: () => MachineEnrollments;
   getAppUrl: () => string | null;
   getLoopbackBaseUrl: () => string | undefined;
@@ -466,13 +466,13 @@ export function createPluginApi(options: {
   reportAgentToolProblem: (message: string) => void;
   /**
    * Schedules a re-attempt of every plugin-queued row
-   * (`bb.experimental_hooks.recheck`). Coalescing, pacing and the walk
+   * (`cc.experimental_hooks.recheck`). Coalescing, pacing and the walk
    * itself belong to the queue; this only asks for it.
    */
   requestQueueDrain: () => void;
   /**
    * The names this plugin's manifest declares under
-   * `bb.branding.experimental_icons`: what a namespaced glyph
+   * `cc.branding.experimental_icons`: what a namespaced glyph
    * (`"<pluginId>/<name>"`) in a tool presentation or a provider icon must
    * name. Empty when the manifest declares none.
    */
@@ -542,7 +542,7 @@ export function createPluginApi(options: {
   } = options;
   let invalidated = false;
   let activated = false;
-  let wrappedSdk: PluginBbSdk | undefined;
+  let wrappedSdk: PluginCcSdk | undefined;
   let pendingNeedsConfiguration: string | null = null;
   const pendingAgentToolProblems: string[] = [];
   const pendingSharedPorts = new Map<string, readonly number[]>();
@@ -584,7 +584,7 @@ export function createPluginApi(options: {
   const machineProviders = new Map<string, NormalizedPluginMachineProvider>();
   const serverAccessProviders = new Map<
     string,
-    import("@get-bb/plugin-sdk").ServerAccessProviderDeclaration
+    import("@codythatsme/plugin-sdk").ServerAccessProviderDeclaration
   >();
   const httpRoutes: PluginHttpRouteRecord[] = [];
   const websocketRoutes: PluginWebSocketRouteRecord[] = [];
@@ -934,7 +934,7 @@ export function createPluginApi(options: {
     configurable: false,
     get(): never {
       throw new Error(
-        "bb.agents.experimental_registerProvider was removed in SDK 0.4.16; use bb.providers.register",
+        "cc.agents.experimental_registerProvider was removed in SDK 0.4.16; use cc.providers.register",
       );
     },
   });
@@ -983,7 +983,7 @@ export function createPluginApi(options: {
       const baseUrl = getLoopbackBaseUrl();
       if (baseUrl === undefined) {
         throw new Error(
-          "bb.server.loopbackBaseUrl is not available until the server is listening — " +
+          "cc.server.loopbackBaseUrl is not available until the server is listening — " +
             "use it inside handlers, services, or timers, not at factory load time",
         );
       }
@@ -1160,7 +1160,7 @@ export function createPluginApi(options: {
   const experimental_environments: PluginEnvironments = {
     register(
       declaration:
-        | import("@get-bb/plugin-sdk").PluginEnvironmentProviderDeclaration
+        | import("@codythatsme/plugin-sdk").PluginEnvironmentProviderDeclaration
         | NormalizedPluginEnvironmentComposition,
     ) {
       assertLive();
@@ -1214,7 +1214,7 @@ export function createPluginApi(options: {
     },
   };
 
-  const experimental_serverAccess: import("@get-bb/plugin-sdk").PluginServerAccess =
+  const experimental_serverAccess: import("@codythatsme/plugin-sdk").PluginServerAccess =
     {
       register(declaration) {
         assertLive();
@@ -1293,7 +1293,7 @@ export function createPluginApi(options: {
     register: aiServiceRegistrations.register,
   };
 
-  const api: BbPluginApi = {
+  const api: CcPluginApi = {
     pluginId,
     log,
     settings,
@@ -1315,12 +1315,12 @@ export function createPluginApi(options: {
     server,
     hosts,
     experimental_aiServices,
-    get sdk(): PluginBbSdk {
+    get sdk(): PluginCcSdk {
       assertLive();
       const sdk = getSdk();
       if (!sdk) {
         throw new Error(
-          "bb.sdk is not available until the server is listening — " +
+          "cc.sdk is not available until the server is listening — " +
             "use it inside handlers, services, or timers, not at factory load time",
         );
       }

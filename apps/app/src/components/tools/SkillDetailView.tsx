@@ -1,8 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { formatHomePathForDisplay } from "@bb/shared-ui/lib/utils";
-import { ResourceInfiniteScrollSentinel } from "@bb/shared-ui/resource-pagination";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
+import { formatHomePathForDisplay } from "@cc/shared-ui/lib/utils";
+import { ResourceInfiniteScrollSentinel } from "@cc/shared-ui/resource-pagination";
 import {
   ResourceDefinitionSection,
   ResourceDetailCollection,
@@ -10,13 +10,13 @@ import {
   ResourceDetailPage,
   ResourceDetailPanel,
   ResourceDetailStack,
-} from "@bb/shared-ui/resource-list";
+} from "@cc/shared-ui/resource-list";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
+} from "@cc/shared-ui/tooltip";
 import { FilePreview } from "@/components/secondary-panel/FilePreview.js";
 import { ProvenancePill } from "@/components/tools/ProvenancePill";
 import { useClipboardCopy } from "@/lib/clipboard";

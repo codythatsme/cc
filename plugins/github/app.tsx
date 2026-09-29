@@ -4,13 +4,13 @@ import {
   experimental_Diff as Diff,
   experimental_FileLink as FileLink,
   UrlLink,
-  useBbNavigate,
+  useCcNavigate,
   useRealtime,
   useRpc,
   type PluginNavPanelProps,
   type PluginRpcResult,
   type PluginThreadPanelProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import {
   buildSuggestions,
   matchesQuery,
@@ -82,13 +82,13 @@ function relativeTime(iso: string): string {
 const PANEL_PATH = "github";
 
 function useSubPathRoute(subPath: string): [Route, (route: Route) => void] {
-  const bbNavigate = useBbNavigate();
+  const ccNavigate = useCcNavigate();
   const route = useMemo(() => parseSubPath(subPath), [subPath]);
   const navigate = useCallback(
     (next: Route) => {
-      bbNavigate.toPluginPanel(PANEL_PATH, { subPath: routeToSubPath(next) });
+      ccNavigate.toPluginPanel(PANEL_PATH, { subPath: routeToSubPath(next) });
     },
-    [bbNavigate],
+    [ccNavigate],
   );
   return [route, navigate];
 }
@@ -143,7 +143,7 @@ function useSpawn(): {
   spawningKey: string | null;
 } {
   const rpc = useRpc<typeof githubRpcContract>();
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const [spawningKey, setSpawningKey] = useState<string | null>(null);
   const spawn = useCallback(
     (method: "startWork" | "startReview", repo: string, number: number) => {
@@ -264,14 +264,14 @@ function StateBadge({ kind, state }: { kind: "issue" | "pr"; state: string }) {
 }
 
 function ThreadPills({ links }: { links: ThreadLink[] | undefined }) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   if (links === undefined || links.length === 0) return null;
   return (
     <span className="flex shrink-0 items-center gap-1">
       {links.map((link, index) => (
         <Badge
           key={link.threadId}
-          title={`Open BB thread ${link.threadId}`}
+          title={`Open CC thread ${link.threadId}`}
           onClick={(event) => {
             event.stopPropagation();
             navigate.toThread(link.threadId);
@@ -565,7 +565,7 @@ function StatusCell({ item }: { item: Item }) {
 }
 
 function RowMenu({ item }: { item: Item }) {
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const viewer = useViewer();
   const { setIssueState, setAssignees } = useIssueMutations();
   const assignedToMe = viewer !== null && item.assignees.includes(viewer);
@@ -2032,7 +2032,7 @@ function PanelHeader() {
   );
 }
 
-const QUERY_KEY = "bb-plugin-github:query";
+const QUERY_KEY = "cc-plugin-github:query";
 const DEFAULT_QUERY = "is:open ";
 
 function GithubPanel({ subPath }: PluginNavPanelProps) {
@@ -2149,7 +2149,7 @@ function GithubPanelBody({
   }
   if (status !== null && status.repos.length === 0) {
     return (
-      <EmptyState message="No GitHub repos tracked yet. Create a BB project whose checkout has a GitHub origin remote, or add repos via the extraRepos plugin setting." />
+      <EmptyState message="No GitHub repos tracked yet. Create a CC project whose checkout has a GitHub origin remote, or add repos via the extraRepos plugin setting." />
     );
   }
 

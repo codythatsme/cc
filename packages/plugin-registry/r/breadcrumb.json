@@ -3,13 +3,13 @@
   "name": "breadcrumb",
   "type": "registry:ui",
   "title": "breadcrumb",
-  "description": "BB ui \"breadcrumb\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"breadcrumb\" — vendored from the CC app's own source (version-matched to this CC release).",
   "dependencies": [
     "@radix-ui/react-slot"
   ],
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils"
+    "@cc/icon",
+    "@cc/utils"
   ],
   "files": [
     {

@@ -57,9 +57,9 @@ import type {
   PromptInput,
   PromptTextMention,
   ThreadQueuedMessage,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@cc/domain";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
 import {
   PROMPT_STACK_EDGE_CARET_BUTTON_WIDTH_CLASS,
   PromptStackCard,
@@ -74,12 +74,12 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@bb/shared-ui/tooltip";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/tooltip";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   countQueuedMessageAttachments,
   formatQueuedMessagePreview,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   collectLeadQueuedMessageGroupIds,
   preserveLeadQueuedMessageGroupAfterReorder,
@@ -331,7 +331,7 @@ function CompactQueuedMarkdownPreview({
   const components = useMemo<Components>(
     () => ({
       ...QUEUED_MARKDOWN_COMPONENTS,
-      "bb-prompt-mention": buildPromptMentionComponent({
+      "cc-prompt-mention": buildPromptMentionComponent({
         mentions: promptMentionSubstitution.mentions,
         resolveMentionLink,
       }),

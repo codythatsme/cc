@@ -132,8 +132,8 @@ describe("createConnection", () => {
   });
 
   it("applies the hot-path sqlite pragmas on a file database", () => {
-    const directory = mkdtempSync(join(tmpdir(), "bb-db-pragmas-"));
-    const db = createConnection(join(directory, "bb.db"));
+    const directory = mkdtempSync(join(tmpdir(), "cc-db-pragmas-"));
+    const db = createConnection(join(directory, "cc.db"));
 
     try {
       expect(

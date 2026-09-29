@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
-import { isPresentationTintColor } from "@bb/domain";
-import type { TimelineRowPresentation } from "@bb/server-contract";
-import { type IconName } from "@bb/shared-ui/icon";
+import { isPresentationTintColor } from "@cc/domain";
+import type { TimelineRowPresentation } from "@cc/server-contract";
+import { type IconName } from "@cc/shared-ui/icon";
 
 export function presentationIconName(
   presentation: { icon: TimelineRowPresentation["icon"] } | undefined,

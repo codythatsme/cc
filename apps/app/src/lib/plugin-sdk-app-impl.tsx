@@ -1,7 +1,7 @@
 import { ProviderIcon } from "@/components/plugin/ProviderIcon";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@cc/shared-ui/icon";
 import { useCallback, useMemo } from "react";
-import type { MarkdownProps, PluginSdkApp } from "@get-bb/plugin-sdk";
+import type { MarkdownProps, PluginSdkApp } from "@codythatsme/plugin-sdk";
 import { PluginDiff } from "@/components/plugin/PluginDiff";
 import { PluginBranchPicker } from "@/components/plugin/PluginBranchPicker";
 import {
@@ -23,12 +23,12 @@ import { buildMarkdownMessageLinkRouting } from "@/components/ui/markdown-messag
 import type { MarkdownPreviewLinkHandler } from "@/components/ui/markdown-link";
 import { useThreadTimelineNavigation } from "@/components/thread/timeline/ThreadTimelineNavigationContext";
 import { usePluginId } from "@/components/plugin/plugin-context";
-import { useQuestionFormHost } from "@bb/shared-ui/question-form-host";
+import { useQuestionFormHost } from "@cc/shared-ui/question-form-host";
 import { definePluginApp } from "./plugin-app-definition";
 import { installDeprecatedAliases } from "./plugin-sdk-deprecated-aliases";
 import {
-  useBbContext,
-  useBbNavigate,
+  useCcContext,
+  useCcNavigate,
   useComposer,
   useComposerView,
   useEnvironmentProviders,
@@ -68,10 +68,10 @@ export const pluginSdkAppImplementation = installDeprecatedAliases(
     definePluginApp,
     experimental_Icon: Icon,
     experimental_ProviderIcon: ProviderIcon,
-    useBbContext,
+    useCcContext,
     experimental_usePluginId: usePluginId,
     experimental_useQuestionFormHost: useQuestionFormHost,
-    useBbNavigate,
+    useCcNavigate,
     experimental_useAppPanel,
     experimental_useFixedTabTarget,
     useComposer,

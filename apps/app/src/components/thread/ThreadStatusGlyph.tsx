@@ -1,12 +1,12 @@
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   getThreadListIndicatorLabel,
   resolveThreadListIndicator,
   type ThreadListIndicatorKind,
   type ThreadListIndicatorState,
-} from "@bb/client-core";
-import type { PluginComposerThreadRowStatus } from "@get-bb/plugin-sdk";
+} from "@cc/client-core";
+import type { PluginComposerThreadRowStatus } from "@codythatsme/plugin-sdk";
 import { pluginIconName } from "@/components/plugin/PluginIcon";
 import {
   SIDEBAR_STATUS_ICON_CLASS,

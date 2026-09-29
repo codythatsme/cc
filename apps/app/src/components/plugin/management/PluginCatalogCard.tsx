@@ -2,7 +2,7 @@ import {
   RESOURCE_GRID_PAGE_SIZE,
   ResourceInfiniteScrollSentinel,
   useResourceInfiniteItems,
-} from "@bb/shared-ui/resource-pagination";
+} from "@cc/shared-ui/resource-pagination";
 import { PluginCatalogInstallControl } from "./PluginCatalogInstallControl";
 import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
 import type { AddPluginInitial } from "./AddPluginDialog";

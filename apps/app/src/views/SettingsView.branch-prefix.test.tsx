@@ -13,8 +13,6 @@ afterEach(cleanup);
 
 function renderSection(overrides?: {
   desktopBrowserAvailable?: boolean;
-  telemetryEnabled?: boolean;
-  onTelemetryEnabledChange?: (enabled: boolean) => void;
   managedBranchPrefix?: string;
   onManagedBranchPrefixChange?: (prefix: string) => void;
 }) {
@@ -23,7 +21,7 @@ function renderSection(overrides?: {
       <GeneralSettingsSection
         desktopBrowserAvailable={overrides?.desktopBrowserAvailable ?? false}
         generalSettingsDisabled={false}
-        managedBranchPrefix={overrides?.managedBranchPrefix ?? "bb/"}
+        managedBranchPrefix={overrides?.managedBranchPrefix ?? "cc/"}
         navigateToThreadAfterCreate={false}
         onManagedBranchPrefixChange={
           overrides?.onManagedBranchPrefixChange ?? vi.fn()
@@ -44,10 +42,6 @@ function renderSection(overrides?: {
         onEnabledChange={vi.fn()}
         onStreamerModeChange={vi.fn()}
         streamerMode={false}
-        telemetryEnabled={overrides?.telemetryEnabled ?? true}
-        onTelemetryEnabledChange={
-          overrides?.onTelemetryEnabledChange ?? vi.fn()
-        }
       />
     </>,
   );
@@ -88,7 +82,7 @@ describe("new branch prefix setting", () => {
     const input = branchPrefixInput();
     fireEvent.change(input, { target: { value: "team/" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    await waitFor(() => expect(input.value).toBe("bb/"));
+    await waitFor(() => expect(input.value).toBe("cc/"));
   });
 
   it("refuses an invalid prefix and restores the saved value", () => {
@@ -99,7 +93,7 @@ describe("new branch prefix setting", () => {
     expect(input.getAttribute("aria-invalid")).toBe("true");
     fireEvent.blur(input);
     expect(onChange).not.toHaveBeenCalled();
-    expect(input.value).toBe("bb/");
+    expect(input.value).toBe("cc/");
   });
 
   it("reverts the draft on Escape", () => {
@@ -108,7 +102,7 @@ describe("new branch prefix setting", () => {
     const input = branchPrefixInput();
     fireEvent.change(input, { target: { value: "sawyer/" } });
     fireEvent.keyDown(input, { key: "Escape" });
-    expect(input.value).toBe("bb/");
+    expect(input.value).toBe("cc/");
     expect(onChange).not.toHaveBeenCalled();
   });
 });
@@ -125,22 +119,4 @@ describe("localhost link rewrite setting", () => {
     expect(screen.getByText("Links")).not.toBeNull();
     expect(screen.queryByText("Rewrite localhost links")).toBeNull();
   });
-});
-
-it("shows the saved telemetry preference and allows opting out", () => {
-  const onChange = vi.fn();
-  renderSection({ onTelemetryEnabledChange: onChange });
-  const toggle = screen.getByRole("switch", {
-    name: "Share anonymous usage data",
-  });
-  expect(toggle.getAttribute("aria-checked")).toBe("true");
-  fireEvent.click(toggle);
-  expect(onChange).toHaveBeenCalledWith(false);
-  cleanup();
-  renderSection({ telemetryEnabled: false });
-  expect(
-    screen
-      .getByRole("switch", { name: "Share anonymous usage data" })
-      .getAttribute("aria-checked"),
-  ).toBe("false");
 });

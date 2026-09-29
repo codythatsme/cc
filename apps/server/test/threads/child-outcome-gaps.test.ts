@@ -2,9 +2,9 @@ import {
   getQueuedThreadMessage,
   listEvents,
   listQueuedThreadMessages,
-} from "@bb/db";
-import { threadScope, turnScope, turnRequestEventDataSchema } from "@bb/domain";
-import { groupHostDaemonEvents } from "@bb/host-daemon-contract";
+} from "@cc/db";
+import { threadScope, turnScope, turnRequestEventDataSchema } from "@cc/domain";
+import { groupHostDaemonEvents } from "@cc/host-daemon-contract";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { finalizeStoppedThread } from "../../src/services/threads/thread-lifecycle.js";
 import { queueChildThreadTurnNotificationBestEffort } from "../../src/services/threads/child-thread-notifications.js";

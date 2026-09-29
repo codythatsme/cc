@@ -13,9 +13,9 @@ import {
   getEnvironment,
   listNonDeletedChildThreads,
   listNonDeletedHiddenSourceThreads,
-} from "@bb/db";
-import type { EnvironmentRow } from "@bb/db";
-import type { Thread } from "@bb/domain";
+} from "@cc/db";
+import type { EnvironmentRow } from "@cc/db";
+import type { Thread } from "@cc/domain";
 import type { AppDeps } from "../../types.js";
 import {
   threadEnvironmentUnavailableDetails,

@@ -61,7 +61,7 @@ describe("validatePluginAiServiceDeclaration", () => {
           complete,
         }),
       ).toThrow(
-        `AI service id "${id}" is reserved: bb uses "automatic" and "off" as selection modes. Choose another id.`,
+        `AI service id "${id}" is reserved: cc uses "automatic" and "off" as selection modes. Choose another id.`,
       );
     },
   );

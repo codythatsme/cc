@@ -9,9 +9,9 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
-import { ResourceDetailPage } from "@bb/shared-ui/resource-list";
-import type { SkillSummary } from "@bb/server-contract";
+import { PERSONAL_PROJECT_ID } from "@cc/domain";
+import { ResourceDetailPage } from "@cc/shared-ui/resource-list";
+import type { SkillSummary } from "@cc/server-contract";
 import { type PluginListItem } from "@/hooks/queries/plugin-settings-queries";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import {
@@ -47,13 +47,13 @@ const PLUGIN: PluginListItem = makePluginListItem({
   id: "github",
   source: "builtin:github",
   rootDir: "/managed/plugins/github",
-  description: "Browse GitHub issues and pull requests in BB.",
+  description: "Browse GitHub issues and pull requests in CC.",
   name: "GitHub",
   icon: "Github",
   provenance: "catalog",
   catalogEntryId: "github",
-  publisherLabel: "BB Community",
-  sourceDisplay: "BB Official · GitHub",
+  publisherLabel: "CC Community",
+  sourceDisplay: "CC Official · GitHub",
 });
 
 function renderPlugin(
@@ -212,7 +212,7 @@ describe("Plugin detail recipe", () => {
     ).toBeNull();
 
     for (const item of [
-      "bb gh",
+      "cc gh",
       "review",
       "gh_search",
       "Pull requests",

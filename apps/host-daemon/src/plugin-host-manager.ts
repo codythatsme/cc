@@ -9,14 +9,14 @@ import type { Readable } from "node:stream";
 import type {
   HostDaemonOnlineRpcCommand,
   HostDaemonOnlineRpcResult,
-} from "@bb/host-daemon-contract";
-import type { HostPathWatchChange, HostWatcher } from "@bb/host-watcher";
-import { jsonValueSchema, type JsonValue } from "@bb/domain";
+} from "@cc/host-daemon-contract";
+import type { HostPathWatchChange, HostWatcher } from "@cc/host-watcher";
+import { jsonValueSchema, type JsonValue } from "@cc/domain";
 import {
   createPluginProcessTempDir,
   ensurePluginProcessDataDir,
   sanitizeInheritedChildProcessEnv,
-} from "@bb/process-utils";
+} from "@cc/process-utils";
 import type { HostDaemonLogger } from "./logger.js";
 import { ensureCachedPluginHostArtifact } from "./plugin-host-artifact-cache.js";
 import { runInSerialLane } from "./serial-lane.js";
@@ -150,7 +150,7 @@ function workerLogContext(worker: WorkerState): Record<string, unknown> {
 
 function defaultWorkerEntryPath(): string {
   const candidates = [
-    "./bb-plugin-host-worker.mjs",
+    "./cc-plugin-host-worker.mjs",
     "./plugin-host-worker.js",
     "./plugin-host-worker.ts",
   ];
@@ -447,7 +447,7 @@ export class PluginHostManager {
     });
     const tempDir = await createPluginProcessTempDir({
       pluginId: command.pluginId,
-      prefix: "bb-host",
+      prefix: "cc-host",
     });
     const shellPath = this.options.shellEnv?.().PATH;
     const startedAtMs = performance.now();

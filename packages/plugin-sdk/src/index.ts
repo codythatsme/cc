@@ -1,10 +1,10 @@
 /**
- * `@get-bb/plugin-sdk` — the typed facade plugin authors compile against.
+ * `@codythatsme/plugin-sdk` — the typed facade plugin authors compile against.
  *
  * The root export carries the side-effect-free app and host-contract types
- * plus the backend contract (`BbPluginApi`, the
- * `server.ts` factory argument — types only, implemented by the BB server).
- * The `./app` subpath adds the runtime bindings that `bb plugin build` shims
+ * plus the backend contract (`CcPluginApi`, the
+ * `server.ts` factory argument — types only, implemented by the CC server).
+ * The `./app` subpath adds the runtime bindings that `cc plugin build` shims
  * to the host's shared runtime.
  */
 export * from "./app-contract.js";
@@ -19,6 +19,6 @@ export type {
   ExperimentalDesktopBrowserLease,
   ExperimentalDesktopBrowserCreateInput,
   ExperimentalDesktopBrowserAcquireInput,
-} from "@bb/sdk";
+} from "@cc/sdk";
 
 export type * from "./machine-bootstrap.js";

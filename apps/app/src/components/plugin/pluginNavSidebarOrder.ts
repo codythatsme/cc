@@ -6,11 +6,11 @@ interface PluginNavPanelIdentity {
 }
 
 export const BUILT_IN_SIDEBAR_NAVIGATION_KEYS = {
-  newThread: "__bb__/new-thread",
-  searchThreads: "__bb__/search-threads",
-  extensions: "__bb__/extensions",
-  skills: "__bb__/skills",
-  automations: "__bb__/automations",
+  newThread: "__cc__/new-thread",
+  searchThreads: "__cc__/search-threads",
+  extensions: "__cc__/extensions",
+  skills: "__cc__/skills",
+  automations: "__cc__/automations",
 } as const;
 
 export const DEFAULT_HIDDEN_SIDEBAR_NAVIGATION_KEYS = [

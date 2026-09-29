@@ -11,14 +11,14 @@ export type {
   ReasoningLevel,
   ServiceTier,
   ThreadStatus,
-} from "@bb/domain";
+} from "@cc/domain";
 export type {
   CreateExecutionInputSources,
   EnvironmentArgs,
   ExistingThreadExecutionInputSources,
   UnmanagedBranchSpec,
   WorkspaceArgs,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 
 export type * from "./realtime.js";
 export type * from "./areas/environments.js";

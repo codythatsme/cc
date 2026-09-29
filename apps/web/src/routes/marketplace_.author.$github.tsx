@@ -17,11 +17,11 @@ export const Route = createFileRoute("/marketplace_/author/$github")({
   head: ({ loaderData, params }) => {
     const author = loaderData?.[0]?.author;
     const title = author
-      ? `${author.name} plugins — bb Plugin Marketplace`
-      : "Plugin author — bb Plugin Marketplace";
+      ? `${author.name} plugins — cc Plugin Marketplace`
+      : "Plugin author — cc Plugin Marketplace";
     const description = author
-      ? `Find bb plugins from ${author.name}.`
-      : "Find community plugins for bb.";
+      ? `Find cc plugins from ${author.name}.`
+      : "Find community plugins for cc.";
     const github = author?.github ?? params.github;
     const path = `/marketplace/author/${encodeURIComponent(github)}`;
     return {
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/marketplace_/author/$github")({
         { name: "robots", content: author ? "index, follow" : "noindex" },
         ...unfurlMeta(title, description, path),
       ],
-      links: [{ rel: "canonical", href: `https://getbb.app${path}` }],
+      links: [{ rel: "canonical", href: `https://cc.example.invalid${path}` }],
     };
   },
   component: MarketplaceAuthorRoute,

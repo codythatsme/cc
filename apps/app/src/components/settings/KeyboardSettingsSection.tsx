@@ -13,12 +13,12 @@ import {
   type AppDefaultKeybindings,
   type AppKeybindingOverrides,
   type AppShortcut,
-} from "@bb/domain";
-import { Button } from "@bb/shared-ui/button";
-import { Icon } from "@bb/shared-ui/icon";
-import { Input } from "@bb/shared-ui/input";
-import { Switch } from "@bb/shared-ui/switch";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/domain";
+import { Button } from "@cc/shared-ui/button";
+import { Icon } from "@cc/shared-ui/icon";
+import { Input } from "@cc/shared-ui/input";
+import { Switch } from "@cc/shared-ui/switch";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { APP_COMMAND_GROUPS } from "@/lib/app-command-metadata";
 import {
   areAppShortcutsEqual,
@@ -35,7 +35,7 @@ import {
   useUpdateGeneralSettings,
   useUpdateKeyboardSettings,
 } from "@/hooks/mutations/settings-mutations";
-import { pluginCommandId } from "@bb/domain";
+import { pluginCommandId } from "@cc/domain";
 import { usePluginCommandBindings } from "@/hooks/usePluginCommandBindings";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import {
@@ -44,7 +44,7 @@ import {
   SettingsWithControl,
 } from "@/components/ui/settings-section";
 import { AppCommandShortcutPill } from "@/components/commands/AppCommandShortcutHint";
-import { getBbDesktopInfo } from "@/lib/bb-desktop";
+import { getCcDesktopInfo } from "@/lib/cc-desktop";
 
 const EMPTY_OVERRIDES: AppKeybindingOverrides = [];
 const SETTINGS_SHORTCUT_PILL_CLASS =
@@ -462,7 +462,7 @@ export function KeyboardSettingsSection() {
     isPending: isKeyboardSettingsPending,
     mutate: mutateKeyboardSettings,
   } = useUpdateKeyboardSettings();
-  const isDesktop = getBbDesktopInfo() !== null;
+  const isDesktop = getCcDesktopInfo() !== null;
   const platform = browserPlatform();
   const generalSettings =
     systemConfig.data?.generalSettings ?? defaultAppSettings;
@@ -694,7 +694,7 @@ export function KeyboardSettingsSection() {
           Reset all
         </Button>
       }
-      description="Click a shortcut, then press its new keys. Changes sync to every bb window."
+      description="Click a shortcut, then press its new keys. Changes sync to every cc window."
       title="Keyboard shortcuts"
     >
       <div className="space-y-5">

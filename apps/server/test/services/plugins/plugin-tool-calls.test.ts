@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ToolCallResponse } from "@bb/domain";
+import type { ToolCallResponse } from "@cc/domain";
 import {
   PLUGIN_TOOL_CALL_AWAITING_USER_RESULT_TEXT,
   PluginToolCallRegistry,

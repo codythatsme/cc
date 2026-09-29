@@ -1,7 +1,7 @@
 import type {
   PluginRpcDiscoveryQuery,
   PublishedPluginRpcMethod,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { watch } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -20,7 +20,7 @@ import {
   type SystemChangeKind,
   type ThreadEventItemPresentation,
   type ToolCallResponse,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   type ExperimentalPluginWebSocketContext,
   type ExperimentalPluginWebSocketHandlers,
@@ -28,7 +28,7 @@ import {
   type ExperimentalPluginProviderEnvContext,
   type ExperimentalPluginProviderEnvHealthContext,
   type PluginRpcError,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   enforcePluginCliOutputLimit,
   normalizePluginAgentConfiguration,
@@ -38,18 +38,18 @@ import {
   validatePluginProviderEnvEntries,
   validateRpcValue,
   validateSettingsUpdate,
-} from "@get-bb/plugin-sdk/internal/host-policy";
+} from "@codythatsme/plugin-sdk/internal/host-policy";
 import {
   buildPluginApp,
   buildPluginHost,
   createPluginDevLoop,
-} from "@bb/plugin-build";
+} from "@cc/plugin-build";
 import { getPluginBuildToolchain } from "./build-toolchain.js";
 import {
   marketplacePublisherLabel,
   pluginPublisherLabel,
 } from "../plugin-catalog/marketplace-publishers.js";
-import { deleteSecretFile, readOrCreateSecretFile } from "@bb/secret-storage";
+import { deleteSecretFile, readOrCreateSecretFile } from "@cc/secret-storage";
 import {
   pluginUpdateCheckEntrySchema,
   ROOT_PLUGIN_SOURCE_SELECTION,
@@ -59,7 +59,7 @@ import {
   type PluginSourceDetail,
   type PluginSourceSelection,
   type PluginUpdateCheckEntry,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   claimPluginScheduledRun,
   deleteAllPluginSettings,
@@ -81,7 +81,7 @@ import {
   setPluginSafeMode,
   type InstalledPluginRow,
   type PluginMarketplaceRow,
-} from "@bb/db";
+} from "@cc/db";
 import { toHostRecord } from "../lib/entity-lookup.js";
 import {
   catalogEntryMetadata,
@@ -110,7 +110,7 @@ import {
 import { readPluginManifest, type PluginManifest } from "./manifest.js";
 import { listBundledPluginRegistrations } from "./builtin-registry.js";
 import {
-  type BbPluginApi,
+  type CcPluginApi,
   type PluginAgentConfigurationContext,
   type PluginAgentToolContext,
   type PluginAgentToolRecord,
@@ -231,8 +231,8 @@ export interface PluginService {
   machineProviders: PluginMachineProviderBridge;
   serverAccessProviders: import("./plugin-server-access-registry.js").ServerAccessBridge;
   /**
-   * Bind the in-process BB SDK to the running server. Call once the HTTP
-   * listener is up, before start(): bb.sdk throws until this runs.
+   * Bind the in-process CC SDK to the running server. Call once the HTTP
+   * listener is up, before start(): cc.sdk throws until this runs.
    */
   bindSdk(args: { baseUrl: string }): void;
   start(options?: PluginStartOptions): Promise<void>;
@@ -282,7 +282,7 @@ export interface PluginService {
   reload(id?: string): Promise<PluginReloadOutcome>;
   getSafeMode(): boolean;
   setSafeMode(enabled: boolean): Promise<PluginSafeModeUpdateResponse>;
-  getApi(id: string): BbPluginApi | undefined;
+  getApi(id: string): CcPluginApi | undefined;
   /**
    * Whether this server still means to run this plugin, which is what decides
    * a `plugin:<id>` queue wait's fate: core clears a wait whose owner is gone
@@ -1223,7 +1223,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
       await deleteRemovedPluginData(row);
       deleteInstalledPlugin(deps.db, row.id);
       logger.info(
-        `plugin ${row.id} removed because bb no longer bundles ${row.source}; its settings, secrets, and schedules were deleted`,
+        `plugin ${row.id} removed because cc no longer bundles ${row.source}; its settings, secrets, and schedules were deleted`,
       );
     }
   }
@@ -2050,7 +2050,7 @@ export function createPluginService(deps: PluginServiceDeps): PluginService {
         },
       );
       if (outcome.ok) return outcome.value;
-      return fail(`bb ${registration.name} failed: ${outcome.error}`);
+      return fail(`cc ${registration.name} failed: ${outcome.error}`);
     },
 
     listSkillRootContributions() {

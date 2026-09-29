@@ -9,8 +9,8 @@ import type {
   HostCommandSource,
   HostProviderCommand,
   SkillRootKind,
-} from "@bb/host-daemon-contract";
-import { isPathWithinDirectory } from "@bb/process-utils";
+} from "@cc/host-daemon-contract";
+import { isPathWithinDirectory } from "@cc/process-utils";
 
 export const SKILL_FILE_NAME = "SKILL.md";
 const MARKDOWN_FILE_EXTENSION = ".md";

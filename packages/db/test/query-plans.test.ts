@@ -5,7 +5,7 @@ import {
   releaseFinishedEnvironmentPreparationOwners,
 } from "../src/data/environments.js";
 import { describe, expect, it } from "vitest";
-import { threadScope, turnScope } from "@bb/domain";
+import { threadScope, turnScope } from "@cc/domain";
 import {
   createConnection,
   type DbConnection,

@@ -6,7 +6,7 @@ import {
   CUSTOM_THEME_CSS_MAX_LENGTH,
   defaultAppTheme,
   resolveCodeTheme,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   listCustomThemeNames,
   readCustomThemeCss,
@@ -24,7 +24,7 @@ describe("custom themes service", () => {
   let themeRoot: string;
 
   beforeEach(async () => {
-    dataDir = await mkdtemp(join(tmpdir(), "bb-theme-test-"));
+    dataDir = await mkdtemp(join(tmpdir(), "cc-theme-test-"));
     themeRoot = resolveThemeRootPath(dataDir);
   });
 
@@ -100,9 +100,9 @@ describe("custom themes service", () => {
       themeId: "ocean",
       customCss: ":root {}",
       resolvedCodeTheme: {
-        dark: "bb:ocean:dark",
+        dark: "cc:ocean:dark",
         light: "pierre-light",
-        files: { "bb:ocean:dark": { ...darkTheme, name: "bb:ocean:dark" } },
+        files: { "cc:ocean:dark": { ...darkTheme, name: "cc:ocean:dark" } },
       },
     });
   });

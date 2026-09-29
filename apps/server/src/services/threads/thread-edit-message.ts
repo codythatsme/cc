@@ -13,21 +13,21 @@ import {
   wouldRemoveSharedProviderSessionClaim,
   listActiveBackgroundTaskCountsByThreadIds,
   type DbQueryConnection,
-} from "@bb/db";
+} from "@cc/db";
 import {
   threadScope,
   type PromptInput,
   type Thread,
   type ThreadEvent,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   EditMessageRequest,
   EditMessageResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type {
   HostDaemonCommand,
   HostDaemonCommandResult,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type { LoggedPendingInteractionWorkSessionDeps } from "../../types.js";
 import { ApiError } from "../../errors.js";
 import {
@@ -315,7 +315,7 @@ function resolveEditableTurnCandidate(
     })
   ) {
     conflict(
-      "Editing this message would erase provider session ownership shared with another thread. Clear context (/clear or bb thread clear) for a new session; history is kept.",
+      "Editing this message would erase provider session ownership shared with another thread. Clear context (/clear or cc thread clear) for a new session; history is kept.",
     );
   }
   return {

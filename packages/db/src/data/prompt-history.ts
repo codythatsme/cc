@@ -1,11 +1,11 @@
 import { acquireProjectAttachmentOwnership } from "./project-attachments.js";
-import { projectAttachmentPaths } from "@bb/domain";
+import { projectAttachmentPaths } from "@cc/domain";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import {
   PROMPT_HISTORY_ENTRY_LIMIT,
   type PromptHistoryScope,
   type PromptInput,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { DbQueryConnection } from "../connection.js";
 import { promptHistoryEntries, threads } from "../schema.js";
 import { createPromptHistoryEntryId } from "../ids.js";

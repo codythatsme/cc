@@ -4,7 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emptyPromptDraftState } from "@bb/client-core";
+import { emptyPromptDraftState } from "@cc/client-core";
 import {
   resolveSerializedPromptMentions,
   type ThreadTitleMentionResources,

@@ -10,9 +10,9 @@ import {
   type LoadCommonConfigArgs,
 } from "./common.js";
 import {
-  BB_APP_URL_ENV,
-  BB_DEV_APP_PORT_ENV,
-  DEFAULT_BB_APP_URL,
+  CC_APP_URL_ENV,
+  CC_DEV_APP_PORT_ENV,
+  DEFAULT_CC_APP_URL,
 } from "./env-vars.js";
 import { assignIfDefined } from "./objects.js";
 import { loadHostDaemonPortValue } from "./ports.js";
@@ -21,10 +21,10 @@ import { validatePortNumber } from "./runtime.js";
 import { loadServerUrlValue } from "./server-url.js";
 
 interface HostDaemonConnectionConfig {
-  BB_APP_URL: string;
-  BB_DEV_APP_PORT?: number;
-  BB_HOST_DAEMON_PORT: number;
-  BB_SERVER_URL: string;
+  CC_APP_URL: string;
+  CC_DEV_APP_PORT?: number;
+  CC_HOST_DAEMON_PORT: number;
+  CC_SERVER_URL: string;
 }
 
 interface HostDaemonConfig extends CommonConfig, HostDaemonConnectionConfig {}
@@ -52,7 +52,7 @@ function resolveHostDaemonPort(
 ): number {
   if (args.hostDaemonPort !== undefined) {
     return validatePortNumber({
-      name: "BB_HOST_DAEMON_PORT",
+      name: "CC_HOST_DAEMON_PORT",
       value: args.hostDaemonPort,
     });
   }
@@ -65,22 +65,22 @@ export function loadHostDaemonConnectionConfig(
 ): HostDaemonConnectionConfig {
   const loader = resolveEnvLoader(args);
   const config: HostDaemonConnectionConfig = {
-    BB_APP_URL: validateOptionalUrl(
-      "BB_APP_URL",
+    CC_APP_URL: validateOptionalUrl(
+      "CC_APP_URL",
       readEnvVarWithDefault({
         context: loader.context,
-        defaultValue: DEFAULT_BB_APP_URL,
-        definition: BB_APP_URL_ENV,
+        defaultValue: DEFAULT_CC_APP_URL,
+        definition: CC_APP_URL_ENV,
         env: loader.env,
       }),
     ),
-    BB_HOST_DAEMON_PORT: resolveHostDaemonPort({
+    CC_HOST_DAEMON_PORT: resolveHostDaemonPort({
       ...args,
       env: loader.env,
       homeDir: loader.context.homeDir,
       mode: loader.mode,
     }),
-    BB_SERVER_URL: loadServerUrlValue({
+    CC_SERVER_URL: loadServerUrlValue({
       ...args,
       env: loader.env,
       homeDir: loader.context.homeDir,
@@ -89,12 +89,12 @@ export function loadHostDaemonConnectionConfig(
   };
   const devAppPort = readOptionalEnvVar({
     context: loader.context,
-    definition: BB_DEV_APP_PORT_ENV,
+    definition: CC_DEV_APP_PORT_ENV,
     env: loader.env,
   });
 
   assignIfDefined({
-    key: "BB_DEV_APP_PORT",
+    key: "CC_DEV_APP_PORT",
     target: config,
     value: devAppPort,
   });
@@ -118,7 +118,7 @@ export function loadHostDaemonStartConfig(
     const config = loadHostDaemonConfig(args);
     return {
       connectionConfig: config,
-      dataDir: config.BB_DATA_DIR,
+      dataDir: config.CC_DATA_DIR,
     };
   }
 

@@ -11,7 +11,7 @@ import {
   type AiTask,
   type AppKeybindingOverrides,
   type AppSettings,
-} from "@bb/domain";
+} from "@cc/domain";
 import type { DbConnection, DbQueryConnection } from "../connection.js";
 import { appSettingsValues } from "../schema.js";
 

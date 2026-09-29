@@ -11,7 +11,7 @@ import type {
   ThreadTimelineGoal,
   ThreadTimelineModelFallback,
   ThreadWithRuntime,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   cleanup,
   fireEvent,
@@ -24,20 +24,20 @@ import {
 import type {
   ExistingThreadExecutionInputSources,
   TimelineWorkflowWorkRow,
-} from "@bb/server-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@cc/server-contract";
+import { createDeferredPromise } from "@cc/test-helpers";
 import {
   makeThreadQueuedMessage as makeThreadQueuedMessageFixture,
   makeThreadWithRuntime as makeThreadWithRuntimeFixture,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@cc/test-helpers/domain-fixtures";
 import type { ComponentProps, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { workflowRow } from "@/test/fixtures/thread-timeline-rows";
-import type { PromptDraftAttachment } from "@bb/client-core";
-import { BbHttpError } from "@/lib/sdk";
+import type { PromptDraftAttachment } from "@cc/client-core";
+import { CcHttpError } from "@/lib/sdk";
 import type { TypeaheadConfig } from "@/components/promptbox/PromptBoxInternal";
 import type { PluginComposerHost } from "@/components/plugin/plugin-composer-host";
-import type { ExperimentalComposerSelection } from "@get-bb/plugin-sdk";
+import type { ExperimentalComposerSelection } from "@codythatsme/plugin-sdk";
 import { setComposerTextEffect } from "@/lib/composer-text-effects";
 import {
   resetPluginSlotStoreForTest,
@@ -70,7 +70,7 @@ const mocks = vi.hoisted(() => ({
     restoreIfEmpty: vi.fn(),
     setDraft: vi.fn(),
     setTextAndMentions: vi.fn(),
-    storageKey: "bb.promptbox.contents-proj_1-thr_1-3",
+    storageKey: "cc.promptbox.contents-proj_1-thr_1-3",
     subscribe: vi.fn(() => () => {}),
     text: "",
   },
@@ -1761,7 +1761,7 @@ describe("ThreadDetailPromptArea", () => {
   it("dismisses a missing queued message but keeps a stale edit recoverable", async () => {
     mocks.queuedMessages = [makeQueuedMessage()];
     mocks.updateQueuedMessageMutateAsync.mockRejectedValueOnce(
-      new BbHttpError({
+      new CcHttpError({
         body: null,
         code: "invalid_request",
         status: 409,
@@ -1792,7 +1792,7 @@ describe("ThreadDetailPromptArea", () => {
     ).toBeTruthy();
 
     mocks.updateQueuedMessageMutateAsync.mockRejectedValueOnce(
-      new BbHttpError({
+      new CcHttpError({
         body: null,
         code: "invalid_request",
         status: 404,

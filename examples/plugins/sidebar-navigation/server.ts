@@ -1,5 +1,5 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 
-export default function sidebarNavigationExample(bb: BbPluginApi) {
-  bb.log.info("Sidebar Navigation Example loaded");
+export default function sidebarNavigationExample(cc: CcPluginApi) {
+  cc.log.info("Sidebar Navigation Example loaded");
 }

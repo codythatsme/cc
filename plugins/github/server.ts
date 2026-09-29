@@ -4,9 +4,9 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type CcPluginApi,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 
 const SYNC_INTERVAL_MS = 15 * 60_000;
@@ -19,7 +19,7 @@ const CLOSED_PR_PAGE = 30;
 
 const GH_HINT =
   "Install the GitHub CLI (https://cli.github.com) and run `gh auth login`, " +
-  "then `bb plugin reload github`.";
+  "then `cc plugin reload github`.";
 
 const repoNameSchema = z.string().regex(/^[\w.-]+\/[\w.-]+$/);
 const itemNumberSchema = z.number().int().positive();
@@ -519,13 +519,13 @@ export async function fetchRepoItems(
   ];
 }
 
-export default async function plugin(bb: BbPluginApi) {
-  const settings = bb.settings.define({
+export default async function plugin(cc: CcPluginApi) {
+  const settings = cc.settings.define({
     extraRepos: {
       type: "string",
       label: "Extra repositories",
       description:
-        'Comma-separated "owner/repo" list to track in addition to repos discovered from BB projects.',
+        'Comma-separated "owner/repo" list to track in addition to repos discovered from CC projects.',
       experimental_schema: z.string().superRefine((value, context) => {
         const { ignored } = parseExtraRepos(value);
         if (ignored.length > 0) {
@@ -539,9 +539,9 @@ export default async function plugin(bb: BbPluginApi) {
     },
     defaultProject: {
       type: "project",
-      label: "Default BB project",
+      label: "Default CC project",
       description:
-        "Where agent threads spawn for repos that are not attached to a BB project.",
+        "Where agent threads spawn for repos that are not attached to a CC project.",
     },
   });
 
@@ -624,7 +624,7 @@ export default async function plugin(bb: BbPluginApi) {
     }
     const byRepo = new Map<string, RepoInfo>();
     try {
-      const projects = await bb.sdk.projects.list();
+      const projects = await cc.sdk.projects.list();
       for (const project of projects) {
         for (const source of project.sources ?? []) {
           if (source.type !== "local_path") continue;
@@ -642,7 +642,7 @@ export default async function plugin(bb: BbPluginApi) {
         }
       }
     } catch (error) {
-      bb.log.warn(`project discovery failed: ${errorMessage(error)}`);
+      cc.log.warn(`project discovery failed: ${errorMessage(error)}`);
     }
     const { extraRepos } = await settings.get();
     const parsed = parseExtraRepos(extraRepos);
@@ -655,7 +655,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (ignoredKey !== lastIgnoredExtraReposKey) {
       lastIgnoredExtraReposKey = ignoredKey;
       if (parsed.ignored.length > 0) {
-        bb.log.warn(describeIgnoredExtraRepos(parsed.ignored));
+        cc.log.warn(describeIgnoredExtraRepos(parsed.ignored));
       }
     }
     ignoredExtraRepos = parsed.ignored;
@@ -664,8 +664,8 @@ export default async function plugin(bb: BbPluginApi) {
     return repos;
   }
 
-  const db = bb.storage.database();
-  bb.storage.migrate(db, [
+  const db = cc.storage.database();
+  cc.storage.migrate(db, [
     `CREATE TABLE IF NOT EXISTS items (
        repo TEXT NOT NULL,
        number INTEGER NOT NULL,
@@ -803,7 +803,7 @@ export default async function plugin(bb: BbPluginApi) {
         "UPDATE items SET labels = ? WHERE repo = ? AND kind = 'issue' AND number = ?",
       ).run(JSON.stringify(patch.labels), repo, number);
     }
-    bb.realtime.publish("data-changed", {});
+    cc.realtime.publish("data-changed", {});
   }
 
   async function syncAll(
@@ -829,7 +829,7 @@ export default async function plugin(bb: BbPluginApi) {
       } catch (error) {
         failed += 1;
         lastFailure = errorMessage(error);
-        bb.log.warn(`sync failed for ${repo}: ${lastFailure}`);
+        cc.log.warn(`sync failed for ${repo}: ${lastFailure}`);
       }
     }
     if (repos.length > 0 && failed === repos.length) {
@@ -844,19 +844,19 @@ export default async function plugin(bb: BbPluginApi) {
         )
         .all(),
     );
-    await bb.storage.kv.set("sync-cursor", {
+    await cc.storage.kv.set("sync-cursor", {
       lastSyncedAt: new Date().toISOString(),
       repos: repos.length,
       items: total,
     });
     if (before !== after) {
-      bb.realtime.publish("data-changed", { items: total });
+      cc.realtime.publish("data-changed", { items: total });
     }
-    bb.log.info(`synced ${total} item(s) across ${repos.length} repo(s)`);
+    cc.log.info(`synced ${total} item(s) across ${repos.length} repo(s)`);
     return { repos: repos.length, items: total };
   }
 
-  bb.background.service("sync", {
+  cc.background.service("sync", {
     async start(signal) {
       let failures = 0;
       while (!signal.aborted) {
@@ -871,7 +871,7 @@ export default async function plugin(bb: BbPluginApi) {
             SYNC_RETRY_BASE_MS * 2 ** (failures - 1),
             SYNC_RETRY_MAX_MS,
           );
-          bb.log.warn(
+          cc.log.warn(
             `sync failed (retry in ${Math.round(delayMs / 1000)}s): ${errorMessage(
               error,
             )}`,
@@ -897,9 +897,9 @@ export default async function plugin(bb: BbPluginApi) {
     await checkAuth();
   } catch (error) {
     if (isNeedsConfigurationError(error)) {
-      bb.status.needsConfiguration(error.message);
+      cc.status.needsConfiguration(error.message);
     } else if (isGhUnavailableError(error)) {
-      bb.log.warn(error.message);
+      cc.log.warn(error.message);
     } else {
       throw error;
     }
@@ -911,16 +911,16 @@ export default async function plugin(bb: BbPluginApi) {
 
   async function addLink(link: ThreadLink): Promise<void> {
     const key = linkKey(link.kind, link.repo, link.number);
-    const existing = (await bb.storage.kv.get<ThreadLink[]>(key)) ?? [];
-    await bb.storage.kv.set(key, [...existing, link]);
-    bb.realtime.publish("links-changed", { key });
+    const existing = (await cc.storage.kv.get<ThreadLink[]>(key)) ?? [];
+    await cc.storage.kv.set(key, [...existing, link]);
+    cc.realtime.publish("links-changed", { key });
   }
 
   async function listAllLinks(): Promise<Record<string, ThreadLink[]>> {
-    const keys = await bb.storage.kv.list("link:");
+    const keys = await cc.storage.kv.list("link:");
     const result: Record<string, ThreadLink[]> = {};
     for (const key of keys) {
-      const links = await bb.storage.kv.get<ThreadLink[]>(key);
+      const links = await cc.storage.kv.get<ThreadLink[]>(key);
       if (links !== undefined && links.length > 0) {
         result[key.slice("link:".length)] = links;
       }
@@ -935,7 +935,7 @@ export default async function plugin(bb: BbPluginApi) {
     const { defaultProject } = await settings.get();
     if (defaultProject) return defaultProject;
     throw new Error(
-      `No BB project is attached to ${repo}. Create a project whose checkout has ` +
+      `No CC project is attached to ${repo}. Create a project whose checkout has ` +
         "that origin remote, or set the defaultProject plugin setting.",
     );
   }
@@ -975,7 +975,7 @@ export default async function plugin(bb: BbPluginApi) {
               "Summarize your findings with file/line references. Do not push " +
               "changes or post to GitHub unless asked.",
           ].join("\n");
-    const thread = await bb.sdk.threads.spawn({
+    const thread = await cc.sdk.threads.spawn({
       projectId,
       environment: { type: "project-default" },
       title: `${ref}: ${title}`.slice(0, 120),
@@ -988,7 +988,7 @@ export default async function plugin(bb: BbPluginApi) {
       threadId: thread.id,
       createdAt: new Date().toISOString(),
     });
-    bb.log.info(`spawned thread ${thread.id} for ${kind} ${ref}`);
+    cc.log.info(`spawned thread ${thread.id} for ${kind} ${ref}`);
     return { threadId: thread.id };
   }
 
@@ -1051,14 +1051,14 @@ export default async function plugin(bb: BbPluginApi) {
     return labels;
   }
 
-  bb.rpc.register(githubRpcContract, {
+  cc.rpc.register(githubRpcContract, {
     async status() {
       if (ghState !== "ready") {
         try {
           await checkAuth();
         } catch {}
       }
-      const cursor = await bb.storage.kv.get<{
+      const cursor = await cc.storage.kv.get<{
         lastSyncedAt: string;
         repos: number;
         items: number;
@@ -1427,10 +1427,10 @@ export default async function plugin(bb: BbPluginApi) {
     async pullForThread({ threadId }) {
       let environmentId: string | null = null;
       try {
-        const thread = await bb.sdk.threads.get({ threadId });
+        const thread = await cc.sdk.threads.get({ threadId });
         if (thread?.environmentId) {
           environmentId = thread.environmentId;
-          const result = await bb.sdk.environments.pullRequest({
+          const result = await cc.sdk.environments.pullRequest({
             environmentId: thread.environmentId,
           });
           const url =
@@ -1496,7 +1496,7 @@ export default async function plugin(bb: BbPluginApi) {
       const number = match !== null ? Number(match[1]) : null;
       try {
         replaceRepoRows(input.repo, await fetchRepoItems(gh, input.repo));
-        bb.realtime.publish("data-changed", {});
+        cc.realtime.publish("data-changed", {});
       } catch {}
       return { number, url: stdout.trim() };
     },
@@ -1591,7 +1591,7 @@ export default async function plugin(bb: BbPluginApi) {
     }
   }
 
-  bb.ui.registerMentionProvider({
+  cc.ui.registerMentionProvider({
     id: "issue",
     label: "GitHub issues",
     triggers: ["@", "#"],
@@ -1603,7 +1603,7 @@ export default async function plugin(bb: BbPluginApi) {
     },
   });
 
-  bb.ui.registerMentionProvider({
+  cc.ui.registerMentionProvider({
     id: "pr",
     label: "GitHub pull requests",
     triggers: ["@", "#"],
@@ -1648,7 +1648,7 @@ export default async function plugin(bb: BbPluginApi) {
           ? "List cached open pull requests"
           : "List cached open issues",
       description:
-        "Reads the local cache only; run `bb github sync` to refresh it from GitHub.",
+        "Reads the local cache only; run `cc github sync` to refresh it from GitHub.",
       positionals: [
         {
           name: "repo",
@@ -1682,7 +1682,7 @@ export default async function plugin(bb: BbPluginApi) {
           if (items.length === 0) {
             return {
               exitCode: 0,
-              stdout: "Nothing cached. Run `bb github sync` first.",
+              stdout: "Nothing cached. Run `cc github sync` first.",
             };
           }
           return {
@@ -1699,7 +1699,7 @@ export default async function plugin(bb: BbPluginApi) {
     });
   }
 
-  bb.cli.register(
+  cc.cli.register(
     defineCli({
       name: "github",
       summary: "Browse tracked GitHub repos, issues, and PRs",

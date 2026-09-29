@@ -6,10 +6,10 @@ import type {
   WorkspaceFileStatus,
   WorkspaceFileStatusKind,
   WorkspaceStatus,
-} from "@bb/domain";
+} from "@cc/domain";
 import os from "node:os";
 import path from "node:path";
-import { pathExists } from "@bb/process-utils";
+import { pathExists } from "@cc/process-utils";
 import {
   getPullRequestForCurrentBranch,
   runPullRequestActionForCurrentBranch,
@@ -2127,7 +2127,7 @@ export class Workspace {
     ) => Promise<T>,
     options: { signal?: AbortSignal; timeoutMs?: number } = {},
   ): Promise<T> {
-    const tempDir = await createTempDir("bb-untracked-index-");
+    const tempDir = await createTempDir("cc-untracked-index-");
     const indexPath = path.join(tempDir, "index");
     const pathspecPath = path.join(tempDir, "pathspec");
     const env = { GIT_INDEX_FILE: indexPath };

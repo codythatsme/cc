@@ -1,5 +1,5 @@
-import type { SystemMessageKind, ThreadEventTurnStatus } from "@bb/domain";
-import type { TemplateId } from "@bb/templates";
+import type { SystemMessageKind, ThreadEventTurnStatus } from "@cc/domain";
+import type { TemplateId } from "@cc/templates";
 
 const STATIC_SYSTEM_MESSAGE_KIND_BY_TEMPLATE = {
   systemMessageThreadOwnershipAssigned: "ownership-assigned",

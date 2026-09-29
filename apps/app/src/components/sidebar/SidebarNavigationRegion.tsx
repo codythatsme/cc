@@ -6,8 +6,8 @@ import {
   useState,
 } from "react";
 import { useAtomValue } from "jotai";
-import type { ExperimentalSidebarNavigationProps } from "@get-bb/plugin-sdk";
-import { cn } from "@bb/shared-ui/lib/utils";
+import type { ExperimentalSidebarNavigationProps } from "@codythatsme/plugin-sdk";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   PluginSlotMount,
   resetCrashedPluginSlots,

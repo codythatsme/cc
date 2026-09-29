@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   ExperimentalSidebarFooterDisclosureController,
   PluginSidebarFooterActionContext,
-} from "@get-bb/plugin-sdk";
-import { getCollectedSidebarFooterItems } from "@get-bb/plugin-sdk/internal/plugin-app-collector";
-import { loadPluginApp } from "@get-bb/plugin-sdk/testing/app";
+} from "@codythatsme/plugin-sdk";
+import { getCollectedSidebarFooterItems } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
+import { loadPluginApp } from "@codythatsme/plugin-sdk/testing/app";
 import {
   collectPluginAppRegistrations,
   definePluginApp,
@@ -20,7 +20,7 @@ describe("definePluginApp", () => {
     const definition = definePluginApp(() => {});
     expect(isPluginAppDefinition(definition)).toBe(true);
     expect(isPluginAppDefinition({})).toBe(false);
-    expect(isPluginAppDefinition({ __bbPluginApp: true })).toBe(false);
+    expect(isPluginAppDefinition({ __ccPluginApp: true })).toBe(false);
     expect(isPluginAppDefinition(null)).toBe(false);
   });
 

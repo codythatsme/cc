@@ -2,13 +2,13 @@ import {
   detectGitRepo,
   runGit,
   WorkspaceError,
-} from "bb-environment-provider-host/git";
-import { tryWithCheckoutMutationLock } from "bb-environment-provider-host/locks";
+} from "cc-environment-provider-host/git";
+import { tryWithCheckoutMutationLock } from "cc-environment-provider-host/locks";
 import {
   emitStep,
   throwIfProvisionAborted,
   type ProgressCallback,
-} from "bb-environment-provider-host/transcript";
+} from "cc-environment-provider-host/transcript";
 import {
   getCheckoutRef,
   getWorkspaceGitOperation,

@@ -1,19 +1,19 @@
 import { watch as watchDirectory } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { readCcAppRuntimeFile } from "@cc/config/app-runtime-file";
 import {
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { isProcessRunning } from "@bb/config/verified-process-stop";
-import type { ConnectCredential } from "@bb/connect-client";
-import { SERVER_MOVED_ERROR_CODE } from "@bb/host-daemon-contract";
+  formatCcAppConfigPath,
+  parseCcAppManagedConfig,
+} from "@cc/config/cc-app-managed-config";
+import { isProcessRunning } from "@cc/config/verified-process-stop";
+import type { ConnectCredential } from "@cc/connect-client";
+import { SERVER_MOVED_ERROR_CODE } from "@cc/host-daemon-contract";
 import {
   readServerMovedFile,
   SERVER_MOVED_FILE_NAME,
   type ServerMovedFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { z } from "zod";
 import type { ServerProbeFetch } from "./server-probe.js";
 import {
@@ -31,7 +31,7 @@ export const SERVER_MOVE_DESTINATION_INTERVAL_MS = 1_000;
 export const SERVER_MOVE_COMMIT_TIMEOUT_MS = 120_000;
 export const SERVER_MOVE_COMMIT_INTERVAL_MS = 1_000;
 
-const CONNECT_MACHINE_CREDENTIAL_HEADER = "x-bb-connect-machine";
+const CONNECT_MACHINE_CREDENTIAL_HEADER = "x-cc-connect-machine";
 const SERVER_MOVED_STATUS = 410;
 const DESTINATION_REQUEST_TIMEOUT_MS = 1_000;
 
@@ -141,7 +141,7 @@ interface ProbeLocalServerMoveArgs {
   timeoutMs: number;
 }
 
-interface HasLiveBbAppLauncherArgs {
+interface HasLiveCcAppLauncherArgs {
   dataDir: string;
   isRunning?: (pid: number) => boolean;
 }
@@ -260,7 +260,7 @@ export function resolveServerMovedTarget(
     return { ok: true, target: { kind: "custom", url } };
   }
   if (file.connectHandle === null) {
-    return { ok: false, reason: "a bb Connect move has no connectHandle" };
+    return { ok: false, reason: "a cc Connect move has no connectHandle" };
   }
   return {
     ok: true,
@@ -302,8 +302,8 @@ export function formatServerMovedNotice(
   move: DesktopServerMove,
 ): ServerMovedNotice {
   return {
-    detail: "bb now opens there. This computer stays connected.",
-    message: `Your bb server moved to ${move.toHostName}`,
+    detail: "cc now opens there. This computer stays connected.",
+    message: `Your cc server moved to ${move.toHostName}`,
   };
 }
 
@@ -384,7 +384,7 @@ export async function ensureServerMovedRuntime(
   }
   if (!(await args.isLocalAddressFree())) {
     args.logInfo(
-      `[desktop] another bb process answers at ${args.localServerUrl}; not starting a machine runtime from this app`,
+      `[desktop] another cc process answers at ${args.localServerUrl}; not starting a machine runtime from this app`,
     );
     return "external";
   }
@@ -559,10 +559,10 @@ export async function probeLocalServerMove(
   }
 }
 
-export async function hasLiveBbAppLauncher(
-  args: HasLiveBbAppLauncherArgs,
+export async function hasLiveCcAppLauncher(
+  args: HasLiveCcAppLauncherArgs,
 ): Promise<boolean> {
-  const runtimeFile = await readBbAppRuntimeFile(args.dataDir);
+  const runtimeFile = await readCcAppRuntimeFile(args.dataDir);
   const isRunning = args.isRunning ?? isProcessRunning;
   return runtimeFile !== null && isRunning(runtimeFile.pid);
 }
@@ -606,22 +606,22 @@ export async function readServerMovedConnectCredential(
   ) {
     return null;
   }
-  const configPath = formatBbAppConfigPath(args.dataDir);
+  const configPath = formatCcAppConfigPath(args.dataDir);
   let raw: string;
   try {
     raw = await readFile(configPath, "utf8");
   } catch (error) {
     args.logWarning(
-      `[desktop] could not read ${configPath} for this computer's bb Connect access: ${errorMessage(error)}`,
+      `[desktop] could not read ${configPath} for this computer's cc Connect access: ${errorMessage(error)}`,
     );
     return null;
   }
-  let config: ReturnType<typeof parseBbAppManagedConfig>;
+  let config: ReturnType<typeof parseCcAppManagedConfig>;
   try {
-    config = parseBbAppManagedConfig(JSON.parse(raw));
+    config = parseCcAppManagedConfig(JSON.parse(raw));
   } catch (error) {
     args.logWarning(
-      `[desktop] ignoring ${configPath} for bb Connect access: ${errorMessage(error)}`,
+      `[desktop] ignoring ${configPath} for cc Connect access: ${errorMessage(error)}`,
     );
     return null;
   }

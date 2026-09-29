@@ -27,7 +27,7 @@ import {
   withoutBridgeRuntimeEnv,
   type BridgeToolCallRequest,
   experimental_defineProviderBridge,
-} from "@get-bb/plugin-sdk/provider-bridge";
+} from "@codythatsme/plugin-sdk/provider-bridge";
 import { randomUUID } from "node:crypto";
 import { join as joinPath, resolve as resolvePath } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -97,7 +97,7 @@ import {
   getAllowedToolNames,
   type ToolCallForwarder,
 } from "./tool-proxy-mcp.js";
-import { BB_BRIDGE_MCP_SERVER_NAME } from "../tool-classification.js";
+import { CC_BRIDGE_MCP_SERVER_NAME } from "../tool-classification.js";
 import {
   type ClaudeInteractiveResponse,
   type ClaudePermissionMode,
@@ -1140,7 +1140,7 @@ function buildSessionTrackingHooks(
             hookEventName: "PreToolUse",
             permissionDecision: "deny",
             permissionDecisionReason:
-              "bb has disabled Claude Code native subagents; use bb delegation instead.",
+              "cc has disabled Claude Code native subagents; use cc delegation instead.",
           },
         };
       }
@@ -1154,7 +1154,7 @@ function buildSessionTrackingHooks(
             hookEventName: "PreToolUse",
             permissionDecision: "deny",
             permissionDecisionReason:
-              "bb has disabled the Claude Code Workflow tool.",
+              "cc has disabled the Claude Code Workflow tool.",
           },
         };
       }
@@ -2099,7 +2099,7 @@ function attachThreadSession(
       params.dynamicTools,
       createForwardToolCall(() => threadIdRef.current),
     );
-    sessionOptions.mcpServers = { [BB_BRIDGE_MCP_SERVER_NAME]: mcpServer };
+    sessionOptions.mcpServers = { [CC_BRIDGE_MCP_SERVER_NAME]: mcpServer };
     sessionOptions.allowedTools = getAllowedToolNames(params.dynamicTools);
   }
 

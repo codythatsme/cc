@@ -1,4 +1,4 @@
-import type { InstalledPluginRow, PluginGitSelector } from "@bb/db";
+import type { InstalledPluginRow, PluginGitSelector } from "@cc/db";
 
 export function gitSelectorForRow(
   row: InstalledPluginRow,

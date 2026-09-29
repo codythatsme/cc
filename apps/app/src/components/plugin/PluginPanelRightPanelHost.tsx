@@ -9,15 +9,15 @@ import {
 import { createPortal } from "react-dom";
 import { atom, useAtom, useAtomValue, useStore } from "jotai";
 import { atomFamily } from "jotai-family";
-import type { Host, JsonValue } from "@bb/domain";
-import { jsonValueSchema } from "@bb/domain";
-import type { PluginFixedTabDeclaration } from "@get-bb/plugin-sdk";
-import { Button } from "@bb/shared-ui/button";
-import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@bb/shared-ui/chrome-style-tokens";
-import { COARSE_POINTER_HEADER_ICON_BUTTON_CLASS } from "@bb/shared-ui/coarse-pointer-sizing";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Icon } from "@bb/shared-ui/icon";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@bb/shared-ui/tooltip";
+import type { Host, JsonValue } from "@cc/domain";
+import { jsonValueSchema } from "@cc/domain";
+import type { PluginFixedTabDeclaration } from "@codythatsme/plugin-sdk";
+import { Button } from "@cc/shared-ui/button";
+import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@cc/shared-ui/chrome-style-tokens";
+import { COARSE_POINTER_HEADER_ICON_BUTTON_CLASS } from "@cc/shared-ui/coarse-pointer-sizing";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@cc/shared-ui/icon";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@cc/shared-ui/tooltip";
 import { useAppCommandHandler } from "@/components/commands/AppCommandProvider";
 import { PluginIcon } from "@/components/plugin/PluginIcon";
 import { PluginSlotMount } from "@/components/plugin/PluginSlotMount";
@@ -42,7 +42,7 @@ import {
   useReconciledFixedPanelTabsState,
   useUpdateFixedPanelTabsState,
 } from "@/lib/fixed-panel-tabs";
-import type { TerminalCreateTarget } from "@bb/server-contract";
+import type { TerminalCreateTarget } from "@cc/server-contract";
 import {
   createPluginPageFixedPanelTab,
   createTerminalFixedPanelTab,
@@ -51,7 +51,7 @@ import {
   type TerminalFixedPanelTab,
 } from "@/lib/fixed-panel-tabs-state";
 import { createFileOpenerOriginalTab } from "./file-opener-tabs";
-import { activateSecondaryPanelTabInState } from "@bb/client-core";
+import { activateSecondaryPanelTabInState } from "@cc/client-core";
 import {
   useCloseTerminal,
   useCreateTerminal,
@@ -62,7 +62,7 @@ import { useSystemConfig } from "@/hooks/queries/system-queries";
 import {
   getDesktopBrowserApi,
   isDesktopBrowserAvailable,
-} from "@/lib/bb-desktop";
+} from "@/lib/cc-desktop";
 import { getBrowserUrlHost } from "@/lib/browser-url";
 import { isRoutePath } from "@/lib/route-paths";
 import { UrlOpenRoutingProvider } from "@/lib/url-open-routing";

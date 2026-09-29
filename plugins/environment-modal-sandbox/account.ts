@@ -11,10 +11,10 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type CcPluginApi,
   type PluginCliContext,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import path from "node:path";
 import { z } from "zod";
 import { dockerfileSchema, type ImageDefinition } from "./image-definition.js";
@@ -68,7 +68,7 @@ export const modalRpcContract = defineRpcContract({
 });
 
 export function registerRpcAndCli(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   image: ImageDefinition,
   launchOptions: ModalLaunchOptionsStore,
   inspect: () => Promise<{ available: boolean; message: string }>,
@@ -77,7 +77,7 @@ export function registerRpcAndCli(
     input: z.infer<typeof machineInput>,
   ) => Promise<z.infer<typeof machineOutput>>,
 ) {
-  bb.rpc.register(modalRpcContract, {
+  cc.rpc.register(modalRpcContract, {
     "machine.inspect": inspectMachine,
     "image.build": () => debug.build(),
     "sandbox.run": () => debug.run(),
@@ -93,10 +93,10 @@ export function registerRpcAndCli(
   async function readDockerfile(file: string, context: PluginCliContext) {
     let hostId: string | undefined;
     if (context.threadId) {
-      const thread = await bb.sdk.threads.get({ threadId: context.threadId });
+      const thread = await cc.sdk.threads.get({ threadId: context.threadId });
       if (!thread.environmentId)
         throw new Error("The current thread has no machine workspace");
-      const environment = await bb.sdk.environments.get({
+      const environment = await cc.sdk.environments.get({
         environmentId: thread.environmentId,
       });
       if (!environment.hostId)
@@ -105,7 +105,7 @@ export function registerRpcAndCli(
     }
     if (!path.isAbsolute(file) && !context.cwd)
       throw new Error("A relative --file requires the CLI working directory");
-    const result = await bb.sdk.files.read({
+    const result = await cc.sdk.files.read({
       hostId,
       path: path.resolve(context.cwd ?? "/", file),
       signal: context.signal,
@@ -130,7 +130,7 @@ export function registerRpcAndCli(
       description: "Emit the raw result as JSON instead of readable text",
     },
   } as const;
-  bb.cli.register(
+  cc.cli.register(
     defineCli({
       name: "modal",
       summary: "Configure, build and debug Modal images",
@@ -142,7 +142,7 @@ export function registerRpcAndCli(
           positionals: [
             {
               name: "host-id",
-              description: "BB host whose Modal machine is inspected",
+              description: "CC host whose Modal machine is inspected",
               required: true,
             },
           ],
@@ -199,7 +199,7 @@ export function registerRpcAndCli(
           positionals: [
             {
               name: "sandbox-id",
-              description: "Debug sandbox started by bb modal sandbox run",
+              description: "Debug sandbox started by cc modal sandbox run",
               required: true,
             },
           ],
@@ -209,10 +209,10 @@ export function registerRpcAndCli(
             return guarded(async () => {
               if (input.passthrough.length === 0) {
                 throw new PluginCliError(
-                  "bb modal sandbox exec requires a command after --",
+                  "cc modal sandbox exec requires a command after --",
                   {
                     code: "missing_command",
-                    hint: "Write bb modal sandbox exec <sandbox-id> -- bash -lc 'echo hi'.",
+                    hint: "Write cc modal sandbox exec <sandbox-id> -- bash -lc 'echo hi'.",
                   },
                 );
               }
@@ -238,7 +238,7 @@ export function registerRpcAndCli(
           positionals: [
             {
               name: "sandbox-id",
-              description: "Debug sandbox started by bb modal sandbox run",
+              description: "Debug sandbox started by cc modal sandbox run",
               required: true,
             },
           ],

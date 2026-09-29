@@ -7,18 +7,18 @@ import {
 import { hashSourceContents } from "@/components/code/source-code-budget";
 import type { MarkdownLinkRouting } from "@/components/ui/markdown-link-routing.js";
 import { asHttpError, getHttpErrorMessage } from "@/lib/http-error";
-import { extractErrorMessage } from "@bb/core-ui";
+import { extractErrorMessage } from "@cc/core-ui";
 import type {
   FilePreview,
   FilePreviewLineRange,
   TextFilePreview,
   WorkspaceFilePreviewStatusLabel,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   isCsvFilePreview,
   isHtmlFilePreviewPath,
   isMarkdownFilePreview,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 const GENERIC_HTML_IFRAME_SANDBOX = "allow-scripts";
 

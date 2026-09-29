@@ -33,7 +33,7 @@ export const Route = createFileRoute("/marketplace_")({
     if (notFound) {
       return {
         meta: [
-          { title: "Page not found — bb" },
+          { title: "Page not found — cc" },
           { name: "robots", content: "noindex" },
         ],
         links: sharedLinks,
@@ -44,7 +44,7 @@ export const Route = createFileRoute("/marketplace_")({
       meta: marketplaceIndexMeta(available),
       links: [
         ...sharedLinks,
-        { rel: "canonical", href: "https://getbb.app/marketplace" },
+        { rel: "canonical", href: "https://cc.example.invalid/marketplace" },
       ],
     };
   },

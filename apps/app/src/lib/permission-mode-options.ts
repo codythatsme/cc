@@ -1,9 +1,9 @@
-import type { PermissionMode } from "@bb/domain";
-import type { IconName } from "@bb/shared-ui/icon";
+import type { PermissionMode } from "@cc/domain";
+import type { IconName } from "@cc/shared-ui/icon";
 import {
   PERMISSION_MODE_OPTIONS as CORE_PERMISSION_MODE_OPTIONS,
   type PermissionModeOption as CorePermissionModeOption,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 export interface PermissionModeOption extends CorePermissionModeOption {
   iconName: IconName;

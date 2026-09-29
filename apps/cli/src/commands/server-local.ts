@@ -11,14 +11,14 @@ import {
 } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { readBbAppRuntimeFile } from "@bb/config/app-runtime-file";
+import { readCcAppRuntimeFile } from "@cc/config/app-runtime-file";
 import {
-  type BbAppManagedConfig,
-  formatBbAppConfigPath,
-  parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { parseDataDirEnvValue, resolveProdDataDir } from "@bb/config/runtime";
-import { isProcessRunning } from "@bb/config/verified-process-stop";
+  type CcAppManagedConfig,
+  formatCcAppConfigPath,
+  parseCcAppManagedConfig,
+} from "@cc/config/cc-app-managed-config";
+import { parseDataDirEnvValue, resolveProdDataDir } from "@cc/config/runtime";
+import { isProcessRunning } from "@cc/config/verified-process-stop";
 import {
   assertServerArchiveFormat,
   extractServerArchive,
@@ -35,10 +35,10 @@ import {
   type ServerMovedFile,
   writeServerConnectHoldFile,
   writeServerImportFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { z } from "zod";
 
-const SERVER_DATABASE_FILE_NAME = "bb.db";
+const SERVER_DATABASE_FILE_NAME = "cc.db";
 const MOVED_DAEMON_CONFIG_KEYS: readonly string[] = [
   "serverUrl",
   "serverHeaders",
@@ -100,7 +100,7 @@ function comparePrerelease(left: string[], right: string[]): number {
   return 0;
 }
 
-export function isNewerBbVersion(candidate: string, current: string): boolean {
+export function isNewerCcVersion(candidate: string, current: string): boolean {
   const a = parseVersion(candidate);
   const b = parseVersion(current);
   if (a === null || b === null) return false;
@@ -137,7 +137,7 @@ async function isHealthyServer(serverUrl: string): Promise<boolean> {
 async function readMovedServerHeaders(
   dataDir: string,
 ): Promise<Record<string, string> | null> {
-  const configPath = formatBbAppConfigPath(dataDir);
+  const configPath = formatCcAppConfigPath(dataDir);
   const text = await readOptionalText(configPath);
   if (text === null) return null;
   const headers = parseManagedConfigText(configPath, text).config.serverHeaders;
@@ -177,7 +177,7 @@ export async function probeMovedServer(
 export interface ServerImportResult {
   dataDir: string;
   archivePath: string;
-  bbVersion: string;
+  ccVersion: string;
   sourceDataDir: string;
   sourceServerHostId: string | null;
   importedEntries: string[];
@@ -212,7 +212,7 @@ export function resolveLocalDataDir(dataDirOption: string | undefined): string {
       parseDataDirEnvValue({ homeDir, rawDataDir: dataDirOption }),
     );
   }
-  const configured = process.env.BB_DATA_DIR;
+  const configured = process.env.CC_DATA_DIR;
   return resolve(
     configured === undefined || configured.trim().length === 0
       ? resolveProdDataDir({ homeDir })
@@ -223,16 +223,16 @@ export function resolveLocalDataDir(dataDirOption: string | undefined): string {
 async function assertNoServerDatabase(dataDir: string): Promise<void> {
   if (await pathExists(join(dataDir, SERVER_DATABASE_FILE_NAME))) {
     throw new Error(
-      `${dataDir} already has a bb server database (${SERVER_DATABASE_FILE_NAME}). Import into a data directory without a server, such as --data-dir ~/.bb-imported.`,
+      `${dataDir} already has a cc server database (${SERVER_DATABASE_FILE_NAME}). Import into a data directory without a server, such as --data-dir ~/.cc-imported.`,
     );
   }
 }
 
-async function assertNoRunningBb(dataDir: string): Promise<void> {
-  const runtime = await readBbAppRuntimeFile(dataDir);
+async function assertNoRunningCc(dataDir: string): Promise<void> {
+  const runtime = await readCcAppRuntimeFile(dataDir);
   if (runtime !== null && isProcessRunning(runtime.pid)) {
     throw new Error(
-      `bb is running from ${dataDir} (pid ${String(runtime.pid)}). Stop it with bb-app stop or quit the desktop app, then try again.`,
+      `cc is running from ${dataDir} (pid ${String(runtime.pid)}). Stop it with cc-app stop or quit the desktop app, then try again.`,
     );
   }
 }
@@ -278,13 +278,13 @@ export async function importServerArchive(
   if (!interruptedImport) {
     await assertNoServerDatabase(dataDir);
   }
-  await assertNoRunningBb(dataDir);
+  await assertNoRunningCc(dataDir);
   await assertServerArchiveFormat(archivePath);
   if (
     !(await args.confirm(
       interruptedImport
-        ? `Roll back the interrupted import in ${dataDir}, then import the bb server from ${archivePath}?`
-        : `Import the bb server from ${archivePath} into ${dataDir}?`,
+        ? `Roll back the interrupted import in ${dataDir}, then import the cc server from ${archivePath}?`
+        : `Import the cc server from ${archivePath} into ${dataDir}?`,
     ))
   ) {
     return null;
@@ -307,12 +307,12 @@ export async function importServerArchive(
     });
     if (!manifest.serverMoveExperiment) {
       throw new Error(
-        'This export came from a server with the "Server move" experiment off. Turn on the "Server move" experiment in Settings → Experiments, or run bb settings experiment serverMove true, on that server, then export again.',
+        'This export came from a server with the "Server move" experiment off. Turn on the "Server move" experiment in Settings → Experiments, or run cc settings experiment serverMove true, on that server, then export again.',
       );
     }
-    if (isNewerBbVersion(manifest.bbVersion, args.cliVersion)) {
+    if (isNewerCcVersion(manifest.ccVersion, args.cliVersion)) {
       throw new Error(
-        `This export came from bb ${manifest.bbVersion}; install that version or newer before importing.`,
+        `This export came from cc ${manifest.ccVersion}; install that version or newer before importing.`,
       );
     }
     const installed = await installImportedServerFiles({
@@ -352,7 +352,7 @@ export async function importServerArchive(
     return {
       dataDir,
       archivePath,
-      bbVersion: manifest.bbVersion,
+      ccVersion: manifest.ccVersion,
       sourceDataDir: manifest.sourceDataDir,
       sourceServerHostId: manifest.sourceServerHostId,
       importedEntries: installed.importedEntries,
@@ -385,7 +385,7 @@ async function writeTextAtomically(path: string, text: string): Promise<void> {
 
 interface ParsedManagedConfig {
   raw: Record<string, unknown>;
-  config: BbAppManagedConfig;
+  config: CcAppManagedConfig;
 }
 
 function parseManagedConfigText(
@@ -400,14 +400,14 @@ function parseManagedConfigText(
       cause: error,
     });
   }
-  let config: BbAppManagedConfig;
+  let config: CcAppManagedConfig;
   try {
-    config = parseBbAppManagedConfig(raw);
+    config = parseCcAppManagedConfig(raw);
   } catch (error) {
     const detail =
       error instanceof z.ZodError ? z.prettifyError(error) : String(error);
     throw new Error(
-      `${path} is not a valid bb-app config. Fix it, then unlock again.\n${detail}`,
+      `${path} is not a valid cc-app config. Fix it, then unlock again.\n${detail}`,
     );
   }
   return { raw: managedConfigObjectSchema.parse(raw), config };
@@ -415,7 +415,7 @@ function parseManagedConfigText(
 
 export async function unlockServerCopy(dataDir: string): Promise<string[]> {
   const lockPath = join(dataDir, SERVER_MOVED_FILE_NAME);
-  const configPath = formatBbAppConfigPath(dataDir);
+  const configPath = formatCcAppConfigPath(dataDir);
   const originalText = await readOptionalText(configPath);
   if (originalText === null) {
     await rm(lockPath, { force: true });
@@ -434,7 +434,7 @@ export async function unlockServerCopy(dataDir: string): Promise<string[]> {
       ([key]) => !MOVED_DAEMON_CONFIG_KEYS.includes(key),
     ),
   );
-  parseBbAppManagedConfig(next);
+  parseCcAppManagedConfig(next);
   await writeTextAtomically(configPath, `${JSON.stringify(next, null, 2)}\n`);
   try {
     await rm(lockPath, { force: true });

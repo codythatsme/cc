@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ThreadListEntry } from "@bb/domain";
+import type { ThreadListEntry } from "@cc/domain";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -8,14 +8,14 @@ import { Provider, createStore } from "jotai";
 import { collapsedThreadIdsAtom } from "@/components/sidebar/sidebarCollapsedAtoms";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
-import type { SystemEnvironmentProvider } from "@bb/server-contract";
+import type { SystemEnvironmentProvider } from "@cc/server-contract";
 import { systemEnvironmentProvidersQueryKey } from "@/hooks/queries/environment-provider-queries";
 import {
   getMobileRecentAncestorIds,
   getMobileRecentThreads,
   RootComposeMobileRecents,
 } from "./RootComposeMobileRecents";
-import { makeThreadListEntry } from "@bb/test-helpers/domain-fixtures";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
 
 const personalProvider: SystemEnvironmentProvider = {
   machineProviderId: null,
@@ -406,7 +406,7 @@ describe("mobile recents hierarchy interaction", () => {
 
   it("renders a child-only draft state on a collapsed parent", () => {
     window.localStorage.setItem(
-      "bb.promptbox.contents-proj_mobile-thr_child-3",
+      "cc.promptbox.contents-proj_mobile-thr_child-3",
       JSON.stringify({ text: "Continue child work", attachments: [] }),
     );
     render(
@@ -557,7 +557,7 @@ describe("mobile recent thread rows", () => {
       <TestProviders>
         <RootComposeMobileRecents
           highlightedThreadId={null}
-          projectNamesById={new Map([["proj_mobile", "bb"]])}
+          projectNamesById={new Map([["proj_mobile", "cc"]])}
           providersById={new Map()}
           showCreatingRow={false}
           threads={[
@@ -576,7 +576,7 @@ describe("mobile recent thread rows", () => {
       </TestProviders>,
     );
 
-    expect(screen.getByText("bb \u00b7 3h ago")).not.toBeNull();
+    expect(screen.getByText("cc \u00b7 3h ago")).not.toBeNull();
   });
 
   it("includes the worktree branch when the thread has one", () => {
@@ -584,12 +584,12 @@ describe("mobile recent thread rows", () => {
       <TestProviders>
         <RootComposeMobileRecents
           highlightedThreadId={null}
-          projectNamesById={new Map([["proj_mobile", "bb"]])}
+          projectNamesById={new Map([["proj_mobile", "cc"]])}
           providersById={new Map()}
           showCreatingRow={false}
           threads={[
             makeThread({
-              environmentBranchName: "bb/mobile-home",
+              environmentBranchName: "cc/mobile-home",
               environmentProviderId: null,
               latestAttentionAt: Date.now() - 3 * 60 * 60 * 1000,
               activity: {
@@ -606,7 +606,7 @@ describe("mobile recent thread rows", () => {
     );
 
     expect(
-      screen.getByText("bb \u00b7 bb/mobile-home \u00b7 3h ago"),
+      screen.getByText("cc \u00b7 cc/mobile-home \u00b7 3h ago"),
     ).not.toBeNull();
   });
 
@@ -730,7 +730,7 @@ describe("RootComposeMobileRecents", () => {
 
   it("keeps the mobile working draft state ahead of runtime activity", () => {
     window.localStorage.setItem(
-      "bb.promptbox.contents-proj_mobile-thr_mobile-3",
+      "cc.promptbox.contents-proj_mobile-thr_mobile-3",
       JSON.stringify({ text: "Keep editing", attachments: [] }),
     );
 
@@ -755,7 +755,7 @@ describe("RootComposeMobileRecents", () => {
 
   it("includes only the resolved unread-success indicator in the link label", () => {
     window.localStorage.setItem(
-      "bb.promptbox.contents-proj_mobile-thr_mobile-3",
+      "cc.promptbox.contents-proj_mobile-thr_mobile-3",
       JSON.stringify({ text: "Keep editing", attachments: [] }),
     );
 

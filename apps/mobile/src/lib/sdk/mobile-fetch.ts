@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { validateDirectServerUrl } from "../profiles/direct-url";
-import { MOBILE_APP_SURFACE_HEADER } from "./app-surface";
 
 const SERVER_MOVED_STATUS = 410;
 
@@ -47,12 +46,7 @@ export function createMobileFetch(
   options: MobileFetchOptions = {},
 ): typeof fetch {
   return async (input, init) => {
-    const headers = new Headers(init?.headers);
-    headers.set(
-      MOBILE_APP_SURFACE_HEADER.name,
-      MOBILE_APP_SURFACE_HEADER.value,
-    );
-    const response = await baseFetch(input, { ...init, headers });
+    const response = await baseFetch(input, init);
     if (response.status === 401 || response.status === 403) {
       options.onAuthFailure?.(response.status);
     }

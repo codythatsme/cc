@@ -3,7 +3,7 @@ import {
   hostTypeSchema,
   jsonValueSchema,
   permissionModeSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   pathsExistRequestSchema,
   providerCliInstallEventSchema,
@@ -14,7 +14,7 @@ import {
   type ProviderCliInstallEvent,
   type ProviderCliInstallRequest,
   type ProviderCliStatusResponse,
-} from "@bb/host-daemon-contract/local";
+} from "@cc/host-daemon-contract/local";
 
 export const hostDirectoryQuerySchema = z.object({
   path: z.string().min(1).optional(),

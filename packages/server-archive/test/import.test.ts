@@ -38,7 +38,7 @@ import {
 const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "bb-server-import-"));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "cc-server-import-"));
   tempDirs.push(tempDir);
   return tempDir;
 }
@@ -85,7 +85,7 @@ async function expectArchiveError(
 }
 
 const SOURCE_CONFIG = {
-  config: { BB_INFERENCE: "codex/gpt-5.4-mini", BB_LOG_LEVEL: "info" },
+  config: { CC_INFERENCE: "codex/gpt-5.4-mini", CC_LOG_LEVEL: "info" },
   customModels: [{ providerId: "codex", model: "gpt-5.4" }],
   customAcpAgents: [
     { id: "grok", displayName: "Grok", command: "grok", unknownField: true },
@@ -94,9 +94,9 @@ const SOURCE_CONFIG = {
 };
 
 const TARGET_CONFIG = {
-  config: { BB_LOG_LEVEL: "debug", BB_APP_URL: "https://target.example" },
+  config: { CC_LOG_LEVEL: "debug", CC_APP_URL: "https://target.example" },
   serverUrl: "https://old-server.example",
-  serverHeaders: { "x-bb-connect-machine": "credential" },
+  serverHeaders: { "x-cc-connect-machine": "credential" },
   machineCredential: "credential",
   connectMachineId: "machine-1",
 };
@@ -106,7 +106,7 @@ async function stageImport(): Promise<{
   manifest: ServerArchiveManifest;
 }> {
   const sourceDataDir = await makeTempDir();
-  await writeDataFile(sourceDataDir, "bb.db", "server database");
+  await writeDataFile(sourceDataDir, "cc.db", "server database");
   await writeDataFile(
     sourceDataDir,
     "config.json",
@@ -145,7 +145,7 @@ async function stageImport(): Promise<{
       })),
     manifest: {
       createdAt: 1,
-      bbVersion: "0.43.1",
+      ccVersion: "0.43.1",
       protocolVersion: 209,
       migrationCount: 142,
       sourceDataDir,
@@ -181,15 +181,15 @@ describe("mergeImportedManagedConfig", () => {
   it("keeps server keys, drops machine keys, and points serverUrl at the local server", () => {
     const merged = mergeImportedManagedConfig({
       importedConfig: {
-        config: { BB_LOG_LEVEL: "info" },
+        config: { CC_LOG_LEVEL: "info" },
         customAcpAgents: [{ id: "raw-agent", futureField: 1 }],
         serverUrl: "https://ignored.example",
         machineCredential: "source-credential",
       },
       existingConfig: {
-        config: { BB_LOG_LEVEL: "debug", BB_APP_URL: "https://target.example" },
+        config: { CC_LOG_LEVEL: "debug", CC_APP_URL: "https://target.example" },
         customModels: [{ providerId: "codex", model: "gpt-5.4" }],
-        serverHeaders: { "x-bb-connect-machine": "target-credential" },
+        serverHeaders: { "x-cc-connect-machine": "target-credential" },
         machineCredential: "target-credential",
         connectMachineId: "machine-1",
       },
@@ -197,7 +197,7 @@ describe("mergeImportedManagedConfig", () => {
     });
 
     expect(merged).toEqual({
-      config: { BB_LOG_LEVEL: "info", BB_APP_URL: "https://target.example" },
+      config: { CC_LOG_LEVEL: "info", CC_APP_URL: "https://target.example" },
       customAcpAgents: [{ id: "raw-agent", futureField: 1 }],
       serverUrl: "http://127.0.0.1:39886",
     });
@@ -248,20 +248,20 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
     expect([...result.importedEntries].sort()).toEqual([
       "attachments/thr_1/image.png",
       "auth-secret",
-      "bb.db",
+      "cc.db",
       "config.json",
       "env.json",
       "plugins/docs/data.db",
       "plugins/docs/secrets/token",
       "skills/review/SKILL.md",
     ]);
-    expect(result.importedEntries.at(-1)).toBe("bb.db");
+    expect(result.importedEntries.at(-1)).toBe("cc.db");
     expect([...result.backups].sort()).toEqual([
       "config.json",
       "env.json",
       "skills/review/SKILL.md",
     ]);
-    expect(await readDataFile(dataDir, "bb.db")).toBe("server database");
+    expect(await readDataFile(dataDir, "cc.db")).toBe("server database");
     expect(await readDataFile(dataDir, "skills/review/SKILL.md")).toBe(
       "imported skill",
     );
@@ -277,8 +277,8 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
     );
     expect(await readJson(dataDir, "config.json")).toEqual({
       config: {
-        BB_APP_URL: "https://target.example",
-        BB_LOG_LEVEL: "info",
+        CC_APP_URL: "https://target.example",
+        CC_LOG_LEVEL: "info",
       },
       customModels: SOURCE_CONFIG.customModels,
       customAcpAgents: SOURCE_CONFIG.customAcpAgents,
@@ -298,7 +298,7 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
       ),
     ).toBe(originalConfig);
 
-    await writeDataFile(dataDir, "bb.db-wal", "pending server wal");
+    await writeDataFile(dataDir, "cc.db-wal", "pending server wal");
     await removeImportedServerFiles({
       dataDir,
       importedEntries: result.importedEntries,
@@ -328,8 +328,8 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
   it("refuses to import over existing server data without touching the target", async () => {
     const { stagingDir, manifest } = await stageImport();
     for (const existing of [
-      "bb.db",
-      "bb.db-wal",
+      "cc.db",
+      "cc.db-wal",
       SERVER_IMPORT_BACKUP_DIR_NAME,
     ]) {
       const dataDir = await createTargetDataDir();
@@ -375,7 +375,7 @@ describe("installImportedServerFiles and removeImportedServerFiles", () => {
     );
 
     expect(await readdir(outside)).toEqual([]);
-    expect(await readdir(dataDir)).not.toContain("bb.db");
+    expect(await readdir(dataDir)).not.toContain("cc.db");
   });
 
   it("rejects an invalid imported config before changing the target", async () => {
@@ -430,13 +430,13 @@ async function stageManifestEntries(paths: readonly string[]): Promise<{
     });
   }
   const manifest = serverArchiveManifestSchema.parse({
-    format: "bb-server-archive",
+    format: "cc-server-archive",
     version: SERVER_ARCHIVE_VERSION,
     createdAt: 1,
-    bbVersion: "0.43.1",
+    ccVersion: "0.43.1",
     protocolVersion: 209,
     migrationCount: 142,
-    sourceDataDir: "/home/old/.bb",
+    sourceDataDir: "/home/old/.cc",
     sourceServerHostId: "host-old",
     serverMoveExperiment: true,
     entries,
@@ -466,7 +466,7 @@ describe("server-owned allowlist on import", () => {
         })),
       manifest: {
         createdAt: 1,
-        bbVersion: "0.43.1",
+        ccVersion: "0.43.1",
         protocolVersion: 209,
         migrationCount: 142,
         sourceDataDir,
@@ -495,7 +495,7 @@ describe("server-owned allowlist on import", () => {
 
   it.each([
     ...HOST_OWNED_FIXTURE_PATHS,
-    "bb.db/nested",
+    "cc.db/nested",
     "plugins/docs",
     "plugins/docs/host-data",
   ])(
@@ -540,17 +540,17 @@ describe("server-owned allowlist on import", () => {
 
   it("refuses to remove host-owned entries", async () => {
     const dataDir = await createTargetDataDir();
-    await writeDataFile(dataDir, "bb.db", "imported database");
+    await writeDataFile(dataDir, "cc.db", "imported database");
 
     await expectArchiveError(
       removeImportedServerFiles({
         dataDir,
-        importedEntries: ["bb.db", "auth.json"],
+        importedEntries: ["cc.db", "auth.json"],
       }),
       "unsafe_entry",
     );
 
-    expect(await readDataFile(dataDir, "bb.db")).toBe("imported database");
+    expect(await readDataFile(dataDir, "cc.db")).toBe("imported database");
     expect(await readDataFile(dataDir, "auth.json")).toBe("{}");
   });
 });
@@ -613,15 +613,15 @@ describe("discardImportBackups", () => {
       localServerUrl: null,
     });
 
-    expect(result.importedEntries).toContain("bb.db");
+    expect(result.importedEntries).toContain("cc.db");
   });
 });
 
 describe("archiveExistingServerData", () => {
   it("renames the data directory with a local timestamp suffix and avoids collisions", async () => {
     const parent = await makeTempDir();
-    const dataDir = path.join(parent, ".bb");
-    await writeDataFile(dataDir, "bb.db", "standalone");
+    const dataDir = path.join(parent, ".cc");
+    await writeDataFile(dataDir, "cc.db", "standalone");
     const now = new Date(2026, 8, 15, 9, 5, 7).getTime();
 
     const archivedPath = await archiveExistingServerData({
@@ -630,19 +630,19 @@ describe("archiveExistingServerData", () => {
     });
 
     expect(archivedPath).toBe(`${dataDir}.before-move-20260915-090507`);
-    expect(await readDataFile(archivedPath, "bb.db")).toBe("standalone");
-    expect(await readdir(parent)).toEqual([".bb.before-move-20260915-090507"]);
+    expect(await readDataFile(archivedPath, "cc.db")).toBe("standalone");
+    expect(await readdir(parent)).toEqual([".cc.before-move-20260915-090507"]);
 
-    await writeDataFile(dataDir, "bb.db", "second standalone");
+    await writeDataFile(dataDir, "cc.db", "second standalone");
     const secondArchivedPath = await archiveExistingServerData({
       dataDir,
       now,
     });
 
     expect(secondArchivedPath).toBe(`${dataDir}.before-move-20260915-090507-2`);
-    expect(await readDataFile(secondArchivedPath, "bb.db")).toBe(
+    expect(await readDataFile(secondArchivedPath, "cc.db")).toBe(
       "second standalone",
     );
-    expect(await readDataFile(archivedPath, "bb.db")).toBe("standalone");
+    expect(await readDataFile(archivedPath, "cc.db")).toBe("standalone");
   });
 });

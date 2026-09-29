@@ -6,17 +6,17 @@ import {
   type ReasoningLevel,
   type ServiceTier,
   type ThreadVisibility,
-} from "@bb/domain";
-import { threadEnvironmentUnavailableApiErrorSchema } from "@bb/server-contract";
+} from "@cc/domain";
+import { threadEnvironmentUnavailableApiErrorSchema } from "@cc/server-contract";
 import { action, CliExitError } from "../../action.js";
-import { createCliBbSdk } from "../../client.js";
+import { createCliCcSdk } from "../../client.js";
 import { requireTextInput, TEXT_FILE_HELP_SUFFIX } from "../../text-input.js";
 import {
-  BbHttpError,
+  CcHttpError,
   type ThreadRetryResult,
   type ThreadSendResult,
-} from "@bb/sdk";
-import type { QueuedMessageWaitingOn } from "@bb/domain";
+} from "@cc/sdk";
+import type { QueuedMessageWaitingOn } from "@cc/domain";
 import {
   collectOption,
   confirmDestructiveAction,
@@ -155,7 +155,7 @@ export function registerActionsCommands(
   parent
     .command("update [id]")
     .description("Update a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .option("--title <title>", "Set the thread title")
     .option("--parent-thread <id>", "Set the parent thread id")
@@ -234,7 +234,7 @@ export function registerActionsCommands(
             body.visibility = visibility;
           }
 
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           const thread = await sdk.threads.update({ threadId, ...body });
           if (outputJson(opts, thread)) return;
           console.log(`Thread ${thread.id} updated`);
@@ -269,13 +269,13 @@ export function registerActionsCommands(
   parent
     .command("archive [id]")
     .description("Archive a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
         async (id: string | undefined, opts: ThreadArchiveCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           let archivedThreadIds: string[] = [threadId];
           try {
             const result = await sdk.threads.archive({ threadId });
@@ -312,13 +312,13 @@ export function registerActionsCommands(
   parent
     .command("unarchive [id]")
     .description("Unarchive a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
         async (id: string | undefined, opts: ThreadUnarchiveCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           await sdk.threads.unarchive({ threadId });
           if (outputJson(opts, { ok: true, threadId })) return;
           console.log(`Thread ${threadId} unarchived`);
@@ -331,7 +331,7 @@ export function registerActionsCommands(
     .description(
       "Restore the workspace of a thread whose environment was destroyed, when its environment provider supports restoring",
     )
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(
@@ -340,7 +340,7 @@ export function registerActionsCommands(
           opts: ThreadRestoreEnvironmentCommandOptions,
         ) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           let thread;
           try {
             thread = await sdk.threads.restoreEnvironment({ threadId });
@@ -365,13 +365,13 @@ export function registerActionsCommands(
     parent
       .command(`${name} [id]`)
       .description(description)
-      .option("--self", "Target the current thread (from BB_THREAD_ID)")
+      .option("--self", "Target the current thread (from CC_THREAD_ID)")
       .option("--json", "Print machine-readable JSON output")
       .action(
         action(
           async (id: string | undefined, opts: ThreadPinCommandOptions) => {
             const threadId = requireThreadIdOrSelf(id, opts);
-            const sdk = createCliBbSdk(getUrl());
+            const sdk = createCliCcSdk(getUrl());
             const thread = await sdk.threads[name]({ threadId });
             if (outputJson(opts, thread)) return;
             console.log(`Thread ${thread.id} ${done}`);
@@ -391,7 +391,7 @@ export function registerActionsCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (id: string, opts: ThreadDeleteCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         try {
           const thread = await sdk.threads.get({ threadId: id });
 
@@ -425,7 +425,7 @@ export function registerActionsCommands(
       "--message-file <path>",
       `Read the replacement message from a file; ${TEXT_FILE_HELP_SUFFIX}`,
     )
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option(
       "--expected-request-sequence <sequence>",
       "Edit the message at this event sequence (default: the latest editable message)",
@@ -444,7 +444,7 @@ export function registerActionsCommands(
             inline: opts.message,
             inlineLabel: "--message <text>",
           });
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           const expectedRequestSequence =
             opts.expectedRequestSequence === undefined
               ? undefined
@@ -551,7 +551,7 @@ export function registerActionsCommands(
   parent
     .command("retry [id]")
     .description("Retry the failed turn on a thread")
-    .option("--self", "Target the current thread (from BB_THREAD_ID)")
+    .option("--self", "Target the current thread (from CC_THREAD_ID)")
     .option(
       "--turn <requestId>",
       "Retry this turn request id specifically; fails when it is not the thread's failed turn",
@@ -566,7 +566,7 @@ export function registerActionsCommands(
       action(
         async (id: string | undefined, opts: ThreadRetryCommandOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           const response = await sdk.threads.retry({
             threadId,
             ...(opts.turn === undefined ? {} : { turnRequestId: opts.turn }),
@@ -616,12 +616,12 @@ export function registerActionsCommands(
     parent
       .command(`${name} [id]`)
       .description(description)
-      .option("--self", "Target the current thread (from BB_THREAD_ID)")
+      .option("--self", "Target the current thread (from CC_THREAD_ID)")
       .option("--json", "Print machine-readable JSON output")
       .action(
         action(async (id: string | undefined, opts: ThreadActionOptions) => {
           const threadId = requireThreadIdOrSelf(id, opts);
-          const sdk = createCliBbSdk(getUrl());
+          const sdk = createCliCcSdk(getUrl());
           await sdk.threads[method]({ threadId });
           if (outputJson(opts, { ok: true, threadId })) return;
           console.log(`Thread ${threadId} ${done}`);
@@ -633,7 +633,7 @@ export function registerActionsCommands(
 async function postThreadMessage(
   args: PostThreadMessageArgs,
 ): Promise<PostThreadMessageResult> {
-  const sdk = createCliBbSdk(args.getUrl());
+  const sdk = createCliCcSdk(args.getUrl());
   const input = await uploadClientAttachmentInputs({
     input: buildPromptInputs({
       message: args.message,
@@ -670,11 +670,11 @@ async function postThreadMessage(
 }
 
 async function withRestoreEnvironmentHint(
-  sdk: ReturnType<typeof createCliBbSdk>,
+  sdk: ReturnType<typeof createCliCcSdk>,
   threadId: string,
   error: unknown,
 ): Promise<unknown> {
-  if (!(error instanceof BbHttpError)) return error;
+  if (!(error instanceof CcHttpError)) return error;
   const parsed = threadEnvironmentUnavailableApiErrorSchema.safeParse(
     error.body,
   );
@@ -685,7 +685,7 @@ async function withRestoreEnvironmentHint(
   return new CliExitError(error.message, 1, {
     code: parsed.data.code,
     hint: canRestoreEnvironment
-      ? `Its workspace was removed. Restore it with \`bb thread restore-environment ${threadId}\`, then send again.`
+      ? `Its workspace was removed. Restore it with \`cc thread restore-environment ${threadId}\`, then send again.`
       : "Its workspace was removed and its environment provider cannot restore it. Start a new thread to continue.",
   });
 }
@@ -696,7 +696,7 @@ function describeThreadTellOutcome(
 ): string {
   if (response.delivery === "queued") {
     // The server says WHY it is waiting, so the CLI does not have to guess
-    // from the flags it happened to send. `bb thread queue list` shows the
+    // from the flags it happened to send. `cc thread queue list` shows the
     // same reason for the row afterwards.
     return `Thread ${threadId} message queued (${describeQueueWait(response.queuedMessage)}); it dispatches when that clears`;
   }

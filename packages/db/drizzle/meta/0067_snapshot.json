@@ -1990,8 +1990,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "rollback_bb_version": {
-          "name": "rollback_bb_version",
+        "rollback_cc_version": {
+          "name": "rollback_cc_version",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -2632,8 +2632,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "bb_connect": {
-          "name": "bb_connect",
+        "cc_connect": {
+          "name": "cc_connect",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

@@ -1,4 +1,4 @@
-import { EmptyState } from "@bb/shared-ui/empty-state";
+import { EmptyState } from "@cc/shared-ui/empty-state";
 
 export const NO_THREADS_MESSAGE = "No threads";
 

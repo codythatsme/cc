@@ -6,9 +6,9 @@ import {
   type ReactNode,
 } from "react";
 import { toast as sonnerToast, type Action, type ExternalToast } from "sonner";
-import { Button } from "@bb/shared-ui/button";
-import { Icon, type IconName } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Button } from "@cc/shared-ui/button";
+import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
 import {
   openNotificationCenter,
   recordNotification,
@@ -313,7 +313,7 @@ function showAppToast({
     ),
     {
       ...sonnerOptions,
-      className: cn("bb-app-toast", className),
+      className: cn("cc-app-toast", className),
       dismissible,
       duration: nextDuration,
     },

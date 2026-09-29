@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as react from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import clsx from "clsx";
-import { Icon } from "@bb/shared-ui/icon";
+import { Icon } from "@cc/shared-ui/icon";
 import {
   createPluginFrontendPageLifecycle,
   installPluginRuntime,
@@ -140,15 +140,15 @@ describe("loadPluginFrontends", () => {
 });
 
 describe("installPluginRuntime", () => {
-  type RuntimeHost = typeof globalThis & { __bbPluginRuntime?: unknown };
+  type RuntimeHost = typeof globalThis & { __ccPluginRuntime?: unknown };
 
   afterEach(() => {
-    delete (globalThis as RuntimeHost).__bbPluginRuntime;
+    delete (globalThis as RuntimeHost).__ccPluginRuntime;
   });
 
   it("exposes the app's own runtime modules on every shim slot, exactly once", () => {
     installPluginRuntime();
-    const runtime = (globalThis as RuntimeHost).__bbPluginRuntime as Record<
+    const runtime = (globalThis as RuntimeHost).__ccPluginRuntime as Record<
       string,
       unknown
     >;
@@ -188,12 +188,12 @@ describe("installPluginRuntime", () => {
     expect(runtime.pluginSdkApp).toBe(pluginSdkAppImplementation);
 
     installPluginRuntime();
-    expect((globalThis as RuntimeHost).__bbPluginRuntime).toBe(runtime);
+    expect((globalThis as RuntimeHost).__ccPluginRuntime).toBe(runtime);
   });
 
   it("hands plugins every @pierre/diffs/react export, with the diff components gated", async () => {
     installPluginRuntime();
-    const runtime = (globalThis as RuntimeHost).__bbPluginRuntime as Record<
+    const runtime = (globalThis as RuntimeHost).__ccPluginRuntime as Record<
       string,
       unknown
     >;

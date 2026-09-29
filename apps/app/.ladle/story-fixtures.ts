@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { reconcileReasoningLevel } from "@bb/domain";
+import { reconcileReasoningLevel } from "@cc/domain";
 import type {
   Host,
   ProjectSource,
@@ -7,23 +7,23 @@ import type {
   ReasoningLevel,
   Thread,
   WorkspaceStatus,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ProviderCliKey,
   ProviderCliStatus,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 import type {
   ProjectResponse,
   SystemEnvironmentProvider,
-} from "@bb/server-contract";
-import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@bb/client-core";
+} from "@cc/server-contract";
+import { EMPTY_ORDERED_MENTION_SUGGESTIONS } from "@cc/client-core";
 import {
   makeEnvironment as makeEnvironmentFixture,
   makeHost as makeHostFixture,
   makeProviderInfo,
   makeThread as makeThreadFixture,
   makeThreadListEntry as makeThreadListEntryFixture,
-} from "@bb/test-helpers/domain-fixtures";
+} from "@cc/test-helpers/domain-fixtures";
 import { makeProjectResponse } from "../src/test/fixtures/projects";
 import { getProviderIconInfo } from "../src/lib/provider-icon";
 import type { PickerOption } from "../src/components/pickers/OptionPicker";
@@ -52,13 +52,13 @@ export const HOST_NAMES = {
 } as const;
 
 export const PROJECT_IDS = {
-  bb: "proj_bb",
+  cc: "proj_cc",
   pierre: "proj_pierre",
   ingest: "proj_ingest_pipeline",
 } as const;
 
 export const PROJECT_NAMES = {
-  bb: "bb",
+  cc: "cc",
   pierre: "pierre",
   ingest: "ingest-pipeline",
 } as const;
@@ -93,7 +93,7 @@ export function makeAttachmentsConfig(
 ): AttachmentsConfig {
   const base: AttachmentsConfig = {
     items: [],
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.cc,
     onAttachFiles: noop,
     onRemove: noop,
     isAttaching: false,
@@ -272,20 +272,20 @@ export const STORY_SERVICE_TIER_SUPPORT: Record<string, boolean> = {
 export const STORY_PROJECT_SOURCES: readonly ProjectSource[] = [
   {
     id: "src_local",
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.cc,
     type: "local_path",
     hostId: HOST_IDS.local,
-    path: "/Users/michael/Projects/bb",
+    path: "/Users/michael/Projects/cc",
     isDefault: true,
     createdAt: 0,
     updatedAt: 0,
   },
   {
     id: "src_remote",
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.cc,
     type: "local_path",
     hostId: HOST_IDS.remote,
-    path: "/home/michael/bb",
+    path: "/home/michael/cc",
     isDefault: false,
     createdAt: 0,
     updatedAt: 0,
@@ -297,13 +297,13 @@ export const STORY_BRANCH_OPTIONS: readonly string[] = [
   "release/1.2",
   "feat/sidebar-rail",
   "fix/timeline-pagination",
-  "bb/refactor-project-creation-thr_jj65bdsiwa",
+  "cc/refactor-project-creation-thr_jj65bdsiwa",
 ];
 
 export const STORY_WORKTREE_OPTIONS: readonly ReuseThreadOption[] = [
   {
     environmentId: "env_review_flow",
-    branchName: "bb/review-flow-thr_4hge9xn14m",
+    branchName: "cc/review-flow-thr_4hge9xn14m",
     name: null,
     path: null,
     environmentProviderId: "git-worktree",
@@ -314,7 +314,7 @@ export const STORY_WORKTREE_OPTIONS: readonly ReuseThreadOption[] = [
   },
   {
     environmentId: "env_timeline",
-    branchName: "bb/timeline-pagination-thr_qfk8ksbxkk",
+    branchName: "cc/timeline-pagination-thr_qfk8ksbxkk",
     name: "Timeline workspace",
     path: null,
     environmentProviderId: "git-worktree",
@@ -384,7 +384,7 @@ export const STORY_ENVIRONMENT_PROVIDERS: readonly SystemEnvironmentProvider[] =
   ];
 
 export const STORY_PROJECTS: readonly ProjectSelectorOption[] = [
-  { id: PROJECT_IDS.bb, name: PROJECT_NAMES.bb },
+  { id: PROJECT_IDS.cc, name: PROJECT_NAMES.cc },
   { id: PROJECT_IDS.pierre, name: PROJECT_NAMES.pierre },
 ];
 
@@ -517,7 +517,7 @@ export function useInteractiveExecutionControls(
 export function makeThread(overrides: Partial<Thread> = {}): Thread {
   return makeThreadFixture({
     id: "thr_demo",
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.cc,
     environmentId: "env_demo",
     title: "Audit recurring permission failures",
     titleFallback: "Audit recurring permission failures",
@@ -530,7 +530,7 @@ export function makeThreadListEntry(
 ) {
   return makeThreadListEntryFixture({
     id: "thr_demo",
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.cc,
     title: "Audit recurring permission failures",
     titleFallback: "Audit recurring permission failures",
     ...overrides,
@@ -541,8 +541,8 @@ export function makeProject(
   overrides: Partial<ProjectResponse> = {},
 ): ProjectResponse {
   return makeProjectResponse({
-    id: PROJECT_IDS.bb,
-    name: PROJECT_NAMES.bb,
+    id: PROJECT_IDS.cc,
+    name: PROJECT_NAMES.cc,
     createdAt: 1,
     updatedAt: 2,
     ...overrides,
@@ -592,9 +592,9 @@ export function makeEnvironment(
 ) {
   return makeEnvironmentFixture({
     id: "env_demo",
-    projectId: PROJECT_IDS.bb,
+    projectId: PROJECT_IDS.cc,
     hostId: HOST_IDS.local,
-    path: "/Users/michael/Projects/bb",
+    path: "/Users/michael/Projects/cc",
     branchName: BRANCH_NAMES.feature,
     baseBranch: BRANCH_NAMES.default,
     defaultBranch: BRANCH_NAMES.default,

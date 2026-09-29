@@ -1,13 +1,12 @@
-import { extractErrorMessage, toRecord } from "@bb/core-ui";
-import type { SystemVoiceTranscriptionResponse } from "@bb/server-contract";
+import { extractErrorMessage, toRecord } from "@cc/core-ui";
+import type { SystemVoiceTranscriptionResponse } from "@cc/server-contract";
 import { apiClient, toRelativeUrl } from "./api-server";
-import { appSurfaceRequestInit } from "./app-surface";
 import {
   buildFilePreview,
   normalizeFilePreviewMimeType,
   type FilePreview,
   type FilePreviewTarget,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   buildThreadHostFileContentUrl,
   buildThreadStorageContentUrl,
@@ -128,13 +127,10 @@ async function loadFilePreview(
   signal?: AbortSignal,
 ): Promise<FilePreview> {
   const response = await requestResponse(
-    fetch(
-      target.url,
-      appSurfaceRequestInit({
-        method: "GET",
-        signal,
-      }),
-    ),
+    fetch(target.url, {
+      method: "GET",
+      signal,
+    }),
   );
   const contentBytes = new Uint8Array(await response.arrayBuffer());
   return buildFilePreview({
@@ -162,14 +158,11 @@ async function postMultipart<T>(
   }
   formData.set("file", file, file.name);
   return request<T>(
-    fetch(
-      toRelativeUrl(url),
-      appSurfaceRequestInit({
-        method: "POST",
-        body: formData,
-        signal,
-      }),
-    ),
+    fetch(toRelativeUrl(url), {
+      method: "POST",
+      body: formData,
+      signal,
+    }),
   );
 }
 

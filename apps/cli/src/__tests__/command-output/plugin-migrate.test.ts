@@ -9,7 +9,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PLUGIN_SDK_VERSION } from "@bb/domain";
+import { PLUGIN_SDK_VERSION } from "@cc/domain";
+import { BUNDLED_PLUGIN_SDK_SPECIFIER } from "../../plugin-sdk-package.js";
 import {
   collectLogPayloads,
   readlineMocks,
@@ -29,8 +30,8 @@ let rootDir: string;
 let toolsDir: string;
 
 beforeEach(async () => {
-  rootDir = await mkdtemp(join(tmpdir(), "bb-cli-migrate-"));
-  toolsDir = await mkdtemp(join(tmpdir(), "bb-cli-migrate-tools-"));
+  rootDir = await mkdtemp(join(tmpdir(), "cc-cli-migrate-"));
+  toolsDir = await mkdtemp(join(tmpdir(), "cc-cli-migrate-tools-"));
   await installFakeNpm(toolsDir);
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
@@ -49,10 +50,10 @@ async function writeManifest(value: Record<string, unknown>): Promise<void> {
 
 async function writeVendoredPlugin(): Promise<void> {
   await writeManifest({
-    name: "bb-plugin-legacy",
+    name: "cc-plugin-legacy",
     version: "0.1.0",
-    engines: { bbPluginSdk: ">=0.2.0" },
-    bb: {
+    engines: { ccPluginSdk: ">=0.2.0" },
+    cc: {
       name: "Legacy plugin",
       description: "Legacy SDK layout fixture.",
       branding: { icon: "Zap" },
@@ -65,7 +66,7 @@ async function writeVendoredPlugin(): Promise<void> {
     `${JSON.stringify(
       {
         compilerOptions: {
-          paths: { "@get-bb/plugin-sdk": ["./types/bb-plugin-sdk.d.ts"] },
+          paths: { "@codythatsme/plugin-sdk": ["./types/cc-plugin-sdk.d.ts"] },
         },
         include: ["server.ts", "types"],
       },
@@ -74,7 +75,7 @@ async function writeVendoredPlugin(): Promise<void> {
     )}\n`,
   );
   await mkdir(join(rootDir, "types"), { recursive: true });
-  await writeFile(join(rootDir, "types", "bb-plugin-sdk.d.ts"), "// old\n");
+  await writeFile(join(rootDir, "types", "cc-plugin-sdk.d.ts"), "// old\n");
 }
 
 async function readManifest(): Promise<Record<string, unknown>> {
@@ -91,7 +92,7 @@ function setTty(value: boolean): void {
   });
 }
 
-describe("bb plugin migrate", () => {
+describe("cc plugin migrate", () => {
   it("prints the plan and changes nothing without --yes on a non-TTY", async () => {
     await writeVendoredPlugin();
     setTty(false);
@@ -104,15 +105,15 @@ describe("bb plugin migrate", () => {
 
     const logged = collectLogPayloads(logSpy).join("\n");
     expect(logged).toContain(
-      `"@get-bb/plugin-sdk": (none) → ${PLUGIN_SDK_VERSION}`,
+      `"@codythatsme/plugin-sdk": (none) → ${BUNDLED_PLUGIN_SDK_SPECIFIER}`,
     );
-    expect(logged).toContain("delete         types/bb-plugin-sdk.d.ts");
+    expect(logged).toContain("delete         types/cc-plugin-sdk.d.ts");
     expect(vi.mocked(console.error).mock.calls.flat().join("\n")).toContain(
       "Refusing to migrate without confirmation",
     );
     expect(await readFile(join(rootDir, "package.json"), "utf8")).toBe(before);
     expect(
-      await stat(join(rootDir, "types", "bb-plugin-sdk.d.ts")).then(() => true),
+      await stat(join(rootDir, "types", "cc-plugin-sdk.d.ts")).then(() => true),
     ).toBe(true);
   });
 
@@ -125,14 +126,16 @@ describe("bb plugin migrate", () => {
     const manifest = await readManifest();
     expect(
       (manifest.devDependencies as Record<string, string>)[
-        "@get-bb/plugin-sdk"
+        "@codythatsme/plugin-sdk"
       ],
-    ).toBe(PLUGIN_SDK_VERSION);
+    ).toBe(BUNDLED_PLUGIN_SDK_SPECIFIER);
     await expect(
-      stat(join(rootDir, "types", "bb-plugin-sdk.d.ts")),
+      stat(join(rootDir, "types", "cc-plugin-sdk.d.ts")),
     ).rejects.toThrow();
     const logged = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(logged).toContain("Migrated to the @get-bb/plugin-sdk npm package.");
+    expect(logged).toContain(
+      "Migrated to the @codythatsme/plugin-sdk npm package.",
+    );
     expect(logged).toContain("Run `npm install`");
   });
 
@@ -140,7 +143,7 @@ describe("bb plugin migrate", () => {
     await writeVendoredPlugin();
     await writeFile(
       join(rootDir, "server.ts"),
-      'import type { BbPluginApi } from "@bb/plugin-sdk";\nimport "@bb/plugin-sdk/testing";\n',
+      'import type { CcPluginApi } from "@cc/plugin-sdk";\nimport "@cc/plugin-sdk/testing";\n',
     );
     setTty(false);
 
@@ -148,19 +151,21 @@ describe("bb plugin migrate", () => {
 
     const logged = collectLogPayloads(vi.mocked(console.log)).join("\n");
     expect(logged).toContain(
-      'rewrite        server.ts (2 imports of "@bb/plugin-sdk" → "@get-bb/plugin-sdk")',
+      'rewrite        server.ts (2 imports of "@cc/plugin-sdk" → "@codythatsme/plugin-sdk")',
     );
     expect(await readFile(join(rootDir, "server.ts"), "utf8")).toBe(
-      'import type { BbPluginApi } from "@get-bb/plugin-sdk";\nimport "@get-bb/plugin-sdk/testing";\n',
+      'import type { CcPluginApi } from "@codythatsme/plugin-sdk";\nimport "@codythatsme/plugin-sdk/testing";\n',
     );
   });
 
   it("reports an already-migrated plugin without touching it", async () => {
     await writeManifest({
-      name: "bb-plugin-modern",
-      engines: { bbPluginSdk: `>=${PLUGIN_SDK_VERSION}` },
-      bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION },
+      name: "cc-plugin-modern",
+      engines: { ccPluginSdk: `>=${PLUGIN_SDK_VERSION}` },
+      cc: { server: "./server.ts" },
+      devDependencies: {
+        "@codythatsme/plugin-sdk": BUNDLED_PLUGIN_SDK_SPECIFIER,
+      },
     });
     const before = await readFile(join(rootDir, "package.json"), "utf8");
 
@@ -174,8 +179,8 @@ describe("bb plugin migrate", () => {
 
   it("pins a package-layout plugin that never got the devDependency", async () => {
     await writeManifest({
-      name: "bb-plugin-pinless",
-      bb: { server: "./server.ts" },
+      name: "cc-plugin-pinless",
+      cc: { server: "./server.ts" },
       devDependencies: { typescript: "^5.7.0" },
     });
     setTty(false);
@@ -185,10 +190,10 @@ describe("bb plugin migrate", () => {
     const manifest = await readManifest();
     expect(
       (manifest.devDependencies as Record<string, string>)[
-        "@get-bb/plugin-sdk"
+        "@codythatsme/plugin-sdk"
       ],
-    ).toBe(PLUGIN_SDK_VERSION);
-    expect((manifest.engines as Record<string, string>).bbPluginSdk).toBe(
+    ).toBe(BUNDLED_PLUGIN_SDK_SPECIFIER);
+    expect((manifest.engines as Record<string, string>).ccPluginSdk).toBe(
       `>=${PLUGIN_SDK_VERSION}`,
     );
     expect(collectLogPayloads(vi.mocked(console.log)).join("\n")).not.toContain(
@@ -201,7 +206,7 @@ describe("bb plugin migrate", () => {
     setTty(true);
     readlineMocks.question.mockImplementation(async () => {
       await writeFile(
-        join(rootDir, "types", "bb-plugin-sdk-app.d.ts"),
+        join(rootDir, "types", "cc-plugin-sdk-app.d.ts"),
         "// appeared mid-prompt\n",
       );
       return "y";
@@ -217,12 +222,12 @@ describe("bb plugin migrate", () => {
     );
     expect(await readFile(join(rootDir, "package.json"), "utf8")).toBe(before);
     expect(
-      await stat(join(rootDir, "types", "bb-plugin-sdk.d.ts")).then(() => true),
+      await stat(join(rootDir, "types", "cc-plugin-sdk.d.ts")).then(() => true),
     ).toBe(true);
   });
 });
 
-describe("bb plugin dev stale-pin warning", () => {
+describe("cc plugin dev stale-pin warning", () => {
   function stubEmptyPluginList(): void {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ plugins: [] }), {
@@ -231,11 +236,11 @@ describe("bb plugin dev stale-pin warning", () => {
     );
   }
 
-  it("warns when an exact pin differs from this bb's SDK version", async () => {
+  it("warns when an exact pin differs from this cc's SDK version", async () => {
     await writeManifest({
-      name: "bb-plugin-modern",
-      bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "0.2.0" },
+      name: "cc-plugin-modern",
+      cc: { server: "./server.ts" },
+      devDependencies: { "@codythatsme/plugin-sdk": "0.2.0" },
     });
     stubEmptyPluginList();
 
@@ -244,15 +249,17 @@ describe("bb plugin dev stale-pin warning", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(vi.mocked(console.warn).mock.calls.flat().join("\n")).toContain(
-      `This plugin pins @get-bb/plugin-sdk 0.2.0; this bb's SDK is ${PLUGIN_SDK_VERSION}`,
+      `This plugin pins @codythatsme/plugin-sdk 0.2.0; this cc's SDK is ${PLUGIN_SDK_VERSION}`,
     );
   });
 
   it("stays quiet for a matching pin and for a range", async () => {
     await writeManifest({
-      name: "bb-plugin-modern",
-      bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION },
+      name: "cc-plugin-modern",
+      cc: { server: "./server.ts" },
+      devDependencies: {
+        "@codythatsme/plugin-sdk": BUNDLED_PLUGIN_SDK_SPECIFIER,
+      },
     });
     stubEmptyPluginList();
     await expect(
@@ -260,9 +267,9 @@ describe("bb plugin dev stale-pin warning", () => {
     ).rejects.toThrow("process.exit:1");
 
     await writeManifest({
-      name: "bb-plugin-modern",
-      bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "^0.2.0" },
+      name: "cc-plugin-modern",
+      cc: { server: "./server.ts" },
+      devDependencies: { "@codythatsme/plugin-sdk": "^0.2.0" },
     });
     stubEmptyPluginList();
     await expect(
@@ -270,7 +277,7 @@ describe("bb plugin dev stale-pin warning", () => {
     ).rejects.toThrow("process.exit:1");
 
     expect(vi.mocked(console.warn).mock.calls.flat().join("\n")).not.toContain(
-      "This plugin pins @get-bb/plugin-sdk",
+      "This plugin pins @codythatsme/plugin-sdk",
     );
   });
 });
@@ -278,13 +285,13 @@ describe("bb plugin dev stale-pin warning", () => {
 describe("legacy vendored SDK layout", () => {
   const message =
     "This plugin uses the legacy vendored SDK layout. Its SDK types will not be updated.\n" +
-    "Please run `bb plugin migrate` to update to the latest SDK types.";
+    "Please run `cc plugin migrate` to update to the latest SDK types.";
 
   it.each([false, true])(
-    "requires migration for bb plugin types with check=%s",
+    "requires migration for cc plugin types with check=%s",
     async (check) => {
       await writeVendoredPlugin();
-      const declarationsPath = join(rootDir, "types", "bb-plugin-sdk.d.ts");
+      const declarationsPath = join(rootDir, "types", "cc-plugin-sdk.d.ts");
       const before = await readFile(declarationsPath, "utf8");
 
       await expect(
@@ -299,7 +306,7 @@ describe("legacy vendored SDK layout", () => {
     },
   );
 
-  it("warns and continues bb plugin dev", async () => {
+  it("warns and continues cc plugin dev", async () => {
     await writeVendoredPlugin();
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ plugins: [] }), {
@@ -317,7 +324,7 @@ describe("legacy vendored SDK layout", () => {
     );
   });
 
-  it("warns and continues bb plugin build", async () => {
+  it("warns and continues cc plugin build", async () => {
     await writeVendoredPlugin();
     await writeFile(join(rootDir, "server.ts"), "export default () => {};\n");
 
@@ -330,13 +337,13 @@ describe("legacy vendored SDK layout", () => {
   });
 });
 
-describe("bb plugin types on a package-layout plugin", () => {
+describe("cc plugin types on a package-layout plugin", () => {
   it("repoints an outdated pin to the running host's SDK version", async () => {
     await writeManifest({
-      name: "bb-plugin-modern",
-      engines: { bbPluginSdk: ">=0.2.0" },
-      bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "0.2.0" },
+      name: "cc-plugin-modern",
+      engines: { ccPluginSdk: ">=0.2.0" },
+      cc: { server: "./server.ts" },
+      devDependencies: { "@codythatsme/plugin-sdk": "0.2.0" },
     });
 
     await runCommand(["plugin", "types", rootDir], register);
@@ -344,22 +351,22 @@ describe("bb plugin types on a package-layout plugin", () => {
     const manifest = await readManifest();
     expect(
       (manifest.devDependencies as Record<string, string>)[
-        "@get-bb/plugin-sdk"
+        "@codythatsme/plugin-sdk"
       ],
-    ).toBe(PLUGIN_SDK_VERSION);
-    expect((manifest.engines as Record<string, string>).bbPluginSdk).toBe(
+    ).toBe(BUNDLED_PLUGIN_SDK_SPECIFIER);
+    expect((manifest.engines as Record<string, string>).ccPluginSdk).toBe(
       ">=0.2.0",
     );
     const logged = collectLogPayloads(vi.mocked(console.log)).join("\n");
-    expect(logged).toContain(`0.2.0 → ${PLUGIN_SDK_VERSION}`);
+    expect(logged).toContain(`0.2.0 → ${BUNDLED_PLUGIN_SDK_SPECIFIER}`);
     expect(logged).toContain("Run `npm install`");
   });
 
   it("--check reports the mismatch and writes nothing", async () => {
     await writeManifest({
-      name: "bb-plugin-modern",
-      bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": "0.2.0" },
+      name: "cc-plugin-modern",
+      cc: { server: "./server.ts" },
+      devDependencies: { "@codythatsme/plugin-sdk": "0.2.0" },
     });
     const before = await readFile(join(rootDir, "package.json"), "utf8");
 
@@ -372,9 +379,11 @@ describe("bb plugin types on a package-layout plugin", () => {
 
   it("is a no-op when the pin already matches", async () => {
     await writeManifest({
-      name: "bb-plugin-modern",
-      bb: { server: "./server.ts" },
-      devDependencies: { "@get-bb/plugin-sdk": PLUGIN_SDK_VERSION },
+      name: "cc-plugin-modern",
+      cc: { server: "./server.ts" },
+      devDependencies: {
+        "@codythatsme/plugin-sdk": BUNDLED_PLUGIN_SDK_SPECIFIER,
+      },
     });
     const before = await readFile(join(rootDir, "package.json"), "utf8");
 

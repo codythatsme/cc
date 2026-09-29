@@ -3,14 +3,14 @@
   "name": "drawer",
   "type": "registry:ui",
   "title": "drawer",
-  "description": "BB ui \"drawer\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"drawer\" — vendored from the CC app's own source (version-matched to this CC release).",
   "dependencies": [
     "vaul"
   ],
   "registryDependencies": [
-    "@bb/overlay-trigger",
-    "@bb/portal-scope",
-    "@bb/utils"
+    "@cc/overlay-trigger",
+    "@cc/portal-scope",
+    "@cc/utils"
   ],
   "files": [
     {

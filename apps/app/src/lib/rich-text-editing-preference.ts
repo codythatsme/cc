@@ -1,7 +1,7 @@
 import { useAtom } from "jotai";
 import { createBooleanPreferenceAtom } from "./browser-storage";
 
-const RICH_TEXT_EDITING_STORAGE_KEY = "bb.promptbox.rich-text-editing";
+const RICH_TEXT_EDITING_STORAGE_KEY = "cc.promptbox.rich-text-editing";
 
 const RICH_TEXT_EDITING_DEFAULT = false;
 

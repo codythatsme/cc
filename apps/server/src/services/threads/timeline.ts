@@ -17,9 +17,9 @@ import {
   compactThreadTimelineSummaryEvents,
   type AcceptedClientRequestContext,
   type ThreadEventWithMeta,
-} from "@bb/thread-view";
-import { LEGACY_CODEX_GOAL_EXTENSION_KIND } from "@bb/domain";
-import { sliceUtf16Head } from "@bb/text-utils";
+} from "@cc/thread-view";
+import { LEGACY_CODEX_GOAL_EXTENSION_KIND } from "@cc/domain";
+import { sliceUtf16Head } from "@cc/text-utils";
 import type {
   ClientTurnRequestId,
   CompletedTurnDisplay,
@@ -27,7 +27,7 @@ import type {
   Thread,
   ThreadEvent,
   ThreadEventItemType,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   ThreadConversationOutlineItem,
   ThreadConversationOutlineResponse,
@@ -37,8 +37,8 @@ import type {
   TimelineOutputPreview,
   ThreadTimelineResponse,
   TimelineTurnSummaryDetailsResponse,
-} from "@bb/server-contract";
-import { threadConversationOutlineItemSchema } from "@bb/server-contract";
+} from "@cc/server-contract";
+import { threadConversationOutlineItemSchema } from "@cc/server-contract";
 import {
   findStoredTimelineWindowByteBudgetFloor,
   findTimelineWindowBudgetFloorSequence,
@@ -73,15 +73,15 @@ import {
   listTimelineWindowHintsDescending,
   scopedItemRefKey,
   upsertThreadConversationOutlineRecord,
-} from "@bb/db";
+} from "@cc/db";
 import type {
   DbConnection,
   InlineOutputCharLimit,
   ScopedItemRef,
   StoredEventRow,
-} from "@bb/db";
+} from "@cc/db";
 import { ApiError } from "../../errors.js";
-import { roundDurationMs } from "@bb/process-utils";
+import { roundDurationMs } from "@cc/process-utils";
 import { runEventLoopWorkSync } from "../system/event-loop-work.js";
 import { parseStoredEvent } from "./thread-data.js";
 import { decodeStoredEventRowCached } from "./stored-event-decode-cache.js";

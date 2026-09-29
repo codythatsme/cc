@@ -1,7 +1,7 @@
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { markThreadDeleted } from "@bb/db";
-import type { HostDaemonOnlineRpcRequestMessage } from "@bb/host-daemon-contract";
+import { markThreadDeleted } from "@cc/db";
+import type { HostDaemonOnlineRpcRequestMessage } from "@cc/host-daemon-contract";
 import { describe, expect, it, vi } from "vitest";
 import {
   removeOrphanedThreadStorage,

@@ -1,4 +1,4 @@
-import type { PluginTurnFailedEvent } from "@get-bb/plugin-sdk";
+import type { PluginTurnFailedEvent } from "@codythatsme/plugin-sdk";
 
 export const RESET_BUFFER_MS = 15_000;
 

@@ -6,14 +6,14 @@ import type {
   ReasoningLevel,
   ServiceTier,
   Thread,
-} from "@bb/domain";
-import { getEnvironment } from "@bb/db";
+} from "@cc/domain";
+import { getEnvironment } from "@cc/db";
 import { DEFAULT_ENVIRONMENT_PROVIDER_ID } from "../environments/environment-provider-ids.js";
-import { PERSONAL_PROJECT_ID } from "@bb/domain";
+import { PERSONAL_PROJECT_ID } from "@cc/domain";
 import type {
   EnvironmentArgs,
   ProviderEnvironmentArgs,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { COMMAND_TIMEOUT_MS } from "../../constants.js";
 import type { WorkSessionDeps } from "../../types.js";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";

@@ -20,8 +20,8 @@ import {
 } from "@/lib/plugin-slots";
 import { pluginSdkAppImplementation } from "@/lib/plugin-sdk-app-impl";
 import {
-  useBbContext,
-  useBbNavigate,
+  useCcContext,
+  useCcNavigate,
   useRpc,
   useSettings,
 } from "@/lib/plugin-sdk-hooks";
@@ -74,8 +74,8 @@ function LocationProbe() {
 }
 
 function PortaledProbe() {
-  const context = useBbContext();
-  const navigate = useBbNavigate();
+  const context = useCcContext();
+  const navigate = useCcNavigate();
   const rpc = useRpc();
   const settings = useSettings();
   const sidebarThreadActions =

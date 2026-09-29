@@ -1,7 +1,7 @@
-# @bb/desktop
+# @cc/desktop
 
-macOS and Linux Electron shell for bb. The desktop app loads the existing bb
-web UI and uses the packaged `bb-app` launcher for server and host-daemon
+macOS and Linux Electron shell for cc. The desktop app loads the existing cc
+web UI and uses the packaged `cc-app` launcher for server and host-daemon
 lifecycle.
 
 ## Development
@@ -10,31 +10,31 @@ From the repo root, run `pnpm dev` in one terminal for the source server and
 live UI updates. In a second terminal, start the Electron shell:
 
 ```bash
-pnpm exec turbo run dev --filter=@bb/desktop
+pnpm exec turbo run dev --filter=@cc/desktop
 ```
 
-The dev script builds `bb-app`, compiles the Electron main/preload files, and
+The dev script builds `cc-app`, compiles the Electron main/preload files, and
 opens Electron directly. By default it uses the same checkout-scoped
-`~/.bb-dev/<checkout-instance>` data directory and deterministic high ports as
+`~/.cc-dev/<checkout-instance>` data directory and deterministic high ports as
 `pnpm dev`; it prints the resolved data dir, server URL, and
 Electron user-data dir at startup. It intentionally overwrites inherited
-`BB_DATA_DIR`, `BB_SERVER_PORT`, `BB_SERVER_URL`, and `BB_HOST_DAEMON_PORT` so a
-desktop dev run launched from an existing bb session still targets the current
-checkout. Set `BB_DESKTOP_USER_DATA_DIR` to override only Electron's user-data
+`CC_DATA_DIR`, `CC_SERVER_PORT`, `CC_SERVER_URL`, and `CC_HOST_DAEMON_PORT` so a
+desktop dev run launched from an existing cc session still targets the current
+checkout. Set `CC_DESKTOP_USER_DATA_DIR` to override only Electron's user-data
 directory.
 
 The launcher probes the checkout's Vite app port at startup and adapts:
 
 - **`pnpm dev` is already running** (Vite reachable): the shell loads the Vite
-  dev URL, so you get live source and HMR for `@bb/app` changes — no rebuild
+  dev URL, so you get live source and HMR for `@cc/app` changes — no rebuild
   needed. It still attaches to the same running server/daemon for all API/WS
   traffic. The launcher prints `app <url> (Vite dev server — live reload)`. This
   is the fast loop for iterating on the desktop UI.
-- **`pnpm dev` is not running**: the shell starts its own `bb-app` runtime and
+- **`pnpm dev` is not running**: the shell starts its own `cc-app` runtime and
   loads the built UI it serves, so you must rebuild (re-run this task) to pick up
-  source changes. The launcher prints `app (own bb-app runtime — …)`.
+  source changes. The launcher prints `app (own cc-app runtime — …)`.
 
-The override is plumbed via `BB_DESKTOP_APP_URL`, which the launcher only sets
+The override is plumbed via `CC_DESKTOP_APP_URL`, which the launcher only sets
 when Vite is confirmed reachable; it is never set in packaged builds, so
 production always loads the server's own built UI.
 
@@ -43,11 +43,11 @@ packaged runtime and keeps native dependencies rebuilt for Electron's bundled
 Node runtime:
 
 ```bash
-pnpm exec turbo run start --filter=@bb/desktop
+pnpm exec turbo run start --filter=@cc/desktop
 ```
 
 Electron is pinned to `44.3.0`. macOS builds require macOS 13 (Ventura) or
-newer. The bundled `bb-app` runtime uses `better-sqlite3@13.0.3`, whose N-API
+newer. The bundled `cc-app` runtime uses `better-sqlite3@13.0.3`, whose N-API
 binaries work with Electron without an ABI-specific rebuild. The packaging
 hook opens an in-memory database with Electron before accepting the packaged
 SQLite module; older ABI-specific modules still use the prebuild fallback.
@@ -55,10 +55,10 @@ SQLite module; older ABI-specific modules still use the prebuild fallback.
 ## Validation
 
 ```bash
-pnpm exec turbo run typecheck --filter=@bb/desktop --filter=bb-app
-pnpm exec turbo run build --filter=@bb/desktop
-pnpm exec turbo run test --filter=@bb/desktop --filter=bb-app --force
-pnpm exec turbo run dev --filter=@bb/desktop
+pnpm exec turbo run typecheck --filter=@cc/desktop --filter=cc-app
+pnpm exec turbo run build --filter=@cc/desktop
+pnpm exec turbo run test --filter=@cc/desktop --filter=cc-app --force
+pnpm exec turbo run dev --filter=@cc/desktop
 ```
 
 The desktop tests include an Electron startup smoke that opens a real window.
@@ -68,8 +68,8 @@ command in `xvfb-run -a`, as CI does.
 ## Packaging
 
 ```bash
-pnpm exec turbo run desktop:build --filter=@bb/desktop
-pnpm exec turbo run smoke:packaged --filter=@bb/desktop
+pnpm exec turbo run desktop:build --filter=@cc/desktop
+pnpm exec turbo run smoke:packaged --filter=@cc/desktop
 ```
 
 Artifacts are written under `apps/desktop/release/`. The macOS build is Apple
@@ -83,8 +83,8 @@ as CI sets for workflow-artifact-only builds), artifacts remain unsigned and
 macOS shows the normal Gatekeeper warning on first launch.
 
 For local verification without publishing, use
-`pnpm exec turbo run package --filter=@bb/desktop` on macOS, or
-`pnpm exec turbo run package:linux --filter=@bb/desktop` on Linux.
+`pnpm exec turbo run package --filter=@cc/desktop` on macOS, or
+`pnpm exec turbo run package:linux --filter=@cc/desktop` on Linux.
 
 npm's bundled dependencies are copied through an explicit `files` entry into
 `node_modules/npm/node_modules`, including nested dependency versions. pnpm's
@@ -99,12 +99,12 @@ publishing. This requires a native target host (macOS arm64 or Linux x64).
 verification without opening a desktop window:
 
 ```bash
-pnpm exec turbo run smoke:packaged-npm --filter=@bb/desktop
-pnpm exec turbo run smoke:packaged-npm --filter=@bb/desktop -- /absolute/path/to/bb.app/Contents/MacOS/bb
+pnpm exec turbo run smoke:packaged-npm --filter=@cc/desktop
+pnpm exec turbo run smoke:packaged-npm --filter=@cc/desktop -- /absolute/path/to/cc.app/Contents/MacOS/cc
 ```
 
 On Linux, the optional argument is the executable inside `linux-unpacked/` or
-an extracted AppImage. The check resolves npm from packaged `bb-app`, audits
+an extracted AppImage. The check resolves npm from packaged `cc-app`, audits
 required dependency edges and version ranges in npm's entire bundled tree using
 both CJS and ESM resolution, rejects paths outside packaged resources, imports npm's ESM display
 dependencies, and verifies its version. It then uses bundled Electron and npm
@@ -115,7 +115,7 @@ HOME/cache/config, and disabled lifecycle scripts. No system Node/npm or user
 store is used by the child processes. It also hashes ASAR and unpacked resources
 before and after to reject bundle mutations. Fixtures are removed afterward.
 
-The bb-app tarball smoke covers a different packaging pipeline and cannot
+The cc-app tarball smoke covers a different packaging pipeline and cannot
 detect Electron artifact omissions. A source build or `npm --version` alone
 does not verify a desktop plugin dependency install.
 
@@ -128,9 +128,9 @@ From the repo root, build an unpacked app, an AppImage distribution, or smoke
 test the current packaged output with:
 
 ```bash
-pnpm exec turbo run package:linux --filter=@bb/desktop
-pnpm exec turbo run desktop:build:linux --filter=@bb/desktop
-pnpm exec turbo run smoke:packaged --filter=@bb/desktop
+pnpm exec turbo run package:linux --filter=@cc/desktop
+pnpm exec turbo run desktop:build:linux --filter=@cc/desktop
+pnpm exec turbo run smoke:packaged --filter=@cc/desktop
 ```
 
 Running an AppImage normally requires FUSE and, on some distributions, the
@@ -141,7 +141,7 @@ Linux users whose window manager supplies all window controls can remove the
 native Electron title bar with `--no-window-frame`:
 
 ```bash
-./bb-x86_64.AppImage --no-window-frame
+./cc-x86_64.AppImage --no-window-frame
 ```
 
 The native frame remains the default. Changing this startup option requires a
@@ -151,7 +151,7 @@ Linux users can opt into a transparent Electron window with
 `--transparent-window`:
 
 ```bash
-./bb-x86_64.AppImage --transparent-window
+./cc-x86_64.AppImage --transparent-window
 ```
 
 The window remains opaque by default. Transparency also requires a compositor
@@ -187,9 +187,9 @@ push code to Linux clients. Treat the release token accordingly.
 
 ## Releasing
 
-`bb-app` and `@bb/desktop` versions are LOCKED in lockstep. The desktop package
-depends on `bb-app: workspace:*`, and the displayed release version string must
-match `packages/bb-app/package.json`.
+`cc-app` and `@cc/desktop` versions are LOCKED in lockstep. The desktop package
+depends on `cc-app: workspace:*`, and the displayed release version string must
+match `packages/cc-app/package.json`.
 
 To bump for a release:
 
@@ -201,7 +201,7 @@ Then commit and ship through the normal `sawyer-next` → `main` flow. You can a
 use `--patch`, `--minor`, or `--major` instead of an explicit version.
 
 CI enforces this lockstep. Direct edits that leave
-`packages/bb-app/package.json` and `apps/desktop/package.json` with different
+`packages/cc-app/package.json` and `apps/desktop/package.json` with different
 versions fail the build. Never edit either package version directly for a
 release; use `scripts/bump-version.mjs` so both files move together.
 
@@ -225,10 +225,10 @@ Apple signing secrets.
 
 ## Nightly channel
 
-The scheduled `publish-bb-app.yml` workflow runs from `main` every day at
+The scheduled `publish-cc-app.yml` workflow runs from `main` every day at
 3:00 AM Pacific (`America/Los_Angeles`, including daylight-saving changes). It
 derives a unique version such as `0.34.1-nightly.<run-id>.<attempt>` without
-committing that version, publishes `bb-app` with the npm `nightly` dist-tag,
+committing that version, publishes `cc-app` with the npm `nightly` dist-tag,
 and builds the desktop app from that same lockstep version.
 
 To publish or dry-run the channel manually from `main`, dispatch the same
@@ -242,9 +242,9 @@ nightly channel stays below `latest` until the next scheduled run.
 
 The nightly desktop is a separate installation:
 
-- product name: `bb Nightly`
-- bundle identifier: `dev.bb.desktop.nightly`
-- Linux binary name: `bb-nightly`, so it never shadows stable `bb` on PATH
+- product name: `cc Nightly`
+- bundle identifier: `io.github.codythatsme.cc.nightly`
+- Linux binary name: `cc-nightly`, so it never shadows stable `cc` on PATH
 - app/update release: `desktop-nightly`
 - update metadata: `nightly-mac.yml` and `nightly-linux.yml`
 - version feeds: `desktop-version.json` (macOS) and
@@ -252,20 +252,20 @@ The nightly desktop is a separate installation:
 - icon: `assets/icon-nightly.icns` and `assets/icon-nightly.png`
 
 Download it from
-[`desktop-nightly`](https://github.com/get-bb/bb/releases/tag/desktop-nightly)
+[`desktop-nightly`](https://github.com/codythatsme/cc/releases/tag/desktop-nightly)
 or run the CLI build with:
 
 ```bash
-npx bb-app@nightly
+npx cc-app@nightly
 ```
 
 Stable and nightly desktop bundles can coexist. Electron-owned preferences,
 window state, and process supervision use separate application data
-directories; the embedded bb runtime still uses the normal `~/.bb` data and
+directories; the embedded cc runtime still uses the normal `~/.cc` data and
 default server port unless the corresponding environment variables are
 overridden.
 
-Nightly builds set `BB_DESKTOP_RELEASE_CHANNEL=nightly` at build time. The value
+Nightly builds set `CC_DESKTOP_RELEASE_CHANNEL=nightly` at build time. The value
 is baked into the Electron main/preload bundles and selects the nightly product
 identity, yellow icon, and update URLs. Omit the variable (or set it to
 `latest`) for stable and local builds.
@@ -284,8 +284,8 @@ the facts into the bundles:
 
 | Variable                | Default when unset                                    |
 | ----------------------- | ----------------------------------------------------- |
-| `BB_DESKTOP_COMMIT`     | `GITHUB_SHA`, else `git rev-parse HEAD`, else unknown |
-| `BB_DESKTOP_BUILD_DATE` | The build's own timestamp, ISO 8601                   |
+| `CC_DESKTOP_COMMIT`     | `GITHUB_SHA`, else `git rev-parse HEAD`, else unknown |
+| `CC_DESKTOP_BUILD_DATE` | The build's own timestamp, ISO 8601                   |
 
 The plugin SDK version is read from `packages/plugin-sdk/package.json` at build
 time. A checkout with no git metadata reports `Commit: unknown` rather than
@@ -325,9 +325,9 @@ checks run in parallel on launch, hourly, and when the app becomes active: the
 JSON feed can show "update available" even when CI has published metadata only,
 while the Electron updater only flips the toast to "ready to install" after a
 signed update has actually downloaded. Local dev builds skip Electron auto-update
-unless `BB_DESKTOP_AUTO_UPDATE=1` is set.
+unless `CC_DESKTOP_AUTO_UPDATE=1` is set.
 
-`bb Nightly` follows the equivalent isolated `desktop-nightly` release and
+`cc Nightly` follows the equivalent isolated `desktop-nightly` release and
 `nightly-mac.yml`; it never reads or moves the stable feed. The scheduled
 workflow requires the complete signing/notarization secret set before
 publishing nightly desktop assets.
@@ -335,40 +335,40 @@ publishing nightly desktop assets.
 To verify a downloaded or unpacked build:
 
 ```bash
-spctl --assess --verbose /path/to/bb.app
-codesign --verify --deep --strict --verbose=2 /path/to/bb.app
+spctl --assess --verbose /path/to/cc.app
+codesign --verify --deep --strict --verbose=2 /path/to/cc.app
 ```
 
 ## Debugging
 
 Use the View menu to toggle DevTools. To open them automatically on launch, set
-`BB_DESKTOP_OPEN_DEVTOOLS=1`:
+`CC_DESKTOP_OPEN_DEVTOOLS=1`:
 
 ```bash
-BB_DESKTOP_OPEN_DEVTOOLS=1 apps/desktop/release/mac-arm64/bb.app/Contents/MacOS/bb
+CC_DESKTOP_OPEN_DEVTOOLS=1 apps/desktop/release/mac-arm64/cc.app/Contents/MacOS/cc
 ```
 
-When the desktop app spawns `bb-app`, server and daemon logs land under
-`~/.bb/logs/` or `$BB_DATA_DIR/logs/` when `BB_DATA_DIR` is set.
+When the desktop app spawns `cc-app`, server and daemon logs land under
+`~/.cc/logs/` or `$CC_DATA_DIR/logs/` when `CC_DATA_DIR` is set.
 
-To verify attach-if-found manually, start a compatible bb first, then launch the
+To verify attach-if-found manually, start a compatible cc first, then launch the
 desktop app:
 
 ```bash
-npx bb-app@latest
-pnpm exec turbo run dev --filter=@bb/desktop
+npx cc-app@latest
+pnpm exec turbo run dev --filter=@cc/desktop
 ```
 
 The desktop supervisor handles normal quits plus `SIGINT` and `SIGTERM`, and it
-writes a PID file so the next launch can reap a stale Electron-owned `bb-app`
+writes a PID file so the next launch can reap a stale Electron-owned `cc-app`
 launcher. Hard crashes such as process aborts, segfaults, or kernel-level kills
 cannot run cleanup in the crashing process; the startup PID-file reap is the
 recovery path for those cases.
 
 ### Saved servers
 
-Use **bb → Desktop Settings → Server → Add Server…** to save and switch to
-another machine's HTTP(S) bb server URL. **Window → Server** opens the same
+Use **cc → Desktop Settings → Server → Add Server…** to save and switch to
+another machine's HTTP(S) cc server URL. **Window → Server** opens the same
 menu. Saved URLs remain in the menu across restarts; adding an existing URL
 selects it without creating a duplicate. **This Mac** on macOS or **This
 Computer** on Linux switches back to the built-in server without removing
@@ -381,8 +381,8 @@ loaded automatically into the saved list in `<userData>/server-target.json`.
 
 ### Server moves
 
-After `bb server move`, the old computer's data dir (`~/.bb` or
-`$BB_DATA_DIR`) contains `server-moved.json`. The desktop app reads it at
+After `cc server move`, the old computer's data dir (`~/.cc` or
+`$CC_DATA_DIR`) contains `server-moved.json`. The desktop app reads it at
 startup, whenever the built-in server target loads, and while that target is active.
 While the target is active, the app watches the data dir. If `fs.watch` fails,
 for example with `ENOSPC`, the app checks the file every 2 seconds instead
@@ -400,30 +400,30 @@ sees a committed lock for a `moveId`, it switches the server target once:
   the app is open, the app waits up to 60 seconds for the new `/health`
   endpoint before it switches the window.
 
-The app shows "Your bb server moved to <toHostName>" once for each `moveId`
-(`<userData>/server-move-notice.json`). It still starts its own `bb-app`
-launcher unless another bb process answers the local server port. The launcher
+The app shows "Your cc server moved to <toHostName>" once for each `moveId`
+(`<userData>/server-move-notice.json`). It still starts its own `cc-app`
+launcher unless another cc process answers the local server port. The launcher
 runs this computer as a regular machine, and quitting the app stops it. If the
-app has no stored bb Connect credential, it signs in to a connect target with
-the `x-bb-connect-machine` header that the move wrote to the data dir's
+app has no stored cc Connect credential, it signs in to a connect target with
+the `x-cc-connect-machine` header that the move wrote to the data dir's
 `config.json`. The app logs a warning and ignores an invalid lock.
 
 On startup, a saved built-in server choice also switches to the moved server;
 it never starts the old copy automatically. A different saved remote server
 choice remains selected. Explicitly picking the built-in server while the move
-lock exists shows "bb moved to <toHostName>" with **Open <toHostName>** and
+lock exists shows "cc moved to <toHostName>" with **Open <toHostName>** and
 **Choose server…**. The screen explains whether the old copy is locked or was
 deleted. Selecting the built-in server does not unlock the old copy or remove
 its background machine service.
 
 Startup error screens list their actions as buttons. Any screen where
 retrying can help shows **Try again**. **Choose server…** opens the Server menu,
-where the user can select the built-in server if needed. A bb Connect
+where the user can select the built-in server if needed. A cc Connect
 `unauthorized` error has no **Try again**, because the same credential fails
 the same way. **Reconnect** opens account sign-in in a desktop
 window. The app clears its old account sign-in, waits for a new session, then
 retries the selected server. A valid account session can mint and renew the
 desktop session when a machine credential is rejected. Closing the sign-in
 window leaves the error screen available. Fatal errors have no buttons. The renderer sends the chosen
-action on `bb-desktop:startup-action`. The main process accepts only actions
+action on `cc-desktop:startup-action`. The main process accepts only actions
 from the error page that is currently loaded in an app window's main frame.

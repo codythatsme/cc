@@ -1,7 +1,7 @@
-import type { JsonValue } from "@bb/domain";
-import { threadSchema, type GitSourceInspection } from "@bb/domain";
-import type { HostDaemonRpcCommand } from "@bb/host-daemon-contract";
-import { threadResponseSchema } from "@bb/server-contract";
+import type { JsonValue } from "@cc/domain";
+import { threadSchema, type GitSourceInspection } from "@cc/domain";
+import type { HostDaemonRpcCommand } from "@cc/host-daemon-contract";
+import { threadResponseSchema } from "@cc/server-contract";
 import { describe, expect, it, vi } from "vitest";
 import { registerTestHostRpcCapture } from "../helpers/commands.js";
 import { readJson } from "../helpers/json.js";

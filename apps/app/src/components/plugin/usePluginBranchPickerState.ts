@@ -6,7 +6,7 @@ import type {
   CheckoutState,
   UseBranchesArgs,
   UseCheckoutStateArgs,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 
 export function usePluginBranches({
   hostId,

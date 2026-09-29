@@ -6,7 +6,7 @@ import { ThreadListPlaceholder } from "./ThreadListPlaceholder";
 afterEach(cleanup);
 
 describe("ThreadListPlaceholder", () => {
-  it("shows the loading skeleton with the same accessible label bb's list used", () => {
+  it("shows the loading skeleton with the same accessible label cc's list used", () => {
     render(<ThreadListPlaceholder state={{ kind: "loading" }} />);
     expect(screen.getByLabelText("Loading sidebar navigation")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();

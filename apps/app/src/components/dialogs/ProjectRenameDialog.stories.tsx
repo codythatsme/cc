@@ -14,8 +14,8 @@ export default {
 const noop = () => {};
 
 const target: ProjectRenameDialogTarget = {
-  id: PROJECT_IDS.bb,
-  currentName: PROJECT_NAMES.bb,
+  id: PROJECT_IDS.cc,
+  currentName: PROJECT_NAMES.cc,
 };
 
 const longTarget: ProjectRenameDialogTarget = {

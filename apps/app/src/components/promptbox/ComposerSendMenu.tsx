@@ -1,15 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Button } from "@bb/shared-ui/button";
+import { Button } from "@cc/shared-ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { Icon } from "@bb/shared-ui/icon";
-import { cn } from "@bb/shared-ui/lib/utils";
-import { CONTROL_HOVER_TRANSITION } from "@bb/shared-ui/motion";
+} from "@cc/shared-ui/dropdown-menu";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { Icon } from "@cc/shared-ui/icon";
+import { cn } from "@cc/shared-ui/lib/utils";
+import { CONTROL_HOVER_TRANSITION } from "@cc/shared-ui/motion";
 import { CompactLongPressMenu } from "@/components/ui/compact-long-press-menu";
 import { PluginComposerPlusMenuEntry } from "@/components/plugin/PluginComposerActions";
 import { useResolvedComposerPlusMenuItems } from "@/components/plugin/composer-slot-hooks";

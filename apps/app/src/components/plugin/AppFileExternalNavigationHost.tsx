@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { ExperimentalFileOpenOptions } from "@get-bb/plugin-sdk";
+import type { ExperimentalFileOpenOptions } from "@codythatsme/plugin-sdk";
 import { AppNavigationHostProvider } from "@/lib/app-navigation-host";
 
 const MAX_PENDING_EXTERNAL_FILE_INTENTS = 32;

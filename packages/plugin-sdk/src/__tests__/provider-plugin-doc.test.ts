@@ -3,17 +3,17 @@ import {
   bridgeCapabilitiesSchema,
   bridgeExecutionOptionsSchema,
   providerRecoveryNotificationSchema,
-} from "@bb/provider-bridge-protocol";
+} from "@cc/provider-bridge-protocol";
 import {
   providerRecoveryKindValues,
   threadEventDelegationItemSchema,
   threadEventItemPresentationSchema,
   type ThreadEventItemPresentation,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   timelineCommandWorkRowSchema,
   type TimelineCommandWorkRow,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { z } from "zod";
 import type { PluginAppSlots } from "../app-contract.js";
@@ -253,7 +253,7 @@ describe("guardrail G10: docs/provider-plugin-api.md matches the contract", () =
     const blocks = extractTsBlocks(await readFile(DOC_URL, "utf8"));
     const headings = blocks.map((block) => block.split("\n")[0]?.trim());
     expect(headings).toEqual([
-      "bb.providers.register({",
+      "cc.providers.register({",
       "export const experimental_providerBridge = experimental_defineProviderBridge({",
       "{",
       "{ model, serviceTier?, reasoningLevel, promptMode?, instructions,",
@@ -273,7 +273,7 @@ describe("guardrail G10: docs/provider-plugin-api.md matches the contract", () =
     expectTypeOf<DeclarationGapsNotLanded>().toBeNever();
   });
 
-  it("§2 the bridge entry point is exported from @get-bb/plugin-sdk/provider-bridge", () => {
+  it("§2 the bridge entry point is exported from @codythatsme/plugin-sdk/provider-bridge", () => {
     expect(typeof providerBridgeSdk.experimental_defineProviderBridge).toBe(
       "function",
     );

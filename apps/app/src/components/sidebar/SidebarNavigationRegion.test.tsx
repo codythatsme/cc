@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ExperimentalSidebarNavigationActions,
   ExperimentalSidebarNavigationProps,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
 import {
@@ -133,7 +133,7 @@ function Replacement({
         Customize replacement
       </button>
       <button type="button" onClick={() => setDelegate(true)}>
-        Delegate to BB
+        Delegate to CC
       </button>
       <button type="button" onClick={() => setCrash(true)}>
         Crash replacement
@@ -249,7 +249,7 @@ function listedItems(name: string): string[] {
 }
 
 describe("SidebarNavigationRegion", () => {
-  it("renders bb's bundled Navigation plugin by default", async () => {
+  it("renders cc's bundled Navigation plugin by default", async () => {
     await registerNavigationPlugin();
     renderHarness(vi.fn(), ["/"], "__automatic__");
 
@@ -284,7 +284,7 @@ describe("SidebarNavigationRegion", () => {
     ).toBeNull();
   });
 
-  it("falls back to bb's Navigation when the picked provider is gone", async () => {
+  it("falls back to cc's Navigation when the picked provider is gone", async () => {
     await registerNavigationPlugin();
     renderHarness(vi.fn(), ["/"], "compact-nav/icons");
 
@@ -333,7 +333,7 @@ describe("SidebarNavigationRegion", () => {
     renderHarness();
 
     act(() =>
-      capturedActions.current?.activate("__bb__/search-threads", {
+      capturedActions.current?.activate("__cc__/search-threads", {
         openInSplit: false,
       }),
     );
@@ -394,7 +394,7 @@ describe("SidebarNavigationRegion", () => {
       "Skills",
       "Docs",
     ]);
-    expect(listedItems("Hidden items")).toEqual(["__bb__/search-threads"]);
+    expect(listedItems("Hidden items")).toEqual(["__cc__/search-threads"]);
   });
 
   it("persists visibility and order changes through the actions", () => {
@@ -403,7 +403,7 @@ describe("SidebarNavigationRegion", () => {
 
     act(() => capturedActions.current?.setVisible("garden/docs", false));
     expect(listedItems("Hidden items")).toEqual([
-      "__bb__/search-threads",
+      "__cc__/search-threads",
       "garden/docs",
     ]);
 
@@ -412,7 +412,7 @@ describe("SidebarNavigationRegion", () => {
       capturedActions.current?.setOrder([
         "garden/docs",
         "unknown/item",
-        "__bb__/skills",
+        "__cc__/skills",
       ]),
     );
     expect(listedItems("Visible items")).toEqual([
@@ -446,7 +446,7 @@ describe("SidebarNavigationRegion", () => {
     expect(mocks.onNewChat).toHaveBeenCalledOnce();
   });
 
-  it("swaps in bb's customize editor and keeps the provider mounted", async () => {
+  it("swaps in cc's customize editor and keeps the provider mounted", async () => {
     registerFixture();
     renderHarness();
     fireEvent.click(screen.getByRole("button", { name: "Local count 0" }));
@@ -499,7 +499,7 @@ describe("SidebarNavigationRegion", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Crash replacement" }));
     act(() =>
-      staleActions?.activate("__bb__/extensions", { openInSplit: false }),
+      staleActions?.activate("__cc__/extensions", { openInSplit: false }),
     );
 
     expect(screen.getByTestId("pathname").textContent).toBe("/");
@@ -511,11 +511,11 @@ describe("SidebarNavigationRegion", () => {
     const ownerMount = vi.fn();
     renderHarness(ownerMount);
 
-    fireEvent.click(screen.getByRole("button", { name: "Delegate to BB" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delegate to CC" }));
 
     expect(
       document.querySelector(
-        '[data-bb-plugin="navigation"] [data-testid="plugin-nav-sidebar-items"]',
+        '[data-cc-plugin="navigation"] [data-testid="plugin-nav-sidebar-items"]',
       ),
     ).not.toBeNull();
     expect(screen.getByRole("button", { name: "Plugins" })).toBeDefined();
@@ -526,7 +526,7 @@ describe("SidebarNavigationRegion", () => {
     registerFixture();
     renderHarness();
 
-    fireEvent.click(screen.getByRole("button", { name: "Delegate to BB" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delegate to CC" }));
 
     expect(screen.queryByTestId("plugin-nav-sidebar-items")).toBeNull();
     expect(screen.queryByTestId("replacement-navigation")).toBeNull();

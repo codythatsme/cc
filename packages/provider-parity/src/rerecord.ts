@@ -7,7 +7,7 @@ import {
   firstPartyReplayBridge,
   readBridgeRecording,
   rerecordCurrentBridgeLane,
-} from "@bb/provider-bridge-protocol/testing";
+} from "@cc/provider-bridge-protocol/testing";
 import {
   RECORDINGS_ROOT,
   cellKey,
@@ -24,8 +24,8 @@ const REDACT_SCRIPT = resolve(
 );
 
 function redactInPlace(file: string): void {
-  const inDir = mkdtempSync(join(tmpdir(), "bb-rerecord-redact-in-"));
-  const outDir = mkdtempSync(join(tmpdir(), "bb-rerecord-redact-out-"));
+  const inDir = mkdtempSync(join(tmpdir(), "cc-rerecord-redact-in-"));
+  const outDir = mkdtempSync(join(tmpdir(), "cc-rerecord-redact-out-"));
   try {
     const staged = join(inDir, basename(file));
     writeFileSync(staged, readFileSync(file));

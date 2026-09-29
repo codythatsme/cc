@@ -767,7 +767,7 @@ function validatePendingInteractionsSchema(db: DbConnection): void {
         missingOrMismatchedIndexes.length > 0
           ? `Missing or mismatched indexes: ${missingOrMismatchedIndexes.join("; ")}.`
           : null,
-        "This usually means the local DB was created by an incompatible prelaunch migration history. Restart BB so migrations can run; if this persists in development, back up the DB and run pnpm reset:dev.",
+        "This usually means the local DB was created by an incompatible prelaunch migration history. Restart CC so migrations can run; if this persists in development, back up the DB and run pnpm reset:dev.",
       ]
         .filter((line): line is string => line !== null)
         .join(" "),
@@ -1259,9 +1259,9 @@ function repairBranchLocalQueuedGroupingBeforeInitialThreadSections(
   markMigrationApplied(db, initialThreadSectionsMigration);
 }
 
-const STAGED_CONNECT_MACHINE_ID_COLUMN = "_bb_connect_machine_id_pending";
+const STAGED_CONNECT_MACHINE_ID_COLUMN = "_cc_connect_machine_id_pending";
 const STAGED_THREAD_STORAGE_DELETED_AT_COLUMN =
-  "_bb_thread_storage_deleted_at_pending";
+  "_cc_thread_storage_deleted_at_pending";
 
 function stageExistingConnectMachineIdColumn(
   db: DbConnection,
@@ -1549,16 +1549,16 @@ export function migrate(db: DbConnection, options: MigrateOptions = {}): void {
   const sqlite = db.$client;
 
   sqlite.exec(
-    "CREATE TEMP TABLE IF NOT EXISTS bb_migration_local_host (id TEXT PRIMARY KEY)",
+    "CREATE TEMP TABLE IF NOT EXISTS cc_migration_local_host (id TEXT PRIMARY KEY)",
   );
-  sqlite.exec("DELETE FROM bb_migration_local_host");
+  sqlite.exec("DELETE FROM cc_migration_local_host");
   if (sqlite.name !== ":memory:") {
     const identityPath = join(dirname(sqlite.name), "host-id");
     if (existsSync(identityPath)) {
       const hostId = readFileSync(identityPath, "utf8").trim();
       if (hostId)
         sqlite
-          .prepare("INSERT INTO bb_migration_local_host (id) VALUES (?)")
+          .prepare("INSERT INTO cc_migration_local_host (id) VALUES (?)")
           .run(hostId);
     }
   }

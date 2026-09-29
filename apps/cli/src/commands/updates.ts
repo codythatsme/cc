@@ -1,18 +1,18 @@
 import { Command } from "commander";
-import type { Host } from "@bb/domain";
+import type { Host } from "@cc/domain";
 import {
   UPDATE_STATE_PRESENTATION,
   type UpdateState,
-} from "@bb/domain/update-state";
+} from "@cc/domain/update-state";
 import type {
   HostProviderCliStatusResponse,
   SystemAppUpdateResult,
   SystemAppUpdateRevision,
   SystemAppUpdateStatus,
   SystemVersionResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { action, CliExitError } from "../action.js";
-import { createCliBbSdk } from "../client.js";
+import { createCliCcSdk } from "../client.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { confirmDestructiveAction, outputJson } from "./helpers.js";
 import { resolveMachineId, selectMachines } from "./machine.js";
@@ -40,7 +40,7 @@ interface AppUpdateApplyOptions {
   yes?: boolean;
 }
 
-type CliSdk = ReturnType<typeof createCliBbSdk>;
+type CliSdk = ReturnType<typeof createCliCcSdk>;
 
 interface ProviderUpdateTarget {
   host: Host;
@@ -95,7 +95,7 @@ function selectUpdateHosts(
 }
 
 async function collectMachineUpdates(
-  sdk: ReturnType<typeof createCliBbSdk>,
+  sdk: ReturnType<typeof createCliCcSdk>,
   hosts: readonly Host[],
 ): Promise<MachineUpdatesEntry[]> {
   return Promise.all(
@@ -191,7 +191,7 @@ function unsupportedAppUpdateMessage(status: SystemAppUpdateStatus): string {
     case "desktop":
       return "The desktop app updates itself; use its update controls.";
     case "unmanaged":
-      return "In-app updates are off. Start bb with `npx bb-app start --in-app-updates` or `pnpm start --in-app-updates` to turn them on.";
+      return "Update cc with `brew upgrade --cask codythatsme/tap/cc`. Source checkouts can use `pnpm start --in-app-updates`.";
   }
 }
 
@@ -199,7 +199,7 @@ function describeAppUpdateResult(result: SystemAppUpdateResult): string {
   const target = formatRevision(result.to);
   switch (result.outcome) {
     case "updated":
-      return `Updated bb to ${target}.`;
+      return `Updated cc to ${target}.`;
     case "failed":
       return `Update to ${target} failed: ${result.message ?? "unknown error"}`;
   }
@@ -233,9 +233,9 @@ function appRowFromStatus(args: {
             : UPDATE_STATE_PRESENTATION["up-to-date"].label
           : appUpdate.blocked !== null
             ? `${UPDATE_STATE_PRESENTATION["update-available"].label} (blocked: ${appUpdate.blocked.message})`
-            : `${UPDATE_STATE_PRESENTATION["update-available"].label} (run: bb updates app apply)`;
+            : `${UPDATE_STATE_PRESENTATION["update-available"].label} (run: cc updates app apply)`;
     return [
-      "bb-app",
+      "cc-app",
       target === null ? current : `${current} -> ${target}`,
       state,
     ];
@@ -250,21 +250,21 @@ function appRowFromStatus(args: {
     version.latestVersion !== version.currentVersion
       ? `${version.currentVersion} -> ${version.latestVersion}`
       : version.currentVersion;
-  return ["bb-app", appVersionLabel, appState];
+  return ["cc-app", appVersionLabel, appState];
 }
 
 function printAppUpdateStatus(status: SystemAppUpdateStatus): void {
   const current = formatRevision(status.current);
   if (status.support.kind !== "supported") {
-    console.log(`bb-app ${current}`);
+    console.log(`cc-app ${current}`);
     console.log(unsupportedAppUpdateMessage(status));
     return;
   }
   const target = formatAvailableTarget(status);
   console.log(
     target === null
-      ? `bb-app ${current} is up to date.`
-      : `bb-app ${current} -> ${target}`,
+      ? `cc-app ${current} is up to date.`
+      : `cc-app ${current} -> ${target}`,
   );
   if (status.activity.phase === "preparing") {
     console.log(
@@ -286,7 +286,7 @@ function printAppUpdateStatus(status: SystemAppUpdateStatus): void {
   if (status.blocked !== null) {
     console.log(`Blocked: ${status.blocked.message}`);
   } else if (target !== null && status.activity.phase === "idle") {
-    console.log("Run bb updates app apply to update and restart bb.");
+    console.log("Run cc updates app apply to update and restart cc.");
   }
   if (status.lastResult !== null && !status.lastResult.acknowledged) {
     console.log(describeAppUpdateResult(status.lastResult));
@@ -313,7 +313,7 @@ async function waitForAppUpdate(args: {
     await delay(APP_UPDATE_POLL_INTERVAL_MS);
     const status = await readAppUpdateStatus(args.sdk, false);
     if (status === null) {
-      report("Restarting bb…");
+      report("Restarting cc…");
       continue;
     }
     const result = status.lastResult;
@@ -323,11 +323,11 @@ async function waitForAppUpdate(args: {
     if (status.activity.phase === "preparing") {
       report(`${status.activity.step}…`);
     } else if (status.activity.phase === "restarting") {
-      report("Restarting bb…");
+      report("Restarting cc…");
     }
   }
   throw new CliExitError(
-    "Timed out waiting for the update to finish. Run bb updates app to check on it; if bb did not come back, check the terminal running it.",
+    "Timed out waiting for the update to finish. Run cc updates app to check on it; if cc did not come back, check the terminal running it.",
     1,
   );
 }
@@ -338,15 +338,15 @@ function registerAppUpdateCommands(
 ): void {
   const app = updates
     .command("app")
-    .description("Inspect and apply in-app updates to bb itself");
+    .description("Inspect and apply in-app updates to cc itself");
 
   app
     .command("status", { isDefault: true })
-    .description("Show whether bb can update itself and what is available")
+    .description("Show whether cc can update itself and what is available")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: AppUpdateStatusOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const status = await sdk.system.appUpdate({ force: true });
         if (outputJson(opts, status)) return;
         printAppUpdateStatus(status);
@@ -355,7 +355,7 @@ function registerAppUpdateCommands(
 
   app
     .command("apply")
-    .description("Download the available bb update and restart bb into it")
+    .description("Download the available cc update and restart cc into it")
     .option("--yes", "Interrupt running threads without asking")
     .option(
       "--no-wait",
@@ -364,7 +364,7 @@ function registerAppUpdateCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: AppUpdateApplyOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const status = await sdk.system.appUpdate({ force: true });
         if (status.support.kind !== "supported") {
           throw new CliExitError(unsupportedAppUpdateMessage(status), 1);
@@ -375,7 +375,7 @@ function registerAppUpdateCommands(
         if (status.available === null) {
           if (outputJson(opts, status)) return;
           console.log(
-            `bb-app ${formatRevision(status.current)} is up to date.`,
+            `cc-app ${formatRevision(status.current)} is up to date.`,
           );
           return;
         }
@@ -383,7 +383,7 @@ function registerAppUpdateCommands(
         if (status.runningThreadCount > 0 && !confirmInterruptingThreads) {
           const count = status.runningThreadCount;
           confirmInterruptingThreads = await confirmDestructiveAction(
-            `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts bb and interrupts ${count === 1 ? "it" : "them"}. Continue?`,
+            `${String(count)} thread${count === 1 ? " is" : "s are"} running. Updating restarts cc and interrupts ${count === 1 ? "it" : "them"}. Continue?`,
           );
           if (!confirmInterruptingThreads) {
             console.log("Update cancelled.");
@@ -397,12 +397,12 @@ function registerAppUpdateCommands(
         if (!opts.wait) {
           if (outputJson(opts, started)) return;
           console.log(
-            `Updating bb to ${status.available.version}. Run bb updates app to follow it.`,
+            `Updating cc to ${status.available.version}. Run cc updates app to follow it.`,
           );
           return;
         }
         if (!opts.json) {
-          console.log(`Updating bb to ${status.available.version}`);
+          console.log(`Updating cc to ${status.available.version}`);
         }
         const finished = await waitForAppUpdate({
           json: opts.json === true,
@@ -428,7 +428,7 @@ function registerAppUpdateCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: AppUpdateStatusOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const status = await sdk.system.appUpdate();
         const result = status.lastResult;
         if (result === null || result.acknowledged) {
@@ -449,17 +449,17 @@ export function registerUpdatesCommands(
 ): void {
   const updates = program
     .command("updates")
-    .description("Inspect and apply bb and provider CLI updates");
+    .description("Inspect and apply cc and provider CLI updates");
   registerAppUpdateCommands(updates, getUrl);
 
   updates
     .command("status", { isDefault: true })
-    .description("Show bb and provider CLI update status across machines")
+    .description("Show cc and provider CLI update status across machines")
     .option("--machine <id-or-name>", "Limit to one machine")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: UpdatesCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const [version, appUpdate, hosts] = await Promise.all([
           sdk.system.version(),
           readAppUpdateStatus(sdk, false),
@@ -497,7 +497,7 @@ export function registerUpdatesCommands(
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (opts: UpdatesCommandOptions) => {
-        const sdk = createCliBbSdk(getUrl());
+        const sdk = createCliCcSdk(getUrl());
         const hosts = await sdk.hosts.list();
         const entries = await collectMachineUpdates(
           sdk,
@@ -518,7 +518,7 @@ export function registerUpdatesCommands(
           );
           console.log(
             hasManualUpdates
-              ? "No updates bb can apply. Run bb updates status for manual updates."
+              ? "No updates cc can apply. Run cc updates status for manual updates."
               : "Everything is up to date.",
           );
           return;

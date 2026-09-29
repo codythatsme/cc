@@ -1,31 +1,31 @@
 import { registerCodexAiService } from "./src/ai-service.js";
 import { registerUsageSource } from "./src/usage-source.js";
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { codexExtensionKinds } from "./src/extension-kinds.js";
 import { CODEX_NATIVE_ROOTS_DECLARATION } from "./src/native-roots.js";
 
-export default function plugin(bb: BbPluginApi) {
-  registerUsageSource(bb);
-  registerCodexAiService(bb);
+export default function plugin(cc: CcPluginApi) {
+  registerUsageSource(cc);
+  registerCodexAiService(cc);
 
-  bb.settings.define({
+  cc.settings.define({
     memoryEnabled: {
       type: "boolean",
       label: "Codex memory",
       description:
-        "Allow Codex to recall existing memories and generate new memories from bb threads.",
+        "Allow Codex to recall existing memories and generate new memories from cc threads.",
       default: true,
     },
     subagentsDisabled: {
       type: "boolean",
       label: "Disable provider subagents",
       description:
-        "Prevent Codex from starting native subagents so agents use bb for delegation.",
+        "Prevent Codex from starting native subagents so agents use cc for delegation.",
       default: false,
     },
   });
 
-  bb.providers.register({
+  cc.providers.register({
     id: "codex",
     displayName: "Codex",
     icon: "./icons/codex.svg",

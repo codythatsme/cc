@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import {
   experimental_useSidebarThreadActions,
   useSdk,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import { ActionMenuItem, ActionMenuSeparator } from "../ui/action-menu-items.js";
 import { CompactLongPressMenu } from "../ui/compact-long-press-menu.js";
 import { copyToClipboardWithToast } from "../ui/clipboard.js";

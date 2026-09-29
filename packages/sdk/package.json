@@ -1,5 +1,5 @@
 {
-  "name": "@bb/sdk",
+  "name": "@cc/sdk",
   "version": "0.0.1",
   "type": "module",
   "exports": {
@@ -44,17 +44,17 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@bb/config": "workspace:*",
-    "@bb/core-ui": "workspace:*",
-    "@bb/domain": "workspace:*",
-    "@bb/host-daemon-contract": "workspace:*",
-    "@bb/server-contract": "workspace:*",
-    "@bb/templates": "workspace:*",
+    "@cc/config": "workspace:*",
+    "@cc/core-ui": "workspace:*",
+    "@cc/domain": "workspace:*",
+    "@cc/host-daemon-contract": "workspace:*",
+    "@cc/server-contract": "workspace:*",
+    "@cc/templates": "workspace:*",
     "ws": "^8.19.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@bb/tsconfig": "workspace:*",
+    "@cc/tsconfig": "workspace:*",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

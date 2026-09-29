@@ -10,12 +10,12 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join, posix, resolve } from "node:path";
 import {
-  type BbAppManagedConfig,
-  type BbAppManagedEnvFile,
-  bbAppManagedEnvFileSchema,
-  parseBbAppManagedConfig,
-} from "@bb/config/bb-app-managed-config";
-import { mutateManagedJsonFile } from "@bb/config/managed-json-file";
+  type CcAppManagedConfig,
+  type CcAppManagedEnvFile,
+  ccAppManagedEnvFileSchema,
+  parseCcAppManagedConfig,
+} from "@cc/config/cc-app-managed-config";
+import { mutateManagedJsonFile } from "@cc/config/managed-json-file";
 import { hasErrorCode, ServerArchiveError } from "./errors.js";
 import { lstatOrNull, moveFile } from "./fs-utils.js";
 import { parseJsonText, readJsonFileText } from "./json-file.js";
@@ -38,13 +38,13 @@ export const SERVER_IMPORT_BACKUP_DIR_NAME = "server-import-backup";
 
 const MANAGED_CONFIG_PATH = "config.json";
 const MANAGED_ENV_PATH = "env.json";
-const SERVER_DATABASE_PATH = "bb.db";
-const SERVER_DATABASE_PATHS = ["bb.db", "bb.db-wal", "bb.db-shm"] as const;
+const SERVER_DATABASE_PATH = "cc.db";
+const SERVER_DATABASE_PATHS = ["cc.db", "cc.db-wal", "cc.db-shm"] as const;
 const SQLITE_SIDECAR_SUFFIXES = ["-wal", "-shm", "-journal"] as const;
 const MAX_ARCHIVE_NAME_ATTEMPTS = 100;
 
 export type ImportedManagedConfig = Omit<
-  BbAppManagedConfig,
+  CcAppManagedConfig,
   "customAcpAgents" | "customModels"
 > & {
   customAcpAgents?: unknown[];
@@ -105,9 +105,9 @@ export function mergeImportedManagedConfig(
 }
 
 function mergeImportedManagedEnv(
-  importedEnv: BbAppManagedEnvFile,
-  existingEnv: BbAppManagedEnvFile,
-): BbAppManagedEnvFile {
+  importedEnv: CcAppManagedEnvFile,
+  existingEnv: CcAppManagedEnvFile,
+): CcAppManagedEnvFile {
   const env = { ...existingEnv.env, ...importedEnv.env };
   return Object.keys(env).length > 0 ? { env } : {};
 }
@@ -117,7 +117,7 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 }
 
 function parseImportedManagedConfig(value: unknown): ImportedManagedConfig {
-  const config: ImportedManagedConfig = { ...parseBbAppManagedConfig(value) };
+  const config: ImportedManagedConfig = { ...parseCcAppManagedConfig(value) };
   if (isJsonObject(value)) {
     if (Array.isArray(value.customAcpAgents)) {
       config.customAcpAgents = value.customAcpAgents;
@@ -129,8 +129,8 @@ function parseImportedManagedConfig(value: unknown): ImportedManagedConfig {
   return config;
 }
 
-function parseManagedEnvFile(value: unknown): BbAppManagedEnvFile {
-  return bbAppManagedEnvFileSchema.parse(value);
+function parseManagedEnvFile(value: unknown): CcAppManagedEnvFile {
+  return ccAppManagedEnvFileSchema.parse(value);
 }
 
 async function readManagedJsonFile<T>(

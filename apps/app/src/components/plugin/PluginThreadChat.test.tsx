@@ -20,7 +20,7 @@ vi.mock("@/lib/sdk", () => ({
     environments: { get: vi.fn() },
     providers: { list: vi.fn(async () => []) },
   },
-  BbHttpError: class BbHttpError extends Error {
+  CcHttpError: class CcHttpError extends Error {
     status: number;
     constructor(status: number) {
       super(`http ${status}`);

@@ -8,7 +8,7 @@ import {
   listQueuedThreadMessages,
   listStoredProjectPromptHistoryRows,
   listStoredThreadPromptHistoryRows,
-} from "@bb/db";
+} from "@cc/db";
 import {
   encodeClientTurnRequestIdNumber,
   threadScope,
@@ -16,7 +16,7 @@ import {
   type PromptInput,
   type ThreadEventTurnStatus,
   type ThreadStatus,
-} from "@bb/domain";
+} from "@cc/domain";
 import { describe, expect, it, vi } from "vitest";
 import { editThreadMessage } from "../../src/services/threads/thread-edit-message.js";
 import { requestThreadStopForCurrentState } from "../../src/services/threads/thread-lifecycle.js";
@@ -1607,7 +1607,7 @@ describe("editThreadMessage", () => {
   });
 
   it.each(["completed", "failed", "interrupted"] as const)(
-    "does not send a bb turn id to Codex when a %s turn has no checkpoint",
+    "does not send a cc turn id to Codex when a %s turn has no checkpoint",
     async (firstCompletionStatus) => {
       await withTestHarness(async (harness) => {
         const { environment, thread } = seedEditableThread(harness, {

@@ -346,7 +346,7 @@ export function createCodexAdapter(options: {
         headers: {
           authorization: `Bearer ${secret.accessToken}`,
           "chatgpt-account-id": context.account.codexAccountId,
-          originator: "bb",
+          originator: "cc",
           accept: "application/json",
         },
         signal: AbortSignal.timeout(USAGE_REQUEST_TIMEOUT_MS),

@@ -4,7 +4,7 @@ import {
   resolvedThreadExecutionOptionsSchema,
   threadChangedMessageSchema,
   type ThreadChangedMessage,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   sendQueuedMessageResponseSchema,
   sidebarBootstrapResponseSchema,
@@ -19,7 +19,7 @@ import {
   threadTimelineResponseSchema,
   type SendMessageRequest,
   type ThreadTimelineResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {

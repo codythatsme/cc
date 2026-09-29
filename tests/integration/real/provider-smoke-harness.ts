@@ -8,8 +8,8 @@ import {
   type ClientTurnRequestId,
   type ThreadEventRow,
   type ThreadExecutionOptions,
-} from "@bb/domain";
-import { resolvePreferredTestModel } from "@bb/test-helpers";
+} from "@cc/domain";
+import { resolvePreferredTestModel } from "@cc/test-helpers";
 import {
   getAvailableModels,
   getThread,

@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   deriveConnectBaseUrl,
   type ConnectCredential,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 
 const machineCodeResponseSchema = z.object({
   code: z.string().min(1),
@@ -34,7 +34,7 @@ export async function fetchMachineCode(
   try {
     response = await fetch(url, {
       method: "POST",
-      headers: { "x-bb-connect-machine": credential.credential },
+      headers: { "x-cc-connect-machine": credential.credential },
       signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
     });
   } catch {
@@ -65,8 +65,8 @@ export async function lookupMachineCode(
     {
       method: "GET",
       headers: {
-        "x-bb-connect-machine": credential.credential,
-        "x-bb-connect-code": code,
+        "x-cc-connect-machine": credential.credential,
+        "x-cc-connect-code": code,
       },
       signal: AbortSignal.any([signal, AbortSignal.timeout(10_000)]),
     },

@@ -2,7 +2,7 @@ import {
   createDesktopBrowsersArea,
   type ExperimentalDesktopBrowsersArea,
 } from "./areas/desktop-browsers.js";
-import type { BbSdkContext, BbSdkTransport } from "./transport.js";
+import type { CcSdkContext, CcSdkTransport } from "./transport.js";
 import {
   createEnvironmentsArea,
   type EnvironmentsArea,
@@ -17,8 +17,8 @@ import {
 import { createProjectsArea, type ProjectsArea } from "./areas/projects.js";
 import { createProvidersArea, type ProvidersArea } from "./areas/providers.js";
 import { createPluginsArea, type PluginsArea } from "./areas/plugins.js";
-import { createBbRealtimeClient } from "./realtime-client.js";
-import type { BbRealtime } from "./realtime-types.js";
+import { createCcRealtimeClient } from "./realtime-client.js";
+import type { CcRealtime } from "./realtime-types.js";
 import { createStatusArea, type StatusArea } from "./areas/status.js";
 import { createSkillsArea, type SkillsArea } from "./areas/skills.js";
 import { createThemeArea, type ThemeArea } from "./areas/theme.js";
@@ -31,18 +31,18 @@ import {
 } from "./areas/thread-sections.js";
 
 export type * from "./public-types.js";
-export { createBuiltinPlanCommandTextInput } from "@bb/domain";
+export { createBuiltinPlanCommandTextInput } from "@cc/domain";
 
-export interface CreateBbSdkArgs {
-  context?: BbSdkContext;
-  transport: BbSdkTransport;
+export interface CreateCcSdkArgs {
+  context?: CcSdkContext;
+  transport: CcSdkTransport;
 }
 
-export interface CreateBbSdkWithGuideArgs extends CreateBbSdkArgs {
+export interface CreateCcSdkWithGuideArgs extends CreateCcSdkArgs {
   guide: GuideArea;
 }
 
-export interface BbSdkAreas extends BbRealtime {
+export interface CcSdkAreas extends CcRealtime {
   experimental_desktopBrowsers: ExperimentalDesktopBrowsersArea;
   experimental_server: ExperimentalServerArea;
   environments: EnvironmentsArea;
@@ -60,20 +60,20 @@ export interface BbSdkAreas extends BbRealtime {
   threads: ThreadsArea;
 }
 
-export interface BbSdk extends BbSdkAreas {
+export interface CcSdk extends CcSdkAreas {
   guide: GuideArea;
 }
 
-export function createBbSdk(args: CreateBbSdkWithGuideArgs): BbSdk;
-export function createBbSdk(args: CreateBbSdkArgs): BbSdkAreas;
-export function createBbSdk(
-  args: CreateBbSdkArgs | CreateBbSdkWithGuideArgs,
-): BbSdkAreas | BbSdk {
+export function createCcSdk(args: CreateCcSdkWithGuideArgs): CcSdk;
+export function createCcSdk(args: CreateCcSdkArgs): CcSdkAreas;
+export function createCcSdk(
+  args: CreateCcSdkArgs | CreateCcSdkWithGuideArgs,
+): CcSdkAreas | CcSdk {
   const sdkContext = { transport: args.transport };
-  const realtime = createBbRealtimeClient({
+  const realtime = createCcRealtimeClient({
     transport: args.transport,
   });
-  const areas: BbSdkAreas = {
+  const areas: CcSdkAreas = {
     experimental_desktopBrowsers: createDesktopBrowsersArea(sdkContext),
     experimental_server: createServerArea(sdkContext),
     environments: createEnvironmentsArea(sdkContext),

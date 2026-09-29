@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { events, hostDaemonSessions, type DbConnection } from "@bb/db";
+import { events, hostDaemonSessions, type DbConnection } from "@cc/db";
 
 export interface StoredTurnEventRow {
   sequence: number;

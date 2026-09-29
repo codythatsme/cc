@@ -196,12 +196,12 @@ export function marketplaceAuthorPath(github: string): string {
 }
 
 export function marketplaceAssetUrl(declared: string): string {
-  return new URL(declared, "https://getbb.app/marketplace/v2/marketplace.json")
+  return new URL(declared, "https://cc.example.invalid/marketplace/v2/marketplace.json")
     .href;
 }
 
 export function marketplaceInstallCommand(entryId: string): string {
-  return `bb plugin install ${entryId}`;
+  return `cc plugin install ${entryId}`;
 }
 
 export function marketplaceRepositoryUrl(entry: MarketplaceV2Entry): string {

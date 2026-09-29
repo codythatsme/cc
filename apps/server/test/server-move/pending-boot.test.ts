@@ -15,8 +15,8 @@ import {
   upsertHost,
   upsertInstalledPlugin,
   type DbConnection,
-} from "@bb/db";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+} from "@cc/db";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
 import {
   readLastServerMoveFile,
   readServerImportFile,
@@ -25,7 +25,7 @@ import {
   writeLastServerMoveFile,
   writeServerImportFile,
   type ServerImportFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initDb } from "../../src/db.js";
 import { createApp } from "../../src/server.js";
@@ -44,12 +44,12 @@ import {
   withTestHarness,
 } from "../helpers/test-app.js";
 
-const SOURCE_DATA_DIR = "/home/old/.bb";
+const SOURCE_DATA_DIR = "/home/old/.cc";
 const DIRECT_URL = "https://desktop.example.test";
 const tempDirs: string[] = [];
 
 async function makeDataDir(): Promise<string> {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-server-import-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-server-import-"));
   tempDirs.push(dataDir);
   return dataDir;
 }
@@ -72,7 +72,7 @@ function moveMarker(
     sourceServerHostId: "host-old",
     targetHostId: "host-new",
     serverUrl: DIRECT_URL,
-    importedEntries: ["bb.db", "plugins/npm"],
+    importedEntries: ["cc.db", "plugins/npm"],
     createdAt: 1_000,
     fixupsAppliedAt: null,
     ...overrides,
@@ -81,7 +81,7 @@ function moveMarker(
 
 async function openImportedDataDir() {
   const dataDir = await makeDataDir();
-  const db = initDb(join(dataDir, "bb.db"));
+  const db = initDb(join(dataDir, "cc.db"));
   upsertHost(db, noopNotifier, { id: "host-old", name: "Laptop" });
   upsertHost(db, noopNotifier, { id: "host-new", name: "Desktop" });
   updateHost(db, noopNotifier, "host-new", {
@@ -90,11 +90,11 @@ async function openImportedDataDir() {
   });
   upsertInstalledPlugin(db, {
     id: "tasks",
-    source: "npm:bb-plugin-tasks",
+    source: "npm:cc-plugin-tasks",
     provenance: { kind: "direct" },
     sourceIntent: {
       kind: "npm",
-      packageName: "bb-plugin-tasks",
+      packageName: "cc-plugin-tasks",
       registry: "https://registry.npmjs.org",
       requestedSpec: "1.0.0",
       specKind: "exact",
@@ -225,7 +225,7 @@ describe("imported server boot", () => {
     }
   });
 
-  it("leaves machineServerUrl alone for bb connect moves", async () => {
+  it("leaves machineServerUrl alone for cc connect moves", async () => {
     const { dataDir, db } = await openImportedDataDir();
     try {
       setPluginKvValue(
@@ -401,8 +401,8 @@ describe("imported server boot", () => {
         join(dataDir, "config.json"),
         JSON.stringify({
           config: {
-            BB_APP_URL: "http://laptop.example.test:38887/app",
-            BB_LOG_LEVEL: "debug",
+            CC_APP_URL: "http://laptop.example.test:38887/app",
+            CC_LOG_LEVEL: "debug",
           },
           serverUrl: "http://127.0.0.1:38887",
         }),
@@ -411,7 +411,7 @@ describe("imported server boot", () => {
         join(dataDir, "env.json"),
         JSON.stringify({
           env: {
-            BB_EXTERNAL_URL: "http://laptop.example.test:5173",
+            CC_EXTERNAL_URL: "http://laptop.example.test:5173",
             OTHER: "kept",
           },
         }),
@@ -428,14 +428,14 @@ describe("imported server boot", () => {
       expect(
         JSON.parse(await readFile(join(dataDir, "config.json"), "utf8")),
       ).toEqual({
-        config: { BB_APP_URL: DIRECT_URL, BB_LOG_LEVEL: "debug" },
+        config: { CC_APP_URL: DIRECT_URL, CC_LOG_LEVEL: "debug" },
         serverUrl: "http://127.0.0.1:38887",
       });
       expect(
         JSON.parse(await readFile(join(dataDir, "env.json"), "utf8")),
       ).toEqual({
         env: {
-          BB_EXTERNAL_URL: "http://laptop.example.test:5173",
+          CC_EXTERNAL_URL: "http://laptop.example.test:5173",
           OTHER: "kept",
         },
       });
@@ -445,13 +445,13 @@ describe("imported server boot", () => {
     }
   });
 
-  it("rewrites env.json BB_EXTERNAL_URL when it was the old server's address", async () => {
+  it("rewrites env.json CC_EXTERNAL_URL when it was the old server's address", async () => {
     const { dataDir, db } = await openImportedDataDir();
     try {
       await writeFile(
         join(dataDir, "env.json"),
         JSON.stringify({
-          env: { BB_EXTERNAL_URL: "https://laptop.example.test" },
+          env: { CC_EXTERNAL_URL: "https://laptop.example.test" },
         }),
       );
       await writeServerImportFile(dataDir, moveMarker());
@@ -466,7 +466,7 @@ describe("imported server boot", () => {
       expect(boot.pendingMove?.moveId).toBe("move-1");
       expect(
         JSON.parse(await readFile(join(dataDir, "env.json"), "utf8")),
-      ).toEqual({ env: { BB_EXTERNAL_URL: DIRECT_URL } });
+      ).toEqual({ env: { CC_EXTERNAL_URL: DIRECT_URL } });
     } finally {
       db.$client.close();
     }
@@ -520,7 +520,7 @@ function sessionOpenRequest(hostId: string, hostName: string) {
       hostName,
       hasMachineCredential: false,
       platform: "linux",
-      dataDir: "/home/me/.bb",
+      dataDir: "/home/me/.cc",
       localApiPort: 38_888,
       protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
       activeThreads: [],
@@ -539,17 +539,17 @@ describe("interrupted server import at boot", () => {
 
   it("refuses to boot on an import that server-import.json never recorded and logs how to roll it back", async () => {
     const dataDir = await makeDataDir();
-    await writeFile(join(dataDir, "bb.db"), "partial database");
-    await writeJournal(dataDir, ["plugins/npm", "bb.db"]);
+    await writeFile(join(dataDir, "cc.db"), "partial database");
+    await writeJournal(dataDir, ["plugins/npm", "cc.db"]);
     const logger = { error: vi.fn() };
-    const message = `bb server import into ${dataDir} was interrupted, so this server won't start on partial data. Run bb server import <file> --data-dir ${dataDir} again; it rolls back the interrupted import first.`;
+    const message = `cc server import into ${dataDir} was interrupted, so this server won't start on partial data. Run cc server import <file> --data-dir ${dataDir} again; it rolls back the interrupted import first.`;
 
     await expect(
       refuseInterruptedServerImport({ dataDir, logger }),
     ).rejects.toThrow(message);
 
     expect(logger.error).toHaveBeenCalledWith({ dataDir }, message);
-    expect(await readFile(join(dataDir, "bb.db"), "utf8")).toBe(
+    expect(await readFile(join(dataDir, "cc.db"), "utf8")).toBe(
       "partial database",
     );
   });
@@ -561,7 +561,7 @@ describe("interrupted server import at boot", () => {
     await expect(
       refuseInterruptedServerImport({ dataDir, logger }),
     ).resolves.toBeUndefined();
-    await writeJournal(dataDir, ["plugins/npm", "bb.db"]);
+    await writeJournal(dataDir, ["plugins/npm", "cc.db"]);
     await writeServerImportFile(dataDir, manualMarker());
     await expect(
       refuseInterruptedServerImport({ dataDir, logger }),
@@ -718,7 +718,7 @@ describe("pending server mode", () => {
           hostName: "Desktop",
           hasMachineCredential: false,
           platform: "linux",
-          dataDir: "/home/me/.bb-machines/laptop",
+          dataDir: "/home/me/.cc-machines/laptop",
           localApiPort: 38_888,
           protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
           activeThreads: [],

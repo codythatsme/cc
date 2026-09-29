@@ -3,7 +3,7 @@ import {
   ConnectListError,
   listAccountServers,
   type ConnectCredential,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 
 const connectAccountServerSchema = z
   .object({

@@ -55,7 +55,7 @@ function resolveInjectedSkillSources(
 const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "bb-injected-skills-"));
+  const root = await mkdtemp(path.join(tmpdir(), "cc-injected-skills-"));
   tempDirs.push(root);
   return root;
 }
@@ -176,7 +176,7 @@ describe("injected skill source discovery", () => {
     }));
 
     const expected = createHash("sha256");
-    expected.update("bb-skill-tree-v1");
+    expected.update("cc-skill-tree-v1");
     for (const entry of [...entries].sort((left, right) =>
       left.path < right.path ? -1 : left.path > right.path ? 1 : 0,
     )) {
@@ -312,17 +312,17 @@ describe("injected skill source discovery", () => {
     expect(warnings).toEqual([]);
   });
 
-  it("applies bb precedence around shared user and project roots", async () => {
+  it("applies cc precedence around shared user and project roots", async () => {
     const dataDir = await makeTempDir();
     const userSkillRoot = await writeSkill({
       rootPath: path.join(dataDir, "skills"),
       name: "review",
-      description: "bb user review skill.",
+      description: "cc user review skill.",
     });
     await writeSkill({
       rootPath: path.join(dataDir, "skills"),
       name: "deploy",
-      description: "bb user deploy skill.",
+      description: "cc user deploy skill.",
     });
     const sharedUserRoot = path.join(dataDir, "external", "review");
     const sharedProjectRoot = path.join(dataDir, "workspace", "deploy");
@@ -362,7 +362,7 @@ describe("injected skill source discovery", () => {
       expectedTreeSource({
         sourceType: "data-dir",
         name: "review",
-        description: "bb user review skill.",
+        description: "cc user review skill.",
         rootPath: userSkillRoot,
       }),
     ]);
@@ -448,19 +448,19 @@ describe("injected skill source discovery", () => {
     const workspacePath = await makeTempDir();
     await writeSkill({
       rootPath: path.join(dataDir, "skills"),
-      name: "bb-cli",
+      name: "cc-cli",
       description: "User copy.",
     });
     const projectSkillRoot = await writeSkill({
-      rootPath: path.join(workspacePath, ".bb", "skills"),
-      name: "bb-cli",
+      rootPath: path.join(workspacePath, ".cc", "skills"),
+      name: "cc-cli",
       description: "Project copy.",
     });
     const { logger, warnings } = createCapturingLogger();
     const projectSkillSource = resolveProjectSkillSourceFromContent(logger, {
       candidatePath: projectSkillRoot,
       content: await readFile(path.join(projectSkillRoot, "SKILL.md"), "utf8"),
-      directoryName: "bb-cli",
+      directoryName: "cc-cli",
     });
     expect(projectSkillSource).not.toBeNull();
 
@@ -474,7 +474,7 @@ describe("injected skill source discovery", () => {
       {
         kind: "workspace-path",
         sourceType: "project",
-        name: "bb-cli",
+        name: "cc-cli",
         description: "Project copy.",
         sourceRootPath: projectSkillRoot,
         skillFilePath: path.join(projectSkillRoot, "SKILL.md"),
@@ -497,7 +497,7 @@ describe("injected skill source discovery", () => {
       .map((entry) => entry.runtimeSource);
 
     const builtinNames = sources.map((source) => source.name);
-    expect(builtinNames).toContain("bb-cli");
+    expect(builtinNames).toContain("cc-cli");
     expect(builtinNames).toContain("submit-a-plugin");
     for (const source of sources) {
       expect(source.sourceType).toBe("builtin");

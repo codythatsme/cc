@@ -5,7 +5,7 @@ import {
   removeServerConnectHoldFile,
   SERVER_CONNECT_HOLD_FILE_NAME,
   writeServerConnectHoldFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PluginStartOptions } from "../../src/services/plugins/plugin-service.js";
 import {
@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 
 async function makeDataDir(): Promise<string> {
-  const dataDir = await mkdtemp(join(tmpdir(), "bb-connect-hold-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "cc-connect-hold-"));
   tempDirs.push(dataDir);
   return dataDir;
 }
@@ -36,7 +36,7 @@ async function writeHold(dataDir: string): Promise<void> {
   });
 }
 
-describe("bb connect hold", () => {
+describe("cc connect hold", () => {
   it("holds the builtin connect plugin while server-connect-hold.json exists, even when it can't be read", async () => {
     const dataDir = await makeDataDir();
     const logger = { warn: vi.fn() };

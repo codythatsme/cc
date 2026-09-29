@@ -3,13 +3,13 @@ import type {
   WatchThreadStorageRootArgs,
   WatchWorkspaceArgs,
   WorkspaceWatchError,
-} from "@bb/host-watcher";
-import type { HostWorkspace } from "@bb/host-workspace";
+} from "@cc/host-watcher";
+import type { HostWorkspace } from "@cc/host-workspace";
 import {
   createDeferredPromise,
   makeWorkspaceMergeBase,
   makeWorkspaceStatus,
-} from "@bb/test-helpers";
+} from "@cc/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import { WatchManager, type WatchManagerOptions } from "./watch-manager.js";
 
@@ -888,7 +888,7 @@ describe("WatchManager", () => {
     const manager = new WatchManager({
       hostWatcher,
       onThreadStorageChanged,
-      threadStorageRootPath: "/tmp/bb-data/thread-storage",
+      threadStorageRootPath: "/tmp/cc-data/thread-storage",
     });
 
     await manager.replaceWatchSet({
@@ -929,7 +929,7 @@ describe("WatchManager", () => {
     });
     const manager = new WatchManager({
       hostWatcher,
-      threadStorageRootPath: "/tmp/bb-data/thread-storage",
+      threadStorageRootPath: "/tmp/cc-data/thread-storage",
     });
 
     await manager.replaceWatchSet({

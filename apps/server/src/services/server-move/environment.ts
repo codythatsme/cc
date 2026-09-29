@@ -1,6 +1,6 @@
 import { statfs } from "node:fs/promises";
-import type { AppSurface } from "@bb/config/app-surface";
-import type { ServerBindHost } from "@bb/config/server";
+import type { AppSurface } from "@cc/config/app-surface";
+import type { ServerBindHost } from "@cc/config/server";
 import type {
   AppDeps,
   LoggedPendingInteractionWorkSessionDeps,
@@ -14,13 +14,13 @@ import type {
   ServerMoveTimings,
 } from "./coordinator.js";
 import { exportServerArchive } from "./export.js";
-import { createFullBbAppArtifactService } from "./full-artifact.js";
+import { createFullCcAppArtifactService } from "./full-artifact.js";
 import { CONNECT_PLUGIN_SOURCE, resolveServerMoveMode } from "./mode.js";
 import { stopRunningServerWork } from "./stop-work.js";
 
 export const SERVER_MOVE_ALLOW_LOOPBACK_URL_ENV =
-  "BB_SERVER_MOVE_ALLOW_LOOPBACK_URL";
-export const SERVER_MOVE_TARGET_PORT_ENV = "BB_SERVER_MOVE_TARGET_PORT";
+  "CC_SERVER_MOVE_ALLOW_LOOPBACK_URL";
+export const SERVER_MOVE_TARGET_PORT_ENV = "CC_SERVER_MOVE_TARGET_PORT";
 const SERVER_MOVE_ARCHIVE_FILE_NAME = "server.tar.gz";
 
 export const SERVER_MOVE_TIMINGS: ServerMoveTimings = {
@@ -120,7 +120,7 @@ export function createDefaultServerMoveEnvironment(
         sourceServerHostId: exportArgs.sourceServerHostId,
         workDir: exportArgs.workDir,
       }),
-    fullArtifact: createFullBbAppArtifactService({
+    fullArtifact: createFullCcAppArtifactService({
       dataDir: deps.config.dataDir,
       serverEntryUrl: args.serverEntryUrl,
     }),

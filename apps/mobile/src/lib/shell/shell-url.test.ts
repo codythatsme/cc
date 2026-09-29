@@ -6,50 +6,50 @@ import {
   shellPathFromUrl,
 } from "./shell-url";
 
-const ROOT = "https://bee.getbb.app";
-const PREFIXED = "https://box.example.ts.net/bb";
+const ROOT = "https://bee.cc.example.invalid";
+const PREFIXED = "https://box.example.ts.net/cc";
 
 describe("buildShellUrl", () => {
   it("joins a page path onto a server mounted at the root", () => {
-    expect(buildShellUrl(ROOT, "/")).toBe("https://bee.getbb.app/");
+    expect(buildShellUrl(ROOT, "/")).toBe("https://bee.cc.example.invalid/");
     expect(buildShellUrl(`${ROOT}/`, "/threads/thr_1")).toBe(
-      "https://bee.getbb.app/threads/thr_1",
+      "https://bee.cc.example.invalid/threads/thr_1",
     );
     expect(buildShellUrl(ROOT, "/threads/thr_1?tab=diff")).toBe(
-      "https://bee.getbb.app/threads/thr_1?tab=diff",
+      "https://bee.cc.example.invalid/threads/thr_1?tab=diff",
     );
   });
 
   it("keeps a server's path prefix", () => {
-    expect(buildShellUrl(PREFIXED, "/")).toBe("https://box.example.ts.net/bb/");
+    expect(buildShellUrl(PREFIXED, "/")).toBe("https://box.example.ts.net/cc/");
     expect(buildShellUrl(PREFIXED, "/threads/thr_1")).toBe(
-      "https://box.example.ts.net/bb/threads/thr_1",
+      "https://box.example.ts.net/cc/threads/thr_1",
     );
   });
 
   it("tolerates a path with no leading slash", () => {
     expect(buildShellUrl(ROOT, "threads/thr_1")).toBe(
-      "https://bee.getbb.app/threads/thr_1",
+      "https://bee.cc.example.invalid/threads/thr_1",
     );
   });
 });
 
 describe("isShellNavigation", () => {
   it("keeps the profile's own pages in the WebView", () => {
-    expect(isShellNavigation("https://bee.getbb.app/threads/x", ROOT)).toBe(
+    expect(isShellNavigation("https://bee.cc.example.invalid/threads/x", ROOT)).toBe(
       true,
     );
-    expect(isShellNavigation("https://bee.getbb.app/", ROOT)).toBe(true);
+    expect(isShellNavigation("https://bee.cc.example.invalid/", ROOT)).toBe(true);
   });
 
   it("sends another origin to the system browser", () => {
     expect(isShellNavigation("https://example.com/docs", ROOT)).toBe(false);
-    expect(isShellNavigation("https://other.getbb.app/", ROOT)).toBe(false);
-    expect(isShellNavigation("http://bee.getbb.app/", ROOT)).toBe(false);
+    expect(isShellNavigation("https://other.cc.example.invalid/", ROOT)).toBe(false);
+    expect(isShellNavigation("http://bee.cc.example.invalid/", ROOT)).toBe(false);
   });
 
   it("does not let a sibling path escape a prefixed mount", () => {
-    expect(isShellNavigation("https://box.example.ts.net/bb/x", PREFIXED)).toBe(
+    expect(isShellNavigation("https://box.example.ts.net/cc/x", PREFIXED)).toBe(
       true,
     );
     expect(
@@ -62,7 +62,7 @@ describe("isShellNavigation", () => {
 
   it("refuses a URL that will not parse", () => {
     expect(isShellNavigation("not a url", ROOT)).toBe(false);
-    expect(isShellNavigation("https://bee.getbb.app/", "not a url")).toBe(
+    expect(isShellNavigation("https://bee.cc.example.invalid/", "not a url")).toBe(
       false,
     );
   });
@@ -70,14 +70,14 @@ describe("isShellNavigation", () => {
 
 describe("shellPathFromUrl", () => {
   it("returns the page path, minus any mount prefix", () => {
-    expect(shellPathFromUrl("https://bee.getbb.app/threads/x?a=1", ROOT)).toBe(
+    expect(shellPathFromUrl("https://bee.cc.example.invalid/threads/x?a=1", ROOT)).toBe(
       "/threads/x?a=1",
     );
-    expect(shellPathFromUrl("https://bee.getbb.app/", ROOT)).toBe("/");
+    expect(shellPathFromUrl("https://bee.cc.example.invalid/", ROOT)).toBe("/");
     expect(
-      shellPathFromUrl("https://box.example.ts.net/bb/threads/x", PREFIXED),
+      shellPathFromUrl("https://box.example.ts.net/cc/threads/x", PREFIXED),
     ).toBe("/threads/x");
-    expect(shellPathFromUrl("https://box.example.ts.net/bb", PREFIXED)).toBe(
+    expect(shellPathFromUrl("https://box.example.ts.net/cc", PREFIXED)).toBe(
       "/",
     );
   });

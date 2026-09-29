@@ -7,7 +7,7 @@ import {
 import {
   CHROME_ROW_HEIGHT_CLASS,
   MACOS_COLLAPSED_TOP_LEFT_RESERVE_CLASS,
-} from "@/lib/bb-desktop";
+} from "@/lib/cc-desktop";
 
 describe("secondary panel native browser bounds settling", () => {
   it("recognizes the flex transitions that move the panel back to its restored position", () => {

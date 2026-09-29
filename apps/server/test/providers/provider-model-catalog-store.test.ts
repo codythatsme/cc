@@ -3,10 +3,10 @@ import {
   getStoredProviderModelCatalog,
   setAppSettings,
   updateHost,
-} from "@bb/db";
-import type { JsonValue, ProviderFork } from "@bb/domain";
-import type { HostDaemonOnlineRpcRequestMessage } from "@bb/host-daemon-contract";
-import { createDeferredPromise } from "@bb/test-helpers";
+} from "@cc/db";
+import type { JsonValue, ProviderFork } from "@cc/domain";
+import type { HostDaemonOnlineRpcRequestMessage } from "@cc/host-daemon-contract";
+import { createDeferredPromise } from "@cc/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 import {
   resolveSystemExecutionOptions,

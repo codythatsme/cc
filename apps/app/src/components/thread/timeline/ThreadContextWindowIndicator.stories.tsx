@@ -1,5 +1,5 @@
-import type { ContextSnapshot } from "@bb/domain";
-import type { ThreadContextWindowUsage } from "@bb/server-contract";
+import type { ContextSnapshot } from "@cc/domain";
+import type { ThreadContextWindowUsage } from "@cc/server-contract";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 import {
   ThreadContextWindowCard,
@@ -107,12 +107,12 @@ const claudeSnapshot: ContextSnapshot = {
       kind: "used",
       entries: [
         {
-          id: "bb · thread_inspect",
-          label: "bb · thread_inspect",
+          id: "cc · thread_inspect",
+          label: "cc · thread_inspect",
           tokens: 1_460,
         },
-        { id: "bb · thread_list", label: "bb · thread_list", tokens: 980 },
-        { id: "bb · read_skill", label: "bb · read_skill", tokens: 1_240 },
+        { id: "cc · thread_list", label: "cc · thread_list", tokens: 980 },
+        { id: "cc · read_skill", label: "cc · read_skill", tokens: 1_240 },
       ],
     },
     {
@@ -140,7 +140,7 @@ const claudeSnapshot: ContextSnapshot = {
       tokens: 1_250,
       kind: "used",
       entries: [
-        { id: "verify-bb", label: "verify-bb", tokens: 540 },
+        { id: "verify-cc", label: "verify-cc", tokens: 540 },
         { id: "repo-research", label: "repo-research", tokens: 420 },
         { id: "deslop", label: "deslop", tokens: 290 },
       ],

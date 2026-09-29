@@ -19,7 +19,7 @@ import type {
 } from "@/hooks/queries/plugin-catalog-queries";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { BrowsePluginsTab } from "./BrowsePluginsTab";
-import { CompactViewportOverrideProvider } from "@bb/shared-ui/hooks/use-compact-viewport";
+import { CompactViewportOverrideProvider } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { PLUGINS_BROWSE_DESCRIPTION } from "../plugins-collection-copy";
 
 vi.mock("@/components/plugin/PluginNewThreadComposer", () => ({
@@ -43,15 +43,15 @@ const MEMORY_ENTRY: PluginCatalogSearchEntry = {
   publishedAt: "2026-08-20T00:00:00Z",
   source: "builtin:memory",
   repositoryUrl: null,
-  marketplace: "bb-official",
-  marketplaceDisplayName: "BB Official",
-  publisherKey: "bb-official",
-  publisherLabel: "BB Official",
+  marketplace: "cc-official",
+  marketplaceDisplayName: "CC Official",
+  publisherKey: "cc-official",
+  publisherLabel: "CC Official",
   official: true,
   author: {
-    name: "BB",
-    github: "get-bb",
-    url: "https://github.com/get-bb",
+    name: "CC",
+    github: "get-cc",
+    url: "https://github.com/get-cc",
   },
   installed: false,
   installs: 4_210,
@@ -222,7 +222,7 @@ describe("BrowsePluginsTab", () => {
       "Tasks & Workflows",
     ]);
     expect(screen.getAllByText("Memory")).toHaveLength(2);
-    expect(screen.queryByText("BB Official plugins")).toBeNull();
+    expect(screen.queryByText("CC Official plugins")).toBeNull();
   });
 
   it("round trips the search parameter", async () => {
@@ -313,11 +313,11 @@ describe("BrowsePluginsTab", () => {
       onOpenPlugin,
     );
 
-    fireEvent.click(await screen.findByRole("link", { name: "BB Official" }));
+    fireEvent.click(await screen.findByRole("link", { name: "CC Official" }));
     const params = new URLSearchParams(
       screen.getByTestId("location-search").textContent ?? "",
     );
-    expect(params.get("author")).toBe("11:bb-official:github:get-bb");
+    expect(params.get("author")).toBe("11:cc-official:github:get-cc");
     expect(params.getAll("category")).toEqual(["memory-and-context"]);
     expect(params.get("sort")).toBe("recently-added");
     expect(onOpenPlugin).not.toHaveBeenCalled();
@@ -713,7 +713,7 @@ describe("BrowsePluginsTab", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "New plugin" }));
     expect((await screen.findByTestId("inline-composer")).textContent).toBe(
-      "Create a new bb plugin that ",
+      "Create a new cc plugin that ",
     );
     fireEvent.click(
       screen.getByText(
@@ -748,8 +748,8 @@ describe("BrowsePluginsTab", () => {
       expect.objectContaining({
         entryId: "memory",
         pluginId: "memory",
-        marketplace: "bb-official",
-        publisherLabel: "BB Official",
+        marketplace: "cc-official",
+        publisherLabel: "CC Official",
         displayName: "Memory",
         icon: "Brain",
         iconUrl: null,

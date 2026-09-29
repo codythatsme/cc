@@ -14,8 +14,8 @@ import {
 } from "react";
 import { act, render, type RenderResult } from "@testing-library/react";
 import {
-  type BbContext,
-  type BbNavigate,
+  type CcContext,
+  type CcNavigate,
   type BranchesState,
   type ComposerCustomization,
   type ComposerView,
@@ -56,7 +56,7 @@ import {
   type ExperimentalSidebarNavigationState,
   type PluginSidebarPullRequest,
   type PluginSidebarThreadActions,
-  type PluginBrowserBbSdk,
+  type PluginBrowserCcSdk,
   type PluginEnvironmentProvidersState,
   type PluginSidebarSplitLayout,
   type PluginSidebarThreadDraftState,
@@ -95,7 +95,7 @@ import {
   type DiffProps,
   type SourceCodeProps,
   type JsonValue,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import { isComposerDraftEmpty } from "../internal/composer-view.js";
 import { normalizePluginThreadRowStatus } from "../internal/composer-customization-validation.js";
 import { normalizeExperimentalFileOpenOptions } from "../internal/file-navigation-validation.js";
@@ -106,19 +106,19 @@ import {
 } from "../internal/plugin-app-collector.js";
 
 /**
- * `@get-bb/plugin-sdk/testing/app` — the frontend plugin test harness. Tests a
- * plugin's `app.tsx` source directly under vitest + jsdom, without the bb
+ * `@codythatsme/plugin-sdk/testing/app` — the frontend plugin test harness. Tests a
+ * plugin's `app.tsx` source directly under vitest + jsdom, without the cc
  * host or the esbuild bundle:
  *
- * - {@link installTestPluginRuntime} fills `globalThis.__bbPluginRuntime.
- *   pluginSdkApp` with a test implementation of the `@get-bb/plugin-sdk/app`
- *   surface (the same seam `bb plugin build` shims to the real app). The
- *   `@get-bb/plugin-sdk/app` exports look the runtime up when they are called
+ * - {@link installTestPluginRuntime} fills `globalThis.__ccPluginRuntime.
+ *   pluginSdkApp` with a test implementation of the `@codythatsme/plugin-sdk/app`
+ *   surface (the same seam `cc plugin build` shims to the real app). The
+ *   `@codythatsme/plugin-sdk/app` exports look the runtime up when they are called
  *   or rendered, so import order does not matter: install the runtime any time
  *   before the first hook runs ({@link loadPluginApp} and {@link renderSlot}
  *   install it for you).
  * - {@link loadPluginApp} runs the definition's setup against a validating
- *   collector (ported from the BB app's interpreter, same error messages)
+ *   collector (ported from the CC app's interpreter, same error messages)
  *   and returns the typed slot registrations.
  * - {@link renderSlot} mounts one registration's component with mock hook
  *   backends: rpc as a method→handler map with a call log, realtime as a
@@ -155,7 +155,7 @@ type PluginSdkFakeTree<T> = {
  * methods the slot calls; a call to anything else throws with the missing
  * dot-path so the test fails loudly instead of returning undefined.
  */
-export type PluginSdkTestFakes = PluginSdkFakeTree<PluginBrowserBbSdk>;
+export type PluginSdkTestFakes = PluginSdkFakeTree<PluginBrowserCcSdk>;
 export type NavigateCall =
   | { method: "toThread"; threadId: string }
   | { method: "toProject"; projectId: string }
@@ -170,7 +170,7 @@ export type NavigateCall =
     }
   | {
       method: "openThreadPanel";
-      options: Parameters<BbNavigate["openThreadPanel"]>[0];
+      options: Parameters<CcNavigate["openThreadPanel"]>[0];
     }
   | { method: "openUrl"; url: string }
   | {
@@ -236,10 +236,10 @@ interface SlotEnv {
   realtimeHandlers: Map<string, Set<(payload: unknown) => void>>;
   realtimeConnection: TestRealtimeConnectionStore;
   settingsState: PluginSettingsState;
-  bbContext: BbContext;
+  ccContext: CcContext;
   pluginId: string;
   questionFormHost: ExperimentalQuestionFormHost;
-  navigate: BbNavigate;
+  navigate: CcNavigate;
   navigateCalls: NavigateCall[];
   appPanel: ExperimentalAppPanel;
   experimental_fixedTabOpenCalls: ExperimentalFixedTabOpenCall[];
@@ -257,7 +257,7 @@ interface SlotEnv {
   sidebarNavigation: ExperimentalSidebarNavigationState;
   sidebarNavigationCalls: SidebarNavigationCall[];
   environmentProviders: PluginEnvironmentProvidersState;
-  sdk: PluginBrowserBbSdk;
+  sdk: PluginBrowserCcSdk;
   sdkCalls: SdkCall[];
   providers: PluginProvidersState;
   codeTheme: PluginCodeThemeState;
@@ -334,8 +334,8 @@ function createSdkFakeNode(
 function createSdkFake(
   fakes: PluginSdkTestFakes,
   calls: SdkCall[],
-): PluginBrowserBbSdk {
-  return createSdkFakeNode(fakes, "", calls) as PluginBrowserBbSdk;
+): PluginBrowserCcSdk {
+  return createSdkFakeNode(fakes, "", calls) as PluginBrowserCcSdk;
 }
 
 function TestThreadTitle({ threadId }: { threadId: string }) {
@@ -383,29 +383,29 @@ function useSlotEnv(hook: string): SlotEnv {
   const env = useContext(SlotEnvContext);
   if (!env) {
     throw new Error(
-      `${hook}() needs the test slot environment — mount the component via renderSlot(...) from @get-bb/plugin-sdk/testing/app`,
+      `${hook}() needs the test slot environment — mount the component via renderSlot(...) from @codythatsme/plugin-sdk/testing/app`,
     );
   }
   return env;
 }
 
 // ---------------------------------------------------------------------------
-// The fake @get-bb/plugin-sdk/app runtime.
+// The fake @codythatsme/plugin-sdk/app runtime.
 // ---------------------------------------------------------------------------
 
-/** Same shape (and checks) as the BB app's real definePluginApp. */
+/** Same shape (and checks) as the CC app's real definePluginApp. */
 function definePluginApp(setup: PluginAppSetup): PluginAppDefinition {
   if (typeof setup !== "function") {
     throw new Error("definePluginApp expects a setup function");
   }
-  return Object.freeze({ __bbPluginApp: true as const, setup });
+  return Object.freeze({ __ccPluginApp: true as const, setup });
 }
 
 function isPluginAppDefinition(value: unknown): value is PluginAppDefinition {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as { __bbPluginApp?: unknown }).__bbPluginApp === true &&
+    (value as { __ccPluginApp?: unknown }).__ccPluginApp === true &&
     typeof (value as { setup?: unknown }).setup === "function"
   );
 }
@@ -415,7 +415,7 @@ function isPluginAppDefinition(value: unknown): value is PluginAppDefinition {
  * records every public prop as a data attribute so plugin tests can assert
  * what their slot component passed without the real chat engine.
  * `leadingContent` renders inside the stub; each `messageActions` entry
- * renders as a button (`data-testid="bb-thread-chat-action-<id>"`) that
+ * renders as a button (`data-testid="cc-thread-chat-action-<id>"`) that
  * invokes its `run` with a synthetic assistant message reference, so plugin
  * tests can drive the action without the real timeline.
  */
@@ -431,7 +431,7 @@ function TestThreadChat({
 }: ThreadChatProps) {
   return (
     <div
-      data-testid="bb-thread-chat"
+      data-testid="cc-thread-chat"
       data-thread-id={threadId}
       data-variant={variant}
       data-layout={layout}
@@ -443,14 +443,14 @@ function TestThreadChat({
       className={className}
     >
       {leadingContent === undefined ? null : (
-        <div data-testid="bb-thread-chat-leading-content">{leadingContent}</div>
+        <div data-testid="cc-thread-chat-leading-content">{leadingContent}</div>
       )}
       ThreadChat stub ({threadId})
       {(messageActions ?? []).map((action) => (
         <button
           key={action.id}
           type="button"
-          data-testid={`bb-thread-chat-action-${action.id}`}
+          data-testid={`cc-thread-chat-action-${action.id}`}
           data-roles={action.roles === undefined ? "" : action.roles.join(" ")}
           onClick={() => {
             void action.run({
@@ -476,7 +476,7 @@ function TestThreadChat({
  */
 function TestMarkdown({ content, className }: MarkdownProps) {
   return (
-    <div data-testid="bb-markdown" className={className}>
+    <div data-testid="cc-markdown" className={className}>
       {content}
     </div>
   );
@@ -597,7 +597,7 @@ function TestNewThreadComposer({
   const [text, setText] = useState(initialPrompt ?? "");
   return (
     <div
-      data-testid="bb-new-thread-composer"
+      data-testid="cc-new-thread-composer"
       data-default-project-id={defaultProjectId ?? ""}
       data-default-provider-id={defaultProviderId ?? ""}
       data-default-model={defaultModel ?? ""}
@@ -615,14 +615,14 @@ function TestNewThreadComposer({
       className={className}
     >
       <textarea
-        data-testid="bb-new-thread-composer-input"
+        data-testid="cc-new-thread-composer-input"
         placeholder={placeholder}
         value={text}
         onChange={(event) => setText(event.target.value)}
       />
       <button
         type="button"
-        data-testid="bb-new-thread-composer-submit"
+        data-testid="cc-new-thread-composer-submit"
         onClick={() => {
           // Untouched submits echo the `default*` seeds back, mirroring the
           // real composer's round-trip guarantee so plugin tests can cover
@@ -672,7 +672,7 @@ function TestProviderModelPicker({
 
   return (
     <div
-      data-testid="bb-provider-model-picker"
+      data-testid="cc-provider-model-picker"
       data-routing-kind={routing?.kind ?? "primary"}
       data-routing-id={
         routing === undefined
@@ -755,7 +755,7 @@ function TestBranchPicker({
   const inert = hostId === null || projectId === null || disabled === true;
   return (
     <div
-      data-testid="bb-branch-picker"
+      data-testid="cc-branch-picker"
       data-host-id={hostId ?? ""}
       data-project-id={projectId ?? ""}
       data-disabled={inert ? "true" : "false"}
@@ -792,7 +792,7 @@ function TestPermissionModePicker({
       aria-label="Permission mode"
       value={value}
       disabled={disabled}
-      data-testid="bb-permission-mode-picker"
+      data-testid="cc-permission-mode-picker"
       data-provider-id={providerId}
       data-align={align}
       data-routing-kind={routing?.kind ?? "primary"}
@@ -836,7 +836,7 @@ function TestSourceCode({
 }: SourceCodeProps) {
   return (
     <pre
-      data-testid="bb-source-code"
+      data-testid="cc-source-code"
       data-path={path}
       data-overflow={overflow}
       data-highlighted-lines={
@@ -866,7 +866,7 @@ function TestDiff({
 }: DiffProps) {
   return (
     <pre
-      data-testid="bb-diff"
+      data-testid="cc-diff"
       data-path={path}
       data-view={view}
       data-overflow={overflow}
@@ -921,8 +921,8 @@ const testPluginSdkApp = {
   useSettings(): PluginSettingsState {
     return useSlotEnv("useSettings").settingsState;
   },
-  useBbContext(): BbContext {
-    return useSlotEnv("useBbContext").bbContext;
+  useCcContext(): CcContext {
+    return useSlotEnv("useCcContext").ccContext;
   },
   experimental_usePluginId(): string {
     return useSlotEnv("experimental_usePluginId").pluginId;
@@ -930,8 +930,8 @@ const testPluginSdkApp = {
   experimental_useQuestionFormHost(): ExperimentalQuestionFormHost {
     return useSlotEnv("experimental_useQuestionFormHost").questionFormHost;
   },
-  useBbNavigate(): BbNavigate {
-    return useSlotEnv("useBbNavigate").navigate;
+  useCcNavigate(): CcNavigate {
+    return useSlotEnv("useCcNavigate").navigate;
   },
   experimental_useAppPanel(): ExperimentalAppPanel {
     return useSlotEnv("experimental_useAppPanel").appPanel;
@@ -1106,7 +1106,7 @@ const testPluginSdkApp = {
   useEnvironmentProviders(): PluginEnvironmentProvidersState {
     return useSlotEnv("useEnvironmentProviders").environmentProviders;
   },
-  useSdk(): PluginBrowserBbSdk {
+  useSdk(): PluginBrowserCcSdk {
     return useSlotEnv("useSdk").sdk;
   },
   experimental_useSidebarThreadPullRequest(
@@ -1146,21 +1146,21 @@ const testPluginSdkApp = {
 } satisfies PluginSdkApp;
 
 interface PluginRuntimeHost {
-  __bbPluginRuntime?: { pluginSdkApp?: unknown; react?: unknown };
+  __ccPluginRuntime?: { pluginSdkApp?: unknown; react?: unknown };
 }
 
 /**
- * Install the test runtime at `globalThis.__bbPluginRuntime.pluginSdkApp`,
- * plus the React the `@get-bb/plugin-sdk/app` components render through.
+ * Install the test runtime at `globalThis.__ccPluginRuntime.pluginSdkApp`,
+ * plus the React the `@codythatsme/plugin-sdk/app` components render through.
  * Idempotent per module instance. Call it before the first SDK hook runs or
  * SDK component renders; when the plugin's modules are imported does not
  * matter.
  */
 export function installTestPluginRuntime(): void {
   const host = globalThis as PluginRuntimeHost;
-  host.__bbPluginRuntime = {
-    ...host.__bbPluginRuntime,
-    react: host.__bbPluginRuntime?.react ?? React,
+  host.__ccPluginRuntime = {
+    ...host.__ccPluginRuntime,
+    react: host.__ccPluginRuntime?.react ?? React,
     pluginSdkApp: testPluginSdkApp,
   };
 }
@@ -1220,7 +1220,7 @@ export async function loadPluginApp(
     : (resolved as PluginAppModule).default;
   if (!isPluginAppDefinition(definition)) {
     throw new Error(
-      "the bundle's default export is not definePluginApp(...) from @get-bb/plugin-sdk/app",
+      "the bundle's default export is not definePluginApp(...) from @codythatsme/plugin-sdk/app",
     );
   }
   return collectPluginAppRegistrations(definition);
@@ -1278,13 +1278,13 @@ export async function mountPluginContentScripts(
     if (controller.signal.aborted) return;
     if (typeof threadId !== "string" || threadId.trim().length === 0) {
       console.warn(
-        `bb plugin "${options.pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
+        `cc plugin "${options.pluginId}": contentScript.experimental_setThreadRowStatus: "threadId" must be a non-empty string`,
       );
       return;
     }
     const normalizedThreadId = threadId.trim();
     const normalizedStatus = normalizePluginThreadRowStatus(status, (reason) =>
-      console.warn(`bb plugin "${options.pluginId}": ${reason}`),
+      console.warn(`cc plugin "${options.pluginId}": ${reason}`),
     );
     if (normalizedStatus === undefined) return;
     const recordedStatus =
@@ -1387,7 +1387,7 @@ export interface RenderSlotOptions<
   rpc?: PluginRpcTestHandlers<Contract>;
   /** `useSettings()` values; omitted → `{ values: undefined, isLoading: false }`. */
   settings?: Record<string, string | number | boolean>;
-  /** `useBbContext()` selection; both default to null. */
+  /** `useCcContext()` selection; both default to null. */
   context?: { projectId?: string | null; threadId?: string | null };
   /** `experimental_usePluginId()` value; defaults to `test-plugin`. */
   pluginId?: string;
@@ -1461,9 +1461,9 @@ export interface RenderSlotOptions<
    * in `inspection.sdkCalls`; a call to a method you did not provide throws.
    */
   sdk?: PluginSdkTestFakes;
-  /** Host acceptance for `useBbNavigate().openThreadPanel`. */
+  /** Host acceptance for `useCcNavigate().openThreadPanel`. */
   openThreadPanel?: (
-    options: Parameters<BbNavigate["openThreadPanel"]>[0],
+    options: Parameters<CcNavigate["openThreadPanel"]>[0],
   ) => boolean;
   /** Host acceptance for URL intents from the hook or `UrlLink`. */
   openUrl?: (url: string) => boolean;
@@ -1485,7 +1485,7 @@ export interface RenderSlotOptions<
 export interface RenderedSlotBehaviorDrivers {
   /**
    * Push a realtime event to `useRealtime(channel, …)` subscribers, wrapped
-   * in act. The payload is JSON-round-tripped like `bb.realtime.publish`.
+   * in act. The payload is JSON-round-tripped like `cc.realtime.publish`.
    */
   emitRealtime(channel: string, payload: unknown): Promise<void>;
   /** Drive the lifecycle of the same connection used by realtime events. */
@@ -1502,7 +1502,7 @@ export interface RenderedSlotBehaviorDrivers {
 export interface RenderedSlotInspectionState {
   /** Every `useRpc().call`, in order. */
   readonly rpcCalls: RpcCall[];
-  /** Every `useBbNavigate()` call, in order. */
+  /** Every `useCcNavigate()` call, in order. */
   readonly navigateCalls: NavigateCall[];
   /** Every validated `experimental_useAppPanel().openFixedTab` call. */
   readonly experimental_fixedTabOpenCalls: ExperimentalFixedTabOpenCall[];
@@ -1526,7 +1526,7 @@ export interface RenderedSlotLifecycleControls {
 }
 
 /**
- * Testing Library result plus BB-specific helpers. Direct members are
+ * Testing Library result plus CC-specific helpers. Direct members are
  * retained for compatibility; named views make intent explicit in new tests.
  */
 export interface RenderedSlot
@@ -1807,7 +1807,7 @@ export function renderSlot<
       sidebarActionCalls.push({ method: "requestDelete", threadId });
     },
   };
-  const navigate: BbNavigate = {
+  const navigate: CcNavigate = {
     toThread(threadId) {
       navigateCalls.push({ method: "toThread", threadId });
     },
@@ -2016,7 +2016,7 @@ export function renderSlot<
     realtimeHandlers,
     realtimeConnection,
     settingsState: { values: options.settings, isLoading: false },
-    bbContext: { projectId, threadId },
+    ccContext: { projectId, threadId },
     pluginId: options.pluginId ?? "test-plugin",
     questionFormHost: {
       shortcuts: new Map(),

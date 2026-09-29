@@ -1,7 +1,7 @@
 import type {
   WorkspaceOpenTargetIcon,
   WorkspaceOpenTargetId,
-} from "@bb/host-daemon-contract";
+} from "@cc/host-daemon-contract";
 
 const WORKSPACE_OPEN_TARGET_FALLBACK_LABELS: Record<
   string,
@@ -9,7 +9,7 @@ const WORKSPACE_OPEN_TARGET_FALLBACK_LABELS: Record<
 > = {
   "android-studio": "Android Studio",
   antigravity: "Antigravity",
-  bbedit: "BBEdit",
+  bbedit: "CCEdit",
   cursor: "Cursor",
   "default-app": "Default App",
   "devin-desktop": "Devin Desktop",

@@ -1,17 +1,17 @@
-import { closeSecondaryPanelTabInState } from "@bb/client-core";
+import { closeSecondaryPanelTabInState } from "@cc/client-core";
 import type { QueryClient } from "@tanstack/react-query";
 import {
   threadTabsSchema,
   type ThreadTab,
   type ThreadTabsResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { appToast } from "@/components/ui/app-toast";
 import {
   getCachedThreadTabs,
   invalidateCachedThreadTabs,
   setCachedThreadTabs,
 } from "@/hooks/cache-owners/thread-tabs-cache-owner";
-import { BbHttpError, sdk } from "./sdk";
+import { CcHttpError, sdk } from "./sdk";
 import {
   areFixedPanelTabsEquivalent,
   type FixedPanelTab,
@@ -141,7 +141,7 @@ async function readCurrentThreadTabs({
 
 function isThreadTabsConflict(error: unknown): boolean {
   return (
-    error instanceof BbHttpError &&
+    error instanceof CcHttpError &&
     error.status === 409 &&
     error.code === "thread_tabs_conflict"
   );

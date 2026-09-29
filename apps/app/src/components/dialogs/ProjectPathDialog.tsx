@@ -4,16 +4,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@bb/shared-ui/dropdown-menu";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@cc/shared-ui/dropdown-menu";
+import { Icon } from "@cc/shared-ui/icon";
 import {
   deriveProjectNameFromPath,
   getProjectPathValidationMessage,
   normalizeProjectPathInput,
   type Host,
-} from "@bb/domain";
-import type { HostPlatform } from "@bb/host-daemon-contract";
-import { Button } from "@bb/shared-ui/button";
+} from "@cc/domain";
+import type { HostPlatform } from "@cc/host-daemon-contract";
+import { Button } from "@cc/shared-ui/button";
 import {
   Dialog,
   DialogContent,
@@ -21,12 +21,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Input } from "@bb/shared-ui/input";
-import { cn } from "@bb/shared-ui/lib/utils";
+} from "@cc/shared-ui/dialog";
+import { Input } from "@cc/shared-ui/input";
+import { cn } from "@cc/shared-ui/lib/utils";
 import { RemotePathBrowser } from "@/components/dialogs/RemotePathBrowser";
 import { MachineStatusDot } from "@/components/machines/MachineStatusDot";
-import { usePointerCoarse } from "@bb/shared-ui/hooks/use-pointer-coarse";
+import { usePointerCoarse } from "@cc/shared-ui/hooks/use-pointer-coarse";
 import { selectHosts } from "@/hooks/queries/host-queries";
 
 export type ProjectPathDialogTarget =

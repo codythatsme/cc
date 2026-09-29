@@ -3,12 +3,12 @@ import {
   parseUiPreferenceValue,
   UI_PREFERENCE_KEYS,
   type UiPreferenceKey,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   publicApiRoutes,
   typedRoutes,
   type PublicApiSchema,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { Hono } from "hono";
 import { ApiError } from "../errors.js";
 import {

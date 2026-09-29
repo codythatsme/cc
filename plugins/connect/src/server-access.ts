@@ -1,4 +1,4 @@
-import type { BbPluginApi } from "@get-bb/plugin-sdk";
+import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import { lookupMachineCode } from "./machine-code.js";
 import type { ConnectTunnel } from "./tunnel.js";
@@ -16,14 +16,14 @@ const grantSchema = z.object({
 });
 
 export function createServerAccessRecheck(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
 ): (status: { paired: boolean; url: string | null }) => void {
   let last: string | null = null;
   return (status) => {
     const signature = `${status.paired}:${status.url ?? ""}`;
     const changed = last !== null && last !== signature;
     last = signature;
-    if (changed) bb.experimental_serverAccess.recheck();
+    if (changed) cc.experimental_serverAccess.recheck();
   };
 }
 
@@ -36,7 +36,7 @@ function grantKey(hostId: string): string {
 }
 
 export async function registerServerAccess(
-  bb: BbPluginApi,
+  cc: CcPluginApi,
   tunnel: {
     getCredential: ConnectTunnel["getCredential"];
     status(): { paired: boolean; url: string | null };
@@ -63,7 +63,7 @@ export async function registerServerAccess(
     return result;
   }
   async function load(hostId: string) {
-    const raw = await bb.storage.kv.get<unknown>(grantKey(hostId));
+    const raw = await cc.storage.kv.get<unknown>(grantKey(hostId));
     return raw === undefined ? undefined : stateSchema.parse(raw);
   }
   async function reconcile(
@@ -73,7 +73,7 @@ export async function registerServerAccess(
     const credential = tunnel.getCredential();
     if (!credential)
       throw new Error(
-        "Pair this bb instance with bb connect to revoke machine access",
+        "Pair this cc instance with cc connect to revoke machine access",
       );
     try {
       const status = await lookupMachineCode(credential, intent.code, signal);
@@ -88,10 +88,10 @@ export async function registerServerAccess(
       return acquisitionFailure(message);
     }
   }
-  bb.experimental_serverAccess.register({
+  cc.experimental_serverAccess.register({
     id: "connect",
-    displayName: "bb connect",
-    description: "Use a private getbb.app address.",
+    displayName: "cc connect",
+    description: "Use a private connect service address.",
     availability: () => {
       const status = tunnel.status();
       return status.paired
@@ -101,7 +101,7 @@ export async function registerServerAccess(
           }
         : {
             status: "setup-required",
-            message: "Pair this bb instance with bb connect",
+            message: "Pair this cc instance with cc connect",
           };
     },
     acquire({ key, hostId, signal }) {
@@ -111,7 +111,7 @@ export async function registerServerAccess(
         if (existing && "result" in existing) return existing.result.grant;
         const credential = tunnel.getCredential();
         if (!credential)
-          throw new Error("Pair this bb instance with bb connect");
+          throw new Error("Pair this cc instance with cc connect");
         let intent = existing?.intent;
         if (intent) {
           const reconciliation = await reconcile(intent, signal);
@@ -130,7 +130,7 @@ export async function registerServerAccess(
           };
         }
         signal.throwIfAborted();
-        await bb.storage.kv.set(grantKey(hostId), { intent });
+        await cc.storage.kv.set(grantKey(hostId), { intent });
         signal.throwIfAborted();
         const pending = intent;
         const redeemed = await redeemMachineCode({ ...pending, signal }).catch(
@@ -146,9 +146,9 @@ export async function registerServerAccess(
         const grant = {
           id: hostId,
           serverUrl: redeemed.serverUrl,
-          headers: { "x-bb-connect-machine": redeemed.credential },
+          headers: { "x-cc-connect-machine": redeemed.credential },
         };
-        await bb.storage.kv.set(grantKey(hostId), {
+        await cc.storage.kv.set(grantKey(hostId), {
           result: { connectMachineId: redeemed.machineId, grant },
         });
         return grant;
@@ -173,11 +173,11 @@ export async function registerServerAccess(
           const credential = tunnel.getCredential();
           if (!credential)
             throw new Error(
-              "Pair this bb instance with bb connect to revoke machine access",
+              "Pair this cc instance with cc connect to revoke machine access",
             );
           await revokeMachine(credential, stored.result.connectMachineId);
         }
-        await bb.storage.kv.delete(grantKey(hostId));
+        await cc.storage.kv.delete(grantKey(hostId));
       });
     },
   });

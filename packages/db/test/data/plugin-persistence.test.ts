@@ -28,15 +28,15 @@ describe("normalized plugin persistence", () => {
   it("persists typed plugin intent and an active artifact reference", () => {
     const linearPlugin: UpsertInstalledPluginInput = {
       id: "linear",
-      source: "npm:bb-plugin-linear@1.2.3",
+      source: "npm:cc-plugin-linear@1.2.3",
       provenance: {
         kind: "catalog",
-        marketplace: "bb-community",
+        marketplace: "cc-community",
         entryId: "linear",
       },
       sourceIntent: {
         kind: "npm",
-        packageName: "bb-plugin-linear",
+        packageName: "cc-plugin-linear",
         registry: "https://registry.npmjs.org",
         requestedSpec: "^1.2.0",
         specKind: "range",
@@ -79,7 +79,7 @@ describe("normalized plugin persistence", () => {
     expect(getInstalledPluginRegistration(db, "linear")).toMatchObject({
       provenance: "catalog",
       catalogEntryId: "linear",
-      catalogMarketplaceName: "bb-community",
+      catalogMarketplaceName: "cc-community",
       sourceKind: "npm",
       sourceNpmRequestedSpec: "^1.2.0",
       sourceNpmSpecKind: "range",

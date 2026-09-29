@@ -7,45 +7,45 @@ import {
 } from "../src/app-paths.js";
 
 describe("desktop app paths", () => {
-  it("resolves the packaged bb-app bridge beside the active asar", () => {
+  it("resolves the packaged cc-app bridge beside the active asar", () => {
     const paths: DesktopPathContext = {
-      appPath: "/Applications/bb.app/Contents/Resources/app.asar",
+      appPath: "/Applications/cc.app/Contents/Resources/app.asar",
       isPackaged: true,
-      resourcesPath: "/Applications/bb.app/Contents/Resources",
+      resourcesPath: "/Applications/cc.app/Contents/Resources",
     };
 
     expect(resolveDesktopBridgePath({ paths })).toBe(
-      "/Applications/bb.app/Contents/Resources/app.asar.unpacked/dist/bb-app-bridge.mjs",
+      "/Applications/cc.app/Contents/Resources/app.asar.unpacked/dist/cc-app-bridge.mjs",
     );
   });
 
-  it("resolves the universal packaged bb-app bridge beside the selected arch asar", () => {
+  it("resolves the universal packaged cc-app bridge beside the selected arch asar", () => {
     const paths: DesktopPathContext = {
-      appPath: "/Applications/bb.app/Contents/Resources/app-arm64.asar",
+      appPath: "/Applications/cc.app/Contents/Resources/app-arm64.asar",
       isPackaged: true,
-      resourcesPath: "/Applications/bb.app/Contents/Resources",
+      resourcesPath: "/Applications/cc.app/Contents/Resources",
     };
 
     expect(resolveDesktopBridgePath({ paths })).toBe(
-      "/Applications/bb.app/Contents/Resources/app-arm64.asar.unpacked/dist/bb-app-bridge.mjs",
+      "/Applications/cc.app/Contents/Resources/app-arm64.asar.unpacked/dist/cc-app-bridge.mjs",
     );
   });
 
-  it("resolves the machine installer inside the bb-app package beside the bridge", () => {
+  it("resolves the machine installer inside the cc-app package beside the bridge", () => {
     expect(
       resolveDesktopMachineInstallerPath(
-        "/Applications/bb.app/Contents/Resources/app.asar.unpacked/dist/bb-app-bridge.mjs",
+        "/Applications/cc.app/Contents/Resources/app.asar.unpacked/dist/cc-app-bridge.mjs",
       ),
     ).toBe(
-      "/Applications/bb.app/Contents/Resources/app.asar.unpacked/node_modules/bb-app/server/dist/assets/install-machine.sh",
+      "/Applications/cc.app/Contents/Resources/app.asar.unpacked/node_modules/cc-app/server/dist/assets/install-machine.sh",
     );
   });
 
   it("uses the release-specific icon inside packaged apps", () => {
     const paths: DesktopPathContext = {
-      appPath: "/Applications/bb Nightly.app/Contents/Resources/app.asar",
+      appPath: "/Applications/cc Nightly.app/Contents/Resources/app.asar",
       isPackaged: true,
-      resourcesPath: "/Applications/bb Nightly.app/Contents/Resources",
+      resourcesPath: "/Applications/cc Nightly.app/Contents/Resources",
     };
 
     expect(
@@ -54,7 +54,7 @@ describe("desktop app paths", () => {
         paths,
       }),
     ).toBe(
-      "/Applications/bb Nightly.app/Contents/Resources/app.asar/assets/icon-nightly.png",
+      "/Applications/cc Nightly.app/Contents/Resources/app.asar/assets/icon-nightly.png",
     );
   });
 

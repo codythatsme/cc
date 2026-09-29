@@ -47,11 +47,11 @@ describe("rewriteLocalhostLinkHref", () => {
     }
   });
 
-  it("leaves localhost links alone on getbb.app hosts", () => {
+  it("leaves localhost links alone on cc.example.invalid hosts", () => {
     for (const currentHostname of [
-      "sawyer.getbb.app",
-      "sawyer--8000.getbb.app",
-      "getbb.app",
+      "sawyer.cc.example.invalid",
+      "sawyer--8000.cc.example.invalid",
+      "cc.example.invalid",
       "SAWYER.GETBB.APP",
     ]) {
       expect(
@@ -67,7 +67,7 @@ describe("rewriteLocalhostLinkHref", () => {
   it("does not produce a Connect hostname with the localhost port", () => {
     expect(
       rewriteLocalhostLinkHref({
-        currentHostname: "asdf.getbb.app",
+        currentHostname: "asdf.cc.example.invalid",
         enabled: true,
         href: "http://localhost:5173/app",
       }),
@@ -76,10 +76,10 @@ describe("rewriteLocalhostLinkHref", () => {
 
   it("does not ignore unrelated hostnames", () => {
     for (const currentHostname of [
-      "notgetbb.app",
+      "notcc.example.invalid",
       "sawyer.localhost",
       "sawyer--8000.localhost",
-      "sawyer.bb.localhost",
+      "sawyer.cc.localhost",
     ]) {
       expect(
         rewriteLocalhostLinkHref({
@@ -91,9 +91,9 @@ describe("rewriteLocalhostLinkHref", () => {
     }
   });
 
-  it("preserves bb Connect share links", () => {
+  it("preserves cc Connect share links", () => {
     for (const href of [
-      "https://sawyer--5173.getbb.app/app",
+      "https://sawyer--5173.cc.example.invalid/app",
       "http://sawyer--5173.localhost:59332/app",
     ]) {
       expect(

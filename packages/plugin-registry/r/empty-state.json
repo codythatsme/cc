@@ -3,10 +3,10 @@
   "name": "empty-state",
   "type": "registry:ui",
   "title": "empty-state",
-  "description": "BB ui \"empty-state\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"empty-state\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/utils"
+    "@cc/icon",
+    "@cc/utils"
   ],
   "files": [
     {

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { MARKETPLACE_ID_PATTERN } from "./marketplace-model.js";
 
 export const MARKETPLACE_V2_SCHEMA_URL =
-  "https://getbb.app/schemas/marketplace-v2.schema.json";
+  "https://raw.githubusercontent.com/codythatsme/cc/main/apps/web/public/schemas/marketplace-v2.schema.json";
 
 const TAG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const HOST_ICON_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/u;
@@ -13,7 +13,7 @@ const NPM_PACKAGE_PATTERN =
 const GIT_SUBDIR_PATTERN =
   /^(?![A-Za-z]:)(?!\/)(?!(?:[^/]+\/)*(?:\.|\.\.|\.git)(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 const HTTPS_URL_PATTERN = /^https:\/\//iu;
-const ASSET_BASE_URL = "https://getbb.app/marketplace/v2/marketplace.json";
+const ASSET_BASE_URL = "https://cc.example.invalid/marketplace/v2/marketplace.json";
 
 const httpsUrlSchema = z.string().url().regex(HTTPS_URL_PATTERN);
 

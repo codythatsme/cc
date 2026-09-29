@@ -3,14 +3,14 @@
   "name": "tooltip",
   "type": "registry:ui",
   "title": "tooltip",
-  "description": "BB ui \"tooltip\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"tooltip\" — vendored from the CC app's own source (version-matched to this CC release).",
   "dependencies": [
     "@radix-ui/react-tooltip"
   ],
   "registryDependencies": [
-    "@bb/overlay-trigger",
-    "@bb/portal-scope",
-    "@bb/utils"
+    "@cc/overlay-trigger",
+    "@cc/portal-scope",
+    "@cc/utils"
   ],
   "files": [
     {

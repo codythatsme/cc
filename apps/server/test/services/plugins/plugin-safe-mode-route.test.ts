@@ -13,14 +13,14 @@ describe("/plugins/safe-mode", () => {
 
   beforeEach(async () => {
     harness = await createTestAppHarness();
-    const rootDir = join(harness.config.dataDir, "fixtures", "bb-plugin-extra");
+    const rootDir = join(harness.config.dataDir, "fixtures", "cc-plugin-extra");
     await mkdir(rootDir, { recursive: true });
     await writeFile(
       join(rootDir, "package.json"),
       JSON.stringify({
-        name: "bb-plugin-extra",
+        name: "cc-plugin-extra",
         version: "0.1.0",
-        bb: {
+        cc: {
           name: "Extra",
           description: "Safe mode route fixture.",
           branding: { icon: "Zap" },

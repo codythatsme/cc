@@ -1,4 +1,4 @@
-import type { ThreadEvent } from "@bb/domain";
+import type { ThreadEvent } from "@cc/domain";
 import type {
   BuildEventProjectionMessagesOptions,
   EventProjectionMessage,

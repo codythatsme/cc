@@ -1,12 +1,12 @@
 {
-  "name": "bb-plugin-replacement-lab-beta",
+  "name": "cc-plugin-replacement-lab-beta",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": {
-    "bbPluginSdk": ">=0.4.3"
+    "ccPluginSdk": ">=0.4.3"
   },
-  "bb": {
+  "cc": {
     "name": "Replacement Lab Beta",
     "description": "A second provider for precedence and fallback testing.",
     "branding": {
@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@get-bb/plugin-sdk": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
     "typescript": "npm:@typescript/typescript6@^6.0.2"

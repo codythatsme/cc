@@ -10,13 +10,13 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { createConnection, getHost, setExperiments } from "@bb/db";
-import { defaultExperiments } from "@bb/domain";
-import { HOST_DAEMON_PROTOCOL_VERSION } from "@bb/host-daemon-contract";
+import { createConnection, getHost, setExperiments } from "@cc/db";
+import { defaultExperiments } from "@cc/domain";
+import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
 import {
   extractServerArchive,
   serverMovedFileSchema,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { exportServerArchive } from "../../src/services/server-move/export.js";
 import { seedHost } from "../helpers/seed.js";
@@ -25,7 +25,7 @@ import { withTestHarness } from "../helpers/test-app.js";
 const tempDirs: string[] = [];
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "bb-server-move-export-"));
+  const dir = await mkdtemp(join(tmpdir(), "cc-server-move-export-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -118,7 +118,7 @@ describe("server archive export", () => {
           destinationDir: destination,
         });
         expect(manifest).toMatchObject({
-          bbVersion: harness.config.appVersion,
+          ccVersion: harness.config.appVersion,
           createdAt: 1_700_000_000_000,
           protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
           sourceDataDir: dataDir,
@@ -129,7 +129,7 @@ describe("server archive export", () => {
         const paths = manifest.entries.map((entry) => entry.path);
         expect(paths).toEqual(
           expect.arrayContaining([
-            "bb.db",
+            "cc.db",
             "config.json",
             "attachments/project-1/notes.txt",
             "plugins/tasks/data.db",
@@ -154,7 +154,7 @@ describe("server archive export", () => {
         );
 
         const importedDb = createConnection(
-          join(destination, "files", "bb.db"),
+          join(destination, "files", "cc.db"),
         );
         try {
           expect(getHost(importedDb, "host-old")).toMatchObject({

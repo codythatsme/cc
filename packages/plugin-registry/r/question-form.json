@@ -3,14 +3,14 @@
   "name": "question-form",
   "type": "registry:ui",
   "title": "question-form",
-  "description": "BB ui \"question-form\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"question-form\" — vendored from the CC app's own source (version-matched to this CC release).",
   "registryDependencies": [
-    "@bb/button",
-    "@bb/icon",
-    "@bb/question-form-host",
-    "@bb/question-form-state",
-    "@bb/use-pointer-coarse",
-    "@bb/utils"
+    "@cc/button",
+    "@cc/icon",
+    "@cc/question-form-host",
+    "@cc/question-form-state",
+    "@cc/use-pointer-coarse",
+    "@cc/utils"
   ],
   "files": [
     {

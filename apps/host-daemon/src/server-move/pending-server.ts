@@ -3,8 +3,8 @@ import { delimiter } from "node:path";
 import {
   serverHealthResponseSchema,
   type ServerMoveHealth,
-} from "@bb/host-daemon-contract";
-import { sanitizeInheritedChildProcessEnv } from "@bb/process-utils";
+} from "@cc/host-daemon-contract";
+import { sanitizeInheritedChildProcessEnv } from "@cc/process-utils";
 import { z } from "zod";
 import type { FetchFn } from "../server-client.js";
 import { CommandDispatchError } from "../command-dispatch-support.js";
@@ -22,7 +22,7 @@ const pendingVerificationSchema = z.object({
 });
 
 export interface PendingServerLaunchRequest {
-  bbServerEntry: string;
+  ccServerEntry: string;
   dataDir: string;
   serverPort: number;
   bindHost: string | null;
@@ -69,7 +69,7 @@ export function createPendingServerEnv(
         : `${executableDirectory}${delimiter}${sanitized.PATH}`,
     ...(hostDaemonPort === null
       ? {}
-      : { BB_HOST_DAEMON_PORT: String(hostDaemonPort) }),
+      : { CC_HOST_DAEMON_PORT: String(hostDaemonPort) }),
   };
 }
 
@@ -80,7 +80,7 @@ export function createDefaultPendingServerLauncher(
     spawnDetached({
       command: process.execPath,
       args: [
-        request.bbServerEntry,
+        request.ccServerEntry,
         "--data-dir",
         request.dataDir,
         "--server-port",

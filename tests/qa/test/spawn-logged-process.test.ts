@@ -252,10 +252,10 @@ describe("spawnLoggedProcess", () => {
     expect(spawnMockState.invocations[0]?.options.detached).toBe(true);
   });
 
-  it("keeps standalone server runtime env isolated from inherited bb and ambient OpenAI env", async () => {
-    vi.stubEnv("BB_APP_URL", "https://inherited-app.example.test");
-    vi.stubEnv("BB_DATA_DIR", "/Users/example/.bb-dev");
-    vi.stubEnv("BB_SERVER_PORT", "3334");
+  it("keeps standalone server runtime env isolated from inherited cc and ambient OpenAI env", async () => {
+    vi.stubEnv("CC_APP_URL", "https://inherited-app.example.test");
+    vi.stubEnv("CC_DATA_DIR", "/Users/example/.cc-dev");
+    vi.stubEnv("CC_SERVER_PORT", "3334");
     vi.stubEnv("OPENAI_API_KEY", "ambient-openai-key");
     vi.stubGlobal(
       "fetch",
@@ -267,8 +267,8 @@ describe("spawnLoggedProcess", () => {
       env: buildStandaloneRuntimeEnv({
         baseEnv: process.env,
         overrides: {
-          BB_DATA_DIR: "/tmp/leaked-data-dir",
-          BB_SERVER_PORT: "9999",
+          CC_DATA_DIR: "/tmp/leaked-data-dir",
+          CC_SERVER_PORT: "9999",
         },
       }),
       logPath: "/tmp/standalone-server.log",
@@ -276,17 +276,17 @@ describe("spawnLoggedProcess", () => {
     });
 
     expect(spawnMockState.invocations[0]?.options.env).toMatchObject({
-      BB_DATA_DIR: "/tmp/standalone-server-data",
-      BB_SERVER_PORT: "4567",
+      CC_DATA_DIR: "/tmp/standalone-server-data",
+      CC_SERVER_PORT: "4567",
     });
     expect(
       spawnMockState.invocations[0]?.options.env?.OPENAI_API_KEY,
     ).toBeUndefined();
     expect(
-      spawnMockState.invocations[0]?.options.env?.BB_APP_URL,
+      spawnMockState.invocations[0]?.options.env?.CC_APP_URL,
     ).toBeUndefined();
     expect(
-      spawnMockState.invocations[0]?.options.env?.BB_EXTERNAL_URL,
+      spawnMockState.invocations[0]?.options.env?.CC_EXTERNAL_URL,
     ).toBeUndefined();
   });
 
@@ -357,7 +357,7 @@ describe("cleanupStandaloneOrphans", () => {
   it("skips a standalone root whose parent process exists but is not signalable", async () => {
     const tmpDir = useIsolatedStandaloneTmpDir();
     const tmpRoot = createStandaloneRoot({
-      name: "bb-standalone-unowned",
+      name: "cc-standalone-unowned",
       state: {
         daemon: { pid: 1111 },
         parentPid: 1,
@@ -389,7 +389,7 @@ describe("cleanupStandaloneOrphans", () => {
   it("removes stale standalone roots whose parent process is gone", async () => {
     const tmpDir = useIsolatedStandaloneTmpDir();
     const tmpRoot = createStandaloneRoot({
-      name: "bb-standalone-owned-stale",
+      name: "cc-standalone-owned-stale",
       state: {
         daemon: { pid: 1111 },
         parentPid: 4242,
@@ -424,7 +424,7 @@ describe("cleanupStandaloneOrphans", () => {
     const restartPidPath = path.join(tmpDir, "daemon-restart.pid");
     writeFileSync(restartPidPath, "3333\n", "utf8");
     const tmpRoot = createStandaloneRoot({
-      name: "bb-standalone-restarted-stale",
+      name: "cc-standalone-restarted-stale",
       state: {
         daemon: { pid: 1111 },
         parentPid: 4242,

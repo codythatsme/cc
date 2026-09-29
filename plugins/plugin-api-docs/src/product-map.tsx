@@ -514,7 +514,7 @@ function SlideTitle({ title }: { title: string }) {
     <>
       {parts.map((part, index) => (
         <Fragment key={index}>
-          {index > 0 ? <span className="font-bold italic">bb</span> : null}
+          {index > 0 ? <span className="font-bold italic">cc</span> : null}
           {part}
         </Fragment>
       ))}
@@ -788,7 +788,7 @@ export function ProductMap({
     const container = containerRef.current;
     if (container === null) return;
     const scope =
-      container.closest<HTMLElement>("[data-bb-plugin]") ?? container;
+      container.closest<HTMLElement>("[data-cc-plugin]") ?? container;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -812,7 +812,7 @@ export function ProductMap({
         <div data-map-column className="mx-auto w-full max-w-[100rem]">
           <section
             aria-roledescription="carousel"
-            aria-label="bb surfaces a plugin can extend"
+            aria-label="cc surfaces a plugin can extend"
             onKeyDown={onKeyDown}
             className="mt-2"
           >

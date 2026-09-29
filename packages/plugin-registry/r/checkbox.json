@@ -3,14 +3,14 @@
   "name": "checkbox",
   "type": "registry:ui",
   "title": "checkbox",
-  "description": "BB ui \"checkbox\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"checkbox\" — vendored from the CC app's own source (version-matched to this CC release).",
   "dependencies": [
     "@radix-ui/react-checkbox"
   ],
   "registryDependencies": [
-    "@bb/icon",
-    "@bb/motion",
-    "@bb/utils"
+    "@cc/icon",
+    "@cc/motion",
+    "@cc/utils"
   ],
   "files": [
     {

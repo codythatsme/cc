@@ -1,4 +1,4 @@
-import { getAppSettings, getProjectExecutionDefaults, getThread } from "@bb/db";
+import { getAppSettings, getProjectExecutionDefaults, getThread } from "@cc/db";
 import type {
   CallerExecutionInputSource,
   PermissionMode,
@@ -7,7 +7,7 @@ import type {
   ResolvedThreadExecutionOptions,
   ServiceTier,
   ThreadExecutionSource,
-} from "@bb/domain";
+} from "@cc/domain";
 import { ApiError } from "../../errors.js";
 import type { AppDeps } from "../../types.js";
 import type { ProviderRegistryService } from "../providers/provider-registry.js";

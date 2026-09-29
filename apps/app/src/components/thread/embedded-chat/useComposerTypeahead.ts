@@ -3,8 +3,8 @@ import type { TypeaheadConfig } from "@/components/promptbox/PromptBoxInternal";
 import type { PromptMentionLinkResolver } from "@/components/promptbox/editor/prompt-mention-link";
 import type { PromptBoxAction } from "@/components/promptbox/PromptBoxActionsMenu";
 import { withAppPromptActions } from "@/components/promptbox/PromptBoxActionsMenu";
-import type { ProviderComposerAction } from "@bb/domain";
-import { buildProviderPromptActionProps } from "@bb/client-core";
+import type { ProviderComposerAction } from "@cc/domain";
+import { buildProviderPromptActionProps } from "@cc/client-core";
 import { useCommandSuggestions } from "@/hooks/useCommandSuggestions";
 import { usePromptMentions } from "@/hooks/usePromptMentions";
 
@@ -43,7 +43,7 @@ export function useComposerTypeahead({
   });
   const [commandState, setCommandState] = useState<{
     query: string | null;
-    trigger: import("@bb/domain").PromptMentionCommandTrigger | null;
+    trigger: import("@cc/domain").PromptMentionCommandTrigger | null;
   }>({ query: null, trigger: null });
   const [hasComposerFocused, setHasComposerFocused] = useState(false);
   const handleEditorFocus = useCallback(() => {

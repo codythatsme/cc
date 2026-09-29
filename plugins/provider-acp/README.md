@@ -7,15 +7,15 @@ OpenCode Go usage appears under OpenCode in the Provider usage panel for the
 selected machine. It reads the official Go endpoint using the machine's OpenCode
 Console account or API credentials and reports the five-hour, weekly, and monthly
 windows with their reset times. Sign in to Go in OpenCode on that machine.
-The same data is available through `bb settings usage --machine <id> --json`
-and `bb.sdk.system.usageLimits({ hostId, providerId: "acp-opencode" })`.
+The same data is available through `cc settings usage --machine <id> --json`
+and `cc.sdk.system.usageLimits({ hostId, providerId: "acp-opencode" })`.
 Other OpenCode providers and pay-as-you-go spending are not included.
 
 The plugin has no bridge of its own. Every agent it registers runs on the
-published ACP kit, `@get-bb/plugin-sdk/provider-bridge/acp`, which its
-`bb.host` entry re-exports (`src/host.ts`). That is the whole
+published ACP kit, `@codythatsme/plugin-sdk/provider-bridge/acp`, which its
+`cc.host` entry re-exports (`src/host.ts`). That is the whole
 point of the kit: a third-party plugin adds an ACP agent exactly the way this
-one does, with no bb-side code. The plugin is forkable
+one does, with no cc-side code. The plugin is forkable
 (`docs/forkable-plugins.md`): its lint rule and the fork check prove it takes
 no shortcut — no file here may import a workspace package.
 
@@ -35,17 +35,17 @@ What lives here:
 - `src/configured-agents.ts` — merging the setting and the deprecated config
   array, with the setting winning on a shared id.
 - `src/declaration.ts` — one agent definition becomes one
-  `bb.providers.register` declaration: ids, display names, icons,
+  `cc.providers.register` declaration: ids, display names, icons,
   capabilities, and the bridge options it launches with (`acpLaunchSpec`, and
   `acpDialect` for the agents whose vendor side channels the kit reads).
 - `src/legacy-config.ts` — reading the deprecated config array. Dies with the
   deprecation window.
-- `src/host.ts` — the `bb.host` artifact, two surfaces in one file: the kit's
+- `src/host.ts` — the `cc.host` artifact, two surfaces in one file: the kit's
   bridge, re-exported, and a host entry whose one RPC asks an agent what it
   supports on the machine it is installed on (`src/contract.ts`,
   `src/probe-capabilities.ts`).
 - `icons/` — the provider logos, declared in `package.json` under
-  `bb.branding.experimental_icons` so the packaged build ships them.
+  `cc.branding.experimental_icons` so the packaged build ships them.
 
 The kit itself, including the ACP wire schema, the delta translation, the
 per-agent dialects and the bridge process, is `packages/provider-bridge-acp`.

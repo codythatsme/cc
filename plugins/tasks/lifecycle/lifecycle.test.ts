@@ -1,14 +1,14 @@
 import {
   createFakePluginHost,
   makeThreadResponse,
-} from "@get-bb/plugin-sdk/testing";
+} from "@codythatsme/plugin-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { createStore } from "../api";
 import type { TaskThreadLiveStatus } from "../db";
 import { registerLifecycle } from ".";
 
 interface TrackedThreadFixture {
-  bb: ReturnType<typeof createFakePluginHost>["bb"];
+  cc: ReturnType<typeof createFakePluginHost>["cc"];
   harness: ReturnType<typeof createFakePluginHost>["harness"];
   store: ReturnType<typeof createStore>;
   taskId: string;
@@ -32,7 +32,7 @@ function trackedThreadFixture(
       },
     },
   });
-  const store = createStore(host.bb);
+  const store = createStore(host.cc);
   const project = store.tasks.createProject({
     name: "Tasks plugin",
     prefix: "TASK",
@@ -62,7 +62,7 @@ describe("task thread lifecycle", () => {
   it("reconciles each non-terminal task thread once during startup", async () => {
     const fixture = trackedThreadFixture("working", "active");
 
-    await registerLifecycle(fixture.bb, fixture.store);
+    await registerLifecycle(fixture.cc, fixture.store);
 
     expect(fixture.harness.sdk.callsTo("threads.get")).toEqual([
       [{ threadId: "thr_worker" }],
@@ -73,7 +73,7 @@ describe("task thread lifecycle", () => {
 
   it("moves a working thread to completed, comments, and publishes", async () => {
     const fixture = trackedThreadFixture("working", "active");
-    await registerLifecycle(fixture.bb, fixture.store);
+    await registerLifecycle(fixture.cc, fixture.store);
 
     await fixture.harness.emitThreadEvent("thread.deleted", {
       thread: makeThreadResponse({
@@ -109,7 +109,7 @@ describe("task thread lifecycle", () => {
 
   it("recovers a failed thread without recording failure as terminal", async () => {
     const fixture = trackedThreadFixture("working", "active");
-    await registerLifecycle(fixture.bb, fixture.store);
+    await registerLifecycle(fixture.cc, fixture.store);
 
     await fixture.harness.emitThreadEvent("thread.failed", {
       thread: makeThreadResponse({
@@ -157,7 +157,7 @@ describe("task thread lifecycle", () => {
   it("reconciles a stale non-terminal row on load", async () => {
     const fixture = trackedThreadFixture("starting", "idle");
 
-    await registerLifecycle(fixture.bb, fixture.store);
+    await registerLifecycle(fixture.cc, fixture.store);
 
     expect(fixture.harness.sdk.callsTo("threads.get")).toEqual([
       [{ threadId: "thr_worker" }],
@@ -194,7 +194,7 @@ describe("task thread lifecycle", () => {
         },
       },
     });
-    const store = createStore(host.bb);
+    const store = createStore(host.cc);
     const project = store.tasks.createProject({
       name: "Fast lifecycle",
       prefix: "FAST",
@@ -212,7 +212,7 @@ describe("task thread lifecycle", () => {
       liveStatus: "starting",
     });
 
-    await registerLifecycle(host.bb, store);
+    await registerLifecycle(host.cc, store);
 
     expect(handlersAtFirstRead).toMatchObject({
       "thread.created": 1,
@@ -235,7 +235,7 @@ describe("task thread lifecycle", () => {
 
   it("moves a starting thread to working from thread.active without an SDK subscription", async () => {
     const fixture = trackedThreadFixture("starting", "starting");
-    await registerLifecycle(fixture.bb, fixture.store);
+    await registerLifecycle(fixture.cc, fixture.store);
 
     await fixture.harness.emitThreadEvent("thread.active", {
       thread: makeThreadResponse({
@@ -267,7 +267,7 @@ describe("task thread lifecycle", () => {
         },
       },
     });
-    const store = createStore(host.bb);
+    const store = createStore(host.cc);
     const project = store.tasks.createProject({
       name: "Lifecycle",
       prefix: "LIFE",
@@ -285,7 +285,7 @@ describe("task thread lifecycle", () => {
       liveStatus: "starting",
     });
 
-    await registerLifecycle(host.bb, store);
+    await registerLifecycle(host.cc, store);
     await host.harness.emitThreadEvent("thread.active", {
       thread: makeThreadResponse({ id: "thr_worker", status: "active" }),
     });
@@ -295,9 +295,9 @@ describe("task thread lifecycle", () => {
   });
 
   it("ignores lifecycle events for non-tracked threads", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    const store = createStore(bb);
-    await registerLifecycle(bb, store);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const store = createStore(cc);
+    await registerLifecycle(cc, store);
 
     await harness.emitThreadEvent("thread.failed", {
       thread: makeThreadResponse({ id: "thr_untracked", status: "error" }),
@@ -311,8 +311,8 @@ describe("task thread lifecycle", () => {
   });
 
   it("looks up an unrelated lifecycle event without scanning tasks", async () => {
-    const { bb, harness } = createFakePluginHost({ pluginId: "tasks" });
-    const store = createStore(bb);
+    const { cc, harness } = createFakePluginHost({ pluginId: "tasks" });
+    const store = createStore(cc);
     const project = store.tasks.createProject({
       name: "Lookup scope",
       prefix: "SCOPE",
@@ -324,7 +324,7 @@ describe("task thread lifecycle", () => {
         title: `Unrelated task ${index}`,
       });
     }
-    await registerLifecycle(bb, store);
+    await registerLifecycle(cc, store);
     const listTasks = vi.spyOn(store.tasks, "listTasks");
     const listTaskThreads = vi.spyOn(store.tasks, "listTaskThreads");
 

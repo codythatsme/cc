@@ -5,8 +5,8 @@ import ArrowUpRight01Icon from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
 import GithubIcon from "@hugeicons/core-free-icons/GithubIcon";
 import MoreHorizontalIcon from "@hugeicons/core-free-icons/MoreHorizontalIcon";
 import PlusSignIcon from "@hugeicons/core-free-icons/PlusSignIcon";
-import { MAX_PER_ACCOUNT } from "@bb/connect-db";
-import type { HandleValidationError, LabelAvailability } from "@bb/connect-db";
+import { MAX_PER_ACCOUNT } from "@cc/connect-db";
+import type { HandleValidationError, LabelAvailability } from "@cc/connect-db";
 import appCss from "../styles.css?url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +51,7 @@ function validateDashboardSearch(
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
-    meta: [{ title: "bb connect" }],
+    meta: [{ title: "cc connect" }],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
   validateSearch: validateDashboardSearch,
@@ -70,13 +70,13 @@ function BrandRow() {
       {}
       <span
         role="img"
-        aria-label="bb"
-        className="bb-mark h-[30px] w-[30px] rounded-lg"
+        aria-label="cc"
+        className="cc-mark h-[30px] w-[30px] rounded-lg"
       />
       <div className="leading-tight">
-        <b className="block text-sm font-semibold">bb connect</b>
+        <b className="block text-sm font-semibold">cc connect</b>
         <span className="text-xs text-muted-foreground">
-          Your bb, reachable anywhere
+          Your cc, reachable anywhere
         </span>
       </div>
     </div>
@@ -405,7 +405,7 @@ function SignInView({
       <WebCard>
         <h3 className="text-[17px] font-semibold tracking-tight">Sign in</h3>
         <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          Give your bb a private URL and open it from any browser. Your code and
+          Give your cc a private URL and open it from any browser. Your code and
           data never leave your machine.
         </p>
         {emailPasswordEnabled ? (
@@ -514,7 +514,7 @@ function ClaimField({
   serverUrlTemplate,
   initial = "",
   autoFocus,
-  previewLead = "Your bb will live at",
+  previewLead = "Your cc will live at",
   buildSubmitLabel,
   onClaim,
   onCancel,
@@ -595,7 +595,7 @@ function ClaimField({
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void submit()}
           className="min-w-0 flex-1 bg-transparent px-3 py-2.5 font-mono text-sm outline-none placeholder:text-subtle-foreground"
-          placeholder="your-bb"
+          placeholder="your-cc"
           aria-label="Address"
         />
         <span className="pr-3 font-mono text-sm text-subtle-foreground">
@@ -632,7 +632,7 @@ function ClaimView({ serverUrlTemplate }: { serverUrlTemplate: string }) {
           Pick your address
         </h3>
         <p className="mt-1 mb-4 text-sm text-muted-foreground">
-          This becomes your bb&rsquo;s permanent URL. Lowercase letters,
+          This becomes your cc&rsquo;s permanent URL. Lowercase letters,
           numbers, and dashes.
         </p>
         <ClaimField
@@ -688,7 +688,7 @@ function SetupCodePanel({
   }, [code, fetchCode]);
 
   const cli = code
-    ? `npx -p bb-app@latest bb connect --code ${code.code} --server ${code.serverUrl}`
+    ? `cc connect --code ${code.code} --server ${code.serverUrl}`
     : "";
 
   return (
@@ -697,7 +697,7 @@ function SetupCodePanel({
       <p className="mt-2.5 text-xs text-subtle-foreground">
         Paste in{" "}
         <span className="font-medium text-foreground">Plugins → connect</span>{" "}
-        on your bb{" · "}
+        on your cc{" · "}
         <button
           className="text-foreground underline underline-offset-2 hover:text-muted-foreground"
           onClick={() => setShowCli((v) => !v)}
@@ -739,7 +739,7 @@ function RepairCodeBlock({ serverId }: { serverId: string }) {
     <div>
       <BigCode code={code?.code ?? "····–····"} disabled={!code} />
       <p className="mt-2.5 text-xs text-subtle-foreground">
-        Re-pairing replaces this bb&rsquo;s credential. Paste in{" "}
+        Re-pairing replaces this cc&rsquo;s credential. Paste in{" "}
         <span className="font-medium text-foreground">Plugins → connect</span>
         {code ? ` · expires in ${minutes(code.expiresInMs)} min` : ""}
       </p>
@@ -773,7 +773,7 @@ function ConfirmServerAction({
   return (
     <Overlay onClose={onCancel}>
       <h4 className="mb-1.5 text-[15px] font-semibold">
-        {removing ? "Remove this address?" : "Disconnect your bb?"}
+        {removing ? "Remove this address?" : "Disconnect your cc?"}
       </h4>
       <p className="mb-4 text-sm text-muted-foreground">
         <b className="font-semibold text-foreground">
@@ -781,7 +781,7 @@ function ConfirmServerAction({
         </b>{" "}
         {removing
           ? "is freed up and can be claimed again. It was never paired, so nothing stops working."
-          : "stops working on all devices immediately. Your bb keeps running locally; re-pairing needs a new connect code."}
+          : "stops working on all devices immediately. Your cc keeps running locally; re-pairing needs a new connect code."}
       </p>
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel} disabled={busy}>
@@ -1016,7 +1016,7 @@ function ConnectAnotherDialog({
   if (atCap && !server) {
     return (
       <Overlay onClose={onClose}>
-        <h4 className="mb-1.5 text-[15px] font-semibold">Connect another bb</h4>
+        <h4 className="mb-1.5 text-[15px] font-semibold">Connect another cc</h4>
         <p className="mb-4 text-sm text-muted-foreground">
           You&rsquo;ve reached the limit of {state.maxServers} bbs on this
           account. Disconnect one to add another.
@@ -1035,17 +1035,17 @@ function ConnectAnotherDialog({
       {!server ? (
         <>
           <h4 className="mb-1.5 text-[15px] font-semibold">
-            Connect another bb
+            Connect another cc
           </h4>
           <p className="mb-3 text-sm text-muted-foreground">
-            Pick its address — every bb gets its own URL.
+            Pick its address — every cc gets its own URL.
           </p>
           <ClaimField
             layout="dialog"
             autoFocus
             serverUrlTemplate={state.serverUrlTemplate}
             initial={`${state.handle}-desktop`}
-            previewLead="This bb will live at"
+            previewLead="This cc will live at"
             buildSubmitLabel={(l) => `Claim ${l || "…"}`}
             onCancel={onClose}
             onClaim={async (label) => {
@@ -1061,7 +1061,7 @@ function ConnectAnotherDialog({
         </>
       ) : (
         <>
-          <h4 className="mb-1.5 text-[15px] font-semibold">Pair the new bb</h4>
+          <h4 className="mb-1.5 text-[15px] font-semibold">Pair the new cc</h4>
           <p className="mb-2.5 text-sm text-muted-foreground">
             <code className="font-mono text-xs text-foreground">
               {server.serverUrl.replace(/^https?:\/\//u, "")}
@@ -1178,7 +1178,7 @@ function AccountDashboard({ state }: { state: ServerState }) {
             onClick={() => setConnectOpen(true)}
           >
             <HugeiconsIcon icon={PlusSignIcon} className="size-3" />
-            Add a bb
+            Add a cc
           </button>
         </div>
         {state.servers.map((s: ServerSummary) => (
@@ -1195,14 +1195,14 @@ function AccountDashboard({ state }: { state: ServerState }) {
               className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-surface-recessed hover:text-foreground"
               href={`${manageServer.serverUrl}/settings/machines`}
             >
-              Manage machines in bb
+              Manage machines in cc
               <HugeiconsIcon icon={ArrowUpRight01Icon} className="size-3" />
             </a>
           ) : null}
         </div>
         {state.machines.length === 0 ? (
           <p className="px-3 pb-2 text-xs text-subtle-foreground">
-            Add machines from bb Settings → Machines.
+            Add machines from cc Settings → Machines.
           </p>
         ) : (
           state.machines.map((machine: MachineSummary) => {

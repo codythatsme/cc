@@ -25,9 +25,9 @@ import {
   type HostDaemonToolCallRequest,
   type HostDaemonToolCallResponse,
   type HostDaemonSkillTree,
-} from "@bb/host-daemon-contract";
-import { HOST_ARTIFACT_MAX_BYTES } from "@bb/host-daemon-contract/protocol";
-import type { PendingInteractionCreate, ToolCallRequest } from "@bb/domain";
+} from "@cc/host-daemon-contract";
+import { HOST_ARTIFACT_MAX_BYTES } from "@cc/host-daemon-contract/protocol";
+import type { PendingInteractionCreate, ToolCallRequest } from "@cc/domain";
 import type { HostDaemonLogger } from "./logger.js";
 import type { EventPostResult } from "./event-sink.js";
 import { runtimeErrorLogFields } from "./error-utils.js";
@@ -465,7 +465,7 @@ export function createServerClient(
         instanceId: args.instanceId,
         hostName: args.hostName,
         hasMachineCredential: Boolean(
-          options.serverHeaders?.["x-bb-connect-machine"]?.trim(),
+          options.serverHeaders?.["x-cc-connect-machine"]?.trim(),
         ),
         platform: resolveHostPlatform(),
         dataDir: args.dataDir,

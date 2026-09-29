@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { UPDATE_ACTION_ICON } from "@bb/domain/update-state";
-import { Button } from "@bb/shared-ui/button";
+import { UPDATE_ACTION_ICON } from "@cc/domain/update-state";
+import { Button } from "@cc/shared-ui/button";
 import {
   Dialog,
   DialogContent,
@@ -9,8 +9,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@bb/shared-ui/dialog";
-import { Icon } from "@bb/shared-ui/icon";
+} from "@cc/shared-ui/dialog";
+import { Icon } from "@cc/shared-ui/icon";
 import { pluginToast } from "@/components/plugin/PluginNotificationDescription";
 import { pluginAdminErrorMessage } from "@/lib/plugin-admin-error";
 import { invalidatePluginList } from "@/hooks/cache-owners/plugin-cache-owner";
@@ -134,7 +134,7 @@ function UpdatePluginDialogContent({
               aria-hidden
             />
             <span>
-              bb couldn&rsquo;t activate {displayPluginVersion(failure.version)}
+              cc couldn&rsquo;t activate {displayPluginVersion(failure.version)}
               . It restored {displayPluginVersion(plugin.version)} and its data.
             </span>
           </div>
@@ -203,7 +203,7 @@ function UpdatePluginDialogContent({
             <span className="font-medium" style={SUCCESS_TEXT_STYLE}>
               ✓
             </span>
-            <span>Compatible with your bb and plugin SDK</span>
+            <span>Compatible with your cc and plugin SDK</span>
           </div>
           <DetailsDisclosure summary="Details — source, versions">
             <KeyValueGrid
@@ -265,7 +265,7 @@ function UpdatePluginDialogContent({
             />
             <span>
               {displayPluginVersion(blocked)} isn&rsquo;t compatible with this
-              bb
+              cc
             </span>
           </div>
           <DetailsDisclosure summary="Details" defaultExpanded>

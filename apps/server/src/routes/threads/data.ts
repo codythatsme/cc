@@ -1,5 +1,5 @@
 import { serveDaemonFileStream } from "../../services/hosts/daemon-file-stream.js";
-import { extractThreadContextWindowUsage } from "@bb/thread-view";
+import { extractThreadContextWindowUsage } from "@cc/thread-view";
 import { clearTimelineOrderingContextCache } from "../../services/threads/timeline-context-order.js";
 import path from "node:path";
 import {
@@ -11,7 +11,7 @@ import {
   getLatestThreadSequence,
   getLatestStoredConversationOutlineSequence,
   listQueuedThreadMessages,
-} from "@bb/db";
+} from "@cc/db";
 import type { Hono } from "hono";
 import {
   DEFAULT_COMPLETED_TURN_DISPLAY,
@@ -20,7 +20,7 @@ import {
   type AppSettings,
   type CompletedTurnDisplay,
   type ThreadEventType,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   publicApiRoutes,
   THREAD_EVENT_LIST_PAGE_SIZE,
@@ -28,7 +28,7 @@ import {
   type PublicApiSchema,
   type ThreadConversationOutlineResponse,
   type ThreadTimelineQuery,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type {
   AppDeps,
   LoggedWorkSessionDeps,
@@ -78,7 +78,7 @@ import {
   truncateTimelineResponseOutputs,
 } from "../../services/threads/timeline-output-truncation.js";
 import { previewTimelineResponseOutputs } from "../../services/threads/timeline-output-preview.js";
-import { computeTimelineRowDelta } from "@bb/server-contract";
+import { computeTimelineRowDelta } from "@cc/server-contract";
 import {
   findThreadEvent,
   getLastThreadOutput,

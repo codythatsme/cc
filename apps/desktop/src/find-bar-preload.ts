@@ -1,18 +1,18 @@
 import { ipcRenderer } from "electron";
 import {
-  BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL,
-  BB_DESKTOP_FIND_BAR_CLOSE_CHANNEL,
-  BB_DESKTOP_FIND_BAR_QUERY_CHANNEL,
-  BB_DESKTOP_FIND_BAR_RESULT_CHANNEL,
-  BB_DESKTOP_FIND_BAR_STEP_CHANNEL,
+  CC_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL,
+  CC_DESKTOP_FIND_BAR_CLOSE_CHANNEL,
+  CC_DESKTOP_FIND_BAR_QUERY_CHANNEL,
+  CC_DESKTOP_FIND_BAR_RESULT_CHANNEL,
+  CC_DESKTOP_FIND_BAR_STEP_CHANNEL,
   findBarResultSchema,
   type FindBarQueryRequest,
   type FindBarStepRequest,
 } from "./find-bar-ipc.js";
 
 window.addEventListener("DOMContentLoaded", () => {
-  const input = document.querySelector<HTMLInputElement>("#bb-find-input");
-  const count = document.querySelector<HTMLElement>("#bb-find-count");
+  const input = document.querySelector<HTMLInputElement>("#cc-find-input");
+  const count = document.querySelector<HTMLElement>("#cc-find-count");
   const previousButton = document.querySelector<HTMLButtonElement>(
     'button[data-step="previous"]',
   );
@@ -33,19 +33,19 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function sendQuery(text: string): void {
-    ipcRenderer.send(BB_DESKTOP_FIND_BAR_QUERY_CHANNEL, {
+    ipcRenderer.send(CC_DESKTOP_FIND_BAR_QUERY_CHANNEL, {
       text,
     } satisfies FindBarQueryRequest);
   }
 
   function sendStep(forward: boolean): void {
-    ipcRenderer.send(BB_DESKTOP_FIND_BAR_STEP_CHANNEL, {
+    ipcRenderer.send(CC_DESKTOP_FIND_BAR_STEP_CHANNEL, {
       forward,
     } satisfies FindBarStepRequest);
   }
 
   function close(): void {
-    ipcRenderer.send(BB_DESKTOP_FIND_BAR_CLOSE_CHANNEL);
+    ipcRenderer.send(CC_DESKTOP_FIND_BAR_CLOSE_CHANNEL);
   }
 
   function setMatches(
@@ -102,7 +102,7 @@ window.addEventListener("DOMContentLoaded", () => {
     close();
   });
 
-  ipcRenderer.on(BB_DESKTOP_FIND_BAR_RESULT_CHANNEL, (_event, payload) => {
+  ipcRenderer.on(CC_DESKTOP_FIND_BAR_RESULT_CHANNEL, (_event, payload) => {
     const parsed = findBarResultSchema.safeParse(payload);
     if (!parsed.success) {
       return;
@@ -110,7 +110,7 @@ window.addEventListener("DOMContentLoaded", () => {
     setMatches(parsed.data);
   });
 
-  ipcRenderer.on(BB_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL, () => {
+  ipcRenderer.on(CC_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL, () => {
     input.focus();
     input.select();
     if (input.value.length > 0) {

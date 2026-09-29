@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
-import type { InstalledPlugin } from "@bb/server-contract";
+import type { InstalledPlugin } from "@cc/server-contract";
 import {
   pluginCatalogSearchQueryKey,
   pluginListQueryKey,
@@ -18,11 +18,11 @@ interface RecordedRequest {
 }
 
 function installPlanFor(url: string): unknown {
-  const params = new URL(url, "https://bb.test").searchParams;
+  const params = new URL(url, "https://cc.test").searchParams;
   const entryId = params.get("entryId") ?? "";
-  const marketplace = params.get("marketplace") ?? "bb-community";
+  const marketplace = params.get("marketplace") ?? "cc-community";
   const official =
-    marketplace === "bb-community" || marketplace === "bb-official";
+    marketplace === "cc-community" || marketplace === "cc-official";
   return {
     kind: "marketplace",
     entryId,
@@ -30,16 +30,16 @@ function installPlanFor(url: string): unknown {
     displayName: entryId,
     marketplace,
     marketplaceDisplayName:
-      marketplace === "bb-official"
-        ? "BB Official"
-        : marketplace === "bb-community"
-          ? "BB Community"
+      marketplace === "cc-official"
+        ? "CC Official"
+        : marketplace === "cc-community"
+          ? "CC Community"
           : "Acme Plugins",
     publisherLabel:
-      marketplace === "bb-official"
-        ? "BB Official"
-        : marketplace === "bb-community"
-          ? "BB Community"
+      marketplace === "cc-official"
+        ? "CC Official"
+        : marketplace === "cc-community"
+          ? "CC Community"
           : "Acme Plugins",
     official,
     author: { name: "Acme", url: "https://github.com/acme" },
@@ -67,13 +67,13 @@ const INSTALLED_PLUGIN_RESPONSE = {
   ok: true,
   plugin: {
     id: "linear",
-    source: "npm:@bb-plugins/linear",
+    source: "npm:@cc-plugins/linear",
     rootDir: "/plugins/linear",
     version: "1.6.2",
     provenance: "direct",
     publisherLabel: null,
     isOrphanedBuiltin: false,
-    sourceDisplay: "npm · @bb-plugins/linear · pinned",
+    sourceDisplay: "npm · @cc-plugins/linear · pinned",
     updateState: {},
     enabled: true,
     description: "Linear integration",
@@ -193,10 +193,10 @@ describe("AddPluginDialog", () => {
   it("leads with and submits a pasted GitHub repository URL", async () => {
     const requests = stubFetch();
     renderDialog();
-    const source = "https://github.com/acme/bb-plugin-usage";
+    const source = "https://github.com/acme/cc-plugin-usage";
     const input = screen.getByLabelText("Plugin source") as HTMLInputElement;
 
-    expect(input.placeholder).toBe("https://github.com/owner/bb-plugin-name");
+    expect(input.placeholder).toBe("https://github.com/owner/cc-plugin-name");
     expect(screen.getByText(/GitHub repository URL/)).toBeTruthy();
     fireEvent.change(input, { target: { value: source } });
     fireEvent.click(screen.getByRole("button", { name: /install plugin/i }));
@@ -272,8 +272,8 @@ describe("AddPluginDialog", () => {
     const { unmount } = renderDialog({
       entryId: "linear",
       pluginId: "linear",
-      marketplace: "bb-official",
-      publisherLabel: "BB Official",
+      marketplace: "cc-official",
+      publisherLabel: "CC Official",
       displayName: "Linear",
       icon: "Github",
       iconUrl: null,
@@ -281,15 +281,15 @@ describe("AddPluginDialog", () => {
       source: "builtin:linear",
     });
     expect(
-      screen.getByText("Install this plugin, bundled with BB."),
+      screen.getByText("Install this plugin, bundled with CC."),
     ).not.toBeNull();
     unmount();
 
     const git = renderDialog({
       entryId: "thread-hover-cards",
       pluginId: "thread-hover-cards",
-      marketplace: "bb-community",
-      publisherLabel: "BB Community",
+      marketplace: "cc-community",
+      publisherLabel: "CC Community",
       displayName: "Thread Hover Cards",
       icon: "Github",
       iconUrl: null,
@@ -298,26 +298,26 @@ describe("AddPluginDialog", () => {
     });
     expect(
       screen.getByText(
-        "Install this BB Community plugin from its listed source repository.",
+        "Install this CC Community plugin from its listed source repository.",
       ),
     ).not.toBeNull();
-    expect(screen.queryByText(/bundled with BB/)).toBeNull();
+    expect(screen.queryByText(/bundled with CC/)).toBeNull();
     git.unmount();
 
     renderDialog({
       entryId: "widgets",
       pluginId: "widgets",
-      marketplace: "bb-community",
-      publisherLabel: "BB Community",
+      marketplace: "cc-community",
+      publisherLabel: "CC Community",
       displayName: "Widgets",
       icon: "Zap",
       iconUrl: null,
       iconTinted: false,
-      source: "npm:bb-plugin-widgets@^1.0.0",
+      source: "npm:cc-plugin-widgets@^1.0.0",
     });
     expect(
       screen.getByText(
-        "Install this BB Community plugin from its listed npm package.",
+        "Install this CC Community plugin from its listed npm package.",
       ),
     ).not.toBeNull();
   });
@@ -331,14 +331,14 @@ describe("AddPluginDialog", () => {
       icon: "Zap",
       iconUrl: null,
       iconTinted: false,
-      marketplace: "bb-community",
-      publisherLabel: "BB Community",
-      source: "npm:bb-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
+      marketplace: "cc-community",
+      publisherLabel: "CC Community",
+      source: "npm:cc-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
     });
 
     expect(
       screen.getByText(
-        "npm:bb-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
+        "npm:cc-plugin-widgets@^1.0.0 (registry https://npm.acme.test)",
       ),
     ).not.toBeNull();
   });
@@ -348,8 +348,8 @@ describe("AddPluginDialog", () => {
     renderDialog({
       entryId: "linear",
       pluginId: "linear",
-      marketplace: "bb-official",
-      publisherLabel: "BB Official",
+      marketplace: "cc-official",
+      publisherLabel: "CC Official",
       displayName: "Linear",
       icon: "Github",
       iconUrl: null,
@@ -369,7 +369,7 @@ describe("AddPluginDialog", () => {
       expect(post).toBeDefined();
       expect(JSON.parse(String(post?.init?.body))).toEqual({
         entryId: "linear",
-        marketplace: "bb-official",
+        marketplace: "cc-official",
       });
     });
   });
@@ -377,17 +377,17 @@ describe("AddPluginDialog", () => {
   it("shows the cached marketplace icon in the confirmation", () => {
     stubFetch();
     const iconUrl =
-      "/api/v1/plugin-catalog/icons/bb-community/widgets?h=icon-hash";
+      "/api/v1/plugin-catalog/icons/cc-community/widgets?h=icon-hash";
     renderDialog({
       entryId: "widgets",
       pluginId: "widgets",
-      marketplace: "bb-community",
-      publisherLabel: "BB Community",
+      marketplace: "cc-community",
+      publisherLabel: "CC Community",
       displayName: "Widgets",
       icon: null,
       iconUrl,
       iconTinted: false,
-      source: "npm:bb-plugin-widgets@1.0.0",
+      source: "npm:cc-plugin-widgets@1.0.0",
     });
 
     expect(document.querySelector(`img[src="${iconUrl}"]`)).not.toBeNull();
@@ -405,8 +405,8 @@ describe("AddPluginDialog", () => {
         initial={{
           entryId: "linear",
           pluginId: "linear",
-          marketplace: "bb-official",
-          publisherLabel: "BB Official",
+          marketplace: "cc-official",
+          publisherLabel: "CC Official",
           displayName: "Linear",
           icon: "Github",
           iconUrl: null,
@@ -437,14 +437,14 @@ describe("AddPluginDialog", () => {
   it("names and links a catalog plugin when installation fails", async () => {
     const errorToast = vi.spyOn(appToast, "error").mockReturnValue("toast");
     stubFetch(
-      { ok: false, error: "requires bb >= 0.15 — you have 0.14.1" },
+      { ok: false, error: "requires cc >= 0.15 — you have 0.14.1" },
       422,
     );
     renderDialog({
       entryId: "linear",
       pluginId: "linear",
-      marketplace: "bb-official",
-      publisherLabel: "BB Official",
+      marketplace: "cc-official",
+      publisherLabel: "CC Official",
       displayName: "Linear",
       icon: null,
       iconUrl: null,
@@ -457,7 +457,7 @@ describe("AddPluginDialog", () => {
       expect(errorToast).toHaveBeenCalledTimes(1);
     });
     expect(screen.getByRole("alert").textContent).toBe(
-      "requires bb >= 0.15 — you have 0.14.1",
+      "requires cc >= 0.15 — you have 0.14.1",
     );
     expect(errorToast.mock.calls[0]?.[0]).toBe("Plugin installation failed");
     render(
@@ -466,7 +466,7 @@ describe("AddPluginDialog", () => {
     const pluginLink = screen.getByRole("link", { name: "Linear" });
     expect(pluginLink.getAttribute("href")).toBe("/plugins/linear");
     expect(pluginLink.parentElement?.textContent).toBe(
-      "Linear — requires bb >= 0.15 — you have 0.14.1",
+      "Linear — requires cc >= 0.15 — you have 0.14.1",
     );
   });
 
@@ -528,8 +528,8 @@ describe("AddPluginDialog", () => {
     renderDialog({
       entryId: "linear",
       pluginId: "linear",
-      marketplace: "bb-official",
-      publisherLabel: "BB Official",
+      marketplace: "cc-official",
+      publisherLabel: "CC Official",
       displayName: "Linear",
       icon: "Github",
       iconUrl: null,
@@ -559,7 +559,7 @@ describe("AddPluginDialog", () => {
     render(<AddPluginDialog open onOpenChange={() => {}} />, { wrapper });
 
     fireEvent.change(screen.getByLabelText("Plugin source"), {
-      target: { value: "npm:@bb-plugins/linear" },
+      target: { value: "npm:@cc-plugins/linear" },
     });
     fireEvent.click(screen.getByRole("button", { name: /install plugin/i }));
 

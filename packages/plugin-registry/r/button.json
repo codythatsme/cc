@@ -3,14 +3,14 @@
   "name": "button",
   "type": "registry:ui",
   "title": "button",
-  "description": "BB ui \"button\" — vendored from the BB app's own source (version-matched to this BB release).",
+  "description": "CC ui \"button\" — vendored from the CC app's own source (version-matched to this CC release).",
   "dependencies": [
     "@radix-ui/react-slot",
     "class-variance-authority"
   ],
   "registryDependencies": [
-    "@bb/motion",
-    "@bb/utils"
+    "@cc/motion",
+    "@cc/utils"
   ],
   "files": [
     {

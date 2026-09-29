@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import semver from "semver";
-import { formatServerDataSize } from "@bb/domain";
-import { APP_SURFACE_DESKTOP, type AppSurface } from "@bb/config/app-surface";
-import { isLoopbackHostname } from "@bb/config/loopback";
+import { formatServerDataSize } from "@cc/domain";
+import { APP_SURFACE_DESKTOP, type AppSurface } from "@cc/config/app-surface";
+import { isLoopbackHostname } from "@cc/config/loopback";
 import {
   getHost,
   getInstalledPlugin,
@@ -10,25 +10,25 @@ import {
   listPluginSchedules,
   listPublicHosts,
   listRunningThreads,
-} from "@bb/db";
-import type { ServerMoveInspectResult } from "@bb/host-daemon-contract";
+} from "@cc/db";
+import type { ServerMoveInspectResult } from "@cc/host-daemon-contract";
 import {
   listServerOwnedEntries,
   readLastServerMoveFile,
   type ServerOwnedInventory,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import type {
   ServerMoveCheckItem,
   ServerMoveCheckRequest,
   ServerMoveCheckResponse,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import type { AppDeps } from "../../types.js";
 import { callHostOnlineRpc } from "../hosts/online-rpc.js";
 import { readPrimaryHostIdFromDataDir } from "../hosts/primary-host.js";
 import { machineServerUrl } from "../machines/server-access.js";
 import type {
-  FullBbAppArtifactAvailability,
-  FullBbAppArtifactService,
+  FullCcAppArtifactAvailability,
+  FullCcAppArtifactService,
 } from "./full-artifact.js";
 import {
   isLoopbackUrl,
@@ -58,12 +58,12 @@ type HostRow = NonNullable<ReturnType<typeof getHost>>;
 type TargetVersionCheck =
   | { kind: "current" }
   | { kind: "newer" }
-  | { kind: "update"; availability: FullBbAppArtifactAvailability };
+  | { kind: "update"; availability: FullCcAppArtifactAvailability };
 
 export interface ServerMoveCheckEnvironment {
   allowLoopbackServerUrl: boolean;
   deps: AppDeps;
-  fullArtifact: FullBbAppArtifactService;
+  fullArtifact: FullCcAppArtifactService;
   inspectTimeoutMs: number;
   readServerDiskFreeBytes(): Promise<number | null>;
   resolveMode(): Promise<ServerMoveModeResolution>;
@@ -98,7 +98,7 @@ export function validateDirectServerUrl(
       ok: false,
       title: "Enter the new server address",
       detail:
-        "This server doesn't use bb connect, so other machines need an address like https://desktop.example.com to reach the new server.",
+        "This server doesn't use cc connect, so other machines need an address like https://desktop.example.com to reach the new server.",
     };
   }
   let url: URL;
@@ -205,7 +205,7 @@ async function checkTargetVersion(
   inspect: ServerMoveInspectResult,
 ): Promise<TargetVersionCheck> {
   const appVersion = environment.deps.config.appVersion;
-  const targetVersion = semver.valid(inspect.bbAppVersion);
+  const targetVersion = semver.valid(inspect.ccAppVersion);
   const serverVersion = semver.valid(appVersion);
   if (
     targetVersion !== null &&
@@ -214,7 +214,7 @@ async function checkTargetVersion(
   ) {
     return { kind: "newer" };
   }
-  if (inspect.serverEntryAvailable && inspect.bbAppVersion === appVersion) {
+  if (inspect.serverEntryAvailable && inspect.ccAppVersion === appVersion) {
     return { kind: "current" };
   }
   return {
@@ -349,7 +349,7 @@ function appendTargetInspectItems(args: {
     items.push({
       id: "unsupported-platform",
       severity: "blocker",
-      title: `${targetName} can't run the bb server`,
+      title: `${targetName} can't run the cc server`,
       detail: "The server runs on macOS and Linux.",
     });
   }
@@ -360,13 +360,13 @@ function appendTargetInspectItems(args: {
             id: "target-has-server-data",
             severity: "blocker",
             title: `The old server copy is still on ${targetName}`,
-            detail: `Delete it on ${targetName}'s page in Settings → Machines, or run bb server delete-old-copy on that machine, then check again.`,
+            detail: `Delete it on ${targetName}'s page in Settings → Machines, or run cc server delete-old-copy on that machine, then check again.`,
           }
         : {
             id: "target-has-server-data",
             severity: "blocker",
-            title: `${targetName} already has bb server data`,
-            detail: `${inspect.dataDir} already contains a bb database.`,
+            title: `${targetName} already has cc server data`,
+            detail: `${inspect.dataDir} already contains a cc database.`,
           },
     );
   }
@@ -389,7 +389,7 @@ function appendTargetInspectItems(args: {
     items.push({
       id: "existing-target-server-data",
       severity: "warning",
-      title: `${targetName} has its own bb data`,
+      title: `${targetName} has its own cc data`,
       detail: `${inspect.existingServerData.path} will be archived next to it with a .before-move date suffix. It is never merged.`,
     });
   }
@@ -459,7 +459,7 @@ function appendTargetInspectItems(args: {
   items.push({
     id: "managed-config-replaced",
     severity: "info",
-    title: `This server's bb skill settings and other configuration will replace matching settings on ${targetName}`,
+    title: `This server's cc skill settings and other configuration will replace matching settings on ${targetName}`,
     detail: null,
   });
 }
@@ -479,8 +479,8 @@ function appendVersionItems(args: {
     args.items.push({
       id: "target-newer-version",
       severity: "blocker",
-      title: `${args.targetName} runs a newer bb than this server`,
-      detail: `${args.targetName} runs bb ${args.inspect.bbAppVersion} and this server runs bb ${appVersion}. Update the server to bb ${args.inspect.bbAppVersion} first, then check again.`,
+      title: `${args.targetName} runs a newer cc than this server`,
+      detail: `${args.targetName} runs cc ${args.inspect.ccAppVersion} and this server runs cc ${appVersion}. Update the server to cc ${args.inspect.ccAppVersion} first, then check again.`,
     });
     return;
   }
@@ -489,7 +489,7 @@ function appendVersionItems(args: {
     args.items.push({
       id: "target-update",
       severity: "info",
-      title: `bb ${availability.version} will be installed on ${args.targetName}`,
+      title: `cc ${availability.version} will be installed on ${args.targetName}`,
       detail: `The update stays on ${args.targetName} even if the move is cancelled.`,
     });
     return;
@@ -499,13 +499,13 @@ function appendVersionItems(args: {
       ? {
           id: "target-version",
           severity: "blocker",
-          title: `${args.targetName} runs bb ${args.inspect.bbAppVersion}, but this server runs bb ${appVersion}`,
-          detail: `Update ${args.targetName} to bb ${appVersion}. ${availability.reason}`,
+          title: `${args.targetName} runs cc ${args.inspect.ccAppVersion}, but this server runs cc ${appVersion}`,
+          detail: `Update ${args.targetName} to cc ${appVersion}. ${availability.reason}`,
         }
       : {
           id: "server-entry-unavailable",
           severity: "blocker",
-          title: `${args.targetName} doesn't have the bb server installed`,
+          title: `${args.targetName} doesn't have the cc server installed`,
           detail: availability.reason,
         },
   );
@@ -552,7 +552,7 @@ function appendServerStateItems(args: {
       title: `${plural(offlineMachines.length, "machine is", "machines are")} offline`,
       detail: `${offlineMachines.map((host) => host.name).join(", ")}. ${
         args.mode.mode === "connect"
-          ? "They reconnect through bb connect when they come back."
+          ? "They reconnect through cc connect when they come back."
           : "They learn the new address from this computer when they come back."
       }`,
     });
@@ -636,7 +636,7 @@ function appendManagedAddressItems(args: {
     if (url === null) {
       continue;
     }
-    const idPrefix = address.key === "BB_APP_URL" ? "app-url" : "external-url";
+    const idPrefix = address.key === "CC_APP_URL" ? "app-url" : "external-url";
     if (oldAddress !== null && url.origin === oldAddress.origin) {
       args.items.push({
         id: `${idPrefix}-rewrite`,
@@ -655,7 +655,7 @@ function appendManagedAddressItems(args: {
         severity: "warning",
         title: `${address.key} in ${address.file} points at ${address.value}`,
         detail:
-          "The move keeps this address as it is, so it may still point at this computer. Update it after the move if devices open bb through it.",
+          "The move keeps this address as it is, so it may still point at this computer. Update it after the move if devices open cc through it.",
       });
     }
   }
@@ -689,7 +689,7 @@ export async function runServerMoveCheck(
       severity: "blocker",
       title: "This server doesn't run its own machine",
       detail:
-        "Moving the server needs the machine that runs it. Start bb with its local machine, then try again.",
+        "Moving the server needs the machine that runs it. Start cc with its local machine, then try again.",
     });
   }
   const targetRow = getHost(deps.db, request.targetHostId);
@@ -719,7 +719,7 @@ export async function runServerMoveCheck(
     items.push({
       id: "connect-unavailable",
       severity: "blocker",
-      title: "bb connect status is unavailable",
+      title: "cc connect status is unavailable",
       detail: mode.message,
     });
   }
@@ -855,7 +855,7 @@ export async function runServerMoveCheck(
       severity: "info",
       title: `${liveSourceServerHost.name} will keep running as a machine in the background`,
       detail:
-        "This server runs in the bb desktop app. After the move, the app installs a background service that keeps this computer connected to the new server and updates it with the server, even while the app is closed. The service needs Node.js 22.19 or newer on this computer; without it, the computer stays connected only while the app is open.",
+        "This server runs in the cc desktop app. After the move, the app installs a background service that keeps this computer connected to the new server and updates it with the server, even while the app is closed. The service needs Node.js 22.19 or newer on this computer; without it, the computer stays connected only while the app is open.",
     });
   }
   if (liveSourceServerHost !== null) {

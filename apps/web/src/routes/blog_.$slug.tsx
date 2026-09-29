@@ -5,7 +5,6 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { PostBlocks, PostHeader, PostLede } from "../blog/post-body";
 import { getPost } from "../blog/posts";
 import { stripMarkdown } from "../blog/parse-post";
-import { useInitAnalytics } from "../landing/analytics";
 import { SubscribeSection } from "../landing/cta";
 import { pageMeta, siteHeadLinks } from "../landing/page-head";
 import { SiteFooter, SiteNav } from "../landing/site-chrome";
@@ -22,10 +21,10 @@ export const Route = createFileRoute("/blog_/$slug")({
   head: ({ loaderData }) => {
     const post = loaderData?.post;
     if (!post) {
-      return { meta: [{ title: "Blog — bb" }] };
+      return { meta: [{ title: "Blog — cc" }] };
     }
     const description = stripMarkdown(post.lede);
-    const title = `${post.title} — bb`;
+    const title = `${post.title} — cc`;
     return {
       meta: pageMeta(title, description, `/blog/${post.slug}`),
       links: siteHeadLinks(blogCss),
@@ -36,7 +35,6 @@ export const Route = createFileRoute("/blog_/$slug")({
 
 function BlogPostRoute() {
   const { post } = Route.useLoaderData();
-  useInitAnalytics();
 
   return (
     <div className="wrap">

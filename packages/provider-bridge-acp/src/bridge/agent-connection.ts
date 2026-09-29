@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
-import { experimental_recordProviderChildIo } from "@bb/provider-bridge-protocol/bridge-kit";
+import { experimental_recordProviderChildIo } from "@cc/provider-bridge-protocol/bridge-kit";
 import type { z } from "zod";
 import { ACP_PROTOCOL_VERSION, acpInitializeResultSchema } from "../wire.js";
 
@@ -392,7 +392,7 @@ export function requestAcpInitialize(
     method: "initialize",
     params: {
       protocolVersion: ACP_PROTOCOL_VERSION,
-      clientInfo: { name: "bb", version: "1.0.0" },
+      clientInfo: { name: "cc", version: "1.0.0" },
       clientCapabilities: acpClientCapabilities(
         parameterizedModelPicker,
         fsAccess,

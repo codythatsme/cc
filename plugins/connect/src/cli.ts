@@ -2,13 +2,13 @@ import {
   PluginCliError,
   cliCommand,
   defineCli,
-  type BbPluginApi,
+  type CcPluginApi,
   type PluginCliResult,
-} from "@get-bb/plugin-sdk";
+} from "@codythatsme/plugin-sdk";
 import {
   mobilePairingPayload,
   type MobilePairingPayload,
-} from "@bb/connect-client";
+} from "@cc/connect-client";
 import type { ShareHostResolver } from "./hosts.js";
 import { MachineCodeError } from "./machine-code.js";
 import type { MobilePairingGate } from "./rpc.js";
@@ -17,14 +17,14 @@ import type { ConnectTunnel } from "./tunnel.js";
 import type { ConnectStatus } from "./types.js";
 
 const DESCRIPTION = [
-  "Remote access via getbb.app — this bb becomes reachable at https://<handle>.getbb.app.",
+  "Remote access through your own connect service — this cc becomes reachable at https://<handle>.cc.example.invalid.",
   "Share HTTP ports from any enrolled host (owner session only).",
   "",
-  "  1. Sign in at https://getbb.app and claim a handle.",
+  "  1. Sign in at https://cc.example.invalid and claim a handle.",
   "  2. Copy the connect command from the dashboard and run it here:",
-  "       bb connect --code <code> --server https://<handle>.getbb.app",
+  "       cc connect --code <code> --server https://<handle>.cc.example.invalid",
   "",
-  "The server holds the tunnel; it stays up while bb is running.",
+  "The server holds the tunnel; it stays up while cc is running.",
 ].join("\n");
 
 const HOST_OPTION = {
@@ -40,7 +40,7 @@ const JSON_OPTION = {
 
 function formatStatus(status: ConnectStatus): string {
   if (!status.paired) {
-    return "Not paired\nPair from the getbb.app dashboard — run `bb connect` for a how-to.";
+    return "Not paired\nPair from the connect service dashboard — run `cc connect` for a how-to.";
   }
   const lines = [`${status.handle}  ${status.url}  ${status.state}`];
   if (status.lastError !== null && status.state !== "connected") {
@@ -63,7 +63,7 @@ function asJson(value: unknown): string {
 
 function notPairedError(): PluginCliError {
   return new PluginCliError(
-    "this bb is not connected to getbb.app — run `bb connect` for how to pair",
+    "this cc is not connected to your connect service — run `cc connect` for how to pair",
     { code: "not_paired" },
   );
 }
@@ -99,9 +99,9 @@ function formatMachineCode(payload: MobilePairingPayload): string {
     `Apex:       ${payload.apex}`,
     `Expires:    ${new Date(payload.expiresAt).toISOString()} (in about ${minutes} min)`,
     "",
-    "Enter the code in the bb mobile app when it asks to pair over bb connect (or",
+    "Enter the code in the cc mobile app when it asks to pair over cc connect (or",
     "scan the QR code from Settings → Remote access → Add mobile device). The phone",
-    "enrolls as a connect machine on this account — it appears in the getbb.app",
+    "enrolls as a connect machine on this account — it appears in the cc.example.invalid",
     "dashboard's machine list, where you can revoke it. The code works once.",
   ].join("\n");
 }
@@ -121,25 +121,25 @@ async function attempt(
 }
 
 export function registerConnectCli(args: {
-  bb: Pick<BbPluginApi, "cli">;
+  cc: Pick<CcPluginApi, "cli">;
   tunnel: ConnectTunnel;
   hostResolver: ShareHostResolver;
   mobilePairing: MobilePairingGate;
 }): void {
-  const { bb, tunnel, hostResolver, mobilePairing } = args;
-  bb.cli.register(
+  const { cc, tunnel, hostResolver, mobilePairing } = args;
+  cc.cli.register(
     defineCli({
       name: "connect",
       summary:
-        "Expose this bb at https://<handle>.getbb.app (pair with --code/--server from the dashboard)",
+        "Expose this cc at https://<handle>.cc.example.invalid (pair with --code/--server from the dashboard)",
       description: DESCRIPTION,
       root: cliCommand({
-        summary: "Pair this bb with a getbb.app handle",
+        summary: "Pair this cc with a cc.example.invalid handle",
         options: {
           code: {
             type: "string",
             placeholder: "code",
-            description: "One-time pairing code from the getbb.app dashboard",
+            description: "One-time pairing code from the connect service dashboard",
           },
           server: {
             type: "string",
@@ -173,7 +173,7 @@ export function registerConnectCli(args: {
               exitCode: 0,
               stdout:
                 `Paired as ${status.handle} — reachable at ${status.url}\n` +
-                "The server holds the tunnel; it stays up while bb is running.\n",
+                "The server holds the tunnel; it stays up while cc is running.\n",
             };
           }),
       }),
@@ -195,7 +195,7 @@ export function registerConnectCli(args: {
         off: cliCommand({
           summary: "Disconnect and forget the pairing",
           description:
-            "Re-pairing needs a new code from the getbb.app dashboard.",
+            "Re-pairing needs a new code from the connect service dashboard.",
           options: { json: JSON_OPTION },
           run: (input) =>
             attempt(async () => {
@@ -294,7 +294,7 @@ export function registerConnectCli(args: {
             }),
         }),
         servers: cliCommand({
-          summary: "List every bb server on this account",
+          summary: "List every cc server on this account",
           options: { json: JSON_OPTION },
           run: (input) =>
             attempt(async () => {
@@ -331,13 +331,13 @@ export function registerConnectCli(args: {
         }),
         "machine-code": cliCommand({
           summary:
-            'Mint a one-time code that enrolls the bb mobile app as a connect machine (needs the "Mobile app" experiment)',
+            'Mint a one-time code that enrolls the cc mobile app as a connect machine (needs the "Mobile app" experiment)',
           options: { json: JSON_OPTION },
           run: (input) =>
             attempt(async () => {
               if (!(await mobilePairing.enabled())) {
                 throw new PluginCliError(
-                  'mobile pairing is off — turn on the "Mobile app" experiment in Settings → Experiments (or `bb settings experiment mobileApp true`), then run this again',
+                  'mobile pairing is off — turn on the "Mobile app" experiment in Settings → Experiments (or `cc settings experiment mobileApp true`), then run this again',
                   { code: "mobile_pairing_disabled" },
                 );
               }

@@ -7,19 +7,19 @@ import {
   type AppThemeSelection,
   type FaviconColor,
   type FaviconColorPreference,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   DARK_COLOR_SCHEME_QUERY,
   getMediaQuerySnapshot,
   subscribeMediaQuery,
-} from "@bb/shared-ui/hooks/use-media-query";
+} from "@cc/shared-ui/hooks/use-media-query";
 import { invalidateSystemConfig } from "@/hooks/cache-owners/system-cache-effects";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { sdk } from "@/lib/sdk";
 
-export const FAVICON_COLOR_STORAGE_KEY = "bb.faviconColor";
+export const FAVICON_COLOR_STORAGE_KEY = "cc.faviconColor";
 export const FAVICON_COLOR_SERVER_SYNCED_STORAGE_KEY =
-  "bb.faviconColor.serverSynced";
+  "cc.faviconColor.serverSynced";
 
 const FAVICON_BADGES = ["none", "unread"] as const;
 type FaviconBadge = (typeof FAVICON_BADGES)[number];

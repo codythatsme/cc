@@ -1,20 +1,14 @@
-Open your bb from a phone or another computer. After you pair, this bb answers at `https://<handle>.getbb.app` for anyone signed in to your getbb.app account.
+Open cc from another device through a connect service that you operate.
 
-## What you get
+Hosted access is disabled until configured. Set `CC_CONNECT_BASE_URL` to your
+service origin and restart cc, then enter a pairing code in Remote access.
+Alternatively run `cc connect --code <code> --server <server-url>` with the full
+server URL supplied by your service's dashboard.
 
-- Remote access to the full bb app through a tunnel. Your bb makes an outbound connection, so you do not open ports or change your router.
-- Port shares. Publish a local HTTP server, such as a dev server, at a share URL. The link opens from any device with your session.
-- Pairing for the bb mobile app with a QR code or a one-time code.
-- A Remote access section in Settings, and a sidebar shortcut to it, with the connection state and the remote URL.
+The plugin holds the tunnel in the background and reconnects after a drop.
+Disable it to disconnect remote access. Your source and server data remain on
+the machine running cc. Local access and tailnet URLs work without this plugin.
 
-## How it works
-
-Get a pairing code from the getbb.app dashboard and enter it in Settings. You can also run `bb connect --code <code> --server <url>`. The plugin keeps the tunnel open in the background and reconnects after a drop. Disable the plugin to cut all remote access at once. `bb connect off` also disconnects and forgets the pairing.
-
-## For agents
-
-When you view bb remotely, agents are told to share servers with `bb connect expose <port>`. A localhost link would not open. The `share-server-links` skill explains the flow. Other commands: `bb connect status`, `bb connect unexpose <port>`, `bb connect shares`, `bb connect servers`, and `bb connect machine-code`.
-
-## Requirements
-
-A getbb.app account. Share links open only for viewers with your getbb.app session; they are not public. Mobile pairing needs the "Mobile app" experiment.
+Use `cc connect expose <port>` to share an HTTP port with authenticated users of
+your own service. Mobile pairing requires an explicit service/server URL; cc
+does not enroll devices with any upstream hosted service by default.

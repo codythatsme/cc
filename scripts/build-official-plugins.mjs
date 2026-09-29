@@ -20,7 +20,7 @@ const selected =
 
 // Resolves from this repo's own devDependencies; no download here.
 const toolchain = await resolvePluginBuildToolchain(
-  resolve(repositoryRoot, "node_modules/.bb-toolchain"),
+  resolve(repositoryRoot, "node_modules/.cc-toolchain"),
 );
 
 for (const plugin of selected) {
@@ -31,14 +31,14 @@ for (const plugin of selected) {
   }
 }
 
-const bbPackage = JSON.parse(
+const ccPackage = JSON.parse(
   await readFile(
-    resolve(repositoryRoot, "packages/bb-app/package.json"),
+    resolve(repositoryRoot, "packages/cc-app/package.json"),
     "utf8",
   ),
 );
-if (typeof bbPackage.version !== "string") {
-  throw new Error("packages/bb-app/package.json is missing a version");
+if (typeof ccPackage.version !== "string") {
+  throw new Error("packages/cc-app/package.json is missing a version");
 }
 
 for (const plugin of selected) {
@@ -50,14 +50,14 @@ for (const plugin of selected) {
 
   const server = await buildPluginServer(
     rootDirectory,
-    bbPackage.version,
+    ccPackage.version,
     toolchain,
   );
-  const app = manifest.bb?.app
-    ? await buildPluginApp(rootDirectory, bbPackage.version, toolchain)
+  const app = manifest.cc?.app
+    ? await buildPluginApp(rootDirectory, ccPackage.version, toolchain)
     : null;
-  const host = manifest.bb?.host
-    ? await buildPluginHost(rootDirectory, bbPackage.version, toolchain)
+  const host = manifest.cc?.host
+    ? await buildPluginHost(rootDirectory, ccPackage.version, toolchain)
     : null;
   const outputs = [server.jsPath, server.metaPath];
   if (app !== null) {

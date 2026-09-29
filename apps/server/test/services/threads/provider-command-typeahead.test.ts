@@ -1,4 +1,4 @@
-import type { HostProviderCommand } from "@bb/host-daemon-contract";
+import type { HostProviderCommand } from "@cc/host-daemon-contract";
 import { describe, expect, it } from "vitest";
 import { buildCommandListResponse } from "../../../src/services/threads/provider-command-typeahead.js";
 
@@ -88,18 +88,18 @@ describe("buildCommandListResponse", () => {
   it("keeps the first user-origin skill when global roots provide the same name", () => {
     const response = buildCommandListResponse({
       commands: [
-        skill("bb-cli", { description: "Data-dir override" }),
-        skill("bb-cli", { description: "Built-in default" }),
+        skill("cc-cli", { description: "Data-dir override" }),
+        skill("cc-cli", { description: "Built-in default" }),
       ],
       includeBuiltinCompact: true,
       skillCatalog: [],
     });
 
     expect(
-      response.commands.filter((command) => command.name === "bb-cli"),
+      response.commands.filter((command) => command.name === "cc-cli"),
     ).toEqual([
       {
-        name: "bb-cli",
+        name: "cc-cli",
         source: "skill",
         origin: "user",
         description: "Data-dir override",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AvailableModel } from "@bb/domain";
-import { resolvePreferredTestModel } from "@bb/test-helpers";
+import type { AvailableModel } from "@cc/domain";
+import { resolvePreferredTestModel } from "@cc/test-helpers";
 
 function availableModel(model: string, isDefault: boolean): AvailableModel {
   return {

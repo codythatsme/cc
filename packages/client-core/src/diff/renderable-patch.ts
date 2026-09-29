@@ -1,9 +1,9 @@
-import type { TimelineFileChange } from "@bb/server-contract";
+import type { TimelineFileChange } from "@cc/server-contract";
 import {
   getFileChangeAction,
   isPatchMetadataLine,
   type FileChangeAction,
-} from "@bb/thread-view";
+} from "@cc/thread-view";
 
 export interface RenderablePatchText {
   disableLineNumbers: boolean;

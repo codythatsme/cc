@@ -1,5 +1,5 @@
-import { getEnvironment, getHost, type DbQueryConnection } from "@bb/db";
-import type { Thread } from "@bb/domain";
+import { getEnvironment, getHost, type DbQueryConnection } from "@cc/db";
+import type { Thread } from "@cc/domain";
 import { ApiError } from "../../errors.js";
 
 export function assertThreadHostAcceptsWork(

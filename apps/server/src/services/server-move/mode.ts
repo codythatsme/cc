@@ -42,7 +42,7 @@ export async function resolveServerMoveMode(
   if (handler.outcome !== "found") {
     return {
       mode: "unavailable",
-      message: "bb connect isn't running, so its address can't be checked.",
+      message: "cc connect isn't running, so its address can't be checked.",
     };
   }
   const result = await plugins.invokeRpcHandler(
@@ -58,7 +58,7 @@ export async function resolveServerMoveMode(
   if (!status.success) {
     return {
       mode: "unavailable",
-      message: "bb connect returned an unexpected status.",
+      message: "cc connect returned an unexpected status.",
     };
   }
   if (

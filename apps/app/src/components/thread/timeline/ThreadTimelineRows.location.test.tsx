@@ -16,10 +16,10 @@ import { ThreadTimelineRows } from "./ThreadTimelineRows";
 
 const compactViewport = vi.hoisted(() => ({ calls: 0 }));
 
-vi.mock("@bb/shared-ui/hooks/use-compact-viewport", async (importOriginal) => {
+vi.mock("@cc/shared-ui/hooks/use-compact-viewport", async (importOriginal) => {
   const actual =
     await importOriginal<
-      typeof import("@bb/shared-ui/hooks/use-compact-viewport")
+      typeof import("@cc/shared-ui/hooks/use-compact-viewport")
     >();
   return {
     ...actual,
@@ -139,12 +139,12 @@ describe("ThreadTimelineRows location subscription", () => {
       '[data-timeline-row-id="thr_a-message"]',
     );
     await waitFor(() =>
-      expect(matchingRow?.classList.contains("bb-search-flash")).toBe(true),
+      expect(matchingRow?.classList.contains("cc-search-flash")).toBe(true),
     );
     expect(
       container
         .querySelector('[data-timeline-row-id="thr_b-message"]')
-        ?.classList.contains("bb-search-flash"),
+        ?.classList.contains("cc-search-flash"),
     ).toBe(false);
   });
 });

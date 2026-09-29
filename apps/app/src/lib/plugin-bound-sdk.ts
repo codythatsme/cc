@@ -1,14 +1,14 @@
 import type {
-  BbSdkAreas,
+  CcSdkAreas,
   ThreadForkArgs,
   ThreadMutationResult,
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadSpawnArgs,
   ThreadUpdateArgs,
-} from "@bb/sdk";
+} from "@cc/sdk";
 import type { QueryClient } from "@tanstack/react-query";
-import type { PluginBrowserBbSdk } from "@get-bb/plugin-sdk";
+import type { PluginBrowserCcSdk } from "@codythatsme/plugin-sdk";
 import {
   beginEnvironmentNameUpdateTransaction,
   completeEnvironmentNameUpdateTransaction,
@@ -36,7 +36,7 @@ function hasThreadMetadataUpdate(args: ThreadUpdateArgs): boolean {
 }
 
 function createOptimisticThreadUpdateBatcher(
-  sdk: BbSdkAreas,
+  sdk: CcSdkAreas,
   queryClient: QueryClient,
 ): (args: ThreadUpdateArgs) => Promise<ThreadMutationResult> {
   let pending: PendingThreadUpdate[] = [];
@@ -112,10 +112,10 @@ function withPluginThreadAttribution<
 }
 
 export function bindSdkToPlugin(
-  sdk: BbSdkAreas,
+  sdk: CcSdkAreas,
   pluginId: string,
   queryClient: QueryClient,
-): PluginBrowserBbSdk {
+): PluginBrowserCcSdk {
   const updateThread = createOptimisticThreadUpdateBatcher(sdk, queryClient);
   return {
     ...sdk,
@@ -182,14 +182,14 @@ export function bindSdkToPlugin(
 
 const boundSdkByQueryClient = new WeakMap<
   QueryClient,
-  WeakMap<BbSdkAreas, Map<string, PluginBrowserBbSdk>>
+  WeakMap<CcSdkAreas, Map<string, PluginBrowserCcSdk>>
 >();
 
 export function getPluginBoundSdk(
-  sdk: BbSdkAreas,
+  sdk: CcSdkAreas,
   pluginId: string,
   queryClient: QueryClient,
-): PluginBrowserBbSdk {
+): PluginBrowserCcSdk {
   let bySdk = boundSdkByQueryClient.get(queryClient);
   if (bySdk === undefined) {
     bySdk = new WeakMap();

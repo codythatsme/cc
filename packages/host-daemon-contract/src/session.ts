@@ -16,9 +16,9 @@ import {
   threadEventSchema,
   toolCallRequestSchema,
   toolCallResponseSchema,
-} from "@bb/domain";
+} from "@cc/domain";
 import { z } from "zod";
-import type { Endpoint } from "@bb/hono-typed-routes";
+import type { Endpoint } from "@cc/hono-typed-routes";
 import type {
   HostDaemonOnlineRpcCommandType,
   HostDaemonSettledCommandType,
@@ -34,7 +34,7 @@ import {
 } from "./commands.js";
 import { hostPlatformSchema } from "./local.js";
 
-const HOST_DAEMON_WEBSOCKET_PROTOCOL = "bb-host-daemon.v1";
+const HOST_DAEMON_WEBSOCKET_PROTOCOL = "cc-host-daemon.v1";
 
 export const hostDaemonActiveThreadSchema = z.object({
   threadId: z.string().min(1),

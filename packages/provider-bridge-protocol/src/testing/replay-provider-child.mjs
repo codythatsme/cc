@@ -158,22 +158,22 @@ const DIALECTS = {
   /**
    * `pi --mode rpc`: commands carry `{ id, type }`, responses are
    * `{ id, type: "response", command, success }`, and every other line is a
-   * raw AgentSessionEvent (or an `extension_ui_request`). The bb extension's
+   * raw AgentSessionEvent (or an `extension_ui_request`). The cc extension's
    * channel (fd 3 child → bridge, fd 4 bridge → child) is recorded on the
-   * same lanes wrapped as `{ bbChannel: <message> }`; this dialect routes
+   * same lanes wrapped as `{ ccChannel: <message> }`; this dialect routes
    * those back onto the channel fds.
    */
   "pi-rpc": {
     channel: {
-      key: "bbChannel",
+      key: "ccChannel",
       childToBridgeFd: 3,
       bridgeToChildFd: 4,
     },
     classify(message) {
-      const channel = message.bbChannel;
+      const channel = message.ccChannel;
       if (typeof channel === "object" && channel !== null) {
         // The extension mints tool-call ids; the bridge mints request ids
-        // (`cr-N`), disjoint from its stdin ids (`bb-N`).
+        // (`cr-N`), disjoint from its stdin ids (`cc-N`).
         if (channel.kind === "tool-call" || channel.kind === "request") {
           return {
             kind: "request",
@@ -198,23 +198,23 @@ const DIALECTS = {
     isInitialize(classified) {
       // Every pi child the bridge spawns (session, catalog, fork helper)
       // opens with `get_state`, and the bridge numbers its requests per
-      // child from `bb-1`; later `get_state` probes (compaction guard, steer
+      // child from `cc-1`; later `get_state` probes (compaction guard, steer
       // settlement) carry higher ids and do not start a segment.
       return (
         classified.kind === "request" &&
         classified.key === "get_state" &&
-        classified.id === "bb-1"
+        classified.id === "cc-1"
       );
     },
     withResponseId(message, id) {
-      if (typeof message.bbChannel === "object" && message.bbChannel !== null) {
-        return { ...message, bbChannel: { ...message.bbChannel, id } };
+      if (typeof message.ccChannel === "object" && message.ccChannel !== null) {
+        return { ...message, ccChannel: { ...message.ccChannel, id } };
       }
       return { ...message, id };
     },
     genericResponse(id, classified) {
       if (classified?.channel) {
-        return { bbChannel: { kind: "reply", id, result: {} } };
+        return { ccChannel: { kind: "reply", id, result: {} } };
       }
       return { id, type: "response", command: "?", success: true, data: {} };
     },

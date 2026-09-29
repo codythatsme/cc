@@ -2,7 +2,7 @@ import {
   type AppCommandId,
   type AppKeybindings,
   type AppShortcut,
-} from "@bb/domain";
+} from "@cc/domain";
 
 export interface ApplicationMenuAccelerators {
   closeWindowOrSideTab: string | undefined;

@@ -1,6 +1,6 @@
-import { Skeleton } from "@bb/shared-ui/skeleton";
-import { useIsCompactViewport } from "@bb/shared-ui/hooks/use-compact-viewport";
-import { cn } from "@bb/shared-ui/lib/utils";
+import { Skeleton } from "@cc/shared-ui/skeleton";
+import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { cn } from "@cc/shared-ui/lib/utils";
 
 const PICKER_LOADING_ROW_WIDTHS = ["w-20", "w-28", "w-24", "w-32"] as const;
 

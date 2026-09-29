@@ -5,7 +5,7 @@ import type {
   EnvironmentChangeKind,
   HostChangeKind,
   SystemChangeKind,
-} from "@bb/domain";
+} from "@cc/domain";
 
 export interface DbNotifier {
   notifyThread(

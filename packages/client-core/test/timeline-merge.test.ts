@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTimelineDelta } from "@bb/server-contract";
+import { applyTimelineDelta } from "@cc/server-contract";
 import type {
   ThreadTimelineResponse,
   TimelineCommandWorkRow,
@@ -7,7 +7,7 @@ import type {
   TimelineRow,
   TimelineTurnRow,
   TimelineUserConversationRow,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import {
   mergeLoadedTimelineWithLatest,
   mergeLatestTimelineRows,

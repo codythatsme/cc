@@ -1,15 +1,15 @@
-declare const __BB_PLUGIN_ID__: string | undefined;
+declare const __CC_PLUGIN_ID__: string | undefined;
 
 export function usePortalScopeProps(): {
-  "data-bb-portaled-overlay": "";
-  "data-bb-plugin-root"?: "";
-  "data-bb-plugin"?: string;
+  "data-cc-portaled-overlay": "";
+  "data-cc-plugin-root"?: "";
+  "data-cc-plugin"?: string;
 } {
   const pluginId =
-    typeof __BB_PLUGIN_ID__ === "string" ? __BB_PLUGIN_ID__ : undefined;
+    typeof __CC_PLUGIN_ID__ === "string" ? __CC_PLUGIN_ID__ : undefined;
   return {
-    "data-bb-portaled-overlay": "",
-    "data-bb-plugin-root": "",
-    ...(pluginId !== undefined ? { "data-bb-plugin": pluginId } : {}),
+    "data-cc-portaled-overlay": "",
+    "data-cc-plugin-root": "",
+    ...(pluginId !== undefined ? { "data-cc-plugin": pluginId } : {}),
   };
 }

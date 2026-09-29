@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { TasksEditor } from "../../editor/tasks-editor.js";
-import { useBbNavigate } from "@get-bb/plugin-sdk/app";
+import { useCcNavigate } from "@codythatsme/plugin-sdk/app";
 import {
   useMentionItems,
   useTasksQuery,
@@ -229,7 +229,7 @@ function SystemEvent({ comment, nowMs }: { comment: Comment; nowMs: number }) {
 function CommentCard({ entry, nowMs }: { entry: FeedEntry; nowMs: number }) {
   const { comment, attachments } = entry;
   const agent = comment.kind === "agent";
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
   return (
     <div className="relative mb-3.5 flex gap-2.5">
@@ -284,7 +284,7 @@ interface ComposerProps {
 
 export function CommentComposer({ taskId, notificationTarget }: ComposerProps) {
   const rpc = useTasksRpc();
-  const navigate = useBbNavigate();
+  const navigate = useCcNavigate();
   const mentionItems = useMentionItems();
   const [body, setBody] = useState("");
   const [notify, setNotify] = useState(true);

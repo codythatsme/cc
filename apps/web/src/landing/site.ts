@@ -1,10 +1,10 @@
-export const GITHUB_URL = "https://github.com/get-bb/bb";
-export const DISCORD_URL = "https://discord.gg/kvBU6tJhcJ";
-export const X_URL = "https://x.com/get_bb_app";
+export const GITHUB_URL = "https://github.com/codythatsme/cc";
+export const DISCORD_URL = "https://github.com/codythatsme/cc/issues";
+export const X_URL = "https://github.com/codythatsme/cc";
 export const DOWNLOAD_FALLBACK_URL =
-  "https://github.com/get-bb/bb/releases/tag/desktop-latest";
+  "https://github.com/codythatsme/cc/releases/latest";
 export const DOWNLOAD_RELEASE_ASSET_BASE_URL =
-  "https://github.com/get-bb/bb/releases/download/desktop-latest";
+  "https://github.com/codythatsme/cc/releases/download/v0.44.0";
 
 export type DesktopPlatform = "macos" | "linux";
 
@@ -38,24 +38,19 @@ export const DESKTOP_DOWNLOADS: Record<DesktopPlatform, DesktopDownload> = {
   },
 };
 export const SUBSCRIBE_PATH = "/api/subscribe";
-export const CLI_COMMAND = "npx bb-app@latest";
+export const CLI_COMMAND = "brew install --cask codythatsme/tap/cc";
 
-export type CtaPlacement = "nav" | "hero" | "local" | "closer" | "footer";
-
-export function downloadHref(
-  platform: DesktopPlatform,
-  placement: CtaPlacement,
-): string {
-  return `${DESKTOP_DOWNLOADS[platform].redirectPath}?placement=${placement}`;
+export function downloadHref(platform: DesktopPlatform): string {
+  return DESKTOP_DOWNLOADS[platform].redirectPath;
 }
 
 declare const __SITE_ORIGIN__: string;
 const SITE_URL = __SITE_ORIGIN__;
-export const SITE_TITLE = "bb: the IDE that builds itself";
+export const SITE_TITLE = "cc: the IDE that builds itself";
 export const SITE_DESCRIPTION =
-  "bb can control, customize, and automate itself, laying the groundwork for your own software factory. Fully open source and local-first, with Claude Code, Codex, Cursor, Pi, OpenCode, Grok, omp, and Hermes.";
+  "cc can control, customize, and automate itself, laying the groundwork for your own software factory. Fully open source and local-first, with Claude Code, Codex, Cursor, Pi, OpenCode, Grok, omp, and Hermes.";
 export const OG_DESCRIPTION =
-  "bb can control, customize, and automate itself, laying the groundwork for your own software factory.";
+  "cc can control, customize, and automate itself, laying the groundwork for your own software factory.";
 
 export function unfurlMeta(
   title: string,
@@ -65,7 +60,7 @@ export function unfurlMeta(
     path: "/og.png",
     width: 2400,
     height: 1260,
-    alt: "bb logo — The IDE that builds itself. Free, open source, and local-first.",
+    alt: "cc logo — The IDE that builds itself. Free, open source, and local-first.",
   },
 ) {
   return [
@@ -73,7 +68,7 @@ export function unfurlMeta(
     { property: "og:description", content: description },
     { property: "og:type", content: "website" },
     { property: "og:url", content: `${SITE_URL}${path}` },
-    { property: "og:site_name", content: "bb" },
+    { property: "og:site_name", content: "cc" },
     { property: "og:image", content: `${SITE_URL}${image.path}` },
     { property: "og:image:width", content: String(image.width) },
     { property: "og:image:height", content: String(image.height) },

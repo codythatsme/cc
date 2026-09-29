@@ -128,7 +128,7 @@ describe("public marketplace data", () => {
     for (const pathname of [
       "/marketplace",
       "/marketplace/plugin-id",
-      "/marketplace/author/get-bb",
+      "/marketplace/author/get-cc",
     ]) {
       expect(marketplaceHtmlCacheControl(pathname, 200)).toBe(
         "public, max-age=300, must-revalidate",

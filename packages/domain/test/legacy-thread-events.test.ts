@@ -347,7 +347,7 @@ describe("legacy tool-item adapter", () => {
       "Task",
       "spawnAgent",
       "resumeAgent",
-      "bb:spawnAgent",
+      "cc:spawnAgent",
     ]) {
       expect(isLegacyDelegationToolCall({ tool }), tool).toBe(true);
     }

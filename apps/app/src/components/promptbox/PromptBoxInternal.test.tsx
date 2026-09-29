@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { resolveThreadMentionDropTarget } from "@/lib/thread-mention-drop";
-import type { PromptTextMention } from "@bb/domain";
+import type { PromptTextMention } from "@cc/domain";
 import type { TiptapEditorHTMLElement } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
 import { EditorView } from "@tiptap/pm/view";
@@ -28,7 +28,7 @@ import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadT
 import {
   EMPTY_ORDERED_MENTION_SUGGESTIONS,
   emptyPromptDraftState,
-} from "@bb/client-core";
+} from "@cc/client-core";
 import {
   getComposerInputLock,
   useComposer,
@@ -80,7 +80,7 @@ import { orderPromptMentionSuggestions } from "@/hooks/promptMentionCandidates";
 import type {
   PromptMentionSuggestion,
   ProviderCommandSuggestion,
-} from "@bb/client-core";
+} from "@cc/client-core";
 
 type PromptBoxProps = ComponentProps<typeof PromptBoxInternal>;
 
@@ -4497,8 +4497,8 @@ describe("PromptBoxInternal prompt actions", () => {
       }
       pill.textContent = serializedText;
       return {
-        text: `Build a plugin capability like ${serializedText} using bb's Plugin Guide. `,
-        html: `Build a plugin capability like ${pill.outerHTML} using bb's Plugin Guide. `,
+        text: `Build a plugin capability like ${serializedText} using cc's Plugin Guide. `,
+        html: `Build a plugin capability like ${pill.outerHTML} using cc's Plugin Guide. `,
       };
     };
 
@@ -4525,8 +4525,8 @@ describe("PromptBoxInternal prompt actions", () => {
       getPromptEditorElement().querySelectorAll(".prompt-mention-pill"),
     ).toHaveLength(2);
     expect(latestValue(changes)).toBe(
-      "Build a plugin capability like @Inline actions using bb's Plugin Guide. " +
-        "Build a plugin capability like @Thread side-panel tabs using bb's Plugin Guide. ",
+      "Build a plugin capability like @Inline actions using cc's Plugin Guide. " +
+        "Build a plugin capability like @Thread side-panel tabs using cc's Plugin Guide. ",
     );
   });
 

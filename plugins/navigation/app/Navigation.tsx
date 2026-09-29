@@ -10,7 +10,7 @@ import {
   experimental_useSidebarNavigationSplit,
   type ExperimentalSidebarNavigationItem,
   type ExperimentalSidebarNavigationProps,
-} from "@get-bb/plugin-sdk/app";
+} from "@codythatsme/plugin-sdk/app";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import {
   SortableContext,

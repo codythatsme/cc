@@ -1,4 +1,4 @@
-import type { PermissionMode } from "@bb/domain";
+import type { PermissionMode } from "@cc/domain";
 
 export interface PermissionModeOption {
   value: PermissionMode;

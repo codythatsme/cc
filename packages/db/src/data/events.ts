@@ -9,7 +9,7 @@ import { acquireProjectAttachmentOwnership } from "./project-attachments.js";
 import {
   storedAttachmentPaths,
   type ProjectAttachmentOwnershipMode,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   and,
   desc,
@@ -38,7 +38,7 @@ import type {
   ThreadEventScope,
   ThreadEventScopeKind,
   ThreadEventType,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   LOCAL_AGENT_TASK_TYPE,
   LOCAL_BASH_TASK_TYPE,
@@ -50,7 +50,7 @@ import {
   parseStoredThreadEvent,
   systemThreadInterruptedReasonSchema,
   threadEventTypeValues,
-} from "@bb/domain";
+} from "@cc/domain";
 import type {
   DbConnection,
   DbQueryConnection,

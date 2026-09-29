@@ -1,9 +1,9 @@
-import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@bb/domain";
+import { SERVER_MOVE_STEP_IDS, type ServerMoveStepId } from "@cc/domain";
 import type {
   ServerMoveStatus,
   ServerMoveStepStatus,
-} from "@bb/server-contract";
-import { makeHost } from "@bb/test-helpers/domain-fixtures";
+} from "@cc/server-contract";
+import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import {
   ServerMoveOverlayView,
   type ServerMoveOverlayViewProps,
@@ -36,7 +36,7 @@ function move(overrides: Partial<ServerMoveStatus> = {}): ServerMoveStatus {
     mode: "connect",
     targetHostId: "host_desk",
     targetHostName: "desk",
-    serverUrl: "https://michael.getbb.app",
+    serverUrl: "https://michael.cc.example.invalid",
     destinationStatusUrl: null,
     startedAt: now - 90_000,
     finishedAt: null,
@@ -160,7 +160,7 @@ export function Progress() {
       </StoryRow>
       <StoryRow
         label="needs recovery"
-        hint="the target never confirmed it took over, so the server stays up read-only while bb keeps checking; Abandon asks first"
+        hint="the target never confirmed it took over, so the server stays up read-only while cc keeps checking; Abandon asks first"
       >
         <Overlay
           content={{
@@ -217,7 +217,7 @@ export function Finished() {
   return (
     <StoryCard labelWidth="220px">
       <StoryRow
-        label="bb connect, reconnecting"
+        label="cc connect, reconnecting"
         hint="the address stays the same, so the app waits for the new server to answer with this move, then toasts"
       >
         <Overlay content={{ kind: "reconnecting", move: completedConnect }} />
@@ -243,7 +243,7 @@ export function Finished() {
             kind: "redirecting",
             move: completedDirect,
             destination:
-              "https://desk.example.com/projects/proj_bb/threads/thr_1",
+              "https://desk.example.com/projects/proj_cc/threads/thr_1",
           }}
         />
       </StoryRow>

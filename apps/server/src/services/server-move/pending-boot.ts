@@ -14,8 +14,8 @@ import {
   type DbConnection,
   type RerootServerOwnedPathsResult,
   type SwapServerHostRolesResult,
-} from "@bb/db";
-import { appSettingsSchema } from "@bb/domain";
+} from "@cc/db";
+import { appSettingsSchema } from "@cc/domain";
 import {
   readLastServerMoveFile,
   readServerImportFile,
@@ -24,7 +24,7 @@ import {
   writeLastServerMoveFile,
   writeServerImportFile,
   type ServerImportFile,
-} from "@bb/server-archive";
+} from "@cc/server-archive";
 import { z } from "zod";
 import type { AppDeps, ServerLogger } from "../../types.js";
 import { readPrimaryHostIdFromDataDir } from "../hosts/primary-host.js";
@@ -351,7 +351,7 @@ export async function refuseInterruptedServerImport(
   if (status.kind !== "interrupted") {
     return;
   }
-  const message = `bb server import into ${args.dataDir} was interrupted, so this server won't start on partial data. Run bb server import <file> --data-dir ${args.dataDir} again; it rolls back the interrupted import first.`;
+  const message = `cc server import into ${args.dataDir} was interrupted, so this server won't start on partial data. Run cc server import <file> --data-dir ${args.dataDir} again; it rolls back the interrupted import first.`;
   args.logger.error({ dataDir: args.dataDir }, message);
   throw new Error(message);
 }

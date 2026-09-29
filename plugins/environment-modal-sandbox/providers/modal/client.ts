@@ -1,4 +1,4 @@
-import type { MachineExecutor } from "@get-bb/plugin-sdk";
+import type { MachineExecutor } from "@codythatsme/plugin-sdk";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { ensureModalImage, type ModalImageRequest } from "./image.js";
@@ -197,7 +197,7 @@ export const createModalSandboxClient: ModalSandboxClientFactory = (
         beforeTimestamp: 0,
         environmentName: client.environmentName(),
         includeFinished: false,
-        tags: [{ tagName: "bbMachineKey", tagValue: request.key }],
+        tags: [{ tagName: "ccMachineKey", tagValue: request.key }],
       });
       const sandbox = result.sandboxes.find(
         (candidate) => candidate.id === request.sandboxId,
@@ -244,7 +244,7 @@ export const createModalSandboxClient: ModalSandboxClientFactory = (
     },
     async *listByKey(key) {
       for await (const sandbox of client.sandboxes.list({
-        tags: { bbMachineKey: key },
+        tags: { ccMachineKey: key },
       })) {
         yield wrapSandbox(sandbox);
       }

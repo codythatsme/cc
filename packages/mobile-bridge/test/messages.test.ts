@@ -30,7 +30,7 @@ describe("parsePageToShellMessage", () => {
   it("accepts every message kind the contract defines", () => {
     const cases: unknown[] = [
       { type: "ready", path: "/threads/thr_1" },
-      { type: "title", title: "bb", path: "/" },
+      { type: "title", title: "cc", path: "/" },
       { type: "haptic", kind: "impact-medium" },
       { type: "badge", count: 0 },
       { type: "open-external", url: "https://example.com/docs" },
@@ -40,7 +40,7 @@ describe("parsePageToShellMessage", () => {
         id: "r1-2",
         request: {
           kind: "share",
-          payload: { url: "https://bee.getbb.app/threads/thr_1" },
+          payload: { url: "https://bee.cc.example.invalid/threads/thr_1" },
         },
       },
     ];
@@ -97,7 +97,7 @@ describe("parsePageToShellMessage", () => {
       "javascript:alert(1)",
       "data:text/html,<script>alert(1)</script>",
       "file:///etc/passwd",
-      "bb://settings",
+      "cc://settings",
       "not a url",
     ]) {
       expect(
@@ -130,7 +130,7 @@ describe("parsePageToShellMessage", () => {
         json({
           type: "request",
           id: "r1",
-          request: { kind: "share", payload: { title: "bb" } },
+          request: { kind: "share", payload: { title: "cc" } },
         }),
       ).ok,
     ).toBe(false);

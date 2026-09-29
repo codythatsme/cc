@@ -25,8 +25,8 @@ import {
 } from "../list/lib.js";
 import { DispatchControl } from "./threads.js";
 import { DEFAULT_COLOR } from "../manage/shared.js";
-import { BbProjectLinkPicker } from "../manage/bb-project-link.js";
-import type { BbProjectOption } from "../../shared/contract.js";
+import { CcProjectLinkPicker } from "../manage/cc-project-link.js";
+import type { CcProjectOption } from "../../shared/contract.js";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -318,12 +318,12 @@ function LabelsMenu({
 
 function DispatchTargetMenu({
   project,
-  bbProjects,
+  ccProjects,
   onError,
   triggerClassName,
 }: {
   project: Project;
-  bbProjects: readonly BbProjectOption[];
+  ccProjects: readonly CcProjectOption[];
   onError: (message: string) => void;
   triggerClassName: string;
 }) {
@@ -331,9 +331,9 @@ function DispatchTargetMenu({
   const [open, setOpen] = useState(false);
   const [selection, setSelection] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const linkedBbProjectId = project.linkedBbProjectId;
-  const linkedName = bbProjects.find(
-    (candidate) => candidate.id === linkedBbProjectId,
+  const linkedCcProjectId = project.linkedCcProjectId;
+  const linkedName = ccProjects.find(
+    (candidate) => candidate.id === linkedCcProjectId,
   )?.name;
 
   const save = async (linkedId: string | null) => {
@@ -342,7 +342,7 @@ function DispatchTargetMenu({
     try {
       await rpc.call("updateProject", {
         projectId: project.id,
-        linkedBbProjectId: linkedId,
+        linkedCcProjectId: linkedId,
       });
       setOpen(false);
     } catch (saveError) {
@@ -356,7 +356,7 @@ function DispatchTargetMenu({
     <Popover
       open={open}
       onOpenChange={(next) => {
-        if (next) setSelection(linkedBbProjectId);
+        if (next) setSelection(linkedCcProjectId);
         setOpen(next);
       }}
     >
@@ -367,26 +367,26 @@ function DispatchTargetMenu({
           className={triggerClassName}
         >
           <Icon name="ArrowUpRight" className="size-3.5 shrink-0" />
-          {linkedBbProjectId !== null ? (
-            <span className="truncate" title={linkedBbProjectId}>
-              {linkedName ?? linkedBbProjectId}
+          {linkedCcProjectId !== null ? (
+            <span className="truncate" title={linkedCcProjectId}>
+              {linkedName ?? linkedCcProjectId}
             </span>
           ) : (
             <span className="truncate text-muted-foreground">
-              Link a bb project…
+              Link a cc project…
             </span>
           )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-3">
-        <BbProjectLinkPicker
+        <CcProjectLinkPicker
           value={selection}
           onChange={setSelection}
-          bbProjects={bbProjects}
-          noneLabel={linkedBbProjectId !== null ? "Unlink" : "Not linked"}
+          ccProjects={ccProjects}
+          noneLabel={linkedCcProjectId !== null ? "Unlink" : "Not linked"}
         />
         <div className="mt-2.5 flex items-center justify-between gap-2">
-          {linkedBbProjectId !== null ? (
+          {linkedCcProjectId !== null ? (
             <Button
               variant="ghost"
               size="sm"
@@ -435,8 +435,8 @@ export function PropertiesRail({
     task.labelIds.includes(label.id),
   );
   const active = threads.filter(isActiveThread);
-  const bbProjects = useTasksQuery(
-    async (query) => (await query.call("listBbProjects")).bbProjects,
+  const ccProjects = useTasksQuery(
+    async (query) => (await query.call("listCcProjects")).ccProjects,
     ["projects:changed"],
   );
   return (
@@ -496,7 +496,7 @@ export function PropertiesRail({
       {project !== undefined ? (
         <DispatchTargetMenu
           project={project}
-          bbProjects={bbProjects.data ?? []}
+          ccProjects={ccProjects.data ?? []}
           onError={onError}
           triggerClassName={RAIL_ROW_CLASS}
         />

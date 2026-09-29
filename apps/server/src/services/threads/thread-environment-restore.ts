@@ -3,12 +3,12 @@ import {
   getHost,
   type DbConnection,
   type EnvironmentRow,
-} from "@bb/db";
+} from "@cc/db";
 import {
   resolveEnvironmentHostLifecycle,
   type EnvironmentProviderSelection,
   type Thread,
-} from "@bb/domain";
+} from "@cc/domain";
 import { ApiError } from "../../errors.js";
 import {
   threadEnvironmentUnavailableDetails,

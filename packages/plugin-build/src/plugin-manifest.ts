@@ -4,7 +4,7 @@ import {
   isPluginOwnedIconPath,
   pluginPackageJsonSchema,
   type PluginPackageJson,
-} from "@bb/domain";
+} from "@cc/domain";
 import {
   assertValidPluginCompactIconSvg,
   assertValidPluginIconSvg,
@@ -101,16 +101,16 @@ export async function validatePluginBuildManifest(
       `invalid plugin package.json${path ? ` (${path})` : ""} at ${packageJsonPath}: ${issue?.message ?? "unknown error"}`,
     );
   }
-  const logo = parsed.data.bb.branding.logo;
+  const logo = parsed.data.cc.branding.logo;
   const compactIcon =
-    parsed.data.bb.branding.icon !== undefined &&
-    isPluginOwnedIconPath(parsed.data.bb.branding.icon)
-      ? parsed.data.bb.branding.icon
+    parsed.data.cc.branding.icon !== undefined &&
+    isPluginOwnedIconPath(parsed.data.cc.branding.icon)
+      ? parsed.data.cc.branding.icon
       : undefined;
   for (const [label, entry] of [
-    ["bb.branding.icon", compactIcon],
-    ["bb.branding.logo.light", logo?.light],
-    ["bb.branding.logo.dark", logo?.dark],
+    ["cc.branding.icon", compactIcon],
+    ["cc.branding.logo.light", logo?.light],
+    ["cc.branding.logo.dark", logo?.dark],
   ] as const) {
     if (entry === undefined) continue;
     if (!/\.(svg|png|webp)$/i.test(entry)) {
@@ -123,7 +123,7 @@ export async function validatePluginBuildManifest(
       resolveManifestPath(rootDir, entry, label),
       label,
     );
-    if (label === "bb.branding.icon") {
+    if (label === "cc.branding.icon") {
       assertValidPluginCompactIconSvg(await readFile(realAsset), label);
     } else if (/\.svg$/iu.test(entry)) {
       assertValidPluginLogoSvg(
@@ -133,9 +133,9 @@ export async function validatePluginBuildManifest(
     }
   }
   for (const [name, entry] of Object.entries(
-    parsed.data.bb.branding.experimental_icons ?? {},
+    parsed.data.cc.branding.experimental_icons ?? {},
   )) {
-    const label = `bb.branding.experimental_icons["${name}"]`;
+    const label = `cc.branding.experimental_icons["${name}"]`;
     const realAsset = await resolveManifestAssetFile(
       rootDir,
       resolveManifestPath(rootDir, entry, label),

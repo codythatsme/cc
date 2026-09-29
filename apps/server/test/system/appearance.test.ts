@@ -1,14 +1,14 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { getStoredFaviconColor, getStoredThemeId } from "@bb/db";
+import { getStoredFaviconColor, getStoredThemeId } from "@cc/db";
 import {
   appThemeSchema,
   builtInPaletteCodeThemes,
   defaultAppTheme,
   formatPluginThemeId,
   resolveCodeTheme,
-} from "@bb/domain";
+} from "@cc/domain";
 
 function appearanceForPalette(
   themeId: keyof typeof builtInPaletteCodeThemes,
@@ -24,7 +24,7 @@ function appearanceForPalette(
 import {
   themeCatalogResponseSchema,
   systemConfigResponseSchema,
-} from "@bb/server-contract";
+} from "@cc/server-contract";
 import { readJson } from "../helpers/json.js";
 import { withTestHarness } from "../helpers/test-app.js";
 
@@ -196,15 +196,15 @@ describe("appearance settings", () => {
       const root = join(
         harness.config.dataDir,
         "fixtures",
-        "bb-plugin-palette",
+        "cc-plugin-palette",
       );
       await mkdir(join(root, "themes"), { recursive: true });
       await writeFile(
         join(root, "package.json"),
         JSON.stringify({
-          name: "bb-plugin-palette",
+          name: "cc-plugin-palette",
           version: "0.1.0",
-          bb: {
+          cc: {
             name: "Palette fixture",
             description: "Plugin palette fixture.",
             branding: { icon: "Zap" },
@@ -342,9 +342,9 @@ describe("appearance settings", () => {
         themeId: "ocean",
         customCss: ":root {}",
         resolvedCodeTheme: {
-          dark: "bb:ocean:dark",
+          dark: "cc:ocean:dark",
           light: "pierre-light",
-          files: { "bb:ocean:dark": { ...darkTheme, name: "bb:ocean:dark" } },
+          files: { "cc:ocean:dark": { ...darkTheme, name: "cc:ocean:dark" } },
         },
       });
     });

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { PLUGIN_PROCESS_DATA_KINDS } from "@bb/process-utils";
+import { PLUGIN_PROCESS_DATA_KINDS } from "@cc/process-utils";
 
 const LEGACY_WORKSPACE_ROOT_NAMES = ["worktrees", "personal-workspaces"];
 
@@ -7,7 +7,7 @@ function isInside(root: string, candidate: string): boolean {
   return candidate === root || candidate.startsWith(`${root}/`);
 }
 
-export function isBbManagedWorkspacePath(args: {
+export function isCcManagedWorkspacePath(args: {
   dataDir: string;
   path: string;
 }): boolean {

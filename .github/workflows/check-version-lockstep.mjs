@@ -21,16 +21,16 @@ function readPackageVersion(packagePath) {
   return packageJson.version;
 }
 
-const bbAppVersion = readPackageVersion("packages/bb-app/package.json");
+const ccAppVersion = readPackageVersion("packages/cc-app/package.json");
 const desktopVersion = readPackageVersion("apps/desktop/package.json");
 
-if (bbAppVersion !== desktopVersion) {
+if (ccAppVersion !== desktopVersion) {
   console.error(
-    `Version mismatch: bb-app=${bbAppVersion} @bb/desktop=${desktopVersion}; bump both via scripts/bump-version.mjs`,
+    `Version mismatch: cc-app=${ccAppVersion} @cc/desktop=${desktopVersion}; bump both via scripts/bump-version.mjs`,
   );
   process.exit(1);
 }
 
 console.log(
-  `Versions locked: bb-app=${bbAppVersion} @bb/desktop=${desktopVersion}`,
+  `Versions locked: cc-app=${ccAppVersion} @cc/desktop=${desktopVersion}`,
 );
