@@ -25,7 +25,7 @@ const cask = `cask "cc" do
   homepage "https://github.com/codythatsme/cc"
 
   depends_on arch: :arm64
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "cc.app"
 
