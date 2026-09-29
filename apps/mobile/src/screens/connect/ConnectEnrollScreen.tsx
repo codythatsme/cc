@@ -181,7 +181,7 @@ export function ConnectEnrollScreen() {
               testID="connect-enrolled-card"
             >
               <Icon
-                name="CircleCheck"
+                name="CircleCheckFilled"
                 symbol="checkmark.circle.fill"
                 size={28}
                 color={colors.green}

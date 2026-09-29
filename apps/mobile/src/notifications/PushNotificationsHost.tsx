@@ -180,6 +180,7 @@ function FirstRunPrompt({
 
   return (
     <ActionSheet
+      presentation="prompt"
       controller={sheet}
       title="Get notified when a thread needs you?"
       cancelLabel={process.env.EXPO_OS === "ios" ? "Cancel" : null}
@@ -188,7 +189,7 @@ function FirstRunPrompt({
         {
           key: "enable",
           label: "Turn on notifications",
-          icon: "Zap",
+          icon: "Bell",
           onPress: () => {
             if (!profile) return;
             void controller.setEnabled(profile, true).then((outcome) => {

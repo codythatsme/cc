@@ -12,7 +12,7 @@ import { Text } from "./Text";
 const IS_IOS = process.env.EXPO_OS === "ios";
 
 const androidButtonVariants = cva(
-  "flex-row items-center justify-center gap-2 rounded-md",
+  "flex-row items-center justify-center gap-2 rounded-full",
   {
     variants: {
       variant: {

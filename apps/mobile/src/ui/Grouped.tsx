@@ -14,7 +14,7 @@ import { Text } from "./Text";
 
 const IS_IOS = process.env.EXPO_OS === "ios";
 
-export const GROUPED_CARD_RADIUS = 10;
+export const GROUPED_CARD_RADIUS = IS_IOS ? 10 : 16;
 export const GROUPED_ROW_PADDING_X = 16;
 const GROUPED_ROW_GAP = 12;
 export const ICON_BADGE_SIZE = 29;
@@ -26,7 +26,6 @@ export interface IconBadgeProps {
 }
 
 export function IconBadge({ icon, symbol, color }: IconBadgeProps) {
-  const { tokens } = useTheme();
   return (
     <View
       style={{
@@ -34,19 +33,14 @@ export function IconBadge({ icon, symbol, color }: IconBadgeProps) {
         height: ICON_BADGE_SIZE,
         borderRadius: 7,
         borderCurve: "continuous",
-        backgroundColor: IS_IOS ? color : tokens.surfaceRecessedSolid,
+        backgroundColor: color,
         alignItems: "center",
         justifyContent: "center",
       }}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <Icon
-        name={icon}
-        symbol={symbol}
-        size={18}
-        color={IS_IOS ? "#ffffff" : tokens.mutedForeground}
-      />
+      <Icon name={icon} symbol={symbol} size={18} color="#ffffff" />
     </View>
   );
 }
@@ -63,6 +57,7 @@ export interface GroupedRowProps {
   onLongPress?: () => void;
   destructive?: boolean;
   disabled?: boolean;
+  selected?: boolean;
   titleLines?: number;
   testID?: string;
   accessibilityLabel?: string;
@@ -80,6 +75,7 @@ export function GroupedRow({
   onLongPress,
   destructive = false,
   disabled = false,
+  selected = trailing === "checkmark" ? true : undefined,
   titleLines = 1,
   testID,
   accessibilityLabel,
@@ -156,7 +152,7 @@ export function GroupedRow({
       }
       accessibilityState={{
         disabled,
-        selected: trailing === "checkmark" ? true : undefined,
+        selected,
       }}
       disabled={disabled}
       onPress={onPress}
@@ -219,7 +215,7 @@ export function GroupedSection({
       <View
         className="overflow-hidden"
         style={{
-          borderRadius: IS_IOS ? GROUPED_CARD_RADIUS : 8,
+          borderRadius: GROUPED_CARD_RADIUS,
           borderWidth: IS_IOS ? 0 : 1,
           borderColor: tokens.border,
           borderCurve: "continuous",
