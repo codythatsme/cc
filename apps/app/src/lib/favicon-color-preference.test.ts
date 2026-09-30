@@ -94,6 +94,7 @@ describe("favicon rendering", () => {
   const originalGetContext = HTMLCanvasElement.prototype.getContext;
 
   beforeEach(() => {
+    vi.resetModules();
     Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
       configurable: true,
       value: () => null,
@@ -106,6 +107,8 @@ describe("favicon rendering", () => {
       value: originalGetContext,
     });
     cleanup();
+    window.localStorage.clear();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.resetModules();
   });
@@ -124,12 +127,14 @@ describe("favicon rendering", () => {
 
   class FakeImage {
     static created = 0;
+    static sources: string[] = [];
     naturalWidth = 32;
     naturalHeight = 32;
     onload: (() => void) | null = null;
     onerror: (() => void) | null = null;
-    set src(_value: string) {
+    set src(value: string) {
       FakeImage.created += 1;
+      FakeImage.sources.push(value);
       queueMicrotask(() => this.onload?.());
     }
   }
@@ -137,6 +142,41 @@ describe("favicon rendering", () => {
   async function loadFreshModule() {
     return import("./favicon-color-preference");
   }
+
+  it("places the chosen color behind the carbon mark without flattening its shading", async () => {
+    stubDisplayMode(false);
+    window.localStorage.setItem(FAVICON_COLOR_STORAGE_KEY, "blue");
+    FakeImage.sources = [];
+    vi.stubGlobal("Image", FakeImage);
+    const compositingModes: string[] = [];
+    const fillColors: string[] = [];
+    const context = {
+      drawImage: vi.fn(),
+      globalCompositeOperation: "source-over",
+      fillStyle: "",
+      fillRect: () => {
+        compositingModes.push(context.globalCompositeOperation);
+        fillColors.push(context.fillStyle);
+      },
+    };
+    Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+      configurable: true,
+      value: () => context,
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue(
+      "data:image/png;base64,rendered-icon",
+    );
+    const module = await loadFreshModule();
+    module.initializeFavicon();
+
+    await waitFor(() => expect(context.drawImage).toHaveBeenCalledTimes(2));
+    expect(compositingModes).toEqual(["destination-over", "destination-over"]);
+    expect(fillColors).toEqual(["#0090ff", "#0090ff"]);
+    expect(FakeImage.sources).toEqual([
+      "/favicon-32x32.png",
+      "/favicon-16x16.png",
+    ]);
+  });
 
   it("decodes each base glyph once across badge flips", async () => {
     stubDisplayMode(false);

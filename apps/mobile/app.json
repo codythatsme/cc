@@ -32,7 +32,7 @@
     "android": {
       "package": "io.github.codythatsme.cc.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#f1ede5",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -51,10 +51,10 @@
         {
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#f1ede5",
           "dark": {
             "image": "./assets/splash-icon-dark.png",
-            "backgroundColor": "#000000"
+            "backgroundColor": "#28292a"
           }
         }
       ],

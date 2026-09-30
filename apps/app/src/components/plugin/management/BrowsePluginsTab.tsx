@@ -5,7 +5,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { Icon } from "@cc/shared-ui/icon";
 import { appToast } from "@/components/ui/app-toast";
-import ccLogoUrl from "../../../../../../assets/cc-logo.svg";
+import { CcLogo } from "@/components/ui/cc-logo";
 import { OpenPluginGuideButton } from "./OpenPluginGuideButton";
 import { cn } from "@cc/shared-ui/lib/utils";
 import {
@@ -351,15 +351,14 @@ function BrowseShelf({
       hideDescriptionOnMobile
       leading={
         shelf.key === "collection:cc-official" ? (
-          <span
-            className="size-4 shrink-0 bg-current text-foreground"
-            style={{ mask: `url(${ccLogoUrl}) center / contain no-repeat` }}
-            aria-hidden
-          />
+          <CcLogo className="size-4" />
         ) : shelf.key === "collection:new-and-notable" ? (
           <Icon name="News01" className="size-4 text-foreground" aria-hidden />
         ) : (
-          <PluginCategoryIcon categoryId={shelf.categoryId} className="size-4" />
+          <PluginCategoryIcon
+            categoryId={shelf.categoryId}
+            className="size-4"
+          />
         )
       }
       browseAction={

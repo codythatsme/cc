@@ -1513,7 +1513,9 @@ The canonical release summary.
     const relaunch = screen.getByRole("button", {
       name: /Relaunch cc to finish updating/,
     });
-    expect(relaunch.querySelector("img")?.className).toContain("size-3");
+    expect(relaunch.querySelector("img")?.parentElement?.className).toContain(
+      "size-3",
+    );
     expect(relaunch.className).toContain("border");
     fireEvent.click(relaunch);
     expect(installUpdate).toHaveBeenCalledOnce();

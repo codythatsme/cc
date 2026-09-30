@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { logoSvg, renderPng } from "./brand-artwork.mjs";
+import { renderMarkPng } from "./brand-artwork.mjs";
 
 const appDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const publicDir = join(appDir, "public");
@@ -18,11 +18,11 @@ const faviconColorValues = {
   pink: "#d6409f",
 };
 const icons = [
-  { file: "icon-192.png", size: 192, scale: 0.84 },
-  { file: "icon-512.png", size: 512, scale: 0.84 },
-  { file: "icon-192-maskable.png", size: 192, scale: 0.72 },
-  { file: "icon-512-maskable.png", size: 512, scale: 0.72 },
-  { file: "apple-touch-icon.png", size: 180, scale: 0.84 },
+  { file: "icon-192.png", size: 192, scale: 0.76 },
+  { file: "icon-512.png", size: 512, scale: 0.76 },
+  { file: "icon-192-maskable.png", size: 192, scale: 0.66 },
+  { file: "icon-512-maskable.png", size: 512, scale: 0.66 },
+  { file: "apple-touch-icon.png", size: 180, scale: 0.76 },
 ];
 const mismatches = [];
 
@@ -44,20 +44,15 @@ const baseManifest = JSON.parse(
 for (const size of [192, 512]) {
   await writeOrCheck(
     `icon-monochrome-${size}.png`,
-    await renderPng(logoSvg({ foreground: "#ffffff", scale: 0.84 }), size),
+    await renderMarkPng(size, { monochrome: true, scale: 0.76 }),
   );
 }
 
-for (const [color, foreground] of Object.entries(faviconColorValues)) {
+for (const [color, background] of Object.entries(faviconColorValues)) {
   for (const { file, size, scale } of icons) {
     await writeOrCheck(
       file.replace(/\.png$/u, `-${color}.png`),
-      await renderPng(
-        logoSvg({ foreground, background: "#ffffff", scale }),
-        size,
-        size,
-        true,
-      ),
+      await renderMarkPng(size, { background, scale }),
     );
   }
   await writeOrCheck(

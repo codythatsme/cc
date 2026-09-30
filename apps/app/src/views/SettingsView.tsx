@@ -82,10 +82,7 @@ import {
 import { useSystemConfig } from "@/hooks/queries/system-queries";
 import { useWorkspaceOpenTargets } from "@/hooks/useWorkspaceOpenTargets";
 import { isDesktopBrowserAvailable } from "@/lib/cc-desktop";
-import {
-  FAVICON_COLOR_VALUES,
-  getFaviconGlyphHref,
-} from "@/lib/favicon-color-preference";
+import { CcLogo } from "@/components/ui/cc-logo";
 import { useOpenLinksInAppBrowserPreference } from "@/lib/in-app-browser-link-preference";
 import { useRewriteLocalhostLinksPreference } from "@/lib/localhost-link-rewrite-preference";
 import { localhostLinkRewriteDescription } from "@/lib/localhost-link-rewrite-description";
@@ -290,16 +287,13 @@ function PaletteMenuItem({
 }
 
 function FaviconColorPreview({ value }: { value: FaviconColorPreference }) {
+  if (value === "default") return <CcLogo className="size-4" />;
   return (
-    <span
+    <img
       aria-hidden
-      className={cn("size-4 shrink-0", value === "default" && "bg-foreground")}
-      style={{
-        mask: `url("${getFaviconGlyphHref()}") center / contain no-repeat`,
-        ...(value === "default"
-          ? undefined
-          : { backgroundColor: FAVICON_COLOR_VALUES[value] }),
-      }}
+      alt=""
+      className="size-4 shrink-0 rounded-sm"
+      src={`/apple-touch-icon-${value}.png`}
     />
   );
 }

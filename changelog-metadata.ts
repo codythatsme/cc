@@ -4,6 +4,10 @@ type ReleaseMeta = {
 };
 
 export const RELEASE_META: Record<string, ReleaseMeta> = {
+  "0.44.1": {
+    date: "October 1, 2026",
+    headline: "The Soft Carbon identity",
+  },
   "0.44.0": {
     date: "September 25, 2026",
     headline: "Diff filtering, safer archiving, and plugin safe mode",

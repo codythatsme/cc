@@ -155,10 +155,6 @@ interface UnreadBadgeDot {
   radius: number;
 }
 
-export function getFaviconGlyphHref(): string {
-  return import.meta.env.DEV ? "/favicon-32x32-dev.png" : "/favicon-32x32.png";
-}
-
 function getFaviconVariantSuffix(): string {
   if (import.meta.env.DEV) return "-dev";
   return getMediaQuerySnapshot(DARK_COLOR_SCHEME_QUERY) ? "-dark" : "";
@@ -241,7 +237,7 @@ async function createFaviconHref({
   context.drawImage(image, 0, 0);
 
   if (colorPreference !== "default") {
-    context.globalCompositeOperation = "source-in";
+    context.globalCompositeOperation = "destination-over";
     context.fillStyle = FAVICON_COLOR_VALUES[colorPreference];
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.globalCompositeOperation = "source-over";
@@ -283,7 +279,8 @@ let applyToken = 0;
 async function applyFaviconState(state: FaviconRenderState): Promise<void> {
   const token = ++applyToken;
   if (getMediaQuerySnapshot(STANDALONE_DISPLAY_MODE_QUERY)) return;
-  const suffix = getFaviconVariantSuffix();
+  const suffix =
+    state.colorPreference === "default" ? getFaviconVariantSuffix() : "";
   const links = await Promise.all(
     FAVICON_SIZES.map(async (size): Promise<RenderedFaviconLink> => {
       const baseHref = `/favicon-${size}x${size}${suffix}.png`;

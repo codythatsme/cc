@@ -1,6 +1,6 @@
 {
   "name": "@cc/desktop",
-  "version": "0.44.0",
+  "version": "0.44.1",
   "private": true,
   "description": "macOS and Linux Electron shell for cc",
   "main": "dist/main.js",

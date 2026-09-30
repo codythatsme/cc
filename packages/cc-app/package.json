@@ -1,6 +1,6 @@
 {
   "name": "cc-app",
-  "version": "0.44.0",
+  "version": "0.44.1",
   "description": "cc app launcher for npx",
   "keywords": [
     "cc",
@@ -53,8 +53,8 @@
     "host-daemon/dist/daemon-bundle.mjs",
     "server/dist",
     "README.md",
-    "!**/*.map",
-    "host-daemon/dist/plugin-sdk"
+    "host-daemon/dist/plugin-sdk",
+    "!**/*.map"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",

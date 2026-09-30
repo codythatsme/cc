@@ -1,0 +1,20 @@
+{
+  "mode": "built-in imagegen",
+  "selectedConcept": "04 Soft Carbon",
+  "date": "2026-10-01",
+  "reference": "approved-concept.png",
+  "production": [
+    {
+      "slug": "mark",
+      "prompt": "Use case: precise-object-edit. Input image 1 is the APPROVED cc Soft Carbon concept. Extract/recreate ONLY its LARGE black cc sculpture as a production logo cutout. Preserve exactly its two nestled chunky soft black ceramic lowercase c shapes, both facing right, the asymmetry, the same proportions, the matte carbon material, the large soft highlights and rounded inflated terminals. Same near-front view and deliberate overlap. Remove every other element: no title, no small app icon, no tile, no ground plane or cast floor shadow, no stage, no backdrop. The openings and outside MUST be true alpha transparency, no white/gray fill or baked checkerboard. Keep shading on the sculpture itself. Tight centered landscape 3:2 canvas with even clear margins around the full logo, mark occupies ~90% of width, nothing cropped. Highest fidelity clean silhouette, high-resolution master for desktop/mobile icons. Do not flatten, simplify or redesign the accepted sculpture."
+    },
+    {
+      "slug": "mark-light",
+      "prompt": "Use case: precise-object-edit. Input image 1 is the APPROVED cc Soft Carbon concept. Make a dark-mode production logo cutout of ONLY its LARGE cc sculpture. Preserve EXACTLY the same geometry of its two nestled chunky lowercase c shapes, both facing right, the asymmetry, proportions, same near-front view, rounded inflated terminals and deliberate overlap. Change the material from soft black carbon to pale pearl/ivory ceramic so it reads on dark backgrounds; preserve tactile depth through soft gray recess shading and white broad highlights. Remove every other element: no title, no small app icon, no tile, no ground plane or cast floor shadow, no stage, no backdrop. The openings and outside MUST be true alpha transparency, no white/gray fill or baked checkerboard. Keep shading on the sculpture itself. Tight centered landscape 3:2 canvas with even clear margins, mark occupies ~90% of width, nothing cropped. Highest-fidelity clean silhouette, high-resolution master. Do not flatten or redesign the accepted sculpture."
+    },
+    {
+      "slug": "app-icon",
+      "prompt": "Use case: precise-object-edit. Input image 1 is the APPROVED cc Soft Carbon brand concept. Deliver a production macOS APP ICON matching the SMALL ICON shown at the lower right of that reference, not the entire presentation card. One centered front-facing square icon on a true transparent canvas, straight-on camera, no perspective trapezoid. Soft warm-white/ivory rounded squircle tile with subtle bevel, subtle raised edges and restrained soft edge shadow. Center the approved sculptural chunky soft-black cc letters inside, exactly the same silhouette and proportions as the original concept. Both Cs open toward the right, left C in front, dark satin carbon ceramic with soft highlights, slightly forward lean, no flat font letters. Tile occupies around 86% of 1024x1024 square canvas width/height, evenly inset, preserving transparent outer corners and margins. cc mark occupies about 68% of tile width; optically centered. Only ONE icon, no title, no letters beyond cc, no comparison sheet, no backdrop, no frame around composition, no floating scenery. Crisp professional app icon, true alpha transparency outside the tile. This is a faithful finalization of the chosen Soft Carbon design, not a new concept."
+    }
+  ]
+}

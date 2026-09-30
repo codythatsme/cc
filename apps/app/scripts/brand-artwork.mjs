@@ -1,34 +1,85 @@
 import { readFile } from "node:fs/promises";
 import sharp from "sharp";
 
-const source = await readFile(
-  new URL("../../../assets/cc-logo.svg", import.meta.url),
-  "utf8",
-);
-const mark = source.match(/<path\s[^>]*\/>/u)?.[0];
-if (!mark) throw new Error("cc-logo.svg must contain its canonical path");
+export const brandCanvas = "#f1ede5";
+const root = new URL("../../../", import.meta.url);
+const marks = new Map();
 
-export function logoSvg({
-  foreground = "#153c49",
-  background,
-  scale = 1,
-  desktop = false,
-  accent = "#197782",
-} = {}) {
-  const inset = (512 - 512 * scale) / 2;
-  const backdrop = desktop
-    ? `<defs><linearGradient id="tile" x2="0.85" y2="1"><stop stop-color="${accent}"/><stop offset="1" stop-color="${background}"/></linearGradient></defs><rect x="52" y="52" width="408" height="408" rx="100" fill="url(#tile)"/><rect x="53" y="53" width="406" height="406" rx="99" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2"/>`
-    : background
-      ? `<rect width="512" height="512" fill="${background}"/>`
-      : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">${backdrop}<g transform="translate(${inset} ${inset}) scale(${scale})">${mark.replace('stroke="#153c49"', `stroke="${foreground}"`)}</g></svg>`;
+async function markSource(appearance) {
+  if (!marks.has(appearance)) {
+    const path = appearance === "pearl" ? "mark-light.png" : "mark.png";
+    marks.set(
+      appearance,
+      readFile(new URL(`assets/soft-carbon/${path}`, root)).then((source) =>
+        sharp(source).trim().png().toBuffer(),
+      ),
+    );
+  }
+  return marks.get(appearance);
 }
 
-export function renderPng(svg, width, height = width, opaque = false) {
-  const output = sharp(Buffer.from(svg), { density: 384 }).resize(
-    width,
-    height,
+export async function renderMarkPng(
+  size,
+  { appearance = "carbon", background, scale = 0.9, monochrome = false } = {},
+) {
+  const source = await markSource(appearance);
+  const extent = Math.round(size * scale);
+  let mark = await sharp(source)
+    .resize(extent, extent, { fit: "inside" })
+    .png()
+    .toBuffer();
+  if (monochrome) {
+    const { width, height } = await sharp(mark).metadata();
+    const alpha = await sharp(mark)
+      .ensureAlpha()
+      .extractChannel("alpha")
+      .threshold(32)
+      .toBuffer();
+    mark = await sharp({
+      create: { width, height, channels: 3, background: "#ffffff" },
+    })
+      .joinChannel(alpha)
+      .png()
+      .toBuffer();
+  }
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: background ? 3 : 4,
+      background: background ?? "#00000000",
+    },
+  })
+    .composite([{ input: mark, gravity: "centre" }])
+    .png()
+    .toBuffer();
+}
+
+export async function renderAppIconPng(size, channel = "stable") {
+  const source = await readFile(
+    new URL("assets/soft-carbon/app-icon.png", root),
   );
-  if (opaque) output.removeAlpha();
-  return output.png().toBuffer();
+  const icon = sharp(source).resize(size, size);
+  if (channel !== "stable") {
+    const color = channel === "nightly" ? "#d9a73f" : "#926a8c";
+    const badge = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 1024 1024"><circle cx="793" cy="790" r="62" fill="${brandCanvas}"/><circle cx="793" cy="790" r="44" fill="${color}"/></svg>`;
+    icon.composite([{ input: Buffer.from(badge) }]);
+  }
+  return icon.png().toBuffer();
+}
+
+export async function renderBannerPng() {
+  const [svg, mark] = await Promise.all([
+    readFile(new URL("assets/cc-banner.svg", root), "utf8"),
+    markSource("carbon"),
+  ]);
+  const banner = svg.replace(
+    'href="soft-carbon/mark.png"',
+    `href="data:image/png;base64,${mark.toString("base64")}"`,
+  );
+  return sharp(Buffer.from(banner), { density: 144 })
+    .resize(2400, 1260)
+    .removeAlpha()
+    .png()
+    .toBuffer();
 }

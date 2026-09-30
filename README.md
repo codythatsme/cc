@@ -1,5 +1,8 @@
 <p align="center">
-  <img alt="cc" src="assets/cc-logo.svg" width="128">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/cc-logo-white.png">
+    <img alt="cc" src="assets/cc-logo.png" width="128">
+  </picture>
 </p>
 
 # cc

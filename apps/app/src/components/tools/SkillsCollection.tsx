@@ -144,7 +144,7 @@ export function SkillProvenanceTooltip({
         className="flex size-3.5 shrink-0 items-center justify-center"
       >
         {providerId === null ? (
-          <CcLogo className="size-3.5 brightness-0 invert" />
+          <CcLogo className="size-3.5" tone="pearl" />
         ) : (
           <ProviderLogo
             providerId={providerId}

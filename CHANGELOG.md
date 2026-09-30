@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.44.1
+
+cc now uses the Soft Carbon identity: sculpted charcoal lettering, a warm ivory app icon, and a pearl variant for dark backgrounds.
+
+- Updated desktop, mobile, web, PWA, connection-page, and social-sharing artwork from the same production masters.
+- Preserved the logo's shading in dark mode and retained custom PWA icon colors.
+- Corrected the packaged-file exclusion order so bundled SDK files cannot reintroduce sourcemaps.
+
 ## 0.44.0
 
 Filter large diffs, recover archived threads more safely, and troubleshoot plugins with safe mode. These notes also cover 0.43.4, which shipped without notes.
