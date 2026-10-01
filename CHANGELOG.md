@@ -4,6 +4,8 @@
 
 cc now uses the Soft Carbon identity: sculpted charcoal lettering, a warm ivory app icon, and a pearl variant for dark backgrounds.
 
+### Highlights
+
 - Updated desktop, mobile, web, PWA, connection-page, and social-sharing artwork from the same production masters.
 - Preserved the logo's shading in dark mode and retained custom PWA icon colors.
 - Corrected the packaged-file exclusion order so bundled SDK files cannot reintroduce sourcemaps.
