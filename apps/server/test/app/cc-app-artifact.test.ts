@@ -285,6 +285,7 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
         "@parcel/watcher",
         "fs-native-extensions",
         "node-pty",
+        "npm",
         "pino",
         "pino-pretty",
         "pino-roll",
