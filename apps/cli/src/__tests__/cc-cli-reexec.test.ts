@@ -3,7 +3,11 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CC_CLI_REEXEC_ENV, maybeReexecViaCcCli } from "../cc-cli-reexec.js";
+import {
+  CC_CLI_REEXEC_ENV,
+  maybeReexecViaCcCli,
+  resolveCcCliLaunch,
+} from "../cc-cli-reexec.js";
 
 describe("maybeReexecViaCcCli", () => {
   let tempRoot: string;
@@ -87,5 +91,40 @@ describe("maybeReexecViaCcCli", () => {
       reexec,
     });
     expect(reexec).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveCcCliLaunch", () => {
+  it("runs an extensionless CC_CLI script through Node on Windows", () => {
+    expect(
+      resolveCcCliLaunch({
+        argv: ["status"],
+        nodePath: "C:\\node\\node.exe",
+        platform: "win32",
+        target: "C:\\cc\\host-daemon\\dist\\cc",
+      }),
+    ).toEqual({
+      command: "C:\\node\\node.exe",
+      args: ["C:\\cc\\host-daemon\\dist\\cc", "status"],
+    });
+  });
+
+  it("executes CC_CLI directly when the platform can run it", () => {
+    expect(
+      resolveCcCliLaunch({
+        argv: ["status"],
+        nodePath: "C:\\node\\node.exe",
+        platform: "win32",
+        target: "C:\\tools\\cc.exe",
+      }),
+    ).toEqual({ command: "C:\\tools\\cc.exe", args: ["status"] });
+    expect(
+      resolveCcCliLaunch({
+        argv: ["status"],
+        nodePath: "/usr/bin/node",
+        platform: "darwin",
+        target: "/opt/cc/host-daemon/dist/cc",
+      }),
+    ).toEqual({ command: "/opt/cc/host-daemon/dist/cc", args: ["status"] });
   });
 });

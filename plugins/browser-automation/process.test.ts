@@ -5,9 +5,46 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { supervise } from "./process.js";
+import { execute, supervise } from "./process.js";
 
-describe("process ownership", () => {
+const describeOnPosix = process.platform === "win32" ? describe.skip : describe;
+
+describeOnPosix("execute", () => {
+  it("gives the runtime a regular file for stdout and returns a large result whole", async () => {
+    const value = "z".repeat(400_000);
+    const output = await execute(
+      process.execPath,
+      [
+        "-e",
+        `const fs = require("node:fs");
+fs.writeSync(1, String(fs.fstatSync(1).isFile()) + "\\n");
+fs.writeSync(1, JSON.stringify({ type: "result", value: "z".repeat(400000) }) + "\\n");`,
+      ],
+      process.env,
+      AbortSignal.timeout(10_000),
+    );
+    const [isFile, result] = output.split("\n");
+    expect(isFile).toBe("true");
+    expect(JSON.parse(result ?? "")).toEqual({ type: "result", value });
+  });
+
+  it("kills a runtime whose output passes 512 KB", async () => {
+    await expect(
+      execute(
+        process.execPath,
+        [
+          "-e",
+          `const fs = require("node:fs");
+setInterval(() => fs.writeSync(1, "x".repeat(64000)), 10);`,
+        ],
+        process.env,
+        AbortSignal.timeout(10_000),
+      ),
+    ).rejects.toThrow("DevBrowser output exceeded 512 KB");
+  });
+});
+
+describeOnPosix("process ownership", () => {
   it.each([false, true])(
     "runs the supervisor in Node mode without leaking it to external children (Electron: %s)",
     async (electron) => {
@@ -51,8 +88,12 @@ try {
   assert.deepEqual(env, original);
   const output = await execute(${JSON.stringify(process.execPath)}, ["-e", "process.stdout.write(JSON.stringify(process.env))"], env, deadline);
   const executedEnv = JSON.parse(output);
-  for (const [key, value] of Object.entries(original)) {
+  const { PATH: originalPath, ...rest } = original;
+  for (const [key, value] of Object.entries(rest)) {
     assert.equal(executedEnv[key], value);
+  }
+  for (const entry of originalPath.split(":")) {
+    assert.ok(executedEnv.PATH.split(":").includes(entry));
   }
   assert.equal(executedEnv.ELECTRON_RUN_AS_NODE, undefined);
   assert.deepEqual(env, original);
@@ -95,7 +136,7 @@ try {
     const root = await mkdtemp(join(tmpdir(), "db-worker-death-"));
     const file = join(root, "pid");
     const childCode =
-      'require("node:fs").writeFileSync(process.argv[1], String(process.pid)); process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);';
+      'process.on("SIGTERM", () => {}); require("node:fs").writeFileSync(process.argv[1], String(process.pid)); setInterval(() => {}, 1000);';
     const code = `import { supervise } from ${JSON.stringify(new URL("./process.ts", import.meta.url).href)}; supervise(process.execPath, ["-e", ${JSON.stringify(childCode)}, ${JSON.stringify(file)}], process.env); setInterval(() => {}, 1000);`;
     const worker = spawn(
       process.execPath,
@@ -107,6 +148,7 @@ try {
       await vi.waitFor(
         async () => {
           pid = Number(await readFile(file, "utf8"));
+          expect(pid).toBeGreaterThan(0);
         },
         { timeout: 5000 },
       );
@@ -125,7 +167,7 @@ try {
   it("kills a TERM-resistant child group without touching another session", async () => {
     const root = await mkdtemp(join(tmpdir(), "db-supervisor-"));
     const code =
-      'require("node:fs").writeFileSync(process.argv[1], String(process.pid)); process.on("SIGTERM", () => {}); setInterval(() => {}, 1000);';
+      'process.on("SIGTERM", () => {}); require("node:fs").writeFileSync(process.argv[1], String(process.pid)); setInterval(() => {}, 1000);';
     const a = supervise(
       process.execPath,
       ["-e", code, join(root, "a")],
@@ -143,6 +185,8 @@ try {
         async () => {
           pidA = Number(await readFile(join(root, "a"), "utf8"));
           pidB = Number(await readFile(join(root, "b"), "utf8"));
+          expect(pidA).toBeGreaterThan(0);
+          expect(pidB).toBeGreaterThan(0);
         },
         { timeout: 5000 },
       );

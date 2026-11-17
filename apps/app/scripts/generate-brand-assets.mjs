@@ -5,6 +5,7 @@ import {
   brandCanvas,
   renderAppIconPng,
   renderBannerPng,
+  renderMarkCanvasPng,
   renderMarkPng,
 } from "./brand-artwork.mjs";
 
@@ -15,6 +16,7 @@ const carbon = {};
 const pearl = { appearance: "pearl" };
 const tile = { background: brandCanvas, scale: 0.76 };
 const maskable = { ...tile, scale: 0.66 };
+const devTile = { ...tile, background: "#d9c8d6" };
 
 async function png(path, size, options = {}, opaque = false) {
   let content = await renderMarkPng(size, options);
@@ -103,10 +105,25 @@ await png("apps/mobile/assets/ios-icon-dark.png", 1024, {
   ...pearl,
   scale: 0.76,
 });
-await png("apps/mobile/assets/splash-icon.png", 1024, carbon);
-await png("apps/mobile/assets/splash-icon-dark.png", 1024, pearl);
-await png("apps/mobile/assets/android-icon-foreground.png", 1024, {
-  scale: 0.62,
+await png("apps/mobile/assets/icon-dev.png", 1024, devTile, true);
+for (const [suffix, options] of [
+  ["", carbon],
+  ["-dark", pearl],
+  ["-dev", carbon],
+]) {
+  outputs.set(
+    `apps/mobile/assets/splash-logo${suffix}.png`,
+    await renderMarkCanvasPng(581, 487, { ...options, scale: 1 }),
+  );
+}
+for (const suffix of ["", "-dev"]) {
+  await png(`apps/mobile/assets/android-icon-foreground${suffix}.png`, 1024, {
+    scale: 0.62,
+  });
+}
+await png("apps/mobile/assets/android-notification-icon.png", 384, {
+  scale: 0.8,
+  monochrome: true,
 });
 await png("apps/mobile/assets/android-icon-monochrome.png", 1024, {
   scale: 0.62,
@@ -121,6 +138,23 @@ outputs.set(
     .toBuffer(),
 );
 await png("apps/mobile/assets/favicon.png", 48, carbon);
+await png("apps/mobile/assets/favicon-dev.png", 48, devTile, true);
+
+for (const [name, options] of [
+  ["cc-logo-shaded", carbon],
+  ["cc-logo-flat-black", { monochrome: true, monochromeColor: "#111111" }],
+  ["cc-logo-flat-white", { monochrome: true }],
+]) {
+  const full = await renderMarkCanvasPng(4096, 3272, { ...options, scale: 1 });
+  outputs.set(`apps/web/public/brand/${name}.png`, full);
+  const preview = await sharp(full).resize(1024).png().toBuffer();
+  outputs.set(
+    `apps/web/public/brand/${name}.svg`,
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4096 3272" width="4096" height="3272"><image width="4096" height="3272" href="data:image/png;base64,${preview.toString("base64")}"/></svg>\n`,
+    ),
+  );
+}
 
 const connectIcon = await renderMarkPng(192, tile);
 outputs.set(

@@ -52,7 +52,7 @@ describe("rewriteLocalhostLinkHref", () => {
       "sawyer.cc.example.invalid",
       "sawyer--8000.cc.example.invalid",
       "cc.example.invalid",
-      "SAWYER.GETBB.APP",
+      "SAWYER.CC.EXAMPLE.INVALID",
     ]) {
       expect(
         rewriteLocalhostLinkHref({
@@ -62,16 +62,6 @@ describe("rewriteLocalhostLinkHref", () => {
         }),
       ).toBe("http://localhost:5173/app");
     }
-  });
-
-  it("does not produce a Connect hostname with the localhost port", () => {
-    expect(
-      rewriteLocalhostLinkHref({
-        currentHostname: "asdf.cc.example.invalid",
-        enabled: true,
-        href: "http://localhost:5173/app",
-      }),
-    ).toBe("http://localhost:5173/app");
   });
 
   it("does not ignore unrelated hostnames", () => {

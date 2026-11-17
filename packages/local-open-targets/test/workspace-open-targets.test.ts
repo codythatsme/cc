@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
+import { sanitizeInheritedChildProcessEnv } from "@cc/process-utils";
 import {
   createWorkspaceOpenTargetRuntime,
   listWorkspaceOpenTargetsWithRuntime,
@@ -22,14 +23,21 @@ describe("default workspace open-target runtime", () => {
       "-e",
       "process.stdout.write(process.env.PATH ?? '')",
     ]);
-    expect(inheritedResult.stdout).toBe(process.env.PATH ?? "");
+    expect(inheritedResult.stdout.split(path.delimiter)[0]).toBe(
+      process.env.PATH?.split(path.delimiter)[0],
+    );
+    expect(inheritedResult.stdout).not.toContain("/Users/test/.local/bin");
 
     const userExecutableResult = await runtime.execFile(
       process.execPath,
       ["-e", "process.stdout.write(process.env.PATH ?? '')"],
       { env: runtime.env },
     );
-    expect(userExecutableResult.stdout).toBe("/Users/test/.local/bin:/usr/bin");
+    expect(
+      `${userExecutableResult.stdout}${path.delimiter}`.startsWith(
+        `/Users/test/.local/bin:/usr/bin${path.delimiter}`,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -64,6 +72,10 @@ type TerminalOpenExpectation =
   | { file: "open"; args: string[] }
   | { file: "osascript"; fragments: string[] };
 
+function inAppleScriptString(value: string): string {
+  return value.replaceAll("\\", "\\\\");
+}
+
 interface TerminalOpenCase {
   name: string;
   targetId: OpenPathInTargetArgs["targetId"];
@@ -92,11 +104,24 @@ function createRuntime(
     execFile:
       args.execFile ??
       (async (file) => {
-        if (file === "which") {
+        if (file === "which" || file === "where.exe") {
           throw new Error("Executable not found");
         }
         return { stdout: "" };
       }),
+    hasExecutable: async (command, env) => {
+      if (!args.execFile) return false;
+      try {
+        await args.execFile(
+          args.platform === "win32" ? "where.exe" : "which",
+          [command],
+          env === undefined ? undefined : { env },
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
     env: args.env,
     platform: args.platform ?? "darwin",
   };
@@ -174,7 +199,7 @@ function createAvailableExecFile(
       };
     }
 
-    if (file === "which") {
+    if (file === "which" || file === "where.exe") {
       const executable = commandArgs[0];
       if (executable && availableExecutables.includes(executable)) {
         return {
@@ -361,20 +386,6 @@ describe("workspace open targets", () => {
     });
   });
 
-  it("returns no targets for unsupported win32 runtime", async () => {
-    const execFile = vi.fn(async () => ({ stdout: "" }));
-
-    await expect(
-      listWorkspaceOpenTargetsWithRuntime(
-        createRuntime({
-          execFile,
-          platform: "win32",
-        }),
-      ),
-    ).resolves.toEqual([]);
-    expect(execFile).not.toHaveBeenCalled();
-  });
-
   it("opens WSL paths with the configured default app bridge", async () => {
     const workspacePath = await mkdtemp(path.join(tmpdir(), "cc-workspace-"));
     const filePath = path.join(workspacePath, "notes.md");
@@ -447,23 +458,6 @@ describe("workspace open targets", () => {
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
     }
-  });
-
-  it("rejects unsupported non-Linux open requests", async () => {
-    await expect(
-      openPathInTargetWithRuntime(
-        {
-          context: { kind: "local" },
-          columnNumber: null,
-          lineNumber: null,
-          path: "/tmp/workspace",
-          targetId: "default-app",
-        },
-        createRuntime({ platform: "win32" }),
-      ),
-    ).rejects.toMatchObject({
-      code: "unsupported_platform",
-    });
   });
 
   it("opens Linux files with discovered editor CLIs", async () => {
@@ -749,7 +743,7 @@ describe("workspace open targets", () => {
     }
   });
 
-  it("opens CCEdit and Emacs through macOS application open instead of editor CLIs", async () => {
+  it("opens BBEdit and Emacs through macOS application open instead of editor CLIs", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "cc-workspace-"));
     const applicationsDirectory = path.join(root, "Applications");
     const workspacePath = path.join(root, "workspace");
@@ -758,7 +752,7 @@ describe("workspace open targets", () => {
     const execFile = createAvailableExecFile({ calls });
 
     try {
-      await mkdir(path.join(applicationsDirectory, "CCEdit.app"), {
+      await mkdir(path.join(applicationsDirectory, "BBEdit.app"), {
         recursive: true,
       });
       await mkdir(path.join(applicationsDirectory, "Emacs.app"), {
@@ -768,7 +762,7 @@ describe("workspace open targets", () => {
       await writeFile(filePath, "# Notes\n");
 
       for (const target of [
-        { appName: "CCEdit", cli: "bbedit", targetId: "bbedit" },
+        { appName: "BBEdit", cli: "bbedit", targetId: "bbedit" },
         { appName: "Emacs", cli: "emacsclient", targetId: "emacs" },
       ]) {
         await openPathInTargetWithRuntime(
@@ -1255,98 +1249,140 @@ describe("workspace open targets", () => {
     });
   });
 
-  it("discovers generic macOS apps from file-specific LaunchServices results", async () => {
-    const workspacePath = await mkdtemp(path.join(tmpdir(), "cc-workspace-"));
-    const filePath = path.join(workspacePath, "notes.md");
-    const mockEditPath = "/Applications/MockEdit.app";
-    const zedPath = "/Applications/Zed.app";
-    const execFile: ExecFileHandler = async (file, commandArgs) => {
-      if (file === "mdfind") {
-        const query = commandArgs.join(" ");
-        if (query.includes("kMDItemContentType")) {
-          return { stdout: `${mockEditPath}\n${zedPath}\n` };
-        }
-        if (query.includes("dev.zed.Zed")) {
-          return { stdout: `${zedPath}\n` };
-        }
-        return { stdout: "" };
-      }
-      if (file === "osascript" && commandArgs.includes("JavaScript")) {
-        return {
-          stdout: JSON.stringify([
-            { appPath: mockEditPath, bundleId: "com.example.MockEdit" },
-            { appPath: zedPath, bundleId: "dev.zed.Zed" },
-          ]),
-        };
-      }
-      if (file === "plutil") {
-        const key = commandArgs[1];
-        const plistPath = commandArgs.at(-1) ?? "";
-        if (plistPath.includes("MockEdit.app")) {
-          if (key === "CFBundleIdentifier") {
-            return { stdout: "com.example.MockEdit\n" };
+  it.each([false, true])(
+    "discovers fresh file associations with cached base targets: %s",
+    async (reuseBaseTargets) => {
+      const workspacePath = await mkdtemp(path.join(tmpdir(), "cc-workspace-"));
+      const filePath = path.join(workspacePath, "notes.md");
+      const mockEditPath = "/Applications/MockEdit.app";
+      const zedPath = "/Applications/Zed.app";
+      const calls: string[] = [];
+      let associatedApplications = [
+        { appPath: mockEditPath, bundleId: "com.example.MockEdit" },
+        { appPath: zedPath, bundleId: "dev.zed.Zed" },
+      ];
+      const execFile: ExecFileHandler = async (file, commandArgs) => {
+        calls.push(file);
+        if (file === "mdfind") {
+          const query = commandArgs.join(" ");
+          if (query.includes("kMDItemContentType")) {
+            return { stdout: `${mockEditPath}\n${zedPath}\n` };
           }
-          if (key === "CFBundleDisplayName") {
-            return { stdout: "Mock Edit\n" };
+          if (query.includes("dev.zed.Zed")) {
+            return { stdout: `${zedPath}\n` };
           }
           return { stdout: "" };
         }
-        if (plistPath.includes("Zed.app")) {
-          if (key === "CFBundleIdentifier") {
-            return { stdout: "dev.zed.Zed\n" };
+        if (file === "osascript" && commandArgs.includes("JavaScript")) {
+          return {
+            stdout: JSON.stringify(associatedApplications),
+          };
+        }
+        if (file === "plutil") {
+          const key = commandArgs[1];
+          const plistPath = commandArgs.at(-1) ?? "";
+          if (plistPath.includes("MockEdit.app")) {
+            if (key === "CFBundleIdentifier") {
+              return { stdout: "com.example.MockEdit\n" };
+            }
+            if (key === "CFBundleDisplayName") {
+              return { stdout: "Mock Edit\n" };
+            }
+            return { stdout: "" };
           }
-          if (key === "CFBundleDisplayName") {
-            return { stdout: "Zed\n" };
+          if (plistPath.includes("Zed.app")) {
+            if (key === "CFBundleIdentifier") {
+              return { stdout: "dev.zed.Zed\n" };
+            }
+            if (key === "CFBundleDisplayName") {
+              return { stdout: "Zed\n" };
+            }
           }
         }
+        if (file === "which") {
+          throw new Error("Executable not found");
+        }
+        return { stdout: "" };
+      };
+
+      try {
+        await writeFile(filePath, "# Notes\n");
+
+        const globalTargets = await listWorkspaceOpenTargetsWithRuntime(
+          createRuntime({ execFile }),
+        );
+        expect(
+          globalTargets.find((target) => target.id === "zed"),
+        ).toBeDefined();
+        expect(
+          globalTargets.find(
+            (target) => target.id === "mac-app:com.example.MockEdit",
+          ),
+        ).toBeUndefined();
+
+        calls.length = 0;
+        const options = {
+          path: filePath,
+          ...(reuseBaseTargets ? { baseTargets: globalTargets } : {}),
+        };
+        const fileTargets = await listWorkspaceOpenTargetsWithRuntime(
+          createRuntime({ execFile }),
+          options,
+        );
+        expect(calls.includes("mdfind")).toBe(!reuseBaseTargets);
+        expect(calls).toContain("osascript");
+        expect(
+          fileTargets.filter((target) => target.id === "zed"),
+        ).toHaveLength(1);
+
+        expect(fileTargets.find((target) => target.id === "zed")).toBeDefined();
+        expect(
+          fileTargets.find((target) => target.id === "mac-app:dev.zed.Zed"),
+        ).toBeUndefined();
+        expect(
+          fileTargets.find(
+            (target) => target.id === "mac-app:com.example.MockEdit",
+          ),
+        ).toMatchObject({
+          capabilities: {
+            openDirectory: true,
+            openFile: true,
+            openFileAtColumn: false,
+            openFileAtLine: false,
+          },
+          icon: { kind: "symbol", name: "app" },
+          kind: "native-app",
+          label: "Mock Edit",
+        });
+        expect(
+          globalTargets.some(
+            (target) => target.id === "mac-app:com.example.MockEdit",
+          ),
+        ).toBe(false);
+        associatedApplications = [];
+        expect(
+          await listWorkspaceOpenTargetsWithRuntime(
+            createRuntime({ execFile }),
+            options,
+          ),
+        ).toEqual(globalTargets);
+        associatedApplications = [
+          { appPath: mockEditPath, bundleId: "com.example.MockEdit" },
+        ];
+        await rm(filePath);
+        calls.length = 0;
+        expect(
+          await listWorkspaceOpenTargetsWithRuntime(
+            createRuntime({ execFile }),
+            options,
+          ),
+        ).toEqual(globalTargets);
+        expect(calls).not.toContain("osascript");
+      } finally {
+        await rm(workspacePath, { force: true, recursive: true });
       }
-      if (file === "which") {
-        throw new Error("Executable not found");
-      }
-      return { stdout: "" };
-    };
-
-    try {
-      await writeFile(filePath, "# Notes\n");
-
-      const globalTargets = await listWorkspaceOpenTargetsWithRuntime(
-        createRuntime({ execFile }),
-      );
-      expect(globalTargets.find((target) => target.id === "zed")).toBeDefined();
-      expect(
-        globalTargets.find(
-          (target) => target.id === "mac-app:com.example.MockEdit",
-        ),
-      ).toBeUndefined();
-
-      const fileTargets = await listWorkspaceOpenTargetsWithRuntime(
-        createRuntime({ execFile }),
-        { path: filePath },
-      );
-
-      expect(fileTargets.find((target) => target.id === "zed")).toBeDefined();
-      expect(
-        fileTargets.find((target) => target.id === "mac-app:dev.zed.Zed"),
-      ).toBeUndefined();
-      expect(
-        fileTargets.find(
-          (target) => target.id === "mac-app:com.example.MockEdit",
-        ),
-      ).toMatchObject({
-        capabilities: {
-          openDirectory: true,
-          openFile: true,
-          openFileAtColumn: false,
-          openFileAtLine: false,
-        },
-        icon: { kind: "symbol", name: "app" },
-        kind: "native-app",
-        label: "Mock Edit",
-      });
-    } finally {
-      await rm(workspacePath, { force: true, recursive: true });
-    }
-  });
+    },
+  );
 
   it("opens generic macOS app targets by bundle id", async () => {
     const workspacePath = await mkdtemp(path.join(tmpdir(), "cc-workspace-"));
@@ -2022,7 +2058,7 @@ describe("workspace open targets", () => {
         file: "osascript",
         fragments: [
           'tell application "Terminal" to do script',
-          `cd '${workspacePath}'`,
+          inAppleScriptString(`cd '${workspacePath}'`),
         ],
       }),
     },
@@ -2039,7 +2075,7 @@ describe("workspace open targets", () => {
         fragments: [
           'tell application "iTerm" to create window with default profile',
           'tell application "iTerm" to tell current session of current window to write text',
-          `cd '${workspacePath}'`,
+          inAppleScriptString(`cd '${workspacePath}'`),
         ],
       }),
     },
@@ -2055,7 +2091,9 @@ describe("workspace open targets", () => {
         file: "osascript",
         fragments: [
           'tell application "Terminal" to do script',
-          `cd '${path.dirname(filePath)}' && 'vim' '+call cursor(22,4)' '${filePath}'`,
+          inAppleScriptString(
+            `cd '${path.dirname(filePath)}' && 'vim' '+call cursor(22,4)' '${filePath}'`,
+          ),
         ],
       }),
     },
@@ -2072,7 +2110,7 @@ describe("workspace open targets", () => {
         fragments: [
           'tell application "iTerm" to create window with default profile',
           'tell application "iTerm" to tell current session of current window to write text',
-          `cd '${workspacePath}' && 'vim' '${filePath}'`,
+          inAppleScriptString(`cd '${workspacePath}' && 'vim' '${filePath}'`),
         ],
       }),
     },
@@ -2088,7 +2126,7 @@ describe("workspace open targets", () => {
         file: "osascript",
         fragments: [
           'tell application "Terminal" to do script',
-          `cd '${workspacePath}'`,
+          inAppleScriptString(`cd '${workspacePath}'`),
         ],
       }),
     },
@@ -2230,7 +2268,9 @@ describe("workspace open targets", () => {
       expect(osascriptCall).toBeDefined();
       const script = osascriptCall?.args.join("\n") ?? "";
       expect(script).toContain(
-        `cd '${path.dirname(filePath)}' && 'vim' '--clean' '+call cursor(22,4)' '--' '${filePath}'`,
+        inAppleScriptString(
+          `cd '${path.dirname(filePath)}' && 'vim' '--clean' '+call cursor(22,4)' '--' '${filePath}'`,
+        ),
       );
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
@@ -2361,6 +2401,143 @@ describe("workspace open targets", () => {
     } finally {
       await rm(workspacePath, { force: true, recursive: true });
     }
+  });
+
+  it("discovers Windows platform targets and editor CLIs from PATH", async () => {
+    const calls: ExecFileCall[] = [];
+    const targets = await listWorkspaceOpenTargetsWithRuntime(
+      createRuntime({
+        execFile: createAvailableExecFile({
+          availableExecutables: ["code", "wt"],
+          calls,
+        }),
+        platform: "win32",
+      }),
+    );
+
+    expect(targets.map((target) => [target.id, target.label])).toEqual([
+      ["vscode", "VS Code"],
+      ["default-app", "Default App"],
+      ["file-manager", "File Explorer"],
+      ["terminal", "Windows Terminal"],
+    ]);
+    expect(calls.every((call) => call.file === "where.exe")).toBe(true);
+  });
+
+  it("offers PowerShell as the Windows terminal when Windows Terminal is absent", async () => {
+    const targets = await listWorkspaceOpenTargetsWithRuntime(
+      createRuntime({
+        execFile: createAvailableExecFile(),
+        platform: "win32",
+      }),
+    );
+
+    expect(targets.map((target) => [target.id, target.label])).toEqual([
+      ["default-app", "Default App"],
+      ["file-manager", "File Explorer"],
+      ["terminal", "PowerShell"],
+    ]);
+  });
+
+  it("opens Windows paths without putting them on a command line", async () => {
+    const workspacePath = await mkdtemp(path.join(tmpdir(), "cc-workspace-"));
+    const filePath = path.join(workspacePath, "it's & notes.md");
+    await writeFile(filePath, "notes");
+    const calls: ExecFileCall[] = [];
+    const runtime = createRuntime({
+      env: { SystemRoot: "C:\\Windows", PATH: "C:\\bin" },
+      execFile: createAvailableExecFile({
+        availableExecutables: ["code", "wt"],
+        calls,
+      }),
+      platform: "win32",
+    });
+    const open = async (
+      targetId: OpenPathInTargetArgs["targetId"],
+      target: string,
+      lineNumber: number | null,
+    ): Promise<ExecFileCall | undefined> => {
+      calls.length = 0;
+      await openPathInTargetWithRuntime(
+        {
+          context: { kind: "local" },
+          columnNumber: null,
+          lineNumber,
+          path: target,
+          targetId,
+        },
+        runtime,
+      );
+      return calls.filter((call) => call.file !== "where.exe").at(-1);
+    };
+    const powershell =
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+    const powershellArgs = (script: string): string[] => [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      script,
+    ];
+
+    try {
+      const defaultOpen = await open("default-app", filePath, null);
+      expect(
+        sanitizeInheritedChildProcessEnv({ env: defaultOpen?.env ?? {} }),
+      ).toMatchObject({ WORKSPACE_OPEN_TARGET_PATH: filePath });
+      expect(defaultOpen).toMatchObject({
+        file: powershell,
+        args: powershellArgs(
+          "Invoke-Item -LiteralPath $env:WORKSPACE_OPEN_TARGET_PATH",
+        ),
+        env: { WORKSPACE_OPEN_TARGET_PATH: filePath, PATH: "C:\\bin" },
+      });
+      expect(await open("file-manager", filePath, null)).toMatchObject({
+        file: powershell,
+        args: powershellArgs(
+          "Start-Process -FilePath explorer.exe -ArgumentList ('/select,\"' + $env:WORKSPACE_OPEN_TARGET_PATH + '\"')",
+        ),
+        env: { WORKSPACE_OPEN_TARGET_PATH: path.win32.normalize(filePath) },
+      });
+      expect(await open("file-manager", workspacePath, null)).toMatchObject({
+        args: powershellArgs(
+          "Invoke-Item -LiteralPath $env:WORKSPACE_OPEN_TARGET_PATH",
+        ),
+        env: {
+          WORKSPACE_OPEN_TARGET_PATH: path.win32.normalize(workspacePath),
+        },
+      });
+      expect(await open("terminal", filePath, null)).toMatchObject({
+        file: powershell,
+        args: powershellArgs(
+          "Start-Process -FilePath wt.exe -ArgumentList '-d','.' -WorkingDirectory $env:WORKSPACE_OPEN_TARGET_PATH",
+        ),
+        env: { WORKSPACE_OPEN_TARGET_PATH: workspacePath },
+      });
+      expect(await open("vscode", filePath, 12)).toMatchObject({
+        file: "code",
+        args: ["-g", `${filePath}:12`],
+      });
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  });
+
+  it("does not open a Windows terminal for a remote SSH path", async () => {
+    await expect(
+      openPathInTargetWithRuntime(
+        {
+          context: { kind: "remote-ssh", sshAuthority: "dev@example.test" },
+          columnNumber: null,
+          lineNumber: null,
+          path: "/srv/app",
+          targetId: "terminal",
+        },
+        createRuntime({
+          execFile: createAvailableExecFile({ availableExecutables: ["ssh"] }),
+          platform: "win32",
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "target_unavailable" });
   });
 
   it("rejects workspace opening on unsupported platforms", async () => {

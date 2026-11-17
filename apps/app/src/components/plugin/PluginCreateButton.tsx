@@ -19,7 +19,9 @@ export function PluginCreateButton({
           onSelect: onInstallFromSource,
         },
       ]}
-      onCreate={onCreate}
+      onCreate={(prompt) => {
+        onCreate(prompt);
+      }}
     />
   );
 }

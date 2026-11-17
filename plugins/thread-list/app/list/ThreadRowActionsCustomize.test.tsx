@@ -1,14 +1,90 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
-import { afterEach, expect, it } from "vitest";
-import { installTestPluginRuntime } from "@codythatsme/plugin-sdk/testing/app";
+import type { ReactNode } from "react";
+import { afterEach, expect, it, vi } from "vitest";
+import type { PluginThreadActionRegistrationInfo } from "@codythatsme/plugin-sdk/app";
+import {
+  installTestPluginRuntime,
+  renderSlot,
+} from "@codythatsme/plugin-sdk/testing/app";
 import { threadRowActionsAtom } from "../preferences/atoms.js";
 
 installTestPluginRuntime();
-const { assignRowActionSlot, ThreadRowActionsCustomize } = await import(
-  "./ThreadRowActionsCustomize.js"
-);
+const {
+  assignRowActionSlot,
+  ThreadRowActionsEditor,
+  useFinishRowActionsOnOutsideClick,
+} = await import("./ThreadRowActionsCustomize.js");
+
+const REGISTRATIONS: readonly PluginThreadActionRegistrationInfo[] = [
+  {
+    key: "cc--core/split",
+    pluginId: "cc--core",
+    title: "Open in split",
+    icon: "Columns2",
+  },
+  {
+    key: "cc--core/copyLink",
+    pluginId: "cc--core",
+    title: "Copy link",
+    icon: "Copy",
+  },
+  {
+    key: "cc--core/read",
+    pluginId: "cc--core",
+    title: "Mark read / unread",
+    icon: "MailOpen",
+  },
+  { key: "cc--core/pin", pluginId: "cc--core", title: "Pin", icon: "Pin" },
+  {
+    key: "cc--core/rename",
+    pluginId: "cc--core",
+    title: "Rename",
+    icon: "Edit",
+  },
+  {
+    key: "cc--core/archive",
+    pluginId: "cc--core",
+    title: "Archive",
+    icon: "Archive",
+  },
+  {
+    key: "thread-list/move",
+    pluginId: "thread-list",
+    title: "Move to section",
+    icon: "SectionMove",
+  },
+];
+
+function StoreHarness({
+  children,
+  store,
+}: {
+  children: ReactNode;
+  store: ReturnType<typeof createStore>;
+}) {
+  return <Provider store={store}>{children}</Provider>;
+}
+
+function renderWithRegistrations(children: ReactNode, store = createStore()) {
+  return renderSlot(
+    { component: StoreHarness },
+    { children, store },
+    { threadActionRegistrations: REGISTRATIONS },
+  );
+}
+
+function OutsideClickHarness({
+  onDone,
+  showEditor,
+}: {
+  onDone: (restoreFocus: boolean) => void;
+  showEditor: boolean;
+}) {
+  useFinishRowActionsOnOutsideClick(onDone);
+  return showEditor ? <ThreadRowActionsEditor onDone={onDone} /> : null;
+}
 
 afterEach(() => {
   cleanup();
@@ -16,17 +92,13 @@ afterEach(() => {
 
 it("previews empty slots before shown actions, next to the menu", () => {
   const store = createStore();
-  store.set(threadRowActionsAtom, ["pin", "archive"]);
-  render(
-    <Provider store={store}>
-      <ThreadRowActionsCustomize onDone={() => {}} variant="card" />
-    </Provider>,
-  );
+  store.set(threadRowActionsAtom, ["cc--core/pin", "cc--core/archive"]);
+  renderWithRegistrations(<ThreadRowActionsEditor onDone={() => {}} />, store);
   expect(
     Array.from(
       document.querySelectorAll<HTMLElement>("[data-row-action-slot]"),
     ).map((slot) => slot.dataset.rowActionSlot),
-  ).toEqual(["none", "pin", "archive"]);
+  ).toEqual(["none", "cc--core/pin", "cc--core/archive"]);
 });
 
 it("fills, replaces, swaps, and clears slots", () => {
@@ -38,9 +110,9 @@ it("fills, replaces, swaps, and clears slots", () => {
     "pin",
     "rename",
   ]);
-  expect(assignRowActionSlot(["pin", "archive", "rename"], 0, "rename")).toEqual(
-    ["rename", "archive", "pin"],
-  );
+  expect(
+    assignRowActionSlot(["pin", "archive", "rename"], 0, "rename"),
+  ).toEqual(["rename", "archive", "pin"]);
   expect(assignRowActionSlot(["pin", "archive"], 0, "archive")).toEqual([
     "archive",
     "pin",
@@ -50,18 +122,35 @@ it("fills, replaces, swaps, and clears slots", () => {
 });
 
 it.each([
-  { initial: ["archive"], slot: 0, pick: "Pin", focusedSlot: 1, focused: "pin" },
-  { initial: ["pin", "archive", "rename"], slot: 0, pick: "Rename", focusedSlot: 0, focused: "rename" },
-  { initial: ["pin", "archive", "rename"], slot: 1, pick: "Hide", focusedSlot: 1, focused: "pin" },
+  {
+    initial: ["cc--core/archive"],
+    slot: 0,
+    pick: "Pin",
+    focusedSlot: 1,
+    focused: "cc--core/pin",
+  },
+  {
+    initial: ["cc--core/pin", "cc--core/archive", "cc--core/rename"],
+    slot: 0,
+    pick: "Rename",
+    focusedSlot: 0,
+    focused: "cc--core/rename",
+  },
+  {
+    initial: ["cc--core/pin", "cc--core/archive", "cc--core/rename"],
+    slot: 1,
+    pick: "Hide",
+    focusedSlot: 1,
+    focused: "cc--core/pin",
+  },
 ] as const)(
   "moves focus to slot $focusedSlot after picking $pick in slot $slot",
   async ({ initial, slot, pick, focusedSlot, focused }) => {
     const store = createStore();
     store.set(threadRowActionsAtom, [...initial]);
-    render(
-      <Provider store={store}>
-        <ThreadRowActionsCustomize onDone={() => {}} variant="card" />
-      </Provider>,
+    renderWithRegistrations(
+      <ThreadRowActionsEditor onDone={() => {}} />,
+      store,
     );
     const slotButton = (index: number) =>
       document.querySelector<HTMLElement>(
@@ -75,3 +164,89 @@ it.each([
     });
   },
 );
+
+it("offers Hide only for a filled slot and finishes on Escape", async () => {
+  const store = createStore();
+  store.set(threadRowActionsAtom, ["cc--core/archive"]);
+  const finish = vi.fn();
+  renderWithRegistrations(<ThreadRowActionsEditor onDone={finish} />, store);
+  fireEvent.click(screen.getByRole("button", { name: "Row action 1: Empty" }));
+  await screen.findByRole("menuitemradio", { name: "Pin" });
+  expect(screen.queryByRole("menuitemradio", { name: "Hide" })).toBeNull();
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+  expect(finish).not.toHaveBeenCalled();
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Row action 3: Archive" }),
+  );
+  expect(
+    await screen.findByRole("menuitemradio", { name: "Hide" }),
+  ).toBeTruthy();
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+
+  fireEvent.keyDown(
+    screen.getByRole("button", { name: "Row action 3: Archive" }),
+    { key: "Escape" },
+  );
+  expect(finish).toHaveBeenCalledWith(true);
+});
+
+it("keeps customizing through picker choices and dismissals, then finishes on a click elsewhere", async () => {
+  const store = createStore();
+  store.set(threadRowActionsAtom, ["cc--core/archive"]);
+  const finish = vi.fn();
+  renderWithRegistrations(
+    <OutsideClickHarness onDone={finish} showEditor />,
+    store,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Row action 1: Empty" }));
+  fireEvent.keyDown(await screen.findByRole("menuitemradio", { name: "Pin" }), {
+    key: "Enter",
+  });
+  await waitFor(() =>
+    expect(store.get(threadRowActionsAtom)).toEqual([
+      "cc--core/pin",
+      "cc--core/archive",
+    ]),
+  );
+  expect(finish).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Row action 1: Empty" }));
+  await screen.findByRole("menu");
+  fireEvent.pointerDown(document.body);
+  fireEvent.click(document.body);
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  expect(finish).not.toHaveBeenCalled();
+
+  fireEvent.pointerDown(document.body);
+  fireEvent.click(document.body);
+  expect(finish).toHaveBeenCalledWith(false);
+});
+
+it("finishes on a click elsewhere after the edited row unmounts", () => {
+  const finish = vi.fn();
+  renderWithRegistrations(
+    <OutsideClickHarness onDone={finish} showEditor={false} />,
+  );
+  fireEvent.pointerDown(document.body);
+  fireEvent.click(document.body);
+  expect(finish).toHaveBeenCalledWith(false);
+});
+
+it("offers every registered action by its static title and labels unknown keys", async () => {
+  const store = createStore();
+  store.set(threadRowActionsAtom, ["plugin-gone/action"]);
+  renderWithRegistrations(<ThreadRowActionsEditor onDone={() => {}} />, store);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Row action 3: plugin-gone/action" }),
+  );
+  await screen.findByRole("menu");
+  expect(
+    screen.getAllByRole("menuitemradio").map((item) => item.textContent),
+  ).toEqual([
+    ...REGISTRATIONS.map((registration) => registration.title),
+    "Hide",
+  ]);
+});

@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Button, type ButtonProps } from "../button";
 import {
@@ -26,7 +27,115 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../tooltip";
+import { observeSharedResize } from "../../../lib/shared-resize-observer";
 import { cn } from "../../../lib/utils";
+
+interface ToolbarLayout {
+  combined: boolean;
+  searchCondensed: boolean;
+}
+
+function observeToolbarLayout({
+  toolbar,
+  individualControls,
+  search,
+  controlsRef,
+  actionRef,
+  combinedRef,
+  restoreControlFocus,
+  expandSearchOnFocus,
+  hasCombinedControls,
+  setCombined,
+  setSearchCondensed,
+}: {
+  toolbar: HTMLDivElement;
+  individualControls: HTMLDivElement;
+  search: HTMLFormElement;
+  controlsRef: RefObject<HTMLDivElement | null>;
+  actionRef: RefObject<HTMLDivElement | null>;
+  combinedRef: RefObject<boolean>;
+  restoreControlFocus: RefObject<boolean>;
+  expandSearchOnFocus: boolean;
+  hasCombinedControls: boolean;
+  setCombined: (combined: boolean) => void;
+  setSearchCondensed: (condensed: boolean) => void;
+}): () => void {
+  let previousWidth = 0;
+  const readLayout = (): ToolbarLayout | null => {
+    const width = toolbar.getBoundingClientRect().width;
+    if (width === 0) return null;
+    const widthChanged = previousWidth !== width;
+    previousWidth = width;
+    if (
+      !widthChanged &&
+      controlsRef.current?.querySelector('[aria-haspopup][data-state="open"]')
+    )
+      return null;
+    const gap = Number.parseFloat(getComputedStyle(toolbar).columnGap) || 0;
+    const searchWidth = Number.parseFloat(getComputedStyle(search).flexBasis);
+    const actionWidth = actionRef.current?.getBoundingClientRect().width ?? 0;
+    const requiredWidth =
+      searchWidth +
+      individualControls.getBoundingClientRect().width +
+      actionWidth +
+      gap * (actionRef.current ? 2 : 1);
+    const next = hasCombinedControls && width < requiredWidth;
+    const controlsWidth = next
+      ? (controlsRef.current
+          ?.querySelector("[data-resource-combined-controls]")
+          ?.getBoundingClientRect().width ?? 0)
+      : individualControls.getBoundingClientRect().width;
+    return {
+      combined: next,
+      searchCondensed:
+        expandSearchOnFocus &&
+        (next ||
+          width -
+            controlsWidth -
+            actionWidth -
+            gap * (actionRef.current ? 2 : 1) <
+            searchWidth),
+    };
+  };
+  const applyLayout = (layout: ToolbarLayout | null) => {
+    if (layout === null) return;
+    setSearchCondensed(layout.searchCondensed);
+    if (combinedRef.current === layout.combined) return;
+    restoreControlFocus.current = Boolean(
+      controlsRef.current?.contains(document.activeElement) ||
+      controlsRef.current?.querySelector('[data-state="open"]'),
+    );
+    combinedRef.current = layout.combined;
+    setCombined(layout.combined);
+  };
+  const measure = () => applyLayout(readLayout());
+  measure();
+  const unobserve = observeSharedResize(
+    [
+      toolbar,
+      individualControls,
+      controlsRef.current,
+      actionRef.current,
+    ].filter((target) => target !== null),
+    { read: readLayout, write: applyLayout },
+  );
+  let frame = 0;
+  const menuObserver = new MutationObserver(() => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(measure);
+  });
+  if (controlsRef.current)
+    menuObserver.observe(controlsRef.current, {
+      attributes: true,
+      attributeFilter: ["data-state"],
+      subtree: true,
+    });
+  return () => {
+    unobserve();
+    menuObserver.disconnect();
+    cancelAnimationFrame(frame);
+  };
+}
 
 export function ResourceToolbar({
   searchValue,
@@ -88,76 +197,20 @@ export function ResourceToolbar({
     const individualControls = individualControlsRef.current;
     const search = searchRef.current;
     if (!toolbar || !individualControls || !search || !compact) return;
-    let previousWidth = 0;
-    const measure = () => {
-      const width = toolbar.getBoundingClientRect().width;
-      if (width === 0) return;
-      const widthChanged = previousWidth !== width;
-      previousWidth = width;
-      if (
-        !widthChanged &&
-        controlsRef.current?.querySelector('[aria-haspopup][data-state="open"]')
-      )
-        return;
-      const gap = Number.parseFloat(getComputedStyle(toolbar).columnGap) || 0;
-      const searchWidth = Number.parseFloat(getComputedStyle(search).flexBasis);
-      const actionWidth = actionRef.current?.getBoundingClientRect().width ?? 0;
-      const requiredWidth =
-        searchWidth +
-        individualControls.getBoundingClientRect().width +
-        actionWidth +
-        gap * (actionRef.current ? 2 : 1);
-      const next = hasCombinedControls && width < requiredWidth;
-      const controlsWidth = next
-        ? (controlsRef.current
-            ?.querySelector("[data-resource-combined-controls]")
-            ?.getBoundingClientRect().width ?? 0)
-        : individualControls.getBoundingClientRect().width;
-      setSearchCondensed(
-        expandSearchOnFocus &&
-          (next ||
-            width -
-              controlsWidth -
-              actionWidth -
-              gap * (actionRef.current ? 2 : 1) <
-              searchWidth),
-      );
-      if (combinedRef.current === next) return;
-      restoreControlFocus.current = Boolean(
-        controlsRef.current?.contains(document.activeElement) ||
-        controlsRef.current?.querySelector('[data-state="open"]'),
-      );
-      combinedRef.current = next;
-      setCombined(next);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(toolbar);
-    observer.observe(individualControls);
-    if (controlsRef.current) observer.observe(controlsRef.current);
-    if (actionRef.current) observer.observe(actionRef.current);
-    let frame = 0;
-    const menuObserver = new MutationObserver(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
+    return observeToolbarLayout({
+      toolbar,
+      individualControls,
+      search,
+      controlsRef,
+      actionRef,
+      combinedRef,
+      restoreControlFocus,
+      expandSearchOnFocus,
+      hasCombinedControls,
+      setCombined,
+      setSearchCondensed,
     });
-    if (controlsRef.current)
-      menuObserver.observe(controlsRef.current, {
-        attributes: true,
-        attributeFilter: ["data-state"],
-        subtree: true,
-      });
-    return () => {
-      observer.disconnect();
-      menuObserver.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, [
-    compact,
-    expandSearchOnFocus,
-    hasCombinedControls,
-    showCombined,
-  ]);
+  }, [compact, expandSearchOnFocus, hasCombinedControls, showCombined]);
 
   useLayoutEffect(() => {
     if (!restoreControlFocus.current) return;
@@ -175,10 +228,8 @@ export function ResourceToolbar({
       data-resource-toolbar
       data-search-expanded={searchExpanded || undefined}
       className={cn(
-        "flex w-full min-w-0 items-center gap-2",
-        compact
-          ? "@container/resource-toolbar flex-nowrap max-md:gap-1"
-          : "flex-wrap",
+        "@container/resource-toolbar flex w-full min-w-0 items-center gap-2",
+        compact ? "flex-nowrap max-md:gap-1" : "flex-wrap",
       )}
     >
       <form
@@ -199,7 +250,7 @@ export function ResourceToolbar({
           "flex items-center gap-2",
           compact
             ? "min-w-0 flex-1 basis-40"
-            : "w-full min-w-0 sm:w-auto sm:flex-1",
+            : "w-full min-w-0 @min-[32rem]/resource-toolbar:w-auto @min-[32rem]/resource-toolbar:flex-1",
           showSearchButton && "min-w-8 max-w-8 grow-0 shrink-0",
         )}
       >
@@ -298,9 +349,7 @@ export function ResourceToolbar({
             </div>
           </div>
           {showCombined ? (
-            <div data-resource-combined-controls>
-              {combinedControls}
-            </div>
+            <div data-resource-combined-controls>{combinedControls}</div>
           ) : null}
         </div>
       ) : null}
@@ -344,7 +393,10 @@ function ResourceOptionContent({
 }) {
   return (
     <span
-      className={cn("flex min-w-0 items-center gap-2", compact && "md:gap-1.5")}
+      className={cn(
+        "flex min-w-0 items-center gap-2",
+        compact && "md:gap-1.5 pointer-fine:gap-1.5",
+      )}
     >
       {option.leading ? (
         <span
@@ -498,7 +550,8 @@ export function ResourceMultiSelectMenuItems({
         <DropdownMenuLabel
           className={cn(
             "text-xs font-normal text-subtle-foreground",
-            compact && "md:px-1.5 md:py-1",
+            compact &&
+              "md:px-1.5 pointer-fine:px-1.5 md:py-1 pointer-fine:py-1",
           )}
         >
           {label}
@@ -509,7 +562,10 @@ export function ResourceMultiSelectMenuItems({
           key={option.id}
           checked={selected.has(option.id)}
           disabled={option.disabled}
-          className={cn(compact && "md:py-1 md:pl-1.5 md:pr-7")}
+          className={cn(
+            compact &&
+              "md:py-1 pointer-fine:py-1 md:pl-1.5 pointer-fine:pl-1.5 md:pr-7 pointer-fine:pr-7",
+          )}
           onSelect={(event) => event.preventDefault()}
           onCheckedChange={(checked) => updateValue(option, checked === true)}
         >
@@ -527,7 +583,8 @@ export function ResourceMultiSelectMenuItems({
             }}
             className={cn(
               "text-xs text-muted-foreground",
-              compact && "md:px-1.5 md:py-1",
+              compact &&
+                "md:px-1.5 pointer-fine:px-1.5 md:py-1 pointer-fine:py-1",
             )}
           >
             Clear filter
@@ -588,7 +645,9 @@ export function ResourceMultiSelectMenu({
       <DropdownMenuContent
         align="end"
         mobileTitle={label}
-        className={cn(compact ? "w-max max-w-64 md:p-0.5" : "min-w-44")}
+        className={cn(
+          compact ? "w-max max-w-64 md:p-0.5 pointer-fine:p-0.5" : "min-w-44",
+        )}
       >
         <ResourceMultiSelectMenuItems
           label={label}
@@ -652,7 +711,9 @@ export function ResourceFilterMenu({
       <DropdownMenuContent
         align="end"
         mobileTitle="Filters"
-        className={cn(compact ? "w-max max-w-64 md:p-0.5" : "min-w-44")}
+        className={cn(
+          compact ? "w-max max-w-64 md:p-0.5 pointer-fine:p-0.5" : "min-w-44",
+        )}
       >
         {renderedGroups.map(({ group, selected }, groupIndex) => (
           <Fragment key={group.id}>
@@ -661,7 +722,8 @@ export function ResourceFilterMenu({
               <DropdownMenuLabel
                 className={cn(
                   "text-xs font-normal text-subtle-foreground",
-                  compact && "md:px-1.5 md:py-1",
+                  compact &&
+                    "md:px-1.5 pointer-fine:px-1.5 md:py-1 pointer-fine:py-1",
                 )}
               >
                 {group.label}
@@ -671,7 +733,10 @@ export function ResourceFilterMenu({
                   key={option.id}
                   checked={selected.has(option.id)}
                   disabled={option.disabled}
-                  className={cn(compact && "md:py-1 md:pl-1.5 md:pr-7")}
+                  className={cn(
+                    compact &&
+                      "md:py-1 pointer-fine:py-1 md:pl-1.5 pointer-fine:pl-1.5 md:pr-7 pointer-fine:pr-7",
+                  )}
                   onSelect={(event) => event.preventDefault()}
                   onCheckedChange={(checked) => {
                     const next = nextSelectedValues(
@@ -721,7 +786,8 @@ export function ResourceSortMenuItems({
         <DropdownMenuLabel
           className={cn(
             "text-xs font-normal text-subtle-foreground",
-            compact && "md:px-1.5 md:py-1",
+            compact &&
+              "md:px-1.5 pointer-fine:px-1.5 md:py-1 pointer-fine:py-1",
           )}
         >
           Sort
@@ -737,7 +803,8 @@ export function ResourceSortMenuItems({
           }}
           className={cn(
             "flex items-center justify-between gap-3",
-            compact && "md:gap-2 md:px-1.5 md:py-1",
+            compact &&
+              "md:gap-2 pointer-fine:gap-2 md:px-1.5 pointer-fine:px-1.5 md:py-1 pointer-fine:py-1",
           )}
         >
           {placeholderLabel}
@@ -766,7 +833,8 @@ export function ResourceSortMenuItems({
             }}
             className={cn(
               "flex items-center justify-between gap-3",
-              compact && "md:gap-2 md:px-1.5 md:py-1",
+              compact &&
+                "md:gap-2 pointer-fine:gap-2 md:px-1.5 pointer-fine:px-1.5 md:py-1 pointer-fine:py-1",
             )}
           >
             <ResourceOptionContent option={option} compact={compact} />
@@ -796,7 +864,8 @@ export function ResourceSortMenuItems({
             }}
             className={cn(
               "text-xs text-muted-foreground",
-              compact && "md:px-1.5 md:py-1",
+              compact &&
+                "md:px-1.5 pointer-fine:px-1.5 md:py-1 pointer-fine:py-1",
             )}
           >
             Clear sort
@@ -858,7 +927,7 @@ export function ResourceSortMenu({
       <DropdownMenuContent
         align="end"
         mobileTitle="Sort"
-        className={cn("min-w-40", compact && "md:p-0.5")}
+        className={cn("min-w-40", compact && "md:p-0.5 pointer-fine:p-0.5")}
       >
         <ResourceSortMenuItems
           value={value}
@@ -901,6 +970,8 @@ export function ResourceCreateButton({
   menuActions = [],
   onCreate,
   compactWhenNarrow = false,
+  icon = "MessageCirclePlus",
+  shortLabel,
 }: {
   label: string;
   templates: readonly ResourceCreateTemplate[];
@@ -908,6 +979,8 @@ export function ResourceCreateButton({
   menuActions?: readonly ResourceCreateMenuAction[];
   onCreate: (prompt?: string) => void;
   compactWhenNarrow?: boolean;
+  icon?: IconName;
+  shortLabel?: string;
 }) {
   const groups: readonly ResourceCreateTemplateGroup[] = templateGroups ?? [
     { label: "Examples", templates },
@@ -917,14 +990,22 @@ export function ResourceCreateButton({
       aria-label={label}
       type="button"
       size="sm"
-      className={cn(
-        "rounded-r-none",
-        compactWhenNarrow && "pl-2 pr-1",
-      )}
+      className={cn("rounded-r-none", compactWhenNarrow && "pl-2 pr-1")}
       onClick={() => onCreate()}
     >
-      <Icon name="MessageCirclePlus" className="size-4" aria-hidden />
-      <span>{label}</span>
+      <Icon name={icon} className="size-4" aria-hidden />
+      {shortLabel ? (
+        <>
+          <span className="@max-[24rem]/resource-collection-modes:hidden">
+            {label}
+          </span>
+          <span className="hidden @max-[24rem]/resource-collection-modes:inline">
+            {shortLabel}
+          </span>
+        </>
+      ) : (
+        <span>{label}</span>
+      )}
     </Button>
   );
   return (

@@ -1,3 +1,4 @@
+import type { CcDesktopServerChoice } from "./servers.js";
 import { z } from "zod";
 import type { CcDesktopBrowserApi } from "./browser.js";
 import type { CcDesktopWindowFindRequest } from "./find.js";
@@ -36,6 +37,16 @@ export type CcDesktopWindowState = z.infer<typeof ccDesktopWindowStateSchema>;
 export const ccDesktopThemeSchema = z.enum(["system", "light", "dark"]);
 export type CcDesktopTheme = z.infer<typeof ccDesktopThemeSchema>;
 
+export const ccDesktopClipboardContentSchema = z
+  .object({
+    text: z.string(),
+    html: z.string().optional(),
+  })
+  .strict();
+export type CcDesktopClipboardContent = z.infer<
+  typeof ccDesktopClipboardContentSchema
+>;
+
 export const ccDesktopZoomCommandSchema = z.enum(["in", "out", "reset"]);
 export type CcDesktopZoomCommand = z.infer<typeof ccDesktopZoomCommandSchema>;
 export const CC_DESKTOP_MIN_ZOOM_PERCENT = 50;
@@ -51,12 +62,27 @@ export type CcDesktopOpenNewTabHandler = () => void;
 export type CcDesktopAppCommandHandler = (command: AppCommandId) => void;
 export type CcDesktopCloseWindowRequestHandler = () => boolean;
 
+export interface CcDesktopAttentionThreads {
+  pendingThreadIds: string[];
+  unreadThreadIds: string[];
+}
+
 export interface CcDesktopApi extends CcDesktopInfo {
   browser: CcDesktopBrowserApi;
+  getServerChoices?(): Promise<CcDesktopServerChoice[]>;
+  listServerChoices?(): Promise<CcDesktopServerChoice[]>;
+  onServerChoicesChange?(
+    listener: (choices: CcDesktopServerChoice[]) => void,
+  ): () => void;
+  selectServer?(id: string): void;
   checkForUpdates(): Promise<CcDesktopInfo>;
   getInfo(): Promise<CcDesktopInfo>;
+  focusWindow?(): void;
+  setAttentionThreads?(threads: CcDesktopAttentionThreads): void;
   getWindowState?(): Promise<CcDesktopWindowState>;
   installUpdate(): Promise<void>;
+  macosTrafficLightInset?: number;
+  macosTrafficLightTopInset?: number;
   onChange(listener: CcDesktopInfoChangeHandler): CcDesktopInfoUnsubscribe;
   onWindowStateChange?(
     listener: CcDesktopWindowStateChangeHandler,
@@ -71,10 +97,13 @@ export interface CcDesktopApi extends CcDesktopInfo {
   openWindowFind?(request: CcDesktopWindowFindRequest): void;
   openDataDirectory?(): Promise<void>;
   openExternalUrl(url: string): void;
+  openApplicationUrl?(url: string): Promise<void>;
   openServerDaemonLogs?(): Promise<void>;
+  reloadWindow?(): void;
   setSplitNavigationEnabled?(
     enabled: boolean,
     directionalCommands?: readonly AppCommandId[],
   ): void;
   setTheme(theme: CcDesktopTheme): void;
+  writeClipboard?(content: CcDesktopClipboardContent): Promise<void>;
 }

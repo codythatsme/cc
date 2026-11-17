@@ -1,6 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { spawnHostProcessSync as spawnSync } from "@cc/process-utils/host-process";
 import { realpathSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, win32 } from "node:path";
 
 export const CC_CLI_REEXEC_ENV = "CC_CLI_REEXEC";
 
@@ -13,6 +13,22 @@ interface MaybeReexecViaCcCliArgs {
     argv: string[];
     env: NodeJS.ProcessEnv;
   }) => void;
+}
+
+interface ResolveCcCliLaunchArgs {
+  argv: string[];
+  nodePath: string;
+  platform: NodeJS.Platform;
+  target: string;
+}
+
+export function resolveCcCliLaunch(args: ResolveCcCliLaunchArgs): {
+  command: string;
+  args: string[];
+} {
+  return args.platform === "win32" && win32.extname(args.target) === ""
+    ? { command: args.nodePath, args: [args.target, ...args.argv] }
+    : { command: args.target, args: args.argv };
 }
 
 function tryRealpath(path: string): string | null {
@@ -58,7 +74,13 @@ export function maybeReexecViaCcCli(
     return;
   }
 
-  const result = spawnSync(target, argv, {
+  const launch = resolveCcCliLaunch({
+    argv,
+    nodePath: process.execPath,
+    platform: process.platform,
+    target,
+  });
+  const result = spawnSync(launch.command, launch.args, {
     env: childEnv,
     stdio: "inherit",
   });

@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@cc/domain";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFailed } from "vitest";
 
 const run = promisify(execFile);
 
@@ -71,12 +71,15 @@ export default function plugin() {
     ).href;
     const script = `
 import pino from "pino";
-import { createConnection, migrate, upsertInstalledPlugin } from "@cc/db";
+import { upsertInstalledPlugin } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { createPluginService } from ${JSON.stringify(runtimeUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
+const progress = (phase) => process.stderr.write(JSON.stringify({ phase, uptimeSeconds: process.uptime() }) + "\\n");
+progress("imports-ready");
 const [rootDir, dataDir] = process.argv.slice(1);
-const db = createConnection(":memory:");
-migrate(db);
+const db = createMigratedConnection();
+progress("database-ready");
 upsertInstalledPlugin(db, {
   id: "native-externals",
   source: "git:github.com/acme/cc-plugin-native-externals@v1",
@@ -104,7 +107,7 @@ const service = createPluginService({
   db,
   hub: {
     getDaemonSessionIdForHost: () => null,
-    notifyPluginSignal: () => 0,
+    notifyPluginChanged: () => {}, onWatchedTargets: () => () => {}, notifyPluginSignal: () => 0,
     notifySystem: () => {}
   },
   logger: pino({ enabled: false }),
@@ -112,7 +115,9 @@ const service = createPluginService({
   appVersion: "0.9.0",
   loadTimeoutMs: 2000
 });
+progress("service-ready");
 await service.reload("native-externals");
+progress("reload-complete");
 const entry = service.list().find((plugin) => plugin.id === "native-externals");
 const result = {
   status: entry?.status,
@@ -120,10 +125,12 @@ const result = {
   types: globalThis.__nativeExternalTypes
 };
 await service.stop();
+progress("stop-complete");
 process.stdout.write(JSON.stringify(result));
 `;
 
-    const { stdout } = await run(
+    const startedAt = performance.now();
+    const execution = run(
       process.execPath,
       [
         "--conditions=source",
@@ -137,6 +144,20 @@ process.stdout.write(JSON.stringify(result));
       ],
       { cwd: resolve(import.meta.dirname, "../../..") },
     );
+    let progressOutput = "";
+    execution.child.stderr?.on("data", (chunk: Buffer | string) => {
+      progressOutput += chunk.toString();
+    });
+    onTestFailed(() => {
+      console.error("Native plugin child progress", {
+        elapsedMs: Math.round(performance.now() - startedAt),
+        pid: execution.child.pid,
+        exitCode: execution.child.exitCode,
+        signalCode: execution.child.signalCode,
+        progress: progressOutput,
+      });
+    });
+    const { stdout } = await execution;
 
     expect(JSON.parse(stdout)).toEqual({
       status: "running",
@@ -187,18 +208,17 @@ export default function plugin(cc: CcPluginApi) {
     ).href;
     const script = `
 import pino from "pino";
-import { createConnection, migrate } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { createPluginService } from ${JSON.stringify(serviceUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 const [rootDir, dataDir] = process.argv.slice(1);
-const db = createConnection(":memory:");
-migrate(db);
+const db = createMigratedConnection();
 const service = createPluginService({
   aiServices: createAiServiceRegistry(),
   db,
   hub: {
     getDaemonSessionIdForHost: () => null,
-    notifyPluginSignal: () => 0,
+    notifyPluginChanged: () => {}, onWatchedTargets: () => () => {}, notifyPluginSignal: () => 0,
     notifySystem: () => {}
   },
   logger: pino({ enabled: false }),
@@ -245,6 +265,10 @@ process.stdout.write(JSON.stringify(result));
     const importerDir = join(workDir, "cc-plugin-importer");
     await mkdir(importedDir, { recursive: true });
     await mkdir(importerDir, { recursive: true });
+    const importedSharedSpecifier =
+      process.platform === "win32"
+        ? "../cc-plugin-imported/shared.js"
+        : join(importedDir, "shared.js");
     const packageJson = (name: string) =>
       JSON.stringify({
         name,
@@ -279,7 +303,7 @@ process.stdout.write(JSON.stringify(result));
       join(importerDir, "server.js"),
       `export default function plugin() {
   globalThis.__readImportedPlugin = async () =>
-    (await import(${JSON.stringify(join(importedDir, "shared.js"))})).value;
+    (await import(${JSON.stringify(importedSharedSpecifier)})).value;
 }
 `,
     );
@@ -299,18 +323,17 @@ process.stdout.write(JSON.stringify(result));
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import pino from "pino";
-import { createConnection, migrate } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { createPluginService } from ${JSON.stringify(serviceUrl)};
 import { createAiServiceRegistry } from ${JSON.stringify(aiRegistryUrl)};
 const [importedDir, importerDir, dataDir] = process.argv.slice(1);
-const db = createConnection(":memory:");
-migrate(db);
+const db = createMigratedConnection();
 const service = createPluginService({
   aiServices: createAiServiceRegistry(),
   db,
   hub: {
     getDaemonSessionIdForHost: () => null,
-    notifyPluginSignal: () => 0,
+    notifyPluginChanged: () => {}, onWatchedTargets: () => () => {}, notifyPluginSignal: () => 0,
     notifySystem: () => {}
   },
   logger: pino({ enabled: false }),

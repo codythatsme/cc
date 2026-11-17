@@ -1,11 +1,6 @@
 #!/usr/bin/env node
 
-import {
-  existsSync,
-  mkdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,7 +64,6 @@ import {
   closeAllPiCatalogs,
   createLiveContextWindowResolver,
   getPiCatalog,
-  peekPiCatalog,
 } from "./catalog.js";
 import {
   PiRpcSession,
@@ -527,6 +521,7 @@ async function handleRequest(
           grammarVersions: [THREAD_DELTA_GRAMMAR_V3, THREAD_DELTA_GRAMMAR_V3],
           steerMode: "inject",
           skills: { configure: true },
+          commands: { list: false },
         },
       };
       sendResult(request.id, result);
@@ -542,7 +537,10 @@ async function handleRequest(
       sendResult(request.id, { supported: false });
       break;
     case "provider/installation/status":
-      sendResult(request.id, await getPiProviderInstallationStatus());
+      sendResult(
+        request.id,
+        await getPiProviderInstallationStatus(request.params.checkUpdates),
+      );
       break;
     case "provider/installation/run":
       sendResult(
@@ -682,26 +680,15 @@ async function resolvePiModel(
   modelStr: string,
   cwd: string,
 ): Promise<{ provider: string; id: string }> {
-  const slashIdx = modelStr.indexOf("/");
-  if (slashIdx > 0) {
-    const provider = modelStr.slice(0, slashIdx);
-    const id = modelStr.slice(slashIdx + 1);
-    const warm = peekPiCatalog(cwd);
-    if (warm !== null) {
-      const models = await (await warm).rawModels();
-      if (
-        models.some((m) => m.provider === provider) &&
-        !models.some((m) => m.provider === provider && m.id === id)
-      ) {
-        throw new Error(
-          `Pi model "${modelStr}" is not served by provider "${provider}" on this host.`,
-        );
-      }
-    }
-    return { provider, id };
-  }
   const catalog = await getPiCatalog(cwd, requireExtensionPath());
-  const served = (await catalog.rawModels()).filter((m) => m.id === modelStr);
+  const models = await catalog.rawModels();
+  const canonical = models.find(
+    (model) => `${model.provider}/${model.id}` === modelStr,
+  );
+  if (canonical) {
+    return { provider: canonical.provider, id: canonical.id };
+  }
+  const served = models.filter((model) => model.id === modelStr);
   if (served.length > 1) {
     throw new Error(
       `Ambiguous Pi model "${modelStr}": served by ${served
@@ -875,7 +862,9 @@ async function handleThreadConstruction(
     threadId: providerThreadId,
   });
   const relocate = piSessionNeedsRelocation(sourceFile, params.cwd);
-  const nextProviderThreadId = relocate ? `pi_${randomUUID()}` : providerThreadId;
+  const nextProviderThreadId = relocate
+    ? `pi_${randomUUID()}`
+    : providerThreadId;
   const targetFile = resolvePiSessionFilePath({
     env: process.env,
     threadId: nextProviderThreadId,
@@ -964,7 +953,7 @@ function startPiPrompt(
     images.length > 0 ? images : undefined,
   );
   void dispatch.settled.then((outcome) => {
-    if (outcome === null) {
+    if (outcome === null || outcome.boundaryDelivered) {
       return;
     }
     reportPromptSettled({

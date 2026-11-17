@@ -5,6 +5,7 @@ import { loadHostDaemonStartConfig } from "@cc/config/host-daemon";
 import { loadHostDaemonEntrypointConfig } from "@cc/config/host-daemon-entrypoint";
 import {
   installSafeProcessDiagnostics,
+  installSocketTypeOfServiceGuard,
   writeSafeProcessDiagnosticReport,
 } from "@cc/process-utils";
 import { hasMachineSuspensionMarker } from "./suspension-marker.js";
@@ -61,9 +62,9 @@ async function runHostDaemonEntrypoint(): Promise<void> {
       resolveEntrypointBridgeBundleDir(),
     serverHeaders: hostDaemonEntrypointConfig.CC_SERVER_HEADERS,
     autoUpdate: hostDaemonEntrypointConfig.CC_HOST_DAEMON_AUTO_UPDATE,
+    supervised: hostDaemonEntrypointConfig.CC_HOST_DAEMON_SUPERVISED,
     enrollKey: hostDaemonEntrypointConfig.CC_HOST_ENROLL_KEY,
     hostId: hostDaemonEntrypointConfig.CC_HOST_ID,
-    hostName: hostDaemonEntrypointConfig.CC_HOST_NAME,
   });
   await daemon.waitUntilStopped();
 }
@@ -79,6 +80,7 @@ if (isMainModule) {
     logsDir: diagnosticsLogsDir,
     processName: "host-daemon",
   });
+  installSocketTypeOfServiceGuard();
   const handleMainFailure: MainFailureHandler = (error) => {
     reportStartupFailure({ diagnosticsLogsDir, error });
   };

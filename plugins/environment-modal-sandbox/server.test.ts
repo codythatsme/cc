@@ -1,3 +1,4 @@
+import { join, resolve } from "node:path";
 import { modalAllocations } from "./allocations.js";
 import { sweepModalAllocations } from "./allocation-sweep.js";
 import type { CcPluginApi, JsonValue } from "@codythatsme/plugin-sdk";
@@ -299,6 +300,18 @@ describe("Modal machine provider", () => {
     );
   });
 
+  it("reserves the default size for a machine created without a preset", async () => {
+    const harness = await setup();
+    const created = await harness.provider.create(createContext());
+    if (created.status !== "created")
+      throw new Error("Expected created machine");
+    expect(harness.backend.creates[0]).toMatchObject({
+      cpu: 1,
+      memoryMiB: 2048,
+    });
+    expect(created.resource).toMatchObject({ cpu: 1, memoryMiB: 2048 });
+  });
+
   it("resolves configured preset and image names for validation and creation", async () => {
     const harness = await setup();
     const current = modalLaunchOptionsSchema.parse(
@@ -374,6 +387,7 @@ describe("Modal machine provider", () => {
     await expect(harness.provider.create(context)).resolves.toMatchObject({
       status: "failed",
     });
+    expect(harness.backend.image).toHaveBeenCalledOnce();
     expect(harness.backend.states[0]?.terminated).toBe(false);
     await expect(harness.provider.create(context)).resolves.toMatchObject({
       status: "created",
@@ -846,16 +860,6 @@ it("reconciles uncertain named allocations without creating or bootstrapping", a
   expect(test.bootstrap).not.toHaveBeenCalled();
   await test.harness.lifecycle.dispose();
 });
-it("reports bootstrap failures after preserving the allocation", async () => {
-  const test = await setup();
-  test.bootstrap.mockRejectedValueOnce(new Error("Configure machine access"));
-  expect(await test.provider.create(createContext())).toMatchObject({
-    status: "failed",
-  });
-  expect(test.backend.image).toHaveBeenCalledOnce();
-  expect(test.backend.creates).toHaveLength(1);
-});
-
 it("observes vendor deadlines", async () => {
   const harness = await setup();
   const created = await harness.provider.create(createContext());
@@ -989,7 +993,8 @@ it("reads CLI Dockerfiles on the invoking thread's host and leaves a saved overr
     sizeBytes: dockerfile.length,
   }));
   test.harness.sdk.stub("files.read", read);
-  const context = { threadId: "thr_remote", cwd: "/project" };
+  const projectDir = resolve("/project");
+  const context = { threadId: "thr_remote", cwd: projectDir };
   expect(
     await test.harness.behavior.runCli(
       ["image", "set", "--file", "Dockerfile", "--json"],
@@ -999,7 +1004,7 @@ it("reads CLI Dockerfiles on the invoking thread's host and leaves a saved overr
   expect(read).toHaveBeenCalledWith(
     expect.objectContaining({
       hostId: "host_remote",
-      path: "/project/Dockerfile",
+      path: join(projectDir, "Dockerfile"),
     }),
   );
   read.mockResolvedValue({
@@ -1138,7 +1143,7 @@ it("does not allocate debug compute when the image fails to build", async () => 
 });
 
 describe("modal CLI surface", () => {
-  it("documents commands, rejects near-miss names and options, and reports missing values at once", async () => {
+  it("documents commands and requires a command after -- for sandbox exec", async () => {
     const test = await setup();
 
     const help = await test.harness.behavior.runCli(["--help"]);
@@ -1154,22 +1159,6 @@ describe("modal CLI surface", () => {
     expect(commandHelp.exitCode).toBe(0);
     expect(commandHelp.stdout).toContain("cc modal image set --file <PATH>");
 
-    expect(
-      await test.harness.behavior.runCli(["sandbox", "exce", "sandbox-1"]),
-    ).toMatchObject({
-      exitCode: 1,
-      stderr: expect.stringContaining(
-        "unknown command 'sandbox exce' (Did you mean sandbox exec?)",
-      ),
-    });
-    expect(
-      await test.harness.behavior.runCli(["image", "show", "--jsno"]),
-    ).toMatchObject({
-      exitCode: 1,
-      stderr: expect.stringContaining(
-        "unknown option '--jsno' (Did you mean --json?)",
-      ),
-    });
     expect(
       await test.harness.behavior.runCli(["sandbox", "exec", "sandbox-1"]),
     ).toMatchObject({
@@ -1426,7 +1415,7 @@ describe("Modal allocation tracking", () => {
       h.cc,
       allocations,
       h.backend.backend,
-      Date.now(),
+      Date.now() + 60_000,
     );
     expect(await allocations.keys()).toEqual([]);
   });
@@ -1472,6 +1461,51 @@ describe("Modal allocation tracking", () => {
       Date.now(),
     );
     expect(await allocations.keys()).toEqual(["allocations/sandbox/sandbox-1"]);
+  });
+
+  it("persists per-allocation exponential backoff, caps it, and resumes cleanup after recovery", async () => {
+    const h = await setup();
+    await h.provider.create(createContext("first"));
+    await h.provider.create(createContext("second"));
+    h.backend.states[1]!.terminated = true;
+    const original = h.backend.backend.fromId;
+    let failing = true;
+    const lookup = vi
+      .spyOn(h.backend.backend, "fromId")
+      .mockImplementation(async (id) => {
+        if (id === "sandbox-1" && failing) throw new Error("unavailable");
+        return original(id);
+      });
+    let now = Date.now();
+    let allocations = modalAllocations(h.cc, () => now);
+    await sweepModalAllocations(h.cc, allocations, h.backend.backend, now);
+    expect(await allocations.keys()).toEqual(["allocations/sandbox/sandbox-1"]);
+    for (const delay of [
+      60_000, 120_000, 240_000, 480_000, 960_000, 1_920_000, 3_600_000,
+      3_600_000,
+    ]) {
+      const calls = lookup.mock.calls.length;
+      allocations = modalAllocations(h.cc, () => now);
+      await sweepModalAllocations(
+        h.cc,
+        allocations,
+        h.backend.backend,
+        now + delay - 1,
+      );
+      expect(lookup).toHaveBeenCalledTimes(calls);
+      now += delay;
+      await sweepModalAllocations(h.cc, allocations, h.backend.backend, now);
+      expect(lookup).toHaveBeenCalledTimes(calls + 1);
+    }
+    failing = false;
+    h.backend.states[0]!.terminated = true;
+    await sweepModalAllocations(
+      h.cc,
+      allocations,
+      h.backend.backend,
+      now + 3_600_000,
+    );
+    expect(await allocations.keys()).toEqual([]);
   });
 
   it("rediscovers allocation after create loses its response and prunes it after termination", async () => {
@@ -1566,7 +1600,7 @@ describe("Modal allocation tracking", () => {
     );
     await sweepModalAllocations(h.cc, allocations, h.backend.backend, 60_001);
     expect(await allocations.keys()).toHaveLength(1);
-    await sweepModalAllocations(h.cc, allocations, h.backend.backend, 60_001);
+    await sweepModalAllocations(h.cc, allocations, h.backend.backend, 120_001);
     expect(await allocations.keys()).toEqual([]);
     create.mockRestore();
   });

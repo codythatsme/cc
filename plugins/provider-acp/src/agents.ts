@@ -3,6 +3,7 @@ import type { PluginProviderReasoningLevel } from "@codythatsme/plugin-sdk";
 import { experimental_acpLaunchSpecSchema } from "@codythatsme/plugin-sdk/provider-bridge/acp";
 import type { AcpLaunchSpec } from "@codythatsme/plugin-sdk/provider-bridge/acp";
 import type { AcpNativeRootsResolver } from "./native-roots/resolver.js";
+import { registryAgentIcon } from "./registry-icons.js";
 
 export const ACP_FAMILY = "acp";
 
@@ -20,9 +21,9 @@ export interface AcpAgentDefinition {
   dialect?: string;
   parameterizedModelPicker?: boolean;
   primaryModels?: readonly string[];
-  reasoningProbePriorityModelIds?: readonly string[];
   visibility?: "always" | "installed";
   signInCommand?: string;
+  guidedSignIn?: boolean;
   installUrl?: string;
   iconTint?: { light: string; dark: string };
   supportsManualCompaction?: boolean;
@@ -31,6 +32,7 @@ export interface AcpAgentDefinition {
   providerUsage?: boolean;
   providerInstallation?: boolean;
   nativeRootsResolver?: AcpNativeRootsResolver;
+  modelCatalogScope?: "host" | "workspace";
 }
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
@@ -69,7 +71,7 @@ export function customAcpAgentDefinition(
   return {
     id: formatCustomAcpProviderId(agent.id),
     displayName: agent.displayName,
-    icon: CUSTOM_AGENT_GLYPH,
+    icon: registryAgentIcon(agent.id) ?? CUSTOM_AGENT_GLYPH,
     launch: {
       displayName: agent.displayName,
       command: agent.command,
@@ -93,6 +95,10 @@ export function customAcpAgentDefinition(
     ...(shipped?.nativeRootsResolver === undefined
       ? {}
       : { nativeRootsResolver: shipped.nativeRootsResolver }),
+    ...(shipped?.modelCatalogScope === "workspace" ||
+    agent.dialect === "opencode"
+      ? { modelCatalogScope: "workspace" as const }
+      : {}),
     visibility: "always",
     fork: "none",
     supportsManualCompaction: agent.supportsManualCompaction,

@@ -22,7 +22,7 @@ import { CcLogo } from "@/components/ui/cc-logo";
 import {
   ConfirmDeleteDialog,
   ConfirmDeleteDialogContent,
-} from "@/components/dialogs/ConfirmDeleteDialog";
+} from "@cc/shared-ui/confirm-delete-dialog";
 import { CreateWithTemplatesButton } from "@/components/create-via-prompt-examples";
 import { ProvenancePill } from "@/components/tools/ProvenancePill";
 import { SkillDetailView } from "@/components/tools/SkillDetailView";
@@ -341,7 +341,7 @@ export function SkillsOverview({
 }: SkillsOverviewProps) {
   const [providerFilters, setProviderFilters] = useState<
     ResourceProviderFilter[]
-  >(["cc"]);
+  >([]);
   const [sourceFilters, setSourceFilters] = useState<
     ResourceSkillSourceFilter[]
   >([]);
@@ -401,12 +401,10 @@ export function SkillsOverview({
         !providerCounts.has(provider) && !providerFilters.includes(provider),
     }));
   }, [providerCounts, providerRoster, providerFilters]);
-  useEffect(() => {
-    if (sortMode === "provider" && providerBucketCount <= 1) {
-      setSortMode("alpha");
-      setSortDirection("asc");
-    }
-  }, [providerBucketCount, sortMode]);
+  if (sortMode === "provider" && providerBucketCount <= 1) {
+    setSortMode("alpha");
+    setSortDirection("asc");
+  }
   const visibleSkills = useMemo(() => {
     const filtered = skills.filter((skill) => {
       const source = skillSourceFilterId(skill);
@@ -433,12 +431,10 @@ export function SkillsOverview({
       );
     });
     return [...filtered].sort((left, right) => {
-      if (providerFilters.length === 1 && providerFilters[0] === "cc") {
-        const officialResult =
-          Number(left.scope !== "cc-builtin") -
-          Number(right.scope !== "cc-builtin");
-        if (officialResult !== 0) return officialResult;
-      }
+      const officialResult =
+        Number(left.scope !== "cc-builtin") -
+        Number(right.scope !== "cc-builtin");
+      if (officialResult !== 0) return officialResult;
       const base =
         sortMode === "provider"
           ? providerLabel(left.provider, providerRoster).localeCompare(
@@ -638,10 +634,13 @@ export function SkillDetailDialogView({
   onOpenInEditor,
 }: SkillDetailDialogViewProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  useEffect(() => {
+  const skillId = skill?.id;
+  const [confirmingDeleteSkillId, setConfirmingDeleteSkillId] =
+    useState(skillId);
+  if (confirmingDeleteSkillId !== skillId) {
+    setConfirmingDeleteSkillId(skillId);
     setConfirmingDelete(false);
-  }, [skill?.id]);
+  }
 
   if (skill === null) return null;
   const bundledPluginName =

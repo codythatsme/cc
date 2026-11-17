@@ -5,7 +5,6 @@ import { Button } from "@cc/shared-ui/button";
 import { Input } from "@cc/shared-ui/input";
 import { Pill } from "@cc/shared-ui/pill";
 import { EmptyStatePanel } from "@cc/shared-ui/empty-state";
-import { SIDEBAR_UNREAD_DOT_CLASS } from "../sidebar/sidebarRowClasses";
 
 export default {
   title: "Theme Tokens",
@@ -142,10 +141,6 @@ function SurfaceWidget() {
         </div>
         <div className="rounded bg-state-hover px-2 py-1 text-[10px]">
           Hovered item
-        </div>
-        <div className="flex items-center justify-between px-2 py-1 text-[10px] text-muted-foreground">
-          <span>Unread item</span>
-          <span className={SIDEBAR_UNREAD_DOT_CLASS} />
         </div>
         <div className="px-2 py-1 text-[10px] text-muted-foreground">Item</div>
       </div>

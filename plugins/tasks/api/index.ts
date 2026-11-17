@@ -1,4 +1,5 @@
 import type { CcPluginApi, PluginRpcHandlers } from "@codythatsme/plugin-sdk";
+import { z } from "zod";
 import {
   createTasksStore,
   type Attachment as StoredAttachment,
@@ -13,19 +14,32 @@ import {
 } from "../attachments";
 import { deliverCommentToLatestAgent } from "../steer";
 import { displayName } from "../shared/display-name";
+import { errorMessage } from "../shared/errors";
 import { isSideChatShapedThread } from "../shared/side-chat";
 import {
   tasksRpcContract,
   type Attachment as AttachmentMetadata,
-  type ProjectsChangedEvent,
   type SidebarProjectSummary,
   type Task,
   type TaskPullRequest,
-  type TasksChangedEvent,
   type TasksDomainError,
-  type CommentsChangedEvent,
   type CommentProvider,
 } from "../shared/contract";
+import {
+  FOLDERS_TAG,
+  PRESETS_TAG,
+  PROJECTS_TAG,
+  commentsTag,
+  labelsTag,
+  projectTag,
+  projectTasksChangedTags,
+  projectTasksTag,
+  pullRequestsTag,
+  taskChangedTags,
+  threadsChangedTags,
+  ALL_TASKS_TAG,
+  TASK_META_TAG,
+} from "../shared/tags";
 
 interface TaskLabelIdRow {
   task_id: string;
@@ -47,6 +61,21 @@ interface SummaryRow {
 }
 
 const MAX_THREAD_SEARCH_RESULTS = 10;
+const ACTIVE_PULL_REQUEST_REFRESH_MS = 60_000;
+const activePullRequestTasks = new WeakMap<TasksApiStore, Set<string>>();
+
+function tasksWithActivePullRequests(store: TasksApiStore): Set<string> {
+  let tasks = activePullRequestTasks.get(store);
+  if (tasks === undefined) {
+    tasks = new Set();
+    activePullRequestTasks.set(store, tasks);
+  }
+  return tasks;
+}
+
+function isActivePullRequest(pullRequest: TaskPullRequest): boolean {
+  return pullRequest.state === "open" || pullRequest.state === "draft";
+}
 
 export interface TasksApiStore {
   readonly tasks: TasksStore;
@@ -169,26 +198,44 @@ function taskFailure(error: TasksDomainFailure) {
   return { ok: false as const, error: error.detail };
 }
 
-export function publishTasksChanged(
+function invalidate(cc: CcPluginApi, tags: readonly string[]): void {
+  cc.rpc.experimental_invalidate([...new Set(tags)]);
+}
+
+export function invalidateTaskChanged(
   cc: CcPluginApi,
-  taskId: string,
+  task: { id: string; projectId: string },
+): void {
+  invalidate(cc, taskChangedTags(task));
+}
+
+export function invalidateComments(cc: CcPluginApi, taskId: string): void {
+  invalidate(cc, [commentsTag(taskId)]);
+}
+
+export function invalidateThreads(cc: CcPluginApi, taskId: string): void {
+  invalidate(cc, threadsChangedTags(taskId));
+}
+
+export function invalidateProjects(cc: CcPluginApi): void {
+  invalidate(cc, [PROJECTS_TAG]);
+}
+
+export function invalidateFolders(
+  cc: CcPluginApi,
+  options: { projectsMoved: boolean },
+): void {
+  invalidate(cc, [
+    FOLDERS_TAG,
+    ...(options.projectsMoved ? [PROJECTS_TAG] : []),
+  ]);
+}
+
+export function invalidateProjectTasks(
+  cc: CcPluginApi,
   projectId: string,
 ): void {
-  const payload: TasksChangedEvent = { taskId, projectId };
-  cc.realtime.publish("tasks:changed", payload);
-}
-
-export function publishProjectsChanged(
-  cc: CcPluginApi,
-  projectId: string | null,
-): void {
-  const payload: ProjectsChangedEvent = { projectId };
-  cc.realtime.publish("projects:changed", payload);
-}
-
-export function publishCommentsChanged(cc: CcPluginApi, taskId: string): void {
-  const payload: CommentsChangedEvent = { taskId };
-  cc.realtime.publish("comments:changed", payload);
+  invalidate(cc, projectTasksChangedTags(projectId));
 }
 
 function apiTask(store: TasksApiStore, task: StoredTask): Task {
@@ -307,7 +354,6 @@ function writeSystemComments(
       kind: "system",
       authorName,
       body,
-      notifiedCount: 0,
     });
   }
 }
@@ -410,6 +456,7 @@ interface CreateCommentInput {
   threadId: string | null;
   body: string;
   notify: boolean;
+  awaitDelivery: boolean;
 }
 
 export async function createComment(
@@ -417,7 +464,7 @@ export async function createComment(
   store: TasksApiStore,
   input: CreateCommentInput,
 ): Promise<StoredComment> {
-  let comment = store.transaction(() =>
+  const comment = store.transaction(() =>
     store.tasks.createComment({
       taskId: input.taskId,
       kind: input.kind,
@@ -425,23 +472,32 @@ export async function createComment(
       presetName: input.presetName,
       threadId: input.threadId,
       body: input.body,
-      notifiedCount: 0,
     }),
   );
 
-  if (input.notify) {
+  invalidateComments(cc, input.taskId);
+  if (!input.notify) return comment;
+
+  const deliver = async (): Promise<StoredComment> => {
     const notifiedCount = await deliverCommentToLatestAgent(cc, store.tasks, {
       taskId: comment.taskId,
       commentId: comment.id,
       body: comment.body,
       authorName: comment.authorName,
     });
-    comment = store.transaction(() =>
+    const updated = store.transaction(() =>
       store.tasks.updateComment(comment.id, { notifiedCount }),
     );
-  }
+    invalidateComments(cc, input.taskId);
+    return updated;
+  };
 
-  publishCommentsChanged(cc, input.taskId);
+  if (input.awaitDelivery) return deliver();
+  void deliver().catch((error) => {
+    cc.log.warn(
+      `failed to update comment notification ${comment.id}: ${errorMessage(error)}`,
+    );
+  });
   return comment;
 }
 
@@ -450,27 +506,57 @@ interface TaskPullRequestsResult {
   unavailableThreadIds: string[];
 }
 
-const PULL_REQUEST_LOOKUP_CONCURRENCY = 4;
+const GITHUB_PR_STATUS_PLUGIN_ID = "cc--github-pr-status";
+const PULL_REQUEST_KEYS_PER_READ = 200;
 
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  limit: number,
-  work: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-  const workers = Array.from(
-    { length: Math.min(limit, items.length) },
-    async () => {
-      while (nextIndex < items.length) {
-        const index = nextIndex;
-        nextIndex += 1;
-        results[index] = await work(items[index]!);
-      }
-    },
-  );
-  await Promise.all(workers);
-  return results;
+const environmentPullRequestsSchema = z.record(
+  z.string(),
+  z.discriminatedUnion("outcome", [
+    z.object({
+      outcome: z.literal("available"),
+      pullRequest: z.object({
+        url: z.string().url(),
+        number: z.number().int().positive(),
+        title: z.string(),
+        state: z.enum(["open", "draft", "merged", "closed"]),
+        updatedAt: z.string(),
+      }),
+    }),
+    z.object({ outcome: z.literal("absent") }),
+    z.object({ outcome: z.literal("unavailable"), message: z.string() }),
+  ]),
+);
+type EnvironmentPullRequests = z.infer<typeof environmentPullRequestsSchema>;
+
+async function readEnvironmentPullRequests(
+  cc: CcPluginApi,
+  environmentIds: readonly string[],
+): Promise<EnvironmentPullRequests> {
+  const rows: EnvironmentPullRequests = {};
+  for (
+    let start = 0;
+    start < environmentIds.length;
+    start += PULL_REQUEST_KEYS_PER_READ
+  ) {
+    const keys = environmentIds.slice(
+      start,
+      start + PULL_REQUEST_KEYS_PER_READ,
+    );
+    try {
+      Object.assign(
+        rows,
+        await cc.sdk.plugins.callRpc({
+          pluginId: GITHUB_PR_STATUS_PLUGIN_ID,
+          method: "pullRequests",
+          input: { keys },
+          outputSchema: environmentPullRequestsSchema,
+        }),
+      );
+    } catch (error) {
+      cc.log.debug(`pull request lookup failed: ${errorMessage(error)}`);
+    }
+  }
+  return rows;
 }
 
 async function listTaskPullRequests(
@@ -499,52 +585,29 @@ async function listTaskPullRequests(
   );
 
   const byUrl = new Map<string, TaskPullRequest>();
-  await mapWithConcurrency(
-    [...threadIdsByEnvironment.entries()],
-    PULL_REQUEST_LOOKUP_CONCURRENCY,
-    async ([environmentId, threadIds]) => {
-      let result: Awaited<
-        ReturnType<CcPluginApi["sdk"]["environments"]["pullRequest"]>
-      >;
-      try {
-        result = await cc.sdk.environments.pullRequest({ environmentId });
-      } catch {
-        for (const threadId of threadIds) unavailable.add(threadId);
-        return;
-      }
-      if (result.outcome === "unavailable") {
-        for (const threadId of threadIds) unavailable.add(threadId);
-        return;
-      }
-      if (result.outcome === "absent") return;
-      const { pullRequest } = result;
-      const existing = byUrl.get(pullRequest.url);
-      if (!existing) {
-        byUrl.set(pullRequest.url, {
-          url: pullRequest.url,
-          number: pullRequest.number,
-          title: pullRequest.title,
-          state: pullRequest.state,
-          updatedAt: pullRequest.updatedAt,
-          threadIds: [...threadIds],
-        });
-        return;
-      }
-      const threadIdUnion = [...existing.threadIds, ...threadIds];
-      if (pullRequest.updatedAt.localeCompare(existing.updatedAt) > 0) {
-        byUrl.set(pullRequest.url, {
-          url: pullRequest.url,
-          number: pullRequest.number,
-          title: pullRequest.title,
-          state: pullRequest.state,
-          updatedAt: pullRequest.updatedAt,
-          threadIds: threadIdUnion,
-        });
-      } else {
-        existing.threadIds = threadIdUnion;
-      }
-    },
-  );
+  const rows = await readEnvironmentPullRequests(cc, [
+    ...threadIdsByEnvironment.keys(),
+  ]);
+  for (const [environmentId, threadIds] of threadIdsByEnvironment) {
+    const result = rows[environmentId];
+    if (result === undefined || result.outcome === "unavailable") {
+      for (const threadId of threadIds) unavailable.add(threadId);
+      continue;
+    }
+    if (result.outcome === "absent") continue;
+    const { pullRequest } = result;
+    const existing = byUrl.get(pullRequest.url);
+    if (!existing) {
+      byUrl.set(pullRequest.url, { ...pullRequest, threadIds: [...threadIds] });
+      continue;
+    }
+    const threadIdUnion = [...existing.threadIds, ...threadIds];
+    if (pullRequest.updatedAt.localeCompare(existing.updatedAt) > 0) {
+      byUrl.set(pullRequest.url, { ...pullRequest, threadIds: threadIdUnion });
+    } else {
+      existing.threadIds = threadIdUnion;
+    }
+  }
 
   const threadOrder = new Map(
     taskThreads.map((taskThread, index) => [taskThread.threadId, index]),
@@ -575,26 +638,26 @@ export function registerHandlers(
   return {
     createFolder(input) {
       const folder = store.tasks.createFolder(input);
-      publishProjectsChanged(cc, null);
+      invalidateFolders(cc, { projectsMoved: false });
       return { folder };
     },
     renameFolder(input) {
       const folder = store.tasks.updateFolder(input.folderId, {
         name: input.name,
       });
-      publishProjectsChanged(cc, null);
+      invalidateFolders(cc, { projectsMoved: false });
       return { folder };
     },
     moveFolder(input) {
       const folder = store.tasks.updateFolder(input.folderId, {
         parentFolderId: input.parentFolderId,
       });
-      publishProjectsChanged(cc, null);
+      invalidateFolders(cc, { projectsMoved: false });
       return { folder };
     },
     deleteFolder(input) {
       const result = store.tasks.deleteFolder(input.folderId);
-      if (result.deleted) publishProjectsChanged(cc, null);
+      if (result.deleted) invalidateFolders(cc, { projectsMoved: true });
       return result;
     },
     listFolders() {
@@ -602,13 +665,13 @@ export function registerHandlers(
     },
     createProject(input) {
       const project = store.tasks.createProject(input);
-      publishProjectsChanged(cc, project.id);
+      invalidateProjects(cc);
       return { project };
     },
     updateProject(input) {
       const { projectId, ...changes } = input;
       const project = store.tasks.updateProject(projectId, changes);
-      publishProjectsChanged(cc, project.id);
+      invalidateProjects(cc);
       return { project };
     },
     renameProjectPrefix(input) {
@@ -622,7 +685,7 @@ export function registerHandlers(
         const project = store.tasks.updateProject(input.projectId, {
           prefix: input.prefix,
         });
-        publishProjectsChanged(cc, project.id);
+        invalidateProjectTasks(cc, project.id);
         return { ok: true, project };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
@@ -644,7 +707,7 @@ export function registerHandlers(
         const deleted = store.tasks.deleteProject(input.projectId);
         if (deleted) {
           await removeAttachmentBlobs(cc, store.tasks, attachments);
-          publishProjectsChanged(cc, input.projectId);
+          invalidateProjectTasks(cc, input.projectId);
         }
         return { ok: true, deleted };
       } catch (error) {
@@ -672,7 +735,7 @@ export function registerHandlers(
           replaceTaskLabels(store, created.id, input.labelIds);
           return apiTask(store, created);
         });
-        publishTasksChanged(cc, task.id, task.projectId);
+        invalidateTaskChanged(cc, task);
         return { ok: true, task };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
@@ -744,10 +807,15 @@ export function registerHandlers(
           };
         });
 
-        publishTasksChanged(cc, result.task.id, result.task.projectId);
-        if (result.systemCommentsWritten > 0) {
-          publishCommentsChanged(cc, result.task.id);
-        }
+        invalidate(cc, [
+          ...taskChangedTags(result.task),
+          ...(result.task.parentTaskId === current.parentTaskId
+            ? []
+            : [TASK_META_TAG]),
+          ...(result.systemCommentsWritten > 0
+            ? [commentsTag(result.task.id)]
+            : []),
+        ]);
         return { ok: true, task: result.task };
       } catch (error) {
         if (error instanceof TasksDomainFailure) return taskFailure(error);
@@ -756,11 +824,16 @@ export function registerHandlers(
     },
     async deleteTask(input) {
       const task = store.tasks.getTask(input.taskId);
+      const subtasks = task ? store.tasks.listSubtasks(task.id) : [];
       const attachments = attachmentsForTasks(store.tasks, [input.taskId]);
       const deleted = store.tasks.deleteTask(input.taskId);
       if (deleted && task) {
         await removeAttachmentBlobs(cc, store.tasks, attachments);
-        publishTasksChanged(cc, task.id, task.projectId);
+        invalidate(cc, [
+          ...taskChangedTags(task),
+          ...subtasks.flatMap(taskChangedTags),
+          ...(subtasks.length > 0 ? [TASK_META_TAG] : []),
+        ]);
       }
       return { deleted };
     },
@@ -782,6 +855,23 @@ export function registerHandlers(
         nextCursor: page.nextCursor,
       };
     },
+    listAllTasks(input) {
+      return {
+        tasks: apiTasks(
+          store,
+          store.tasks.listTasks({
+            projectId: input.projectId,
+            statuses: input.statuses,
+            priorities: input.priorities,
+            labelIds: input.labelIds,
+            activeOnly: input.activeOnly,
+            parentTaskId: input.parentTaskId,
+            search: input.search,
+            sort: input.sort,
+          }),
+        ),
+      };
+    },
     boardMove(input) {
       const current = store.tasks.getTask(input.taskId);
       if (!current) throw new Error(`Task not found: ${input.taskId}`);
@@ -799,13 +889,41 @@ export function registerHandlers(
         }
         return { task: apiTask(store, moved), statusChanged };
       });
-      publishTasksChanged(cc, result.task.id, result.task.projectId);
-      if (result.statusChanged) publishCommentsChanged(cc, result.task.id);
+      invalidateTaskChanged(cc, result.task);
+      if (result.statusChanged) invalidateComments(cc, result.task.id);
+      return { ok: true, task: result.task };
+    },
+    moveTaskToProject(input) {
+      const current = store.tasks.getTask(input.taskId);
+      if (!current) throw new Error(`Task not found: ${input.taskId}`);
+      const result = store.transaction(() => {
+        const outcome = store.tasks.moveTaskToProject(
+          current.id,
+          input.projectId,
+        );
+        for (const { previousKey, task } of outcome.moved) {
+          writeSystemComments(store, task.id, input.authorName, [
+            `Moved from ${previousKey} to ${task.key} by ${input.authorName}`,
+          ]);
+        }
+        return { task: apiTask(store, outcome.task), moved: outcome.moved };
+      });
+      if (result.moved.length > 0) {
+        invalidate(cc, [
+          PROJECTS_TAG,
+          TASK_META_TAG,
+          ...taskChangedTags(current),
+          ...result.moved.flatMap(({ task }) => [
+            ...taskChangedTags(task),
+            commentsTag(task.id),
+          ]),
+        ]);
+      }
       return { ok: true, task: result.task };
     },
     createLabel(input) {
       const label = store.tasks.createLabel(input);
-      publishProjectsChanged(cc, label.projectId);
+      invalidate(cc, [labelsTag(label.projectId)]);
       return { label };
     },
     updateLabel(input) {
@@ -813,17 +931,32 @@ export function registerHandlers(
         name: input.name,
         color: input.color,
       });
-      publishProjectsChanged(cc, label.projectId);
+      invalidate(cc, [labelsTag(label.projectId)]);
       return { label };
     },
     deleteLabel(input) {
       const label = store.tasks.getLabel(input.labelId);
       const deleted = store.tasks.deleteLabel(input.labelId);
-      if (deleted && label) publishProjectsChanged(cc, label.projectId);
+      if (deleted && label) {
+        invalidate(cc, [
+          labelsTag(label.projectId),
+          projectTag(label.projectId),
+          ALL_TASKS_TAG,
+          projectTasksTag(label.projectId),
+        ]);
+      }
       return { deleted };
     },
     listLabels(input) {
       return { labels: store.tasks.listLabels(input.projectId) };
+    },
+    labelsByProject(input) {
+      return Object.fromEntries(
+        input.keys.map((projectId) => [
+          projectId,
+          store.tasks.listLabels(projectId),
+        ]),
+      );
     },
     async createComment(input) {
       const comment = await createComment(cc, store, {
@@ -834,6 +967,7 @@ export function registerHandlers(
         threadId: null,
         body: input.body,
         notify: input.notify,
+        awaitDelivery: false,
       });
       return { comment };
     },
@@ -868,7 +1002,11 @@ export function registerHandlers(
       const attachments =
         "taskId" in input
           ? store.tasks.listAttachmentsForTask(input.taskId)
-          : store.tasks.listAttachmentsForComment(input.commentId);
+          : "commentId" in input
+            ? store.tasks.listAttachmentsForComment(input.commentId)
+            : store.tasks.listAttachmentsForTaskComments(
+                input.commentsOfTaskId,
+              );
       return {
         attachments: attachments.map(attachmentMetadata),
       };
@@ -906,12 +1044,19 @@ export function registerHandlers(
     listTaskThreads(input) {
       return { taskThreads: store.tasks.listTaskThreads(input.taskId) };
     },
+    listTaskCardMeta(input) {
+      return { cards: store.tasks.listTaskCardMeta(input.projectId ?? null) };
+    },
     async listTaskPullRequests(input) {
-      return listTaskPullRequests(cc, store, input.taskId);
+      const result = await listTaskPullRequests(cc, store, input.taskId);
+      if (result.pullRequests.some(isActivePullRequest))
+        tasksWithActivePullRequests(store).add(input.taskId);
+      else tasksWithActivePullRequests(store).delete(input.taskId);
+      return result;
     },
     createPreset(input) {
       const preset = store.tasks.createPreset({ ...input, builtin: false });
-      publishProjectsChanged(cc, null);
+      invalidate(cc, [PRESETS_TAG]);
       return { preset };
     },
     updatePreset(input) {
@@ -922,12 +1067,12 @@ export function registerHandlers(
           ? { ...changes, baseBranch: null, machineId: null }
           : changes,
       );
-      publishProjectsChanged(cc, null);
+      invalidate(cc, [PRESETS_TAG]);
       return { preset };
     },
     deletePreset(input) {
       const deleted = store.tasks.deletePreset(input.presetId);
-      if (deleted) publishProjectsChanged(cc, null);
+      if (deleted) invalidate(cc, [PRESETS_TAG]);
       return { deleted };
     },
     listPresets() {
@@ -998,4 +1143,17 @@ export function registerHandlers(
 
 export function registerTasksApi(cc: CcPluginApi, store: TasksApiStore): void {
   cc.rpc.register(tasksRpcContract, registerHandlers(cc, store));
+  cc.rpc.experimental_whileWatched("listTaskPullRequests", (read, signal) => {
+    if (!("input" in read)) return;
+    const { taskId } = tasksRpcContract.listTaskPullRequests.input.parse(
+      read.input,
+    );
+    const timer = setInterval(() => {
+      if (tasksWithActivePullRequests(store).has(taskId))
+        invalidate(cc, [pullRequestsTag(taskId)]);
+    }, ACTIVE_PULL_REQUEST_REFRESH_MS);
+    signal.addEventListener("abort", () => clearInterval(timer), {
+      once: true,
+    });
+  });
 }

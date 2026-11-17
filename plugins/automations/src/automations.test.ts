@@ -8,11 +8,15 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises";
-import { join } from "node:path";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
 import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
 import type { PluginCliRegistration } from "@codythatsme/plugin-sdk";
 import { describe, expect, it, vi } from "vitest";
+import {
+  createFakePluginHost,
+  makeThreadResponse,
+} from "@codythatsme/plugin-sdk/testing";
 import {
   claimAutomationScheduledRun,
   closeAutomationRun,
@@ -28,17 +32,19 @@ import {
   parseAutomationExecution,
   setAutomationEnabled,
   setAutomationRunThread,
+  AUTOMATION_QUICK_RETRY_LIMIT,
   AUTOMATION_RETRY_BASE_MS,
   type Db,
 } from "./data.js";
 import { ingestLegacyImport } from "./legacy-import.js";
+import { answerRetryConsent } from "./retry-consent.js";
 import {
   computeInitialNextRunAt,
   computeNextScheduledTime,
   validateOnceDefinition,
 } from "./schedule-helpers.js";
 import {
-  ccBinaryCandidates,
+  createScriptRunScope,
   executeStoredScript,
   isWakeAgentSuppressed,
   mapScriptResultToRun,
@@ -50,6 +56,19 @@ import { sweepDueAutomations } from "./sweep.js";
 import { createAutomationService } from "./service.js";
 import { registerAutomationCli } from "./cli.js";
 import { automationScriptDir, scriptsRoot } from "./script-files.js";
+import plugin from "./server.js";
+import {
+  automationDetailResponseSchema,
+  automationRunListResponseSchema,
+  automationRunRpcResponseSchema,
+} from "./rpc-types.js";
+
+const BASH_SCRIPT_RUNS_ARE_POSIX_ONLY =
+  "script automations spawn `bash` by name, which Windows does not provide";
+
+function pastedShellArg(value: string): string {
+  return process.platform === "win32" ? `'${value}'` : value;
+}
 
 function createTestDb(): Db {
   const db = new Database(":memory:");
@@ -212,9 +231,8 @@ function createAutomationServiceCc() {
           ] as never,
       },
       threads: {
-        get: async () => {
-          throw new Error("not expected");
-        },
+        get: async ({ threadId }: { threadId: string }) =>
+          makeThreadResponse({ id: threadId }),
         send: async () => {
           throw new Error("not expected");
         },
@@ -223,6 +241,7 @@ function createAutomationServiceCc() {
         },
       },
     },
+    server: { loopbackBaseUrl: "http://127.0.0.1:38886" },
     realtime: { publish: () => undefined },
     log: {
       debug: () => undefined,
@@ -314,8 +333,7 @@ describe("data migrations", () => {
     insertRun.run("run_third", 1001);
 
     db.transaction(() => {
-      db.exec(migrations[1] ?? "");
-      db.exec(migrations[2] ?? "");
+      for (const migration of migrations.slice(1)) db.exec(migration);
     })();
 
     const rows = db
@@ -490,14 +508,54 @@ describe("startup reconciliation", () => {
 });
 
 describe("schedule helpers", () => {
-  it("computes cron next runs with timezone", () => {
-    const next = computeNextScheduledTime({
-      cron: "30 9 * * *",
-      timezone: "America/New_York",
-      now: Date.parse("2026-01-01T13:00:00.000Z"),
-    });
-    expect(new Date(next).toISOString()).toBe("2026-01-01T14:30:00.000Z");
-  });
+  it.each([
+    [
+      "0 9 * * *",
+      "America/Chicago",
+      "2027-03-13T16:00:00Z",
+      "2027-03-14T14:00:00.000Z",
+    ],
+    [
+      "0 3 * * *",
+      "America/Chicago",
+      "2027-03-13T16:00:00Z",
+      "2027-03-14T08:00:00.000Z",
+    ],
+    [
+      "0 1 * * *",
+      "America/Chicago",
+      "2027-03-13T16:00:00Z",
+      "2027-03-14T07:00:00.000Z",
+    ],
+    [
+      "0 9 * * *",
+      "America/New_York",
+      "2027-03-13T16:00:00Z",
+      "2027-03-14T13:00:00.000Z",
+    ],
+    [
+      "0 9 * * *",
+      "Europe/London",
+      "2027-03-27T16:00:00Z",
+      "2027-03-28T08:00:00.000Z",
+    ],
+    [
+      "0 9 * * 0",
+      "America/Chicago",
+      "2027-03-13T16:00:00Z",
+      "2027-03-14T14:00:00.000Z",
+    ],
+  ])(
+    "keeps the spring-forward run for %s in %s",
+    (cron, timezone, now, expected) => {
+      const next = computeNextScheduledTime({
+        cron,
+        timezone,
+        now: Date.parse(now),
+      });
+      expect(new Date(next).toISOString()).toBe(expected);
+    },
+  );
 
   it("validates and computes once triggers", () => {
     const now = Date.parse("2026-01-01T00:00:00.000Z");
@@ -544,36 +602,13 @@ describe("automation data access", () => {
     ).toHaveLength(1);
   });
 
-  it("backs off a scheduled automation after dispatch failure", () => {
-    const db = createTestDb();
-    const automation = createScheduledAutomation(db, 1000);
-    const claim = claimAutomationScheduledRun(db, {
-      automationId: automation.id,
-      expectedNextRunAt: 1000,
-      newNextRunAt: 2000,
-      now: 1000,
-    });
-    if (!claim.advanced) throw new Error("claim failed");
-    closeAutomationRun(db, {
-      runId: claim.run.id,
-      status: "failed",
-      error: "dispatch failed",
-      now: 1001,
-    });
-    const restored = getAutomation(db, automation.id);
-    expect(restored?.nextRunAt).toBe(1001 + AUTOMATION_RETRY_BASE_MS);
-    expect(restored?.runCount).toBe(1);
-    expect(restored?.consecutiveFailures).toBe(1);
-    expect(restored?.lastRunStatus).toBe("failed");
-  });
-
   it("settles a running automation exactly once", () => {
     const db = createTestDb();
     const automation = createScheduledAutomation(db, 1000);
     const claim = claimAutomationScheduledRun(db, {
       automationId: automation.id,
       expectedNextRunAt: 1000,
-      newNextRunAt: 2000,
+      newNextRunAt: 1000 + 3_600_000,
       now: 1000,
     });
     if (!claim.advanced) throw new Error("claim failed");
@@ -628,17 +663,19 @@ describe("automation data access", () => {
     expect(getAutomation(db, automation.id)?.nextRunAt).toBeNull();
   });
 
-  it("auto-pauses after three consecutive scheduled failures", () => {
+  it("keeps a failing recurring automation on its schedule after two quick retries", () => {
     const db = createTestDb();
     const automation = createScheduledAutomation(db, 1000);
+    const HOUR = 3_600_000;
+    let scheduledSlot = 1000;
     let expectedNextRunAt = 1000;
 
-    for (let failure = 1; failure <= 3; failure += 1) {
-      const advancedNextRunAt = expectedNextRunAt + 60_000;
+    for (let failure = 1; failure <= 5; failure += 1) {
+      if (expectedNextRunAt === scheduledSlot) scheduledSlot += HOUR;
       const claim = claimAutomationScheduledRun(db, {
         automationId: automation.id,
         expectedNextRunAt,
-        newNextRunAt: advancedNextRunAt,
+        newNextRunAt: scheduledSlot,
         now: expectedNextRunAt,
       });
       if (!claim.advanced) throw new Error(`claim ${failure} failed`);
@@ -650,53 +687,39 @@ describe("automation data access", () => {
         now: failedAt,
       });
       const current = getAutomation(db, automation.id);
-      expect(current?.consecutiveFailures).toBe(failure);
-      if (failure < 3) {
-        expectedNextRunAt =
-          failedAt + AUTOMATION_RETRY_BASE_MS * 2 ** (failure - 1);
-        expect(current?.enabled).toBe(true);
-        expect(current?.nextRunAt).toBe(expectedNextRunAt);
-      } else {
-        expect(current?.enabled).toBe(false);
-        expect(current?.nextRunAt).toBeNull();
-        expect(current?.lastError).toContain(
-          "paused after 3 consecutive failures",
-        );
-      }
+      expectedNextRunAt =
+        failure <= AUTOMATION_QUICK_RETRY_LIMIT
+          ? failedAt + AUTOMATION_RETRY_BASE_MS * 2 ** (failure - 1)
+          : scheduledSlot;
+      expect(current).toMatchObject({
+        enabled: true,
+        consecutiveFailures: failure,
+        nextRunAt: expectedNextRunAt,
+        lastError: `dispatch failed ${failure}`,
+      });
     }
   });
 
-  it("applies the same backoff and pause policy to settled script failures", () => {
+  it("never schedules a quick retry after the next scheduled run", () => {
     const db = createTestDb();
     const automation = createScheduledAutomation(db, 1000);
-    let expectedNextRunAt = 1000;
+    const nextSlot = 1000 + AUTOMATION_RETRY_BASE_MS / 2;
+    const claim = claimAutomationScheduledRun(db, {
+      automationId: automation.id,
+      expectedNextRunAt: 1000,
+      newNextRunAt: nextSlot,
+      now: 1000,
+    });
+    if (!claim.advanced) throw new Error("claim failed");
 
-    for (let failure = 1; failure <= 3; failure += 1) {
-      const claim = claimAutomationScheduledRun(db, {
-        automationId: automation.id,
-        expectedNextRunAt,
-        newNextRunAt: expectedNextRunAt + 60_000,
-        now: expectedNextRunAt,
-      });
-      if (!claim.advanced) throw new Error(`claim ${failure} failed`);
-      const failedAt = expectedNextRunAt + 1;
-      closeAutomationRun(db, {
-        runId: claim.run.id,
-        status: "failed",
-        error: `script failed ${failure}`,
-        now: failedAt,
-      });
-      const current = getAutomation(db, automation.id);
-      expect(current?.consecutiveFailures).toBe(failure);
-      if (failure < 3) {
-        expectedNextRunAt =
-          failedAt + AUTOMATION_RETRY_BASE_MS * 2 ** (failure - 1);
-        expect(current?.nextRunAt).toBe(expectedNextRunAt);
-      } else {
-        expect(current?.enabled).toBe(false);
-        expect(current?.nextRunAt).toBeNull();
-      }
-    }
+    closeAutomationRun(db, {
+      runId: claim.run.id,
+      status: "failed",
+      error: "dispatch failed",
+      now: 1001,
+    });
+
+    expect(getAutomation(db, automation.id)?.nextRunAt).toBe(nextSlot);
   });
 
   it("enforces one running execution per automation", () => {
@@ -726,29 +749,6 @@ describe("automation data access", () => {
     expect(manual.deduped).toBe(true);
     expect(manual.run.id).toBe(first.run.id);
     expect(getRunningAutomationRun(db, automation.id)?.id).toBe(first.run.id);
-  });
-
-  it("enforces single-flight at the database boundary", () => {
-    const db = createTestDb();
-    const automation = createScheduledAutomation(db, 1000);
-    createManualRun(db, {
-      automationId: automation.id,
-      runMode: "agent",
-      now: 1000,
-    });
-
-    expect(() =>
-      db
-        .prepare(
-          `INSERT INTO automation_runs (
-             id, automation_id, run_mode, status, trigger,
-             scheduled_for, started_at
-           ) VALUES (
-             'run_overlap', ?, 'agent', 'running', 'manual', 1001, 1001
-           )`,
-        )
-        .run(automation.id),
-    ).toThrow();
   });
 
   it("resets consecutive failures after a successful run", () => {
@@ -846,66 +846,73 @@ describe("automation data access", () => {
     expect(restored?.lastRunStatus).toBe("failed");
   });
 
-  it("does not claim due agent automations when no host is connected", async () => {
-    const db = createTestDb();
-    const automation = createScheduledAutomation(db, 1000);
-    const cc = {
-      sdk: {
-        hosts: {
-          list: async () => [
-            {
-              id: "host_test",
-              name: "host",
-              status: "disconnected",
-              lastSeenAt: null,
-              createdAt: 1,
-              updatedAt: 1,
+  it.each([1000, 2000])(
+    "leaves undispatched agent automations unchanged when next due at %s",
+    async (nextRunAt) => {
+      const db = createTestDb();
+      const automation = createScheduledAutomation(db, nextRunAt);
+      const cc = {
+        sdk: {
+          hosts: {
+            list: vi.fn(async () => {
+              return [
+                {
+                  id: "host_test",
+                  name: "host",
+                  status: "disconnected",
+                  lastSeenAt: null,
+                  createdAt: 1,
+                  updatedAt: 1,
+                },
+              ];
+            }),
+          },
+          projects: {
+            get: async () => {
+              throw new Error("not expected");
             },
-          ],
-        },
-        projects: {
-          get: async () => {
-            throw new Error("not expected");
+          },
+          system: {
+            config: async () => {
+              throw new Error("not expected");
+            },
+          },
+          threads: {
+            get: async () => {
+              throw new Error("not expected");
+            },
+            send: async () => {
+              throw new Error("not expected");
+            },
+            spawn: async () => {
+              throw new Error("not expected");
+            },
           },
         },
-        system: {
-          config: async () => {
-            throw new Error("not expected");
-          },
+        server: { loopbackBaseUrl: "http://127.0.0.1:38886" },
+        realtime: { publish: () => undefined },
+        log: {
+          debug: () => undefined,
+          error: () => undefined,
+          info: () => undefined,
+          warn: () => undefined,
         },
-        threads: {
-          get: async () => {
-            throw new Error("not expected");
-          },
-          send: async () => {
-            throw new Error("not expected");
-          },
-          spawn: async () => {
-            throw new Error("not expected");
-          },
-        },
-      },
-      realtime: { publish: () => undefined },
-      log: {
-        debug: () => undefined,
-        error: () => undefined,
-        info: () => undefined,
-        warn: () => undefined,
-      },
-    };
+      };
 
-    await sweepDueAutomations(cc, db, {
-      pluginDataDir: "/tmp",
-      serverUrl: "http://127.0.0.1:38886",
-      serverHostId: "host_server",
-      now: 1000,
-    });
+      await sweepDueAutomations(cc, db, {
+        pluginDataDir: "/tmp",
+        serverHostId: "host_server",
+        scriptRuns: createScriptRunScope(),
+        now: 1000,
+      });
 
-    expect(getAutomation(db, automation.id)?.runCount).toBe(0);
-    expect(
-      listAutomationRuns(db, { automationId: automation.id, limit: 10 }),
-    ).toHaveLength(0);
-  });
+      expect(cc.sdk.hosts.list).toHaveBeenCalledTimes(nextRunAt > 1000 ? 0 : 1);
+      expect(getAutomation(db, automation.id)?.runCount).toBe(0);
+      expect(
+        listAutomationRuns(db, { automationId: automation.id, limit: 10 }),
+      ).toHaveLength(0);
+    },
+  );
 
   it("does not repeatedly select degraded agent executions for sweeping", () => {
     const db = createTestDb();
@@ -1045,7 +1052,7 @@ describe("automation service", () => {
       cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
     try {
       const created = await service.create({
@@ -1163,7 +1170,7 @@ describe("automation service", () => {
       cc,
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
     serverHostId = "host_server";
     try {
@@ -1194,7 +1201,7 @@ describe("automation service", () => {
       cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
     try {
       const created = await service.create({
@@ -1317,6 +1324,7 @@ describe("automation service", () => {
           },
         },
       },
+      server: { loopbackBaseUrl: "http://127.0.0.1:38886" },
       realtime: { publish: () => undefined },
       log: {
         debug: () => undefined,
@@ -1329,7 +1337,7 @@ describe("automation service", () => {
       cc,
       db,
       pluginDataDir: "/tmp",
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
 
     await expect(
@@ -1380,7 +1388,7 @@ describe("automation service", () => {
       cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
 
     try {
@@ -1432,7 +1440,7 @@ describe("automation service", () => {
       cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
 
     try {
@@ -1491,7 +1499,7 @@ describe("automation service", () => {
       cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
 
     try {
@@ -1548,7 +1556,7 @@ describe("automation service", () => {
       cc: createAutomationServiceCc(),
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:38886",
+      scriptRuns: createScriptRunScope(),
     });
 
     try {
@@ -1587,7 +1595,7 @@ describe("automation CLI --script-file", () => {
       cc: serviceCc,
       db,
       pluginDataDir,
-      serverUrl: "http://127.0.0.1:1",
+      scriptRuns: createScriptRunScope(),
     });
     const sdk = {
       ...serviceCc.sdk,
@@ -1650,6 +1658,89 @@ describe("automation CLI --script-file", () => {
     return id;
   }
 
+  it("preserves a tier named none and clears it with a separate flag", async () => {
+    const t = await setup();
+    try {
+      const created = await t.cli.run(
+        [
+          "create",
+          "--project",
+          "proj_test",
+          "--name",
+          "tier-test",
+          "--in",
+          "30m",
+          "--prompt",
+          "Check the build",
+          "--provider",
+          "codex",
+          "--model",
+          "test-model",
+          "--permission-mode",
+          "auto",
+          "--target-thread",
+          "thr_env",
+          "--service-tier",
+          "none",
+          "--json",
+        ],
+        {},
+      );
+      expect(created.exitCode).toBe(0);
+      const automation = JSON.parse(created.stdout ?? "");
+      expect(automation.execution.serviceTier).toBe("none");
+      const conflict = await t.cli.run(
+        [
+          "update",
+          automation.id,
+          "--project",
+          "proj_test",
+          "--service-tier",
+          "none",
+          "--clear-service-tier",
+        ],
+        {},
+      );
+      expect(conflict.exitCode).not.toBe(0);
+      expect(conflict.stderr).toContain(
+        "Cannot combine --service-tier and --clear-service-tier",
+      );
+      const cleared = await t.cli.run(
+        [
+          "update",
+          automation.id,
+          "--project",
+          "proj_test",
+          "--clear-service-tier",
+          "--json",
+        ],
+        {},
+      );
+      expect(cleared.exitCode).toBe(0);
+      expect(
+        JSON.parse(cleared.stdout ?? "").execution.serviceTier,
+      ).toBeUndefined();
+      const updated = await t.cli.run(
+        [
+          "update",
+          automation.id,
+          "--project",
+          "proj_test",
+          "--service-tier",
+          "none",
+          "--json",
+        ],
+        {},
+      );
+      expect(updated.exitCode).toBe(0);
+      expect(JSON.parse(updated.stdout ?? "").execution.serviceTier).toBe(
+        "none",
+      );
+    } finally {
+      await t.cleanup();
+    }
+  });
+
   it("resolves the source against ctx.cwd and reports the stored snapshot copy", async () => {
     const t = await setup();
     const sourcePath = join(t.srcDir, "hello.sh");
@@ -1680,7 +1771,7 @@ describe("automation CLI --script-file", () => {
       expect(created.stdout).toContain(`Copied ${sourcePath}`);
       expect(created.stdout).toContain(`to ${storedPath}`);
       expect(created.stdout).toContain(
-        `cc automation update ${automationId} --project proj_test --script-file ${sourcePath} --interpreter bash --working-directory project --timeout 120000`,
+        `cc automation update ${automationId} --project proj_test --script-file ${pastedShellArg(sourcePath)}\n`,
       );
       expect(created.stdout).toContain("Working dir: /server/project");
 
@@ -1804,7 +1895,7 @@ describe("automation CLI --script-file", () => {
         `Copied ${sourcePath} (host host_laptop)`,
       );
       expect(inThread.stdout).toContain(
-        `--script-file ${sourcePath} --host host_laptop --interpreter bash --working-directory project`,
+        `--script-file ${pastedShellArg(sourcePath)} --host host_laptop\n`,
       );
 
       const byName = await t.cli.run(
@@ -1869,10 +1960,10 @@ describe("automation CLI --script-file", () => {
     }
   });
 
-  it("prints a refresh command that keeps script settings and quotes the path", async () => {
+  it("prints a refresh command that quotes the path and keeps script settings", async () => {
     const t = await setup();
-    const sourcePath = join(t.srcDir, "my check $(id).py");
-    await writeFile(sourcePath, "print('hi')\n");
+    const sourcePath = join(t.srcDir, "my check $(id).sh");
+    await writeFile(sourcePath, "echo one\n");
     try {
       const created = await t.cli.run(
         [
@@ -1886,47 +1977,54 @@ describe("automation CLI --script-file", () => {
           "--script-file",
           sourcePath,
           "--interpreter",
-          "python3",
+          "sh",
           "--timeout",
           "5000",
           "--env-json",
-          '{"CHANNEL":"qa","MSG":"it\'s"}',
+          '{"CHANNEL":"qa"}',
+          "--working-directory",
+          "automation-storage",
         ],
         {},
       );
       expect(created.exitCode).toBe(0);
       const automationId = idFrom(created.stdout);
       expect(created.stdout).toContain(
-        `cc automation update ${automationId} --project proj_test --script-file '${sourcePath}' --interpreter python3 --working-directory project --timeout 5000 --env-json '{"CHANNEL":"qa","MSG":"it'\\''s"}'`,
+        `cc automation update ${automationId} --project proj_test --script-file '${sourcePath}'\n`,
+      );
+
+      await writeFile(sourcePath, "echo two\n");
+      const refreshed = await t.cli.run(
+        [
+          "update",
+          automationId,
+          "--project",
+          "proj_test",
+          "--script-file",
+          sourcePath,
+          "--json",
+        ],
+        {},
+      );
+      expect(refreshed.exitCode).toBe(0);
+      const { execution } = JSON.parse(refreshed.stdout ?? "");
+      expect(execution).toMatchObject({
+        interpreter: "sh",
+        timeoutMs: 5000,
+        env: { CHANNEL: "qa" },
+        workingDirectory: { type: "automation-storage" },
+      });
+      await expect(readFile(execution.storedScriptPath, "utf8")).resolves.toBe(
+        "echo two\n",
       );
     } finally {
       await t.cleanup();
     }
   });
 
-  it("rejects a valueless working-directory flag on create and replacement", async () => {
+  it("rejects an empty working-directory value on create and replacement", async () => {
     const t = await setup();
     try {
-      const rejectedCreate = await t.cli.run(
-        [
-          "create",
-          "--project",
-          "proj_test",
-          "--name",
-          "missing-cwd",
-          "--in",
-          "30m",
-          "--script",
-          "echo hi",
-          "--working-directory",
-        ],
-        {},
-      );
-      expect(rejectedCreate.exitCode).toBe(1);
-      expect(rejectedCreate.stderr).toContain(
-        "--working-directory requires a value",
-      );
-
       const emptyCreate = await t.cli.run(
         [
           "create",
@@ -1962,23 +2060,6 @@ describe("automation CLI --script-file", () => {
         ],
         {},
       );
-      const rejectedReplacement = await t.cli.run(
-        [
-          "update",
-          idFrom(created.stdout),
-          "--project",
-          "proj_test",
-          "--script",
-          "echo next",
-          "--working-directory",
-        ],
-        {},
-      );
-      expect(rejectedReplacement.exitCode).toBe(1);
-      expect(rejectedReplacement.stderr).toContain(
-        "--working-directory requires a value",
-      );
-
       const emptyReplacement = await t.cli.run(
         [
           "update",
@@ -2000,88 +2081,12 @@ describe("automation CLI --script-file", () => {
       await t.cleanup();
     }
   });
-
-  it("rejects a misspelled script flag instead of ignoring it", async () => {
-    const t = await setup();
-    try {
-      const created = await t.cli.run(
-        [
-          "create",
-          "--project",
-          "proj_test",
-          "--name",
-          "unknown-flag",
-          "--in",
-          "30m",
-          "--script",
-          "echo hi",
-        ],
-        {},
-      );
-      expect(created.exitCode).toBe(0);
-      const ignored = await t.cli.run(
-        [
-          "update",
-          idFrom(created.stdout),
-          "--project",
-          "proj_test",
-          "--scripts",
-          "echo next",
-        ],
-        {},
-      );
-      expect(ignored.exitCode).toBe(1);
-      expect(ignored.stderr).toContain("unknown option '--scripts'");
-      expect(ignored.stderr).toContain("Did you mean --script?");
-    } finally {
-      await t.cleanup();
-    }
-  });
 });
 
 describe("cc CLI injection for script runs", () => {
-  it("prefers the env pointers over PATH and macOS install locations", () => {
-    expect(
-      ccBinaryCandidates({
-        CC_CLI: "/daemon/bundle/cc",
-        CC_CLI_DIR: "/other/dir",
-      })[0],
-    ).toBe("/daemon/bundle/cc");
-    expect(ccBinaryCandidates({ CC_CLI_DIR: "/daemon/bundle" })[0]).toBe(
-      "/daemon/bundle/cc",
-    );
-  });
-
-  it("expands PATH itself so every candidate is absolute", () => {
-    expect(ccBinaryCandidates({ PATH: "/usr/bin:/opt/tools" })).toEqual([
-      "/usr/bin/cc",
-      "/opt/tools/cc",
-      "/opt/homebrew/bin/cc",
-      "/usr/local/bin/cc",
-    ]);
-    expect(
-      ccBinaryCandidates({ PATH: "/usr/bin" }).every((c) => c.startsWith("/")),
-    ).toBe(true);
-  });
-
-  it("drops entries that would resolve against the wrong directory", () => {
-    expect(ccBinaryCandidates({ PATH: "/usr/bin::/bin" })).toEqual([
-      "/usr/bin/cc",
-      "/bin/cc",
-      "/opt/homebrew/bin/cc",
-      "/usr/local/bin/cc",
-    ]);
-    expect(
-      ccBinaryCandidates({ CC_CLI: "  ", CC_CLI_DIR: "", PATH: "" }),
-    ).toEqual(["/opt/homebrew/bin/cc", "/usr/local/bin/cc"]);
-    expect(
-      ccBinaryCandidates({ CC_CLI: "./cc", CC_CLI_DIR: "rel/dir", PATH: "" }),
-    ).toEqual(["/opt/homebrew/bin/cc", "/usr/local/bin/cc"]);
-  });
-
   it("prepends cc's directory to PATH only when it is absolute", () => {
     expect(scriptPathEnv("/daemon/bundle/cc", "/usr/bin:/bin")).toBe(
-      "/daemon/bundle:/usr/bin:/bin",
+      `${dirname("/daemon/bundle/cc")}${delimiter}/usr/bin:/bin`,
     );
     expect(scriptPathEnv("cc", "/usr/bin:/bin")).toBe("/usr/bin:/bin");
     expect(scriptPathEnv(null, "/usr/bin:/bin")).toBe("/usr/bin:/bin");
@@ -2113,7 +2118,196 @@ async function isProcessRunning(pid: number): Promise<boolean> {
 }
 
 describe("script process containment", () => {
-  it("terminates descendant processes when a script times out", async () => {
+  it.skipIf(process.platform === "win32").each([0, 7])(
+    "terminates an unreferenced worker after the script exits with code %i",
+    async (exitCode) => {
+      const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-worker-"));
+      const scriptDir = automationScriptDir(pluginDataDir, "auto_worker");
+      let workerPid: number | undefined;
+      try {
+        await mkdir(scriptDir, { recursive: true });
+        await writeFile(
+          join(scriptDir, "worker.mjs"),
+          [
+            'import { spawn } from "node:child_process";',
+            'const worker = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });',
+            "worker.unref();",
+            "console.log(JSON.stringify({ worker: worker.pid }));",
+            `process.exit(${exitCode});`,
+          ].join("\n"),
+        );
+        const result = await executeStoredScript({
+          pluginDataDir,
+          automationId: "auto_worker",
+          runId: "run_worker",
+          projectId: "proj_test",
+          scriptFile: "worker.mjs",
+          interpreter: "node",
+          timeoutMs: 30_000,
+          serverUrl: "http://127.0.0.1:1",
+          workingDir: scriptsRoot(pluginDataDir),
+          signal: new AbortController().signal,
+        });
+        const workerMatch = result.output.match(/"worker":(\d+)/u);
+        expect(workerMatch).not.toBeNull();
+        const parsedWorkerPid = Number(workerMatch?.[1]);
+        workerPid = parsedWorkerPid;
+        expect(Number.isSafeInteger(parsedWorkerPid)).toBe(true);
+        expect(result.exitCode).toBe(exitCode);
+        expect(result.timedOut).toBe(false);
+        await expect
+          .poll(() => isProcessRunning(parsedWorkerPid), { timeout: 2_000 })
+          .toBe(false);
+      } finally {
+        if (workerPid !== undefined && Number.isSafeInteger(workerPid)) {
+          try {
+            process.kill(workerPid, "SIGKILL");
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+          }
+        }
+        await rm(pluginDataDir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("stops a running script and its descendants when the plugin unloads", async ({
+    skip,
+  }) => {
+    skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
+    const pidDir = await mkdtemp(join(tmpdir(), "cc-auto-unload-"));
+    const pidFile = join(pidDir, "pids");
+    const host = createFakePluginHost({
+      pluginId: "automations",
+      sdk: {
+        system: { config: async () => ({ primaryHostId: "host_fake" }) },
+        projects: {
+          async get({ projectId }) {
+            return {
+              id: projectId,
+              kind: "standard" as const,
+              name: "Test Project",
+              gitRemoteUrl: null,
+              createdAt: 1,
+              updatedAt: 1,
+              deletedAt: null,
+              sources: [],
+            };
+          },
+        },
+      },
+    });
+    await plugin(host.cc as unknown as Parameters<typeof plugin>[0]);
+    let pids: number[] = [];
+    try {
+      const automation = automationDetailResponseSchema.parse(
+        await host.harness.callRpc("automations_create", {
+          projectId: "proj_test",
+          name: "Long script",
+          enabled: true,
+          trigger: { triggerType: "once", runAt: Date.now() + 60_000 },
+          execution: {
+            mode: "script",
+            script:
+              'sleep 300 >/dev/null 2>&1 &\necho "$$ $!" > "$PID_FILE"\nwait\n',
+            interpreter: "bash",
+            workingDirectory: { type: "automation-storage" },
+            env: { PID_FILE: pidFile },
+          },
+          origin: "human",
+        }),
+      );
+      const started = automationRunRpcResponseSchema.parse(
+        await host.harness.callRpc("automations_run", {
+          projectId: "proj_test",
+          automationId: automation.id,
+        }),
+      );
+      await vi.waitFor(
+        async () => {
+          pids = (await readFile(pidFile, "utf8"))
+            .trim()
+            .split(" ")
+            .map(Number)
+            .filter(Number.isSafeInteger);
+          expect(pids).toHaveLength(2);
+        },
+        { timeout: 5_000 },
+      );
+
+      const reloaded = await host.harness.reload(
+        plugin as unknown as Parameters<typeof host.harness.reload>[0],
+      );
+      const { runs } = automationRunListResponseSchema.parse(
+        await reloaded.harness.callRpc("automations_runs", {
+          projectId: "proj_test",
+          automationId: automation.id,
+        }),
+      );
+      expect(runs[0]).toMatchObject({
+        id: started.run.id,
+        status: "skipped",
+        skipReason:
+          "interrupted: the automations plugin stopped before the script finished",
+      });
+      for (const pid of pids) {
+        await expect
+          .poll(() => isProcessRunning(pid), { timeout: 2_000 })
+          .toBe(false);
+      }
+      await reloaded.harness.dispose();
+    } finally {
+      for (const pid of pids) {
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+        }
+      }
+      await rm(pidDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not start a script after its run scope has stopped", async ({
+    skip,
+  }) => {
+    skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
+    const pluginDataDir = await mkdtemp(join(tmpdir(), "cc-auto-stopped-"));
+    const scriptDir = automationScriptDir(pluginDataDir, "auto_stopped");
+    const marker = join(pluginDataDir, "started");
+    await mkdir(scriptDir, { recursive: true });
+    await writeFile(join(scriptDir, "script.sh"), `touch "${marker}"\n`);
+    const scriptRuns = createScriptRunScope();
+    await scriptRuns.stop();
+    try {
+      const result = await executeStoredScript({
+        pluginDataDir,
+        automationId: "auto_stopped",
+        runId: "run_stopped",
+        projectId: "proj_test",
+        scriptFile: "script.sh",
+        interpreter: "bash",
+        timeoutMs: 10_000,
+        serverUrl: "http://127.0.0.1:38886",
+        workingDir: scriptsRoot(pluginDataDir),
+        signal: scriptRuns.signal,
+      });
+      expect(result).toMatchObject({ interrupted: true, exitCode: null });
+      expect(mapScriptResultToRun(result)).toMatchObject({
+        status: "skipped",
+        skipReason:
+          "interrupted: the automations plugin stopped before the script finished",
+      });
+      await expect(access(marker)).rejects.toThrow();
+    } finally {
+      await rm(pluginDataDir, { recursive: true, force: true });
+    }
+  });
+
+  it("terminates descendant processes when a script times out", async ({
+    skip,
+  }) => {
+    skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
     const pluginDataDir = await mkdtemp(
       join(tmpdir(), "cc-auto-process-group-"),
     );
@@ -2135,6 +2329,7 @@ describe("script process containment", () => {
         timeoutMs: 1_000,
         serverUrl: "http://127.0.0.1:38886",
         workingDir: scriptsRoot(pluginDataDir),
+        signal: new AbortController().signal,
       });
       const childPidMatch = result.output.match(/^child_pid=(\d+)$/mu);
       const childPid = Number.parseInt(childPidMatch?.[1] ?? "", 10);
@@ -2243,6 +2438,7 @@ describe("script project context", () => {
           }),
         },
       },
+      server: { loopbackBaseUrl: "http://127.0.0.1:38886" },
       realtime: { publish: () => undefined },
       log: {
         debug: () => undefined,
@@ -2265,7 +2461,7 @@ describe("script project context", () => {
             now: Date.now(),
           });
         },
-        serverUrl: "http://127.0.0.1:38886",
+        scriptRuns: createScriptRunScope(),
         resolveWorkingDirectory: createScriptWorkingDirectoryResolver({
           sdk: cc.sdk,
           pluginDataDir,
@@ -2296,7 +2492,7 @@ describe("script project context", () => {
         } as never,
         db,
         pluginDataDir,
-        serverUrl: "http://127.0.0.1:38886",
+        scriptRuns: createScriptRunScope(),
       });
       const shown = await service.get({
         projectId: automation.projectId,
@@ -2317,7 +2513,10 @@ describe("script project context", () => {
     }
   }
 
-  it("runs in the actual server-host source instead of a remote primary source", async () => {
+  it("runs in the actual server-host source instead of a remote primary source", async ({
+    skip,
+  }) => {
+    skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
     const serverProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-server-"));
     const remoteProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-remote-"));
     await mkdir(join(serverProjectDir, "bin"));
@@ -2355,29 +2554,10 @@ describe("script project context", () => {
     }
   });
 
-  it("keeps fieldless automations in shared script storage", async () => {
-    const serverProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-server-"));
-    try {
-      const result = await runScriptAutomation({
-        script: "pwd -P\n",
-        workingDirectory: { type: "automation-storage" },
-        sources: [
-          projectSource({
-            hostId: "host_server",
-            path: serverProjectDir,
-            isDefault: true,
-          }),
-        ],
-      });
-      expect(withoutMissingCcCliWarning(result.closed?.output)).toBe(
-        `${result.scriptsDir}\n`,
-      );
-    } finally {
-      await rm(serverProjectDir, { recursive: true, force: true });
-    }
-  });
-
-  it("reports a resolved directory equal to the process working directory", async () => {
+  it("reports a resolved directory equal to the process working directory", async ({
+    skip,
+  }) => {
+    skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
     const serverProjectDir = await mkdtemp(join(tmpdir(), "cc-auto-server-"));
     const explicitDir = await mkdtemp(join(tmpdir(), "cc-auto-explicit-"));
     const sources = [
@@ -2489,28 +2669,10 @@ describe("script project context", () => {
     });
   });
 
-  it("runs in an explicit absolute server-host directory", async () => {
-    const selectedDir = await mkdtemp(join(tmpdir(), "cc-auto-selected-"));
-    await writeFile(join(selectedDir, "selected.txt"), "selected directory\n");
-    try {
-      const result = await runScriptAutomation({
-        script: "pwd -P\ncat selected.txt\n",
-        workingDirectory: { type: "path", path: selectedDir },
-        sources: [],
-      });
-      expect(result.closed).toMatchObject({
-        status: "succeeded",
-        exitCode: 0,
-      });
-      expect(withoutMissingCcCliWarning(result.closed?.output)).toBe(
-        `${await realpath(selectedDir)}\nselected directory\n`,
-      );
-    } finally {
-      await rm(selectedDir, { recursive: true, force: true });
-    }
-  });
-
-  it("includes the first stderr line in a failed run summary", async () => {
+  it("includes the first stderr line in a failed run summary", async ({
+    skip,
+  }) => {
+    skip(process.platform === "win32", BASH_SCRIPT_RUNS_ARE_POSIX_ONLY);
     const result = await runScriptAutomation({
       script:
         "printf 'stdout kept\\n'\nprintf '\\n  missing project file  \\nlater detail\\n' >&2\nexit 2\n",
@@ -2542,6 +2704,7 @@ describe("script wake gate", () => {
         output: "",
         stderr: "",
         timedOut: false,
+        interrupted: false,
       }),
     ).toMatchObject({ status: "skipped", skipReason: "empty output" });
     expect(
@@ -2550,6 +2713,7 @@ describe("script wake gate", () => {
         output: 'nothing\n{"wakeAgent": false}',
         stderr: "",
         timedOut: false,
+        interrupted: false,
       }),
     ).toMatchObject({ status: "skipped", skipReason: "wakeAgent false" });
     expect(
@@ -2558,13 +2722,20 @@ describe("script wake gate", () => {
         output: "bad",
         stderr: "",
         timedOut: false,
+        interrupted: false,
       }),
     ).toMatchObject({ status: "failed", error: "Script exited with code 2" });
   });
 
   it("caps stderr failure details", () => {
     const stderr = `${"x".repeat(400)}\nsecond line\n`;
-    const result = { exitCode: 1, output: stderr, stderr, timedOut: false };
+    const result = {
+      exitCode: 1,
+      output: stderr,
+      stderr,
+      timedOut: false,
+      interrupted: false,
+    };
     expect(mapScriptResultToRun(result).error).toBe(
       `Script exited with code 1: ${"x".repeat(199)}…`,
     );
@@ -2572,7 +2743,13 @@ describe("script wake gate", () => {
 
   it("skips blank and carriage-return lines before the first stderr detail", () => {
     const stderr = "\r\n   \r\n\r\nreal failure\r\nlater line\r\n";
-    const result = { exitCode: 1, output: stderr, stderr, timedOut: false };
+    const result = {
+      exitCode: 1,
+      output: stderr,
+      stderr,
+      timedOut: false,
+      interrupted: false,
+    };
     expect(mapScriptResultToRun(result).error).toBe(
       "Script exited with code 1: real failure",
     );
@@ -2580,7 +2757,13 @@ describe("script wake gate", () => {
 
   it("omits the detail when stderr holds only line breaks", () => {
     const stderr = "\n".repeat(200_000);
-    const result = { exitCode: 1, output: "", stderr, timedOut: false };
+    const result = {
+      exitCode: 1,
+      output: "",
+      stderr,
+      timedOut: false,
+      interrupted: false,
+    };
     expect(mapScriptResultToRun(result).error).toBe(
       "Script exited with code 1",
     );
@@ -2588,7 +2771,13 @@ describe("script wake gate", () => {
 
   it("finds a trailing stderr detail after a large run of blank lines", () => {
     const stderr = `${"\n".repeat(200_000)}last gasp`;
-    const result = { exitCode: 1, output: "", stderr, timedOut: false };
+    const result = {
+      exitCode: 1,
+      output: "",
+      stderr,
+      timedOut: false,
+      interrupted: false,
+    };
     expect(mapScriptResultToRun(result).error).toBe(
       "Script exited with code 1: last gasp",
     );
@@ -2596,7 +2785,13 @@ describe("script wake gate", () => {
 
   it("removes terminal control sequences from stderr failure details", () => {
     const stderr = "\u001b]52;c;SGVsbG8=\u0007\u001b[31mdanger\u001b[0m\n";
-    const result = { exitCode: 1, output: stderr, stderr, timedOut: false };
+    const result = {
+      exitCode: 1,
+      output: stderr,
+      stderr,
+      timedOut: false,
+      interrupted: false,
+    };
     expect(mapScriptResultToRun(result).error).toBe(
       "Script exited with code 1: danger",
     );
@@ -2721,5 +2916,154 @@ describe("legacy import", () => {
         await rm(pluginDataDir, { recursive: true, force: true });
       }
     }
+  });
+});
+
+describe("answering provider retry consent", () => {
+  const REQUEST_ID = "creq_failedturn";
+
+  function runOnThread(
+    db: Db,
+    args: {
+      automationId: string;
+      threadId: string;
+      trigger: "schedule" | "manual";
+      now: number;
+    },
+  ) {
+    const automation = getAutomation(db, args.automationId);
+    if (automation === null) throw new Error("missing automation");
+    const run =
+      args.trigger === "manual"
+        ? createManualRun(db, {
+            automationId: automation.id,
+            runMode: "agent",
+            now: args.now,
+          }).run
+        : (() => {
+            const claim = claimAutomationScheduledRun(db, {
+              automationId: automation.id,
+              expectedNextRunAt: args.now,
+              newNextRunAt:
+                automation.triggerType === "once" ? null : args.now + 60_000,
+              now: args.now,
+            });
+            if (!claim.advanced) throw new Error("claim failed");
+            return claim.run;
+          })();
+    setAutomationRunThread(db, { runId: run.id, threadId: args.threadId });
+    closeAutomationRun(db, {
+      runId: run.id,
+      status: "failed",
+      error: "Provider unavailable",
+      now: args.now + 1,
+    });
+  }
+
+  function latestRequest(
+    target: "new-turn" | "thread-start" | "steer" | "auto",
+    requestId = REQUEST_ID,
+  ) {
+    return async () => ({
+      requestId,
+      target:
+        target === "steer" || target === "auto"
+          ? { kind: target, expectedTurnId: "turn_user" }
+          : { kind: target },
+    });
+  }
+
+  function ask(
+    db: Db,
+    threadId: string,
+    reader: () => Promise<unknown> = latestRequest("new-turn"),
+  ) {
+    return answerRetryConsent(db, reader, { threadId, requestId: REQUEST_ID });
+  }
+
+  it.each(["new-turn", "thread-start"] as const)(
+    "declines a scheduled run of a recurring automation that started its own turn (%s)",
+    async (target) => {
+      const db = createTestDb();
+      createScheduledAutomation(db, 1000);
+      runOnThread(db, {
+        automationId: "auto_test",
+        threadId: "thr_target",
+        trigger: "schedule",
+        now: 1000,
+      });
+
+      expect(await ask(db, "thr_target", latestRequest(target))).toEqual({
+        kind: "decline",
+        reason: 'automation "Test" runs again on its schedule',
+      });
+    },
+  );
+
+  it.each([
+    { label: "it joined a turn someone else was running", reader: latestRequest("steer") },
+    { label: "it joined a turn in auto mode", reader: latestRequest("auto") },
+    {
+      label: "the failed turn is not the latest request",
+      reader: latestRequest("new-turn", "creq_someoneelse"),
+    },
+    { label: "the thread has no readable request", reader: async () => undefined },
+  ])("allows a recurring run's retry when $label", async ({ reader }) => {
+    const db = createTestDb();
+    createScheduledAutomation(db, 1000);
+    runOnThread(db, {
+      automationId: "auto_test",
+      threadId: "thr_target",
+      trigger: "schedule",
+      now: 1000,
+    });
+
+    expect(await ask(db, "thr_target", reader)).toEqual({ kind: "allow" });
+  });
+
+  it.each([
+    {
+      label: "a manual run of a recurring automation",
+      once: false,
+      trigger: "manual",
+    },
+    { label: "a one-off automation", once: true, trigger: "schedule" },
+  ] as const)(
+    "allows $label, which nothing else re-runs",
+    async ({ once, trigger }) => {
+      const db = createTestDb();
+      const automation = once
+        ? createOnceAutomation(db, 1000)
+        : createScheduledAutomation(db, 1000);
+      runOnThread(db, {
+        automationId: automation.id,
+        threadId: "thr_target",
+        trigger,
+        now: 1000,
+      });
+
+      expect(await ask(db, "thr_target")).toEqual({ kind: "allow" });
+    },
+  );
+
+  it("answers for the latest run on a thread several automations target", async () => {
+    const db = createTestDb();
+    createScheduledAutomation(db, 1000, "auto_recurring");
+    createOnceAutomation(db, 2000, "auto_once");
+    runOnThread(db, {
+      automationId: "auto_recurring",
+      threadId: "thr_shared",
+      trigger: "schedule",
+      now: 1000,
+    });
+    runOnThread(db, {
+      automationId: "auto_once",
+      threadId: "thr_shared",
+      trigger: "schedule",
+      now: 2000,
+    });
+
+    expect(await ask(db, "thr_shared")).toEqual({ kind: "allow" });
+    expect(await ask(db, "thr_unknown")).toEqual({ kind: "allow" });
   });
 });

@@ -13,9 +13,12 @@ import {
   turnStartParamsSchema as canonicalTurnStartParamsSchema,
   turnSteerParamsSchema as canonicalTurnSteerParamsSchema,
   skillsConfigureParamsSchema,
+  commandListParamsSchema,
+  modelListParamsSchema,
   bridgeRequestEnvelopeSchema,
   providerMaintenanceParamsSchema,
   providerInstallationRunParamsSchema,
+  providerInstallationStatusParamsSchema,
 } from "@codythatsme/plugin-sdk/provider-bridge";
 import { z } from "zod";
 import { claudePermissionModeSchema } from "../interactive-contract.js";
@@ -53,11 +56,15 @@ export const claudeThreadStartParamsSchema = z.object({
   serviceTier: z.enum(["default", "fast"]),
   workflowsEnabled: z.boolean(),
   chromeEnabled: z.boolean(),
+  disable1MContext: z.boolean(),
+  artifactsEnabled: z.boolean(),
+  sandboxEnabled: z.boolean(),
+  fullAccessApprovalsEnabled: z.boolean(),
+  commandDescriptionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().optional(),
   providerSubagentsEnabled: z.boolean().optional(),
   instructionMode: bridgeInstructionModeSchema,
   dynamicTools: z.array(dynamicToolSchema).optional(),
-  disallowedTools: z.array(z.string()).optional(),
 });
 
 export const claudeThreadResumeParamsSchema =
@@ -82,9 +89,17 @@ export const claudeTurnStartParamsSchema = z.object({
   serviceTier: z.enum(["default", "fast"]).optional(),
   workflowsEnabled: z.boolean().optional(),
   chromeEnabled: z.boolean().optional(),
+  disable1MContext: z.boolean().optional(),
+  artifactsEnabled: z.boolean().optional(),
+  sandboxEnabled: z.boolean().optional(),
+  fullAccessApprovalsEnabled: z.boolean().optional(),
+  commandDescriptionsEnabled: z.boolean().optional(),
   memoryEnabled: z.boolean().optional(),
   providerSubagentsEnabled: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
+  permissionMode: claudePermissionModeSchema,
+  permissionScope: bridgePermissionScopeSchema,
+  additionalWorkspaceWriteRoots: z.array(z.string()),
   permissionEscalation: bridgePermissionEscalationSchema,
   claudeCodePermissionMode: z.literal("plan").optional(),
 });
@@ -100,7 +115,11 @@ const claudeCodeCommandSchema = z.discriminatedUnion("method", [
   }),
   z.object({
     method: z.literal("model/list"),
-    params: z.object({}),
+    params: modelListParamsSchema,
+  }),
+  z.object({
+    method: z.literal("commands/list"),
+    params: commandListParamsSchema,
   }),
   z.object({
     method: z.literal("provider/health"),
@@ -112,7 +131,7 @@ const claudeCodeCommandSchema = z.discriminatedUnion("method", [
   }),
   z.object({
     method: z.literal("provider/installation/status"),
-    params: providerMaintenanceParamsSchema,
+    params: providerInstallationStatusParamsSchema,
   }),
   z.object({
     method: z.literal("provider/installation/run"),

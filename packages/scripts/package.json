@@ -5,11 +5,8 @@
   "private": true,
   "bin": {
     "cc-script-archive-codex-tmp-cc-sessions": "./dist/commands/archive-codex-tmp-cc-sessions.js",
-    "cc-script-request-dev-restart": "./dist/commands/request-dev-restart.js",
     "cc-script-reset-cc-data": "./dist/commands/reset-cc-data.js",
-    "cc-script-run-cli": "./dist/commands/run-cli.js",
-    "cc-script-run-host-daemon": "./dist/commands/run-host-daemon.js",
-    "cc-script-seed-perf-db": "./dist/commands/seed-perf-db.js"
+    "cc-script-run-cli": "./dist/commands/run-cli.js"
   },
   "exports": {
     "./lib/run-dev-supervisor": {
@@ -24,15 +21,9 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "clean": "rimraf dist tsconfig.tsbuildinfo",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --config vitest.config.ts",
-    "cli": "node dist/commands/run-cli.js",
-    "dev:host-daemon": "node dist/commands/run-host-daemon.js --auto-join",
-    "dev:restart": "node dist/commands/request-dev-restart.js both",
-    "dev:restart-host-daemon": "node dist/commands/request-dev-restart.js host-daemon",
-    "dev:restart-server": "node dist/commands/request-dev-restart.js server",
-    "reset": "node dist/commands/reset-cc-data.js",
-    "codex:archive-tmp-cc-sessions": "node dist/commands/archive-codex-tmp-cc-sessions.js"
+    "typecheck": "tsrs --noEmit",
+    "lint:type-aware": "oxlint -c ../../.oxlintrc.type-aware.json",
+    "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@cc/config": "workspace:*",
@@ -43,10 +34,12 @@
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
+    "@cc/test-helpers": "workspace:*",
     "@cc/tsconfig": "workspace:*",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.20.5",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-7": "npm:typescript@^7.0.2",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.12",
+    "yaml": "^2.9.1"
   }
 }

@@ -15,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { createServer as createNetServer } from "node:net";
 import { delimiter, dirname, join } from "node:path";
+import { killProcessesReferencingPath } from "@cc/test-helpers";
 import { afterEach, describe, expect, it } from "vitest";
 
 const SCRIPT_PATH = new URL(
@@ -37,6 +38,10 @@ function createFixture(): { binDir: string; dataDir: string; homeDir: string } {
   mkdirSync(homeDir, { recursive: true });
   writeFileSync(join(root, "package.json"), '{"type":"commonjs"}\n');
   symlinkSync(process.execPath, join(binDir, "node"));
+  writeExecutable(
+    join(binDir, "sleep"),
+    '#!/bin/sh\ncase "$1" in 1) exec /bin/sleep 0.1 ;; *) exec /bin/sleep "$@" ;; esac\n',
+  );
   return { binDir, dataDir, homeDir };
 }
 
@@ -46,6 +51,21 @@ function writeExecutable(path: string, contents: string): void {
 }
 
 type Fixture = ReturnType<typeof createFixture>;
+
+function writeRestartingSystemdUser(fixture: Fixture): void {
+  writeExecutable(join(fixture.binDir, "uname"), "#!/bin/sh\necho Linux\n");
+  writeExecutable(
+    join(fixture.binDir, "systemctl"),
+    `#!/bin/sh
+printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
+if [ "$*" = "--user restart cc-host-daemon-machine-cc-example-invalid-host-test.service" ]; then
+  port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
+  echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
+fi
+`,
+  );
+}
 
 function createScriptEnv(
   fixture: Fixture,
@@ -292,19 +312,28 @@ printf '%s' '${artifactStatus}'
   );
 }
 
-afterEach(() => {
+function writeUnreachableUserBus(fixture: Fixture, init: string): void {
+  writeExecutable(join(fixture.binDir, "uname"), "#!/bin/sh\necho Linux\n");
+  writeExecutable(join(fixture.binDir, "id"), "#!/bin/sh\necho 1000\n");
+  writeExecutable(join(fixture.binDir, "ps"), `#!/bin/sh\necho ${init}\n`);
+  writeExecutable(
+    join(fixture.binDir, "systemd-detect-virt"),
+    "#!/bin/sh\nexit 1\n",
+  );
+  writeExecutable(join(fixture.binDir, "systemctl"), "#!/bin/sh\nexit 1\n");
+  writeExecutable(join(fixture.binDir, "loginctl"), "#!/bin/sh\nexit 1\n");
+}
+
+afterEach(async () => {
   for (const directory of createdDirectories.splice(0)) {
-    try {
-      const servicePid = Number(
-        readFileSync(join(directory, "data/service-daemon.pid"), "utf8"),
-      );
-      process.kill(servicePid, "SIGTERM");
-    } catch {}
+    await killProcessesReferencingPath(directory);
     rmSync(directory, { force: true, recursive: true });
   }
 });
 
-describe("machine install script", () => {
+const describeOnPosix = process.platform === "win32" ? describe.skip : describe;
+
+describeOnPosix("machine install script", { timeout: 15_000 }, () => {
   it.each([
     { uid: 0, unset: true },
     { uid: 501, unset: true },
@@ -328,6 +357,7 @@ exec '${process.execPath}' "$@"
 `,
       );
       writeExecutable(join(fixture.binDir, "id"), `#!/bin/sh\necho ${uid}\n`);
+      writeExecutable(join(fixture.binDir, "npm"), "#!/bin/sh\nexit 19\n");
       writeCurlArtifactMock(fixture, 404);
       const result = runScript(BOOTSTRAP_ARGS, fixture, {
         HOME: unset ? undefined : fixture.homeDir,
@@ -348,6 +378,53 @@ exec '${process.execPath}' "$@"
     expect(result.stderr).toContain(
       "Usage: install.sh --bootstrap-env <NAME> [--host-daemon-port <port>]",
     );
+  });
+
+  it("starts an owned daemon that has no service under launcher supervision", async () => {
+    const fixture = createFixture();
+    mkdirSync(join(fixture.homeDir, ".cc-machines", "owned"), {
+      recursive: true,
+    });
+    const dataDir = realpathSync(
+      join(fixture.homeDir, ".cc-machines", "owned"),
+    );
+    writeJoinedState({ ...fixture, dataDir });
+    const reservation = createNetServer();
+    await new Promise<void>((resolve, reject) => {
+      reservation.once("error", reject);
+      reservation.listen(0, "127.0.0.1", resolve);
+    });
+    const address = reservation.address();
+    if (address === null || typeof address === "string") {
+      throw new Error("Expected a TCP port");
+    }
+    const port = String(address.port);
+    await new Promise<void>((resolve, reject) => {
+      reservation.close((error) => (error ? reject(error) : resolve()));
+    });
+    writeFileSync(join(dataDir, "host-daemon-port"), `${port}\n`);
+    const invocationPath = join(dataDir, "invocation");
+    mkdirSync(join(dataDir, "npm", "bin"), { recursive: true });
+    writeExecutable(
+      join(dataDir, "npm", "bin", "cc-app"),
+      createEnrollingCcAppScript({ hostId: "host-test", invocationPath }),
+    );
+
+    const started = runScript(
+      ["--start", "--host-id", "host-test", "--data-dir", dataDir],
+      fixture,
+    );
+
+    expect(started.status, started.stderr).toBe(0);
+    expect(readFileSync(invocationPath, "utf8").trim().split("\n")).toEqual([
+      "host-daemon",
+      "--auto-update",
+      "--supervise",
+      "--host-daemon-port",
+      readFileSync(join(dataDir, "host-daemon-port"), "utf8").trim(),
+      "--server-url",
+      "https://machine.cc.example.invalid",
+    ]);
   });
 
   it("stops and uninstalls an owned Linux service through installer flags", () => {
@@ -726,6 +803,7 @@ fs.writeFileSync(path.join(process.env.CC_DATA_DIR, "config.json"), JSON.stringi
     expect(readFileSync(invocationPath, "utf8").trim().split("\n")).toEqual([
       "host-daemon",
       "--auto-update",
+      "--supervise",
       "--host-daemon-port",
       selectedPort,
       "--server-url",
@@ -759,6 +837,7 @@ fs.writeFileSync(path.join(process.env.CC_DATA_DIR, "config.json"), JSON.stringi
       expect(readFileSync(invocationPath, "utf8").trim().split("\n")).toEqual([
         "host-daemon",
         "--auto-update",
+        "--supervise",
         "--host-daemon-port",
         readFileSync(join(fixture.dataDir, "host-daemon-port"), "utf8").trim(),
         "--server-url",
@@ -1309,7 +1388,7 @@ setInterval(() => {}, 1000);
       "Still waiting for the host daemon (60/60 checks)",
     );
     expect(result.stderr).toContain("The cc host daemon did not connect");
-  }, 15_000);
+  });
 
   it("starts a fresh macOS launch agent once and replaces it with one new process", () => {
     const fixture = createFixture();
@@ -1487,7 +1566,7 @@ fi
     );
     writeExecutable(
       join(fixture.binDir, "launchctl"),
-      "#!/bin/sh\nif [ \"$1\" = bootout ]; then exit 1; fi\n",
+      '#!/bin/sh\nif [ "$1" = bootout ]; then exit 1; fi\n',
     );
 
     const result = runScript(BOOTSTRAP_ARGS, fixture);
@@ -1557,24 +1636,13 @@ printf '%s\n' "$*" >>"${join(fixture.dataDir, "launchctl.log")}"
     expect(result.stdout).toContain(
       "Still waiting for the launch agent (60/60 checks)",
     );
-  }, 15_000);
+  });
 
   it("restarts an active Linux systemd user unit after replacing it", () => {
     const fixture = createFixture();
     writeJoinedState(fixture);
     writeServerInstallTools(fixture, 200);
-    writeExecutable(join(fixture.binDir, "uname"), "#!/bin/sh\necho Linux\n");
-    writeExecutable(
-      join(fixture.binDir, "systemctl"),
-      `#!/bin/sh
-printf '%s\n' "$*" >>"${join(fixture.dataDir, "systemctl.log")}"
-if [ "$*" = "--user restart cc-host-daemon-machine-cc-example-invalid-host-test.service" ]; then
-  port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
-  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
-  echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
-fi
-`,
-    );
+    writeRestartingSystemdUser(fixture);
 
     const result = runScript(BOOTSTRAP_ARGS, fixture);
 
@@ -1594,15 +1662,174 @@ fi
       join(fixture.dataDir, "host-daemon-port"),
       "utf8",
     ).trim();
+    expect(unit).toContain(`ExecStart="${join(fixture.binDir, "node")}" `);
     expect(unit).toContain(
       `host-daemon --auto-update --host-daemon-port "${selectedPort}" --server-url "https://machine.cc.example.invalid"`,
     );
     expect(unit).toContain(
       `Environment="CC_APP_NPM_PREFIX=${realpathSync(fixture.dataDir)}/npm"`,
     );
+    expect(unit).toContain("After=network-online.target");
+    expect(unit).toContain("Wants=network-online.target");
+    expect(unit).toContain("Restart=always");
+    expect(unit).toContain("RestartSec=2");
+    expect(unit).toContain("OOMPolicy=continue");
+    expect(unit).toContain("WantedBy=default.target");
     expect(readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8")).toBe(
       "--user show-environment\n--user daemon-reload\n--user enable cc-host-daemon-machine-cc-example-invalid-host-test.service\n--user restart cc-host-daemon-machine-cc-example-invalid-host-test.service\n",
     );
+  });
+
+  it("points the systemd unit at the target of fnm's per-shell Node link", () => {
+    const fixture = createFixture();
+    writeJoinedState(fixture);
+    writeServerInstallTools(fixture, 200);
+    writeRestartingSystemdUser(fixture);
+    const fnmDir = join(fixture.homeDir, ".local/share/fnm");
+    const installationDir = join(fnmDir, "node-versions/v24.0.0/installation");
+    mkdirSync(join(installationDir, "bin"), { recursive: true });
+    symlinkSync(process.execPath, join(installationDir, "bin/node"));
+    mkdirSync(join(fnmDir, "aliases"));
+    symlinkSync(installationDir, join(fnmDir, "aliases/default"));
+    const multishellsDir = join(fixture.homeDir, "run/fnm_multishells");
+    mkdirSync(multishellsDir, { recursive: true });
+    const sessionDir = join(multishellsDir, "476_1793101823158");
+    symlinkSync(join(fnmDir, "aliases/default"), sessionDir);
+
+    const result = runScript(BOOTSTRAP_ARGS, fixture, {
+      PATH: [join(sessionDir, "bin"), fixture.binDir, "/usr/bin", "/bin"].join(
+        delimiter,
+      ),
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    const unit = readFileSync(
+      join(
+        fixture.homeDir,
+        ".config/systemd/user/cc-host-daemon-machine-cc-example-invalid-host-test.service",
+      ),
+      "utf8",
+    );
+    expect(unit).toContain(
+      `ExecStart="${join(fnmDir, "aliases/default/bin/node")}" `,
+    );
+    expect(
+      readFileSync(join(fixture.homeDir, ".local/bin/cc"), "utf8"),
+    ).toContain(`PATH='${join(fnmDir, "aliases/default/bin")}':"$PATH"`);
+  });
+
+  it("recovers the current user's systemd runtime path when the installer has no session environment", () => {
+    const fixture = createFixture();
+    writeJoinedState(fixture);
+    writeServerInstallTools(fixture, 200);
+    writeExecutable(join(fixture.binDir, "uname"), "#!/bin/sh\necho Linux\n");
+    const runtimeDir = join(fixture.homeDir, "runtime");
+    mkdirSync(runtimeDir);
+    writeExecutable(
+      join(fixture.binDir, "loginctl"),
+      `#!/bin/sh
+printf '%s\\n' "$*" >>"${join(fixture.dataDir, "loginctl.log")}"
+printf '%s\\n' '${runtimeDir}'
+`,
+    );
+    writeExecutable(
+      join(fixture.binDir, "systemctl"),
+      `#!/bin/sh
+printf '%s %s\\n' "$*" "\${XDG_RUNTIME_DIR:-missing}" >>"${join(fixture.dataDir, "systemctl.log")}"
+if [ "$2" = show-environment ] && { [ "\${XDG_RUNTIME_DIR:-}" != '${runtimeDir}' ] || [ -n "\${DBUS_SESSION_BUS_ADDRESS:-}" ]; }; then exit 1; fi
+if [ "$2" = restart ]; then
+  port=$(sed -n '1p' "${join(fixture.dataDir, "host-daemon-port")}")
+  CC_DATA_DIR="${fixture.dataDir}" "${join(fixture.dataDir, "npm/bin/cc-app")}" host-daemon --host-daemon-port "$port" --server-url https://machine.cc.example.invalid >/dev/null 2>&1 &
+  echo $! >"${join(fixture.dataDir, "service-daemon.pid")}"
+fi
+`,
+    );
+
+    const result = runScript(BOOTSTRAP_ARGS, fixture, {
+      XDG_RUNTIME_DIR: undefined,
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/stale/bus",
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(join(fixture.dataDir, "loginctl.log"), "utf8")).toBe(
+      `show-user ${process.getuid?.()} --property=RuntimePath --value\n`,
+    );
+    expect(
+      readFileSync(join(fixture.dataDir, "systemctl.log"), "utf8"),
+    ).toContain(
+      `--user enable cc-host-daemon-machine-cc-example-invalid-host-test.service ${runtimeDir}`,
+    );
+  });
+
+  it("fails visibly when the systemd user bus cannot be reached on a systemd host", () => {
+    const fixture = createFixture();
+    writeJoinedState(fixture);
+    writeServerInstallTools(fixture, 200);
+    writeUnreachableUserBus(fixture, "systemd");
+
+    const result = runScript(BOOTSTRAP_ARGS, fixture, {
+      XDG_RUNTIME_DIR: undefined,
+      DBUS_SESSION_BUS_ADDRESS: undefined,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("systemd user bus is unavailable");
+    expect(result.stderr).toContain("will not start after a reboot");
+    expect(result.stdout).not.toContain(
+      "Installed and started the systemd service",
+    );
+    expect(existsSync(join(fixture.homeDir, ".config/systemd/user"))).toBe(
+      false,
+    );
+    expect(existsSync(join(fixture.dataDir, "install-daemon.pid"))).toBe(false);
+  });
+
+  it("fails before joining when the systemd user bus is unavailable on a systemd host", () => {
+    const fixture = createFixture();
+    const invocationPath = join(fixture.dataDir, "invocation");
+    writeCurlArtifactMock(fixture, 404);
+    writeEnrollingCcApp(fixture, invocationPath);
+    writeUnreachableUserBus(fixture, "systemd");
+
+    const result = runScript(BOOTSTRAP_ARGS, fixture, {
+      XDG_RUNTIME_DIR: undefined,
+      DBUS_SESSION_BUS_ADDRESS: undefined,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("systemd user bus is unavailable");
+    expect(result.stdout).not.toContain("Joining");
+    expect(existsSync(join(fixture.dataDir, "enrollment-argv"))).toBe(false);
+    expect(existsSync(join(fixture.dataDir, "auth.json"))).toBe(false);
+    expect(existsSync(invocationPath)).toBe(false);
+  });
+
+  it("runs a detached daemon on Linux without systemd as init", () => {
+    const fixture = createFixture();
+    const invocationPath = join(fixture.dataDir, "invocation");
+    writeCurlArtifactMock(fixture, 404);
+    writeEnrollingCcApp(fixture, invocationPath);
+    writeUnreachableUserBus(fixture, "tini");
+
+    const result = runScript(BOOTSTRAP_ARGS, fixture, {
+      XDG_RUNTIME_DIR: undefined,
+      DBUS_SESSION_BUS_ADDRESS: undefined,
+    });
+
+    try {
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout + result.stderr).toContain(
+        "Service installation skipped",
+      );
+      expect(existsSync(join(fixture.homeDir, ".config/systemd/user"))).toBe(
+        false,
+      );
+    } finally {
+      const pidPath = join(fixture.dataDir, "install-daemon.pid");
+      if (existsSync(pidPath)) {
+        process.kill(Number(readFileSync(pidPath, "utf8")), "SIGTERM");
+      }
+    }
   });
 
   it.each([false, true])(

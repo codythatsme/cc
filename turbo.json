@@ -1,8 +1,16 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["CC_BUILD_TOOLCHAIN"],
-  "globalPassThroughEnv": ["npm_config_store_dir", "pnpm_config_store_dir"],
+  "globalPassThroughEnv": [
+    "npm_config_store_dir",
+    "pnpm_config_store_dir",
+    "PSModuleAnalysisCachePath"
+  ],
   "tasks": {
+    "@cc/server#validate:marketplace": {
+      "dependsOn": ["topo"],
+      "cache": false
+    },
     "@cc/db#db:generate": { "cache": false },
     "@cc/desktop#smoke:browser-broker": {
       "cache": false,
@@ -13,14 +21,24 @@
       ],
       "outputs": []
     },
+    "@cc/desktop#smoke:browser-address": {
+      "cache": false,
+      "dependsOn": ["topo"],
+      "passThroughEnv": ["DISPLAY"],
+      "outputs": []
+    },
     "@cc/desktop#smoke:browser-cdp": {
       "cache": false,
       "dependsOn": ["topo"],
       "passThroughEnv": ["DISPLAY"]
     },
     "@cc/web#build": {
+      "dependsOn": ["topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/src/generated/cc-official-marketplace/marketplace.json",
+        "$TURBO_ROOT$/plugins/*/icons/*.svg",
+        "$TURBO_ROOT$/plugins/*/*.svg",
         "$TURBO_ROOT$/assets/**",
         "$TURBO_ROOT$/CHANGELOG.md",
         "$TURBO_ROOT$/changelog-metadata.ts",
@@ -29,12 +47,16 @@
         "$TURBO_ROOT$/apps/web/src/**",
         "$TURBO_ROOT$/apps/web/tsconfig.json",
         "$TURBO_ROOT$/apps/web/vite.config.ts",
+        "$TURBO_ROOT$/assets/cc-logo.svg",
+        "$TURBO_ROOT$/packages/shared-ui/src/**",
         "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**",
         "$TURBO_ROOT$/pnpm-lock.yaml",
         "$TURBO_ROOT$/pnpm-workspace.yaml",
         "$TURBO_ROOT$/turbo.json"
       ],
       "env": ["CLOUDFLARE_ENV"],
+      "passThroughEnv": ["GITHUB_TOKEN"],
       "outputs": ["dist/**"]
     },
     // Mirrors "build" but also caches bundle-stats.json, which the
@@ -44,6 +66,7 @@
     // The docs' UI-anatomy manifest is the contract this test checks the real
     // app components against, so a manifest edit must re-run it.
     "@cc/app#test": {
+      "env": ["CC_CI_TEST_SHARD", "VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -53,8 +76,26 @@
         "$TURBO_ROOT$/changelog-parser.ts",
         "$TURBO_ROOT$/plugins/plugin-api-docs/src/anatomy-manifest.json",
         "$TURBO_ROOT$/plugins/theme-preview/taxonomy.ts",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
       ]
+    },
+    "@cc/demo-server#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@cc/demo-server#build", "topo"]
+    },
+    "@cc/demo-server#build": {
+      "dependsOn": [
+        "@cc/app#build",
+        "cc-plugin-navigation#prepare:bundled",
+        "cc-plugin-thread-list#prepare:bundled"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/plugins/provider-codex/icons/codex.svg",
+        "$TURBO_ROOT$/plugins/provider-claude-code/icons/claude-code.svg",
+        "$TURBO_ROOT$/plugins/provider-pi/icons/pi.svg"
+      ],
+      "outputs": ["dist/**"]
     },
     "@cc/app#build": {
       "env": [
@@ -86,6 +127,25 @@
       ],
       "outputs": ["bundle-stats.json", "dist/**"]
     },
+    "@cc/app#build:profiling": {
+      "env": ["NODE_OPTIONS", "NODE_ENV", "BABEL_*", "VITE_*"],
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.env*",
+        ".env*",
+        "$TURBO_ROOT$/CHANGELOG.md",
+        "$TURBO_ROOT$/changelog-metadata.ts",
+        "$TURBO_ROOT$/changelog-parser.ts",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/tsconfig/*.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/packages/plugin-build/src/zod-locale-stub.mjs",
+        "$TURBO_ROOT$/turbo.json"
+      ],
+      "outputs": ["dist-profiling/**"]
+    },
     "build": {
       "dependsOn": ["topo"],
       "inputs": [
@@ -104,6 +164,7 @@
       "outputs": ["dist/**"]
     },
     "@cc/sdk#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -123,11 +184,11 @@
         "$TURBO_ROOT$/pnpm-workspace.yaml",
         "$TURBO_ROOT$/scripts/*.mjs",
         "$TURBO_ROOT$/turbo.json",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
       ]
     },
     "@cc/server#build": {
-      "dependsOn": ["topo"],
+      "dependsOn": ["cc-plugin-cc-guide#generate:api-index", "topo"],
       "outputs": ["dist/**"],
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -255,6 +316,12 @@
       "outputs": ["release/**"],
       "passThroughEnv": ["*"]
     },
+    "@cc/desktop#desktop:build:win": {
+      "dependsOn": ["cc-app#build", "@cc/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
     "@cc/desktop#smoke:packaged": {
       "cache": false,
       "outputs": [],
@@ -277,6 +344,12 @@
       "outputs": ["release/**"],
       "passThroughEnv": ["*"]
     },
+    "@cc/desktop#package:win": {
+      "dependsOn": ["cc-app#build", "@cc/desktop#build"],
+      "cache": false,
+      "outputs": ["release/**"],
+      "passThroughEnv": ["*"]
+    },
     "@cc/desktop#smoke:appimage-lifecycle": {
       "cache": false,
       "outputs": [],
@@ -294,21 +367,24 @@
       "persistent": true,
       "passThroughEnv": ["*"]
     },
-    "bundle": {
-      "cache": false,
-      "outputs": []
-    },
     "@cc/app#dev": {
-      "dependsOn": ["@cc/templates#generate:templates"],
+      "dependsOn": [
+        "@cc/templates#generate:templates",
+        "@cc/plugin-build#generate"
+      ],
       "cache": false,
       "persistent": true,
       "passThroughEnv": ["*"]
     },
+    "@cc/mobile#theme:generate": {
+      "cache": false
+    },
     "@cc/mobile#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/vitest.shared.ts",
+        "$TURBO_ROOT$/vitest*.ts",
         "$TURBO_ROOT$/apps/app/src/components/ui/theme.css",
         "$TURBO_ROOT$/apps/app/src/lib/themes/**"
       ]
@@ -318,8 +394,25 @@
       "persistent": true,
       "passThroughEnv": ["*"]
     },
+    "@cc/mobile#build:android:local": {
+      "cache": false,
+      "outputs": ["build-output/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@cc/mobile#build:android:dev": {
+      "cache": false,
+      "outputs": ["build-output/**"],
+      "passThroughEnv": ["*"]
+    },
+    "@cc/mobile#e2e:android": {
+      "cache": false,
+      "passThroughEnv": ["*"]
+    },
     "storybook": {
-      "dependsOn": ["@cc/templates#generate:templates"],
+      "dependsOn": [
+        "@cc/templates#generate:templates",
+        "@cc/plugin-build#generate"
+      ],
       "cache": false,
       "persistent": true,
       "passThroughEnv": ["*"]
@@ -346,20 +439,9 @@
         "@cc/server#generate:cc-official-marketplace",
         "@cc/templates#generate:templates",
         "@cc/plugin-build#generate",
+        "cc-plugin-cc-guide#generate:api-index",
         "@codythatsme/plugin-sdk#build:runtime"
       ],
-      "cache": false,
-      "persistent": true,
-      "passThroughEnv": ["*"]
-    },
-    "@cc/host-daemon#start:prod": {
-      "dependsOn": ["build"],
-      "cache": false,
-      "persistent": true,
-      "passThroughEnv": ["*"]
-    },
-    "@cc/server#start:prod": {
-      "dependsOn": ["build"],
       "cache": false,
       "persistent": true,
       "passThroughEnv": ["*"]
@@ -378,6 +460,29 @@
         "$TURBO_ROOT$/scripts/forkable-plugins.json",
         "$TURBO_ROOT$/scripts/oxlint-plugin.mjs"
       ]
+    },
+    "lint:type-aware": {
+      "dependsOn": ["typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.oxlintrc.type-aware.json",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml"
+      ]
+    },
+    "//#lint:type-aware": {
+      "inputs": [
+        "scripts/**",
+        ".github/**",
+        "*.ts",
+        ".oxlintrc.type-aware.json",
+        "package.json",
+        "pnpm-lock.yaml"
+      ]
+    },
+    "@cc/db#check:query-costs": {
+      "cache": false,
+      "dependsOn": ["//#ensure-native-modules"]
     },
     "//#ensure-native-modules": {
       "cache": false,
@@ -413,8 +518,27 @@
         "@cc/templates#generate:plugin-scaffold"
       ]
     },
+    "@cc/process-utils#topo": {
+      "dependsOn": ["^topo", "@cc/process-utils#generate:profile-worker"]
+    },
+    "@cc/process-utils#generate:profile-worker": {
+      "dependsOn": [],
+      "inputs": [
+        "src/profile-worker.ts",
+        "src/stall-attribution.ts",
+        "src/stall-windows.ts",
+        "src/event-loop-delay.ts",
+        "scripts/generate-profile-worker.mjs",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/pnpm-lock.yaml"
+      ],
+      "outputs": ["src/generated/profile-worker.ts"]
+    },
     "@cc/plugin-build#topo": {
       "dependsOn": ["^topo", "@cc/plugin-build#generate"]
+    },
+    "@cc/web#topo": {
+      "dependsOn": ["^topo", "@cc/server#generate:cc-official-marketplace"]
     },
     "@cc/server#topo": {
       "dependsOn": ["^topo", "@cc/server#generate:cc-official-marketplace"]
@@ -472,6 +596,22 @@
       ],
       "outputs": ["src/generated/**"]
     },
+    // The cc-plugin-authoring skill's API symbol indexes, read from the SDK's
+    // entry-point sources. The server ships cc-guide's skills as its built-in
+    // skills, so its build, dev, and test tasks depend on this as well.
+    "cc-plugin-cc-guide#topo": {
+      "dependsOn": ["^topo", "cc-plugin-cc-guide#generate:api-index"]
+    },
+    "cc-plugin-cc-guide#generate:api-index": {
+      "dependsOn": [],
+      "inputs": [
+        "$TURBO_ROOT$/packages/plugin-sdk/package.json",
+        "$TURBO_ROOT$/packages/plugin-sdk/scripts/api-index.mjs",
+        "$TURBO_ROOT$/packages/plugin-sdk/scripts/generate-api-index.mjs",
+        "$TURBO_ROOT$/packages/plugin-sdk/src/**"
+      ],
+      "outputs": ["skills/cc-plugin-authoring/references/*-api-index.md"]
+    },
     "typecheck": {
       "dependsOn": ["topo"]
     },
@@ -488,7 +628,9 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/changelog-metadata.ts",
-        "$TURBO_ROOT$/changelog-parser.ts"
+        "$TURBO_ROOT$/changelog-parser.ts",
+        "$TURBO_ROOT$/packages/shared-ui/src/**",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**"
       ]
     },
     "@cc/host-daemon#build": {
@@ -521,6 +663,7 @@
       "outputs": ["dist/**"]
     },
     "@cc/cli#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "topo",
@@ -530,7 +673,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/plugins/cc-guide/skills/cc-cli/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
       ]
     },
     // Integration tests typecheck without the `source` condition, so
@@ -546,17 +689,38 @@
         "$TURBO_ROOT$/packages/templates/package.json",
         "$TURBO_ROOT$/packages/templates/scripts/**",
         "$TURBO_ROOT$/packages/templates/src/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
       ]
     },
     // The source-wrapper test invokes the root `pnpm cc` script, which builds
     // and executes @cc/cli. Model that cross-package dependency so CLI changes
     // cannot leave this test hidden behind a stale Turbo cache entry.
+    "@cc/web#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest*.ts",
+        "$TURBO_ROOT$/plugins/plugin-api-docs/src/**",
+        "$TURBO_ROOT$/plugins/*/package.json"
+      ],
+      "passThroughEnv": [
+        "UPDATE_PARITY_ROW_COUNTS",
+        "UPDATE_TRANSCRIPT_EXPECTATIONS"
+      ]
+    },
     "@cc/scripts#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "@cc/cli#build", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.github/actions/setup-workspace/**",
+        "$TURBO_ROOT$/.github/actions/setup-workspace-tools/**",
+        "$TURBO_ROOT$/.github/actions/cache-workspace/**",
+        "$TURBO_ROOT$/.github/workflows/ci.yml",
+        "$TURBO_ROOT$/.github/workflows/ci-cache-maintenance.yml",
+        "$TURBO_ROOT$/scripts/lib/**",
+        "$TURBO_ROOT$/scripts/forkable-plugins.json",
         "$TURBO_ROOT$/.github/APPROVED_CONTRIBUTORS",
         "$TURBO_ROOT$/package.json",
         "$TURBO_ROOT$/scripts/*.mjs",
@@ -565,15 +729,31 @@
         "$TURBO_ROOT$/plugins/plugin-api-docs/src/first-party-plugins.json",
         "$TURBO_ROOT$/packages/bundled-plugins/package.json",
         "$TURBO_ROOT$/apps/server/src/services/plugins/builtin-registry.ts",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    "@cc/provider-bridge-protocol#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/vitest*.ts",
+        "$TURBO_ROOT$/plugins/provider-codex/src/**",
+        "$TURBO_ROOT$/plugins/provider-codex/package.json",
+        "$TURBO_ROOT$/plugins/provider-claude-code/src/**",
+        "$TURBO_ROOT$/plugins/provider-claude-code/package.json",
+        "$TURBO_ROOT$/packages/plugin-sdk/src/**"
       ]
     },
     "@cc/provider-parity#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-sdk/package.json",
         "$TURBO_ROOT$/packages/plugin-sdk/src/**",
+        "$TURBO_ROOT$/packages/provider-bridge-acp/package.json",
+        "$TURBO_ROOT$/packages/provider-bridge-acp/src/**",
         "$TURBO_ROOT$/plugins/provider-acp/package.json",
         "$TURBO_ROOT$/plugins/provider-acp/src/**",
         "$TURBO_ROOT$/plugins/provider-acp/tsconfig.json",
@@ -586,13 +766,15 @@
         "$TURBO_ROOT$/plugins/provider-pi/package.json",
         "$TURBO_ROOT$/plugins/provider-pi/src/**",
         "$TURBO_ROOT$/plugins/provider-pi/tsconfig.json",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
       ],
       "passThroughEnv": ["UPDATE_PARITY_ROW_COUNTS"]
     },
     "test": {
+      "env": ["CC_QUERY_PLAN_EXECUTED", "CC_QUERY_PLAN_REPORT", "VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
+      "outputs": [".query-plan/**"],
       // Re-pin knobs a suite reads to rewrite its own committed baseline.
       // Turbo strips undeclared variables, so a documented re-pin command
       // (`UPDATE_PARITY_ROW_COUNTS=1 pnpm exec turbo run test …`) silently
@@ -603,30 +785,36 @@
       ]
     },
     "@cc/desktop#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
       "passThroughEnv": ["DISPLAY"]
     },
     // plugin-scaffold-external packs @codythatsme/plugin-sdk (prepack rebuilds its
     // dist), so the SDK build is a dependency.
     "@cc/templates#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
         "@codythatsme/plugin-sdk#build:types",
         "topo"
       ],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"]
     },
     // Installs first-party provider plugins, which makes the plugin runtime
     // build their host artifacts. esbuild resolves the plugin sources'
     // `@codythatsme/plugin-sdk/provider-bridge` import through the package export
     // map to `packages/plugin-sdk/dist/provider-bridge.js` — the `source`
     // condition that lets vitest read `src/` does not apply inside that
-    // bundling step — so the SDK dist must exist before the suite runs.
+    // bundling step — so the SDK dist must exist before the suite runs. The
+    // marketplace parity suites read apps/web's published JSON schemas.
     "@cc/server#test": {
+      "env": ["CC_CI_TEST_SHARD", "CC_QUERY_PLAN_EXECUTED", "CC_QUERY_PLAN_REPORT", "VITEST_MAX_WORKERS"],
+      "outputs": [".query-plan/**"],
       "dependsOn": [
         "@cc/agent-runtime#generate:test-bridges",
+        "cc-plugin-cc-guide#generate:api-index",
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
         "@codythatsme/plugin-sdk#build:types",
@@ -634,19 +822,24 @@
       ],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/plugins/*/skills/**",
+        "$TURBO_ROOT$/plugins/*/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
         "$TURBO_ROOT$/tests/scripted-echo-provider/host.ts",
         "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
         "$TURBO_ROOT$/examples/plugins/echo-provider/*.ts",
         "$TURBO_ROOT$/examples/plugins/echo-provider/package.json",
         "$TURBO_ROOT$/examples/plugins/echo-provider/src/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/apps/web/public/schemas/marketplace.schema.json",
+        "$TURBO_ROOT$/apps/web/public/schemas/marketplace-v2.schema.json",
+        "$TURBO_ROOT$/vitest*.ts"
       ]
     },
     // The thread.stop race suite builds the scripted echo bridge artifact and
     // serves it through the daemon's artifact cache, so it needs the SDK dist
     // for the same reason as @cc/server#test.
     "@cc/host-daemon#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -656,7 +849,19 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/tests/scripted-echo-provider/host.ts",
         "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
+    },
+    // Opt-in benchmarks: each package's bench script sets its own enable
+    // variable; output and size knobs pass through. Timings are not cacheable.
+    "bench": {
+      "dependsOn": ["//#ensure-native-modules", "topo"],
+      "cache": false,
+      "passThroughEnv": [
+        "CC_SIDEBAR_BENCH_OUT",
+        "CC_SIDEBAR_BENCH_THREADS",
+        "CC_WATCHER_BENCHMARK_OUTPUT",
+        "PROMPTBOX_PERF_FIXTURE_OUT"
       ]
     },
     // The provider-corpus gates read a private corpus through
@@ -678,19 +883,37 @@
     // fixture that pins the published bridge surface as bundled-not-stubbed),
     // so it needs the SDK dist for the same reason as @cc/server#test.
     "@cc/plugin-build#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
         "@codythatsme/plugin-sdk#build:types",
         "topo"
       ],
-      // The SVG validator suite reads every first-party branding SVG.
+      // The SVG validator suite reads every first-party branding SVG. The
+      // builtin artifact suites bundle these plugins from source; the
+      // environment plugins inline cc-environment-provider-host. Plugins
+      // devDepend on plugin-build, so these cannot be workspace dependencies.
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/pnpm-workspace.yaml",
-        "$TURBO_ROOT$/vitest.shared.ts",
+        "$TURBO_ROOT$/vitest*.ts",
         "$TURBO_ROOT$/plugins/*/icons/**",
-        "$TURBO_ROOT$/examples/plugins/*/icons/**"
+        "$TURBO_ROOT$/examples/plugins/*/icons/**",
+        "$TURBO_ROOT$/plugins/keep-awake/**",
+        "$TURBO_ROOT$/plugins/provider-acp/**",
+        "$TURBO_ROOT$/plugins/provider-claude-code/**",
+        "$TURBO_ROOT$/plugins/provider-codex/**",
+        "$TURBO_ROOT$/plugins/provider-pi/**",
+        "$TURBO_ROOT$/plugins/environment-git-worktree/**",
+        "$TURBO_ROOT$/plugins/environment-modal-sandbox/**",
+        "$TURBO_ROOT$/plugins/environment-personal-workspace/**",
+        "$TURBO_ROOT$/plugins/environment-project-checkout/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
+        "!$TURBO_ROOT$/plugins/*/.bundled-runtime/**",
+        "$TURBO_ROOT$/packages/environment-provider-host/package.json",
+        "$TURBO_ROOT$/packages/environment-provider-host/src/**"
       ]
     },
     // Runtime unit suites restart the scripted echo provider repeatedly. Build
@@ -710,6 +933,7 @@
       "outputs": ["dist/test-bridges/**"]
     },
     "@cc/agent-runtime#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@cc/agent-runtime#generate:test-bridges",
@@ -717,19 +941,34 @@
       ],
       "inputs": [
         "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/plugins/provider-codex/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
+        "!$TURBO_ROOT$/plugins/*/.bundled-runtime/**",
         "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
       ]
     },
     // The live-CLI suite's global setup rebuilds every first-party provider
-    // bridge from source, so it needs the SDK dist too.
+    // bridge from source, so it needs the SDK dist too, and those plugin
+    // sources are inputs: agent-runtime does not depend on the plugins.
     "@cc/agent-runtime#test:integration": {
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
         "topo"
       ],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/plugins/provider-acp/**",
+        "$TURBO_ROOT$/plugins/provider-claude-code/**",
+        "$TURBO_ROOT$/plugins/provider-codex/**",
+        "$TURBO_ROOT$/plugins/provider-pi/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
+        "!$TURBO_ROOT$/plugins/*/.bundled-runtime/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ],
       // The live-CLI suites spawn real provider CLIs. Turbo strips undeclared
       // variables, so without these they start unauthenticated.
       "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "CC_CLAUDE_CODE_EXECUTABLE"]
@@ -737,12 +976,20 @@
     "smoke:tarball": {
       "dependsOn": ["build"],
       "cache": false,
+      "passThroughEnv": ["npm_config_cache"],
+      "outputs": []
+    },
+    "smoke:boot": {
+      "dependsOn": ["build", "//#ensure-native-modules"],
+      "cache": false,
       "outputs": []
     },
     // Boots the real server, which installs the first-party provider plugins
     // and builds their host artifacts; those bundles resolve
-    // `@codythatsme/plugin-sdk/provider-bridge` to the SDK dist.
+    // `@codythatsme/plugin-sdk/provider-bridge` to the SDK dist. The installed
+    // plugins load from plugins/ source, so it is an input.
     "@cc/integration-tests#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -756,14 +1003,14 @@
         "$TURBO_ROOT$/packages/templates/package.json",
         "$TURBO_ROOT$/packages/templates/scripts/**",
         "$TURBO_ROOT$/packages/templates/src/**",
+        "$TURBO_ROOT$/plugins/*/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
+        "!$TURBO_ROOT$/plugins/*/.bundled-runtime/**",
         "$TURBO_ROOT$/tests/scripted-echo-provider/host.ts",
         "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
       ]
-    },
-    "test:smoke": {
-      "dependsOn": ["//#ensure-native-modules", "topo"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"]
     },
     "@cc/integration-tests#e2e:mobile-backend": {
       "cache": false,
@@ -775,33 +1022,61 @@
         "topo"
       ]
     },
-    "@cc/integration-tests#e2e:mobile-connect-stub": {
-      "cache": false,
-      "persistent": true,
-      "passThroughEnv": ["*"]
+    "@cc/render-invariants#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/package.json",
+        "$TURBO_ROOT$/apps/server/tsconfig.json",
+        "$TURBO_ROOT$/apps/server/src/**",
+        "$TURBO_ROOT$/tests/integration/helpers/**",
+        "$TURBO_ROOT$/vitest*.ts"
+      ]
     },
-    "@cc/integration-tests#test:smoke": {
+    "@cc/render-invariants#test:render-invariants": {
+      "env": ["CC_RENDER_INVARIANTS_PENDING"],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH"],
       "dependsOn": [
         "//#ensure-native-modules",
+        "@cc/app#build:profiling",
         "@codythatsme/plugin-sdk#build",
         "topo"
       ],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/server/package.json",
-        "$TURBO_ROOT$/apps/server/tsconfig.json",
         "$TURBO_ROOT$/apps/server/src/**",
-        "$TURBO_ROOT$/packages/templates/package.json",
-        "$TURBO_ROOT$/packages/templates/scripts/**",
-        "$TURBO_ROOT$/packages/templates/src/**",
+        "$TURBO_ROOT$/plugins/*/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
+        "!$TURBO_ROOT$/plugins/*/.bundled-runtime/**",
+        "$TURBO_ROOT$/tests/integration/global-setup.ts",
+        "$TURBO_ROOT$/tests/integration/helpers/**",
         "$TURBO_ROOT$/tests/scripted-echo-provider/host.ts",
         "$TURBO_ROOT$/tests/scripted-echo-provider/src/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/vitest*.ts"
+      ],
+      "outputs": []
+    },
+    "@cc/render-invariants#serve": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@cc/app#build:profiling",
+        "@codythatsme/plugin-sdk#build",
+        "topo"
       ]
+    },
+    "@cc/integration-tests#e2e:mobile-connect-stub": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["*"]
     },
     "test:integration": {
       "dependsOn": ["//#ensure-native-modules", "topo"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"],
       // The live-CLI suites spawn real provider CLIs. Turbo strips undeclared
       // variables, so without these they start unauthenticated.
       "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "CC_CLAUDE_CODE_EXECUTABLE"]
@@ -821,7 +1096,11 @@
         "$TURBO_ROOT$/packages/templates/package.json",
         "$TURBO_ROOT$/packages/templates/scripts/**",
         "$TURBO_ROOT$/packages/templates/src/**",
-        "$TURBO_ROOT$/vitest.shared.ts"
+        "$TURBO_ROOT$/plugins/*/**",
+        "!$TURBO_ROOT$/plugins/*/node_modules/**",
+        "!$TURBO_ROOT$/plugins/*/dist/**",
+        "!$TURBO_ROOT$/plugins/*/.bundled-runtime/**",
+        "$TURBO_ROOT$/vitest*.ts"
       ],
       "passThroughEnv": ["CLAUDE_CODE_OAUTH_TOKEN", "CC_CLAUDE_CODE_EXECUTABLE"]
     },
@@ -852,12 +1131,13 @@
     },
     // Several suites read bundled-types/*.d.ts from disk.
     "@codythatsme/plugin-sdk#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build:types",
         "topo"
       ],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.shared.ts"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest*.ts"]
     },
     "@codythatsme/plugin-sdk#build:runtime": {
       "inputs": [
@@ -871,7 +1151,38 @@
     // ---- In-repo plugins typecheck against the SDK's bundled .d.ts ----------
     // Either through a tsconfig `paths` map or through the workspace symlink's
     // package `types` field; both land on bundled-types/, a build output.
+    "cc-plugin-cc--storage-retention#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "cc-plugin-cc--composer#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "cc-plugin-cc--composer#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@codythatsme/plugin-sdk#build", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
     "cc-plugin-composer-customization#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-agent-enrichment#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-content-script-example#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-slack-bot#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-plugin-api-docs#typecheck": {
@@ -882,6 +1193,7 @@
       ]
     },
     "cc-plugin-plugin-api-docs#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -907,9 +1219,6 @@
     "cc-plugin-replacement-lab-beta#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
-    "cc-plugin-sidebar-navigation#typecheck": {
-      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
-    },
     "cc-plugin-thread-chat-demo#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
@@ -921,6 +1230,7 @@
       ]
     },
     "cc-plugin-ask-user-question#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -939,6 +1249,7 @@
       ]
     },
     "cc-plugin-account-pool#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -957,6 +1268,7 @@
       ]
     },
     "cc-plugin-automations#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -975,11 +1287,27 @@
       ]
     },
     "cc-plugin-concurrency-limit#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
         "topo"
       ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "cc-plugin-conductor#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "cc-plugin-conductor#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@codythatsme/plugin-sdk#build", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
@@ -991,10 +1319,33 @@
     "cc-plugin-environment-git-worktree#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
+    "cc-plugin-cc--git#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-cc--git#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@codythatsme/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "cc-plugin-cc--github-pr-status#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-cc--github-pr-status#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@codythatsme/plugin-sdk#build",
+        "topo"
+      ]
+    },
     "cc-plugin-environment-personal-workspace#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-environment-personal-workspace#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1009,6 +1360,7 @@
       ]
     },
     "cc-plugin-environment-modal-sandbox#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1022,10 +1374,20 @@
     "cc-plugin-connect#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
+    "cc-plugin-cc--connect-next#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-cc-account#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-cc-ai#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
     "cc-plugin-cc-guide#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-cc-guide#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1036,6 +1398,7 @@
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-custom-instructions#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1050,6 +1413,7 @@
       ]
     },
     "cc-plugin-simple-notes#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1068,6 +1432,7 @@
       ]
     },
     "cc-plugin-github#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1086,6 +1451,7 @@
       ]
     },
     "cc-plugin-inline-vis#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1104,6 +1470,7 @@
       ]
     },
     "cc-plugin-agent-annotations#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1118,10 +1485,30 @@
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-push-notifications#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
         "topo"
+      ]
+    },
+    "cc-plugin-cc--github-star#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
+    },
+    "cc-plugin-cc--github-star#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@codythatsme/plugin-sdk#build",
+        "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
     "cc-plugin-keep-awake#typecheck": {
@@ -1132,6 +1519,7 @@
       ]
     },
     "cc-plugin-keep-awake#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1150,6 +1538,7 @@
       ]
     },
     "cc-plugin-memory#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1168,6 +1557,7 @@
       ]
     },
     "cc-plugin-monaco-editor#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1182,6 +1572,7 @@
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-pdf-preview#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1192,6 +1583,7 @@
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-plugin-api-tester#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1199,19 +1591,29 @@
       ]
     },
     "cc-plugin-provider-acp#typecheck": {
-      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
+      ]
     },
     "cc-plugin-provider-acp#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
         "topo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
     "cc-plugin-provider-claude-code#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-provider-claude-code#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1222,6 +1624,7 @@
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-provider-codex#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1236,6 +1639,7 @@
       ]
     },
     "cc-plugin-provider-pi#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1246,14 +1650,36 @@
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
-    "cc-plugin-provider-usage#typecheck": {
+    "cc-plugin-cc--mcp#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-cc--mcp#test": {
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@codythatsme/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "cc-plugin-cc--prompt-library#typecheck": {
+      "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
+    },
+    "cc-plugin-cc--prompt-library#test": {
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": [
+        "//#ensure-native-modules",
+        "@codythatsme/plugin-sdk#build",
+        "topo"
+      ]
+    },
+    "cc-plugin-cc--provider-usage#typecheck": {
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
       ]
     },
-    "cc-plugin-provider-usage#test": {
+    "cc-plugin-cc--provider-usage#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1268,6 +1694,7 @@
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-provider-retry#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1282,6 +1709,7 @@
       ]
     },
     "cc-plugin-secrets#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1300,6 +1728,7 @@
       ]
     },
     "cc-plugin-scheduled-send#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1314,6 +1743,7 @@
       "dependsOn": ["@codythatsme/plugin-sdk#build:types", "topo"]
     },
     "cc-plugin-drafts#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1328,6 +1758,7 @@
       ]
     },
     "cc-plugin-side-chat#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1346,6 +1777,7 @@
       ]
     },
     "cc-plugin-theme-preview#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1364,11 +1796,8 @@
       ]
     },
     "cc-plugin-navigation#test": {
-      "dependsOn": [
-        "//#ensure-native-modules",
-        "@codythatsme/plugin-sdk#build",
-        "topo"
-      ],
+      "env": ["VITEST_MAX_WORKERS"],
+      "dependsOn": ["@codythatsme/plugin-sdk#build", "topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/plugin-registry/flavors/**"
@@ -1382,6 +1811,7 @@
       ]
     },
     "cc-plugin-thread-list#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1400,6 +1830,7 @@
       ]
     },
     "cc-plugin-tasks#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1418,6 +1849,7 @@
       ]
     },
     "cc-plugin-workflows#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": [
         "//#ensure-native-modules",
         "@codythatsme/plugin-sdk#build",
@@ -1433,6 +1865,7 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/shared-ui/src/**"]
     },
     "@cc/plugin-registry#test": {
+      "env": ["VITEST_MAX_WORKERS"],
       "dependsOn": ["//#ensure-native-modules", "topo"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/shared-ui/src/**"]
     }

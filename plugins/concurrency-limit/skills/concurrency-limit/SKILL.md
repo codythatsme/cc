@@ -12,6 +12,8 @@ cc concurrency-limit global [unlimited|<limit>] [--json]
 cc concurrency-limit host <host-id> [auto|<limit>] [--json]
 ```
 
-Automatic host limits allow one thread per available processor. Resolve the host
-with `cc machine list` before changing a host limit. Omit the value to inspect it;
+The overall limit is unlimited by default. Automatic host limits allow one
+thread per available processor; `auto` returns a host override to that
+default. A limit of `0` pauses new work. Resolve the host with
+`cc machine list` before changing a host limit. Omit the value to inspect it;
 change limits only for the requested scope and verify the resulting status.

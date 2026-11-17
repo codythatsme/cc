@@ -10,11 +10,11 @@ import { resolveConfiguredAcpAgents } from "./src/configured-agents.js";
 import { acpHostContract } from "./src/contract.js";
 import { acpProviderDeclaration } from "./src/declaration.js";
 import { applyAcpAgentProbe } from "./src/probe-capabilities.js";
+import { registerAcpRegistry } from "./src/registry-service.js";
 import {
   KNOWN_ACP_AGENTS,
   RESERVED_ACP_PROVIDER_IDS,
 } from "./src/known-agents.js";
-import { readLegacyCustomAcpAgents } from "./src/legacy-config.js";
 
 const CUSTOM_AGENTS_SETTING_DESCRIPTION =
   "A JSON array of ACP agents to add. Each entry needs id, displayName and command; see the guide for the optional fields.";
@@ -24,6 +24,8 @@ const PROBEABLE_ACP_AGENTS = KNOWN_ACP_AGENTS.filter(
 );
 
 const HOST_POLL_INTERVAL_MS = 5_000;
+
+const REGISTRY_PROVIDER_IDS_OF_SHIPPED_AGENTS = ["acp-grok-build"];
 
 async function sleepUntilAbort(ms: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) {
@@ -55,7 +57,6 @@ export default async function acpProvidersPlugin(
       experimental_schema: z.string().superRefine((value, context) => {
         const { warnings } = resolveConfiguredAcpAgents({
           settingValue: value,
-          legacyEntries: [],
           reservedProviderIds: RESERVED_ACP_PROVIDER_IDS,
           shippedAgents: KNOWN_ACP_AGENTS,
         });
@@ -74,6 +75,18 @@ export default async function acpProvidersPlugin(
       }),
       default: "",
     },
+  });
+
+  registerAcpRegistry({
+    cc,
+    readCustomAgents: async () => (await settings.get()).customAgents,
+    writeCustomAgents: async (value) => {
+      await settings.experimental_set({ customAgents: value });
+    },
+    reservedProviderIds: new Set([
+      ...KNOWN_ACP_AGENTS.map((agent) => agent.id),
+      ...REGISTRY_PROVIDER_IDS_OF_SHIPPED_AGENTS,
+    ]),
   });
 
   const registered = new Map<string, { key: string; dispose(): void }>();
@@ -125,16 +138,9 @@ export default async function acpProvidersPlugin(
     }
   }
 
-  async function resolveAndReconcile(settingValue: string): Promise<void> {
-    const legacy = await readLegacyCustomAcpAgents(
-      cc.server.experimental_dataDir,
-    );
+  function resolveAndReconcile(settingValue: string): void {
     const resolved = resolveConfiguredAcpAgents({
       settingValue,
-      legacyEntries: legacy.entries,
-      ...(legacy.problem === undefined
-        ? {}
-        : { legacyProblem: legacy.problem }),
       reservedProviderIds: RESERVED_ACP_PROVIDER_IDS,
       shippedAgents: KNOWN_ACP_AGENTS,
     });
@@ -162,10 +168,16 @@ export default async function acpProvidersPlugin(
     hostId: string,
     signal: AbortSignal,
   ): Promise<void> {
+    const disabledIds = new Set(
+      (await cc.sdk.providers.catalog())
+        .filter((provider) => !provider.enabled)
+        .map((provider) => provider.id),
+    );
     const configuredIds = new Set(configuredAgents.map((agent) => agent.id));
     for (const shipped of PROBEABLE_ACP_AGENTS) {
       if (signal.aborted) return;
-      if (configuredIds.has(shipped.id)) continue;
+      if (configuredIds.has(shipped.id) || disabledIds.has(shipped.id))
+        continue;
       const agent = narrowed.get(shipped.id) ?? shipped;
       if ((agent.fork ?? "none") === "none") continue;
       let probe: AcpAgentProbe;

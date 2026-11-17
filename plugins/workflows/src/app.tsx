@@ -5,8 +5,8 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
+  type RefObject,
 } from "react";
 import {
   activityIconClass,
@@ -17,7 +17,16 @@ import {
 } from "@/components/ui/activity-row-styles";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { observeSharedResize } from "@/lib/shared-resize-observer";
 import { cn } from "@/lib/utils";
+import {
+  PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
+  PromptStackCollapseRow,
+  PromptStackCountSlot,
+  PromptStackChevron,
+  PromptStackPeekLayers,
+  useDisclosureFocusHandoff,
+} from "@/components/ui/prompt-stack-disclosure";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   WorkflowPhaseStrip,
@@ -29,21 +38,20 @@ import {
   type WorkflowStatusPillState,
 } from "@/components/ui/workflow-progress";
 import {
+  experimental_useAppPanel,
   definePluginApp,
   useCcNavigate,
-  useComposerView,
-  useRealtime,
-  useRealtimeConnectionState,
-  useRpc,
+  useComposer,
+  experimental_useRpcMutation,
+  experimental_useRpcQuery,
   type PluginMessageDirectiveProps,
-  type PluginThreadPanelProps,
+  type ExperimentalThreadActionTabProps,
 } from "@codythatsme/plugin-sdk/app";
 import {
-  WORKFLOW_RUNS_REALTIME_CHANNEL,
-  workflowRunsSignalThreadId,
-} from "./realtime-channel.js";
-import type { workflowUiRpcContract } from "./ui-contract.js";
-import type { WorkflowCallView, WorkflowRunView } from "./ui-contract.js";
+  workflowUiRpcContract,
+  type WorkflowCallView,
+  type WorkflowRunView,
+} from "./ui-contract.js";
 
 type RunLoadState =
   | { status: "loading" }
@@ -54,24 +62,14 @@ type RunLoadState =
     }
   | { status: "error"; message: string };
 
-type ActiveRunsLoadState =
-  | { status: "loading" }
-  | { status: "ready"; runs: WorkflowRunView[] }
-  | { status: "error" };
-
 interface SharedWorkflowView {
   callsById: ReadonlyMap<string, WorkflowCallView>;
   currentPhaseIndex?: number;
   progress: WorkflowProgressSnapshot;
 }
 
-const ACTIVE_POLL_INTERVAL_MS = 1_000;
 const WORKFLOW_PANEL_ACTION_ID = "workflow-run";
 const WORKFLOW_CARD_ROW_HEIGHT = 32;
-const WORKFLOW_HEADER_GROUP_CLASS = activityRowClass(
-  "active",
-  "flex w-full items-stretch rounded-none px-0 py-0",
-);
 const WORKFLOW_HEADER_BUTTON_CLASS =
   "flex min-h-8 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-none bg-transparent px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-background/80";
 const WORKFLOW_OPEN_BUTTON_CLASS =
@@ -180,17 +178,41 @@ function formatDuration(startedAt: number | null, finishedAt: number | null) {
     .join(" ");
 }
 
-function WorkflowDuration({ startedAt }: { startedAt: number }) {
-  const [elapsed, setElapsed] = useState(() => Date.now() - startedAt);
+function useNow(ticking: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    setElapsed(Date.now() - startedAt);
-    const interval = window.setInterval(() => {
-      setElapsed(Date.now() - startedAt);
-    }, 1_000);
+    if (!ticking) return;
+    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(interval);
-  }, [startedAt]);
+  }, [ticking]);
+  return now;
+}
+
+function WorkflowDuration({ startedAt }: { startedAt: number }) {
+  const elapsed = useNow(true) - startedAt;
   if (elapsed <= 1_000) return null;
   return <>{formatDuration(0, elapsed)}</>;
+}
+
+function RunDuration({
+  startedAt,
+  finishedAt,
+}: {
+  startedAt: number;
+  finishedAt: number | null;
+}) {
+  const now = useNow(finishedAt === null);
+  return <>{formatDuration(startedAt, finishedAt ?? now)}</>;
+}
+
+function readScrollOverflow(element: HTMLElement): {
+  above: boolean;
+  below: boolean;
+} {
+  return {
+    above: element.scrollTop > 1,
+    below: element.scrollTop + element.clientHeight < element.scrollHeight - 1,
+  };
 }
 
 function WorkflowDetailScroll({
@@ -205,30 +227,31 @@ function WorkflowDetailScroll({
   const contentKey = progress.agents
     .map((agent) => `${agent.index}:${agent.state}:${agent.lastProgressAt}`)
     .join("|");
+  const applyOverflow = useCallback(
+    (nextOverflow: { above: boolean; below: boolean }) =>
+      setOverflow((currentOverflow) =>
+        currentOverflow.above === nextOverflow.above &&
+        currentOverflow.below === nextOverflow.below
+          ? currentOverflow
+          : nextOverflow,
+      ),
+    [],
+  );
   const updateOverflow = useCallback(() => {
     const element = scrollRef.current;
     if (element === null) return;
-    const nextOverflow = {
-      above: element.scrollTop > 1,
-      below:
-        element.scrollTop + element.clientHeight < element.scrollHeight - 1,
-    };
-    setOverflow((currentOverflow) =>
-      currentOverflow.above === nextOverflow.above &&
-      currentOverflow.below === nextOverflow.below
-        ? currentOverflow
-        : nextOverflow,
-    );
-  }, []);
+    applyOverflow(readScrollOverflow(element));
+  }, [applyOverflow]);
 
   useEffect(() => {
     updateOverflow();
     const element = scrollRef.current;
     if (element === null || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(updateOverflow);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [contentKey, updateOverflow]);
+    return observeSharedResize(element, {
+      read: () => readScrollOverflow(element),
+      write: applyOverflow,
+    });
+  }, [contentKey, updateOverflow, applyOverflow]);
 
   return (
     <div className="relative isolate min-w-0" data-detail-scroll="base">
@@ -351,148 +374,32 @@ function useWorkflowRun(
   threadId: string,
   runId: string | null,
 ): { state: RunLoadState; refresh: () => Promise<void> } {
-  const rpc = useRpc<typeof workflowUiRpcContract>();
-  const [state, setState] = useState<RunLoadState>({ status: "loading" });
-  const requestSequence = useRef(0);
-
-  const refresh = useCallback(async () => {
-    const sequence = ++requestSequence.current;
-    try {
-      const result = await rpc.call("workflowRunView", { threadId, runId });
-      if (sequence === requestSequence.current) {
-        setState({ status: "ready", run: result.run, refreshError: null });
-      }
-    } catch (error) {
-      if (sequence === requestSequence.current) {
-        const message = error instanceof Error ? error.message : String(error);
-        setState((current) =>
-          current.status === "ready" && current.run !== null
-            ? { ...current, refreshError: message }
-            : { status: "error", message },
-        );
-      }
-    }
-  }, [rpc, runId, threadId]);
-
-  useEffect(() => {
-    setState({ status: "loading" });
-    void refresh();
-    return () => {
-      requestSequence.current += 1;
-    };
-  }, [refresh]);
-
-  const shouldPoll =
-    state.status === "error" ||
-    (state.status === "ready" && state.run !== null && isRunActive(state.run));
-  useVisibleActivePolling(refresh, shouldPoll);
-
-  return { state, refresh };
-}
-
-function subscribeDocumentVisibility(onChange: () => void): () => void {
-  document.addEventListener("visibilitychange", onChange);
-  return () => document.removeEventListener("visibilitychange", onChange);
-}
-
-function readDocumentVisible(): boolean {
-  return document.visibilityState !== "hidden";
-}
-
-function useDocumentVisible(): boolean {
-  return useSyncExternalStore(
-    subscribeDocumentVisibility,
-    readDocumentVisible,
-    () => true,
-  );
-}
-
-function useVisibleActivePolling(
-  refresh: () => Promise<void>,
-  active: boolean,
-): void {
-  const visible = useDocumentVisible();
-  const connection = useRealtimeConnectionState();
-  const wasHidden = useRef(false);
-  const wasDisconnected = useRef(false);
-
-  useEffect(() => {
-    if (!visible) {
-      wasHidden.current = true;
-      return;
-    }
-    if (!wasHidden.current) return;
-    wasHidden.current = false;
-    void refresh();
-  }, [refresh, visible]);
-
-  useEffect(() => {
-    if (connection !== "connected") {
-      wasDisconnected.current = true;
-      return;
-    }
-    if (!wasDisconnected.current) return;
-    wasDisconnected.current = false;
-    void refresh();
-  }, [connection, refresh]);
-
-  const enabled = active && visible;
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    let timeout: number | null = null;
-    const schedule = () => {
-      timeout = window.setTimeout(() => {
-        void refresh().finally(() => {
-          if (!cancelled) schedule();
-        });
-      }, ACTIVE_POLL_INTERVAL_MS);
-    };
-    schedule();
-    return () => {
-      cancelled = true;
-      if (timeout !== null) window.clearTimeout(timeout);
-    };
-  }, [enabled, refresh]);
-}
-
-function useActiveWorkflowRuns(threadId: string): ActiveRunsLoadState {
-  const rpc = useRpc<typeof workflowUiRpcContract>();
-  const [state, setState] = useState<ActiveRunsLoadState>({
-    status: "loading",
+  const query = experimental_useRpcQuery({
+    contract: workflowUiRpcContract,
+    method: "workflowRunView",
+    input: { threadId, runId },
   });
-  const requestSequence = useRef(0);
+  const state: RunLoadState =
+    query.data === undefined ||
+    (query.error !== null && query.data.run === null)
+      ? query.error === null
+        ? { status: "loading" }
+        : { status: "error", message: query.error.message }
+      : {
+          status: "ready",
+          run: query.data.run,
+          refreshError: query.error?.message ?? null,
+        };
+  return { state, refresh: query.refetch };
+}
 
-  const refresh = useCallback(async () => {
-    const sequence = ++requestSequence.current;
-    try {
-      const result = await rpc.call("workflowActiveRuns", { threadId });
-      if (sequence === requestSequence.current) {
-        setState({ status: "ready", runs: result.runs });
-      }
-    } catch {
-      if (sequence === requestSequence.current) setState({ status: "error" });
-    }
-  }, [rpc, threadId]);
-
-  useEffect(() => {
-    setState({ status: "loading" });
-    void refresh();
-    return () => {
-      requestSequence.current += 1;
-    };
-  }, [refresh]);
-
-  useRealtime(WORKFLOW_RUNS_REALTIME_CHANNEL, (payload) => {
-    if (workflowRunsSignalThreadId(payload) === threadId) void refresh();
+function useActiveWorkflowRuns(threadId: string): WorkflowRunView[] {
+  const query = experimental_useRpcQuery({
+    contract: workflowUiRpcContract,
+    method: "workflowActiveRuns",
+    input: { threadId },
   });
-
-  const shouldPoll =
-    state.status === "error" ||
-    (state.status === "ready" && state.runs.some(isRunActive));
-  useVisibleActivePolling(refresh, shouldPoll);
-
-  return state;
+  return query.data?.runs ?? [];
 }
 
 export function EmptyOrError({ children }: { children: ReactNode }) {
@@ -523,25 +430,71 @@ function RefreshWarning({ message }: { message: string }) {
       role="status"
       className="rounded-md border border-warning/20 bg-warning/5 px-2.5 py-1.5 text-xs text-warning-text"
     >
-      Could not refresh: {message}. Retrying…
+      Could not refresh: {message}.
     </div>
   );
 }
 
 function WorkflowStatusBanner() {
-  const view = useComposerView();
-  if (view.scope.kind !== "thread") return null;
-  return <WorkflowStatusBannerLoaded threadId={view.scope.threadId} />;
+  const { scope } = useComposer();
+  if (scope.kind !== "thread") return null;
+  return (
+    <WorkflowStatusBannerLoaded
+      key={scope.threadId}
+      threadId={scope.threadId}
+    />
+  );
+}
+
+function WorkflowComposerSummary({ run }: { run: WorkflowRunView }) {
+  const shared = buildSharedWorkflowView(run);
+  const settledAgents = settledAgentCount(shared.progress.agents);
+  const agentCount = shared.progress.agents.length;
+  return (
+    <>
+      <Icon
+        name="Workflow"
+        className={activityIconClass("active", "size-3.5 shrink-0")}
+        aria-hidden
+      />
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+        <span
+          className="min-w-0 truncate font-medium text-foreground"
+          title={run.name}
+        >
+          {run.name}
+        </span>
+        {agentCount === 0 ? null : (
+          <span className="shrink-0 text-2xs tabular-nums text-subtle-foreground">
+            {settledAgents}/{agentCount} agents
+          </span>
+        )}
+        {run.startedAt === null ? null : (
+          <span className="shrink-0 text-2xs tabular-nums text-subtle-foreground">
+            <WorkflowDuration startedAt={run.startedAt} />
+          </span>
+        )}
+      </span>
+      <WorkflowPhaseStrip
+        progress={shared.progress}
+        currentPhaseIndex={shared.currentPhaseIndex}
+        settled={false}
+        className="w-16 shrink-0"
+      />
+    </>
+  );
 }
 
 function WorkflowComposerCard({ run }: { run: WorkflowRunView }) {
   const navigate = useCcNavigate();
+  const panel = experimental_useAppPanel();
   const [expanded, setExpanded] = useState(false);
   const bodyId = useId();
   const toggleId = useId();
   const shared = buildSharedWorkflowView(run);
-  const settledAgents = settledAgentCount(shared.progress.agents);
-  const agentCount = shared.progress.agents.length;
+  const focus = useDisclosureFocusHandoff(expanded, () =>
+    setExpanded((value) => !value),
+  );
 
   return (
     <section
@@ -552,66 +505,34 @@ function WorkflowComposerCard({ run }: { run: WorkflowRunView }) {
       <div
         role="group"
         aria-label={`Workflow controls: ${run.name}`}
-        className={WORKFLOW_HEADER_GROUP_CLASS}
+        className="flex w-full items-stretch"
       >
         <button
+          ref={focus.triggerRef}
           type="button"
           id={toggleId}
           aria-expanded={expanded}
           aria-controls={bodyId}
           aria-label={`Workflow: ${run.name}`}
-          onClick={() => setExpanded((value) => !value)}
-          className={WORKFLOW_HEADER_BUTTON_CLASS}
+          onClick={focus.onTriggerClick}
+          className={cn(
+            WORKFLOW_HEADER_BUTTON_CLASS,
+            PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
+          )}
         >
-          <Icon
-            name="Workflow"
-            className={activityIconClass("active", "size-3.5 shrink-0")}
-            aria-hidden
-          />
-          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-            <span
-              className={activityTextClass("active", "min-w-0 truncate")}
-              title={run.name}
-            >
-              {run.name}
-            </span>
-            {agentCount === 0 ? null : (
-              <span
-                className={activityMetaClass(
-                  "active",
-                  "shrink-0 text-2xs tabular-nums",
-                )}
-              >
-                {settledAgents}/{agentCount} agents
-              </span>
-            )}
-            {run.startedAt === null ? null : (
-              <span
-                className={activityMetaClass(
-                  "active",
-                  "shrink-0 text-2xs tabular-nums",
-                )}
-              >
-                <WorkflowDuration startedAt={run.startedAt} />
-              </span>
-            )}
-          </span>
-          <Icon
-            name="ChevronDown"
-            className={cn(
-              activityIconClass("active"),
-              "size-3.5 shrink-0 transition-transform duration-200",
-              expanded && "rotate-180",
-            )}
-            aria-hidden
-          />
+          <WorkflowComposerSummary run={run} />
+          <PromptStackChevron isExpanded={expanded} />
         </button>
         <button
           type="button"
           aria-label={`Open workflow ${run.name} in side panel`}
           onClick={() =>
-            navigate.openThreadPanel({
-              actionId: WORKFLOW_PANEL_ACTION_ID,
+            panel.openTab({
+              tab: {
+                id: WORKFLOW_PANEL_ACTION_ID,
+                context: { kind: "thread" },
+                availability: "action",
+              },
               title: run.name,
               params: { runId: run.id },
             })
@@ -621,17 +542,12 @@ function WorkflowComposerCard({ run }: { run: WorkflowRunView }) {
           <Icon name="ArrowRight" className="size-3.5" aria-hidden />
         </button>
       </div>
-      <WorkflowPhaseStrip
-        progress={shared.progress}
-        currentPhaseIndex={shared.currentPhaseIndex}
-        settled={false}
-        className="px-3 pb-2"
-      />
       <section
         id={bodyId}
         role="region"
         aria-labelledby={toggleId}
         aria-hidden={!expanded}
+        inert={!expanded}
         className={cn(
           "grid overflow-hidden transition-[grid-template-rows,opacity,border-color] duration-200 ease-out",
           expanded
@@ -644,22 +560,95 @@ function WorkflowComposerCard({ run }: { run: WorkflowRunView }) {
             progress={shared.progress}
             currentPhaseIndex={shared.currentPhaseIndex}
           />
+          <div className="px-1 pb-1">
+            <PromptStackCollapseRow
+              buttonRef={focus.collapseRef}
+              controlsId={bodyId}
+              label={`Collapse workflow ${run.name}`}
+              onCollapse={focus.onCollapseClick}
+            />
+          </div>
         </div>
       </section>
     </section>
   );
 }
 
-function WorkflowStatusBannerLoaded({ threadId }: { threadId: string }) {
-  const state = useActiveWorkflowRuns(threadId);
-
-  if (state.status !== "ready" || state.runs.length === 0) return null;
-
+function WorkflowStackFront({
+  runs,
+  onExpand,
+  buttonRef,
+}: {
+  runs: readonly WorkflowRunView[];
+  onExpand: () => void;
+  buttonRef: RefObject<HTMLButtonElement | null>;
+}) {
+  const front = runs[0]!;
   return (
-    <section aria-label="Active workflows" className="space-y-2">
-      {state.runs.map((run) => (
-        <WorkflowComposerCard key={run.id} run={run} />
-      ))}
+    <PromptStackPeekLayers hiddenCount={runs.length - 1}>
+      <section
+        aria-label="Workflows"
+        className="overflow-hidden rounded-lg border border-border bg-surface-raised-solid"
+        style={{ minHeight: WORKFLOW_CARD_ROW_HEIGHT }}
+      >
+        <button
+          ref={buttonRef}
+          type="button"
+          aria-expanded={false}
+          aria-label={`${runs.length} workflows running. Show all`}
+          onClick={onExpand}
+          className={cn(
+            WORKFLOW_HEADER_BUTTON_CLASS,
+            PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
+            "w-full",
+          )}
+        >
+          <WorkflowComposerSummary run={front} />
+          <PromptStackCountSlot count={runs.length} />
+        </button>
+      </section>
+    </PromptStackPeekLayers>
+  );
+}
+
+function WorkflowStatusBannerLoaded({ threadId }: { threadId: string }) {
+  const runs = useActiveWorkflowRuns(threadId);
+  const [stackExpanded, setStackExpanded] = useState(false);
+  const listId = useId();
+  const focus = useDisclosureFocusHandoff(stackExpanded, () =>
+    setStackExpanded((value) => !value),
+  );
+
+  if (stackExpanded && runs.length < 2) {
+    setStackExpanded(false);
+  }
+  if (runs.length === 0) return null;
+
+  const collapsed = runs.length > 1 && !stackExpanded;
+  return (
+    <section aria-label="Active workflows" className="flex flex-col gap-2">
+      {collapsed ? (
+        <WorkflowStackFront
+          runs={runs}
+          buttonRef={focus.triggerRef}
+          onExpand={focus.onTriggerClick}
+        />
+      ) : null}
+      <div hidden={collapsed} className="flex flex-col gap-1">
+        <div id={listId} className="flex flex-col gap-2">
+          {runs.map((run) => (
+            <WorkflowComposerCard key={run.id} run={run} />
+          ))}
+        </div>
+        {runs.length > 1 && stackExpanded ? (
+          <PromptStackCollapseRow
+            buttonRef={focus.collapseRef}
+            controlsId={listId}
+            label={`Collapse ${runs.length} workflows`}
+            onCollapse={focus.onCollapseClick}
+          />
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -697,6 +686,7 @@ function WorkflowPreviewLoaded({
   source: string;
 }) {
   const navigate = useCcNavigate();
+  const panel = experimental_useAppPanel();
   const { state } = useWorkflowRun(threadId, runId);
   const [expanded, setExpanded] = useState(true);
   const bodyId = useId();
@@ -712,7 +702,6 @@ function WorkflowPreviewLoaded({
   const shared = buildSharedWorkflowView(run);
   const activityState = runActivityState(run);
   const pillState = runPillState(run.status);
-  const duration = formatDuration(run.startedAt, run.finishedAt);
   const settledAgents = settledAgentCount(shared.progress.agents);
   return (
     <section
@@ -757,14 +746,17 @@ function WorkflowPreviewLoaded({
               {settledAgents}/{shared.progress.agents.length} agents
             </span>
           ) : null}
-          {duration === null ? null : (
+          {run.startedAt === null ? null : (
             <span
               className={activityMetaClass(
                 activityState,
                 "shrink-0 text-2xs tabular-nums",
               )}
             >
-              {duration}
+              <RunDuration
+                startedAt={run.startedAt}
+                finishedAt={run.finishedAt}
+              />
             </span>
           )}
         </span>
@@ -832,8 +824,12 @@ function WorkflowPreviewLoaded({
           size="sm"
           className="h-7 px-2 text-xs"
           onClick={() =>
-            navigate.openThreadPanel({
-              actionId: WORKFLOW_PANEL_ACTION_ID,
+            panel.openTab({
+              tab: {
+                id: WORKFLOW_PANEL_ACTION_ID,
+                context: { kind: "thread" },
+                availability: "action",
+              },
               title: run.name,
               params: { runId: run.id },
             })
@@ -847,7 +843,10 @@ function WorkflowPreviewLoaded({
   );
 }
 
-function WorkflowRunPanel({ threadId, params }: PluginThreadPanelProps) {
+function WorkflowRunPanel({
+  threadId,
+  params,
+}: ExperimentalThreadActionTabProps) {
   const runId = panelRunId(params);
   return (
     <div className="h-full min-h-0 flex-1 bg-border">
@@ -872,7 +871,10 @@ function WorkflowRunPanelLoaded({
   runId: string | null;
 }) {
   const navigate = useCcNavigate();
-  const rpc = useRpc<typeof workflowUiRpcContract>();
+  const stopRun = experimental_useRpcMutation({
+    contract: workflowUiRpcContract,
+    method: "workflowStopRun",
+  });
   const { state, refresh } = useWorkflowRun(threadId, runId);
   const [stopping, setStopping] = useState(false);
   const [stopError, setStopError] = useState<string | null>(null);
@@ -905,7 +907,6 @@ function WorkflowRunPanelLoaded({
     );
   }
   const pillState = runPillState(run.status);
-  const duration = formatDuration(run.startedAt, run.finishedAt);
   const settledAgents = settledAgentCount(shared.progress.agents);
   const completedCalls = shared.progress.agents.filter(
     (agent) => agent.state === "done",
@@ -917,7 +918,7 @@ function WorkflowRunPanelLoaded({
     setStopping(true);
     setStopError(null);
     try {
-      await rpc.call("workflowStopRun", { threadId, runId: run.id });
+      await stopRun.mutate({ threadId, runId: run.id });
       await refresh();
     } catch (error) {
       setStopError(error instanceof Error ? error.message : String(error));
@@ -947,9 +948,17 @@ function WorkflowRunPanelLoaded({
             {shared.progress.agents.length > 0
               ? `${settledAgents}/${shared.progress.agents.length} agents · `
               : ""}
-            {duration === null
-              ? "Not started"
-              : `${duration} ${isRunActive(run) ? "elapsed" : "total"}`}
+            {run.startedAt === null ? (
+              "Not started"
+            ) : (
+              <>
+                <RunDuration
+                  startedAt={run.startedAt}
+                  finishedAt={run.finishedAt}
+                />{" "}
+                {isRunActive(run) ? "elapsed" : "total"}
+              </>
+            )}
           </span>
           <span className="ml-auto font-mono">{run.id.slice(-8)}</span>
         </div>
@@ -1044,7 +1053,9 @@ export default definePluginApp((app) => {
     id: "workflow-preview",
     component: WorkflowPreviewDirective,
   });
-  app.slots.threadPanelAction({
+  app.slots.experimental_tab({
+    context: { kind: "thread" },
+    availability: "action",
     id: WORKFLOW_PANEL_ACTION_ID,
     title: "Workflow run",
     icon: "Workflow",

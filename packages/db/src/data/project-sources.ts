@@ -1,8 +1,9 @@
-import { and, count, eq, inArray, ne } from "drizzle-orm";
+import { hostPathEquals } from "./host-path-sql.js";
+import { and, asc, count, desc, eq, inArray, isNull, ne, notInArray } from "drizzle-orm";
 import type { ProjectSource } from "@cc/domain";
 import type { DbConnection } from "../connection.js";
 import type { DbNotifier } from "../notifier.js";
-import { projectSources } from "../schema.js";
+import { hosts, projectSources } from "../schema.js";
 import { createProjectSourceId } from "../ids.js";
 
 type ProjectSourceRow = typeof projectSources.$inferSelect;
@@ -15,8 +16,6 @@ export interface CreateLocalPathProjectSourceInput {
   isDefault?: boolean;
   ownsPath?: boolean;
 }
-
-export type CreateProjectSourceInput = CreateLocalPathProjectSourceInput;
 
 export function toProjectSource(row: ProjectSourceRow): ProjectSource {
   if (!row.hostId || !row.path) {
@@ -37,7 +36,7 @@ export function toProjectSource(row: ProjectSourceRow): ProjectSource {
 export function createProjectSource(
   db: DbConnection,
   notifier: DbNotifier,
-  input: CreateProjectSourceInput,
+  input: CreateLocalPathProjectSourceInput,
 ) {
   const row = db.transaction((tx) => {
     const now = Date.now();
@@ -219,6 +218,34 @@ export function getProjectSourceByHost(
   return source ? toProjectSource(source) : null;
 }
 
+export function getProjectSourceOnPersistentHost(
+  db: DbConnection,
+  projectId: string,
+) {
+  const row =
+    db
+      .select({ source: projectSources })
+      .from(projectSources)
+      .innerJoin(hosts, eq(hosts.id, projectSources.hostId))
+      .where(
+        and(
+          eq(projectSources.projectId, projectId),
+          eq(projectSources.type, "local_path"),
+          eq(hosts.type, "persistent"),
+          isNull(hosts.destroyedAt),
+          notInArray(hosts.phase, ["removing", "destroyed"]),
+        ),
+      )
+      .orderBy(
+        desc(projectSources.isDefault),
+        asc(projectSources.createdAt),
+        asc(projectSources.id),
+      )
+      .limit(1)
+      .get() ?? null;
+  return row ? toProjectSource(row.source) : null;
+}
+
 export function deleteProjectSource(
   db: DbConnection,
   notifier: DbNotifier,
@@ -268,6 +295,6 @@ export function deleteProjectSource(
 
 export function projectSourceOwnsPath(db: DbConnection, projectId: string, hostId: string, path: string): boolean {
   return db.select({ ownsPath: projectSources.ownsPath }).from(projectSources).where(and(
-    eq(projectSources.projectId, projectId), eq(projectSources.hostId, hostId), eq(projectSources.path, path),
+    eq(projectSources.projectId, projectId), eq(projectSources.hostId, hostId), hostPathEquals(projectSources.path, path),
   )).get()?.ownsPath ?? false;
 }

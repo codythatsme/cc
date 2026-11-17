@@ -1,0 +1,49 @@
+{
+  "name": "cc-plugin-cc--connect-next",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Beta: also reach this cc at https://<label>.next.<your cc account's domain> through cc's Fly gate, next to cc connect.",
+  "engines": {
+    "cc": ">=0.0",
+    "ccPluginSdk": ">=0.6.67"
+  },
+  "cc": {
+    "name": "cc connect next (beta)",
+    "description": "Beta: also reach this cc at https://<label>.next.<your cc account's domain> through cc's Fly gate, next to cc connect.",
+    "branding": {
+      "icon": "ComputerCloud"
+    },
+    "server": "./src/server.ts",
+    "app": "./app.tsx"
+  },
+  "keywords": [
+    "cc-plugin"
+  ],
+  "scripts": {
+    "typecheck": "tsrs --noEmit",
+    "lint:type-aware": "oxlint -c ../../.oxlintrc.type-aware.json",
+    "test": "vitest run --config vitest.config.ts",
+    "prepare:bundled": "cc-plugin-build prepare-bundled"
+  },
+  "dependencies": {
+    "@cc/frp-client": "workspace:*",
+    "@cc/shared-ui": "workspace:*",
+    "@cc/tunnel-contract": "workspace:*",
+    "cc-plugin-cc-account": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cc/plugin-build": "workspace:*",
+    "@codythatsme/plugin-sdk": "workspace:*",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "jsdom": "^29.1.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.12"
+  }
+}

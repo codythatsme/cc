@@ -3,14 +3,13 @@ import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-reg
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createConnection, migrate } from "@cc/db";
 import type { Logger } from "@cc/logger";
 import { createPluginRuntime } from "../../../src/services/plugins/plugin-runtime.js";
 import { testLogger } from "../../helpers/test-app.js";
+import { createMigratedConnection } from "@cc/db/testing";
 
 async function createRuntime() {
-  const db = createConnection(":memory:");
-  migrate(db);
+  const db = createMigratedConnection();
   return createPluginRuntime({
     machineEnrollments: null,
     includedBuiltinNames: new Set(),
@@ -18,6 +17,8 @@ async function createRuntime() {
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },

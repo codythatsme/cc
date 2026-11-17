@@ -4,9 +4,11 @@ import {
   type AccountQuota,
   type FamilyQuota,
   type FamilyWeekly,
+  type LimitWindow,
+  type LimitWindowSlot,
   type ModelFamily,
 } from "./contracts.js";
-import { modelFamily, parseReset } from "./quota.js";
+import { CLAUDE_WINDOWS, modelFamily, parseReset } from "./quota.js";
 
 const numberValueSchema = z.union([z.number(), z.string()]);
 
@@ -50,6 +52,14 @@ const usagePayloadSchema = z
     seven_day_opus: usageBucketSchema.nullish(),
     seven_day_haiku: usageBucketSchema.nullish(),
     limits: z.array(usageLimitSchema).optional(),
+    extra_usage: z
+      .object({
+        is_enabled: z.boolean(),
+        utilization: z.number().nonnegative().nullish(),
+        monthly_limit: z.number().nonnegative().nullish(),
+        used_credits: z.number().nonnegative().nullish(),
+      })
+      .nullish(),
   })
   .passthrough();
 
@@ -111,6 +121,17 @@ function limitBucket(
   );
 }
 
+function usageWindow(
+  slot: LimitWindowSlot,
+  bucket: UsageBucket | null | undefined,
+  now: number,
+): LimitWindow | null {
+  const normalized = bucket == null ? null : normalizeBucket(bucket, now);
+  return normalized === null
+    ? null
+    : { slot, windowMinutes: CLAUDE_WINDOWS[slot].minutes, ...normalized };
+}
+
 export function quotaFromUsage(
   accountId: string,
   payload: object,
@@ -127,7 +148,8 @@ export function quotaFromUsage(
     data.seven_day_sonnet == null &&
     data.seven_day_opus == null &&
     data.seven_day_haiku == null &&
-    data.limits === undefined
+    data.limits === undefined &&
+    data.extra_usage === undefined
   )
     return null;
   const familyWeekly: FamilyWeekly =
@@ -159,20 +181,35 @@ export function quotaFromUsage(
     const normalized = normalizeBucket(bucket, now);
     if (normalized !== null) familyWeekly[family] = normalized;
   }
-  const fiveHour =
-    data.five_hour == null ? null : normalizeBucket(data.five_hour, now);
-  const sevenDay =
-    data.seven_day == null ? null : normalizeBucket(data.seven_day, now);
+  const limitWindows =
+    data.five_hour === undefined && data.seven_day === undefined
+      ? previous.limitWindows
+      : [
+          usageWindow("primary", data.five_hour, now),
+          usageWindow("secondary", data.seven_day, now),
+        ].filter((window): window is LimitWindow => window !== null);
   return {
     ...previous,
     accountId,
-    fiveHourUtilization: fiveHour?.utilization ?? previous.fiveHourUtilization,
-    fiveHourResetAt: fiveHour?.resetAt ?? previous.fiveHourResetAt,
-    fiveHourStatus: fiveHour?.status ?? previous.fiveHourStatus,
-    sevenDayUtilization: sevenDay?.utilization ?? previous.sevenDayUtilization,
-    sevenDayResetAt: sevenDay?.resetAt ?? previous.sevenDayResetAt,
-    sevenDayStatus: sevenDay?.status ?? previous.sevenDayStatus,
+    extraUsage:
+      data.extra_usage === undefined
+        ? previous.extraUsage
+        : data.extra_usage === null
+          ? null
+          : {
+              status:
+                data.extra_usage.is_enabled &&
+                (data.extra_usage.utilization ?? 0) < 100 &&
+                (data.extra_usage.monthly_limit == null ||
+                  (data.extra_usage.used_credits ?? 0) <
+                    data.extra_usage.monthly_limit)
+                  ? "allowed"
+                  : "rejected",
+              observedAt: now,
+              source: "usage",
+            },
     familyWeekly,
+    limitWindows,
     observedAt: now,
   };
 }

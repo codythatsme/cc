@@ -66,10 +66,11 @@ function EmptyCatalogPicker({
           onModelChange={() => {}}
           reasoningValue="medium"
           reasoningOptions={reasoningOptions}
+          reasoningIsLoading={false}
           onReasoningChange={() => {}}
-          fastModeEnabled={false}
-          onFastModeChange={() => {}}
-          showFastModeToggle={false}
+          serviceTierValue={undefined}
+          serviceTierOptions={[]}
+          onServiceTierChange={() => {}}
           modal={false}
         />
       </div>

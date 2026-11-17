@@ -1,18 +1,27 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it, type TestContext } from "vitest";
 import {
   createCcAppArtifactService,
+  defaultCommandRunner,
   resolveCcAppPackage,
   type CcAppArtifactCommandRunner,
 } from "../../src/services/install/cc-app-artifact.js";
 
 const execFileAsync = promisify(execFile);
-const roots: string[] = [];
 const ARTIFACT_LIFECYCLE_TIMEOUT_MS = 15_000;
 const MODES = ["repo-src", "repo-dist", "packaged"] as const;
 const packageJson = {
@@ -68,6 +77,7 @@ async function writeHostPackage(root: string, readme: string): Promise<void> {
   await writeFile(join(root, "README.md"), readme);
   for (const fileName of [
     "cc",
+    "cc.cmd",
     "cc-parcel-watcher-child.mjs",
     "cc-plugin-host-worker.mjs",
     "cc-provider-bridge-worker.mjs",
@@ -81,9 +91,12 @@ async function writeHostPackage(root: string, readme: string): Promise<void> {
   );
 }
 
-async function fixture(mode: Mode) {
+async function fixture(mode: Mode, { onTestFinished }: TestContext) {
   const root = await mkdtemp(join(tmpdir(), `cc-artifact-${mode}-`));
-  roots.push(root);
+  onTestFinished(async () => {
+    await restoreTreeWritable(root).catch(() => undefined);
+    await rm(root, { force: true, recursive: true });
+  });
   const packageRoot = isRepoMode(mode) ? join(root, "packages/cc-app") : root;
   const serverEntry =
     mode === "repo-src"
@@ -107,17 +120,32 @@ async function fixture(mode: Mode) {
   return { packageRoot, refreshHostPackage, root, serverEntry };
 }
 
-afterEach(async () => {
-  await Promise.all(
-    roots.splice(0).map((root) => rm(root, { force: true, recursive: true })),
-  );
-});
+async function setTreeReadOnly(directory: string): Promise<void> {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await setTreeReadOnly(path);
+    } else {
+      await chmod(path, 0o444);
+    }
+  }
+  await chmod(directory, 0o555);
+}
+
+async function restoreTreeWritable(directory: string): Promise<void> {
+  await chmod(directory, 0o755);
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      await restoreTreeWritable(join(directory, entry.name));
+    }
+  }
+}
 
 describe("cc-app artifact service (desktop packaging)", () => {
   it(
     "packs the runtime when Electron Builder omits the README",
-    async () => {
-      const test = await fixture("packaged");
+    async (context) => {
+      const test = await fixture("packaged", context);
       await rm(join(test.packageRoot, "README.md"));
       const service = createCcAppArtifactService({
         dataDir: join(test.root, "data"),
@@ -128,7 +156,7 @@ describe("cc-app artifact service (desktop packaging)", () => {
       const artifact = await service.getArtifact();
       const listing = (
         await execFileAsync("tar", ["-tzf", artifact.path])
-      ).stdout.split("\n");
+      ).stdout.split(/\r?\n/u);
       expect(listing).toEqual(
         expect.arrayContaining([
           "package/package.json",
@@ -136,6 +164,7 @@ describe("cc-app artifact service (desktop packaging)", () => {
           "package/dist/cc-host-daemon.js",
           "package/dist/cc.js",
           "package/host-daemon/dist/cc",
+          "package/host-daemon/dist/cc.cmd",
           "package/host-daemon/dist/plugin-sdk/package.json",
           "package/host-daemon/dist/plugin-sdk/dist/index.js",
           "package/host-daemon/dist/cc-chunks/chunk-TEST.js",
@@ -155,8 +184,8 @@ describe("cc-app artifact service (desktop packaging)", () => {
 
   it(
     "packs with the bundled npm when the server has no npm on PATH",
-    async () => {
-      const test = await fixture("packaged");
+    async (context) => {
+      const test = await fixture("packaged", context);
       const service = createCcAppArtifactService({
         dataDir: join(test.root, "data"),
         serverEntryUrl: pathToFileURL(test.serverEntry).href,
@@ -174,15 +203,56 @@ describe("cc-app artifact service (desktop packaging)", () => {
       expect(artifact.size).toBeGreaterThan(0);
       expect(
         (await execFileAsync("tar", ["-tzf", artifact.path])).stdout.split(
-          "\n",
+          /\r?\n/u,
         ),
       ).toContain("package/host-daemon/dist/daemon-bundle.mjs");
     },
     ARTIFACT_LIFECYCLE_TIMEOUT_MS,
   );
 
-  it("rejects missing runtime files even when the README is absent", async () => {
-    const test = await fixture("packaged");
+  it.skipIf(
+    process.platform === "win32" ||
+      (typeof process.getuid === "function" && process.getuid() === 0),
+  )(
+    "serves the tarball and removes its temporary copy from a read-only install",
+    async (context) => {
+      const test = await fixture("packaged", context);
+      const dataDir = join(test.root, "data");
+      const nested = join(
+        test.packageRoot,
+        "host-daemon/dist/cc-chunks/nested",
+      );
+      await mkdir(nested, { recursive: true });
+      await writeFile(join(nested, "deep.js"), "export {};\n");
+      await setTreeReadOnly(join(test.packageRoot, "host-daemon"));
+      const service = createCcAppArtifactService({
+        dataDir,
+        serverEntryUrl: pathToFileURL(test.serverEntry).href,
+      });
+
+      const artifact = await service.getArtifact();
+
+      expect(artifact.size).toBeGreaterThan(0);
+      expect(
+        (await execFileAsync("tar", ["-tzf", artifact.path])).stdout.split(
+          /\r?\n/u,
+        ),
+      ).toContain("package/host-daemon/dist/cc-chunks/nested/deep.js");
+      expect(
+        (await readdir(join(dataDir, "install-cache"))).filter((name) =>
+          name.startsWith("host-package-"),
+        ),
+      ).toEqual([]);
+      expect(
+        (await stat(join(test.packageRoot, "host-daemon/dist/cc-chunks")))
+          .mode & 0o222,
+      ).toBe(0);
+    },
+    ARTIFACT_LIFECYCLE_TIMEOUT_MS,
+  );
+
+  it("rejects missing runtime files even when the README is absent", async (context) => {
+    const test = await fixture("packaged", context);
     const runtimePath = join(
       test.packageRoot,
       "host-daemon/dist/daemon-bundle.mjs",
@@ -200,8 +270,8 @@ describe("cc-app artifact service (desktop packaging)", () => {
     });
   });
 
-  it("propagates README copy failures other than a missing file", async () => {
-    const test = await fixture("packaged");
+  it("propagates README copy failures other than a missing file", async (context) => {
+    const test = await fixture("packaged", context);
     const readmePath = join(test.packageRoot, "README.md");
     await rm(readmePath);
     await mkdir(readmePath);
@@ -211,17 +281,19 @@ describe("cc-app artifact service (desktop packaging)", () => {
     });
 
     await expect(service.getArtifact()).rejects.toMatchObject({
-      code: expect.stringMatching(/^(EISDIR|ENOTSUP)$/u),
+      code: expect.stringMatching(
+        process.platform === "win32" ? /^EPERM$/u : /^(EISDIR|ENOTSUP)$/u,
+      ),
       path: readmePath,
     });
   });
 });
 
-describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
+describe.concurrent.each(MODES)("cc-app artifact service (%s)", (mode) => {
   it(
     "packs only the enrolled host runtime as an exact-version npm package",
-    async () => {
-      const test = await fixture(mode);
+    async (context) => {
+      const test = await fixture(mode, context);
       const calls: Array<{
         command: string;
         args: readonly string[];
@@ -233,7 +305,7 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
           await test.refreshHostPackage();
           return "built";
         }
-        return (await execFileAsync(command, [...args], { cwd })).stdout;
+        return defaultCommandRunner(command, args, cwd);
       };
       const resolved = await resolveCcAppPackage(
         pathToFileURL(test.serverEntry).href,
@@ -250,7 +322,7 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
       await expect(service.getVersion()).resolves.toBe("1.2.3-test");
       const listing = (
         await execFileAsync("tar", ["-tzf", artifact.path])
-      ).stdout.split("\n");
+      ).stdout.split(/\r?\n/u);
       expect(listing).toContain("package/package.json");
       expect(listing).toContain("package/dist/cc-app.js");
       expect(listing).toContain("package/dist/cc.js");
@@ -275,6 +347,9 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
       expect(packedPackageJson).toMatchObject({
         name: "cc-app",
         version: "1.2.3-test",
+        os: isRepoMode(mode)
+          ? ["darwin", "linux"]
+          : ["darwin", "linux", "win32"],
         bin: {
           cc: "dist/cc.js",
           "cc-app": "dist/cc-app.js",
@@ -304,8 +379,8 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
 
   it(
     "content-addresses rebuilds when package contents change",
-    async () => {
-      const test = await fixture(mode);
+    async (context) => {
+      const test = await fixture(mode, context);
       const calls: Array<{ command: string }> = [];
       const runner: CcAppArtifactCommandRunner = async (command, args, cwd) => {
         calls.push({ command });
@@ -313,7 +388,7 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
           await test.refreshHostPackage();
           return "built";
         }
-        return (await execFileAsync(command, [...args], { cwd })).stdout;
+        return defaultCommandRunner(command, args, cwd);
       };
       const options = {
         dataDir: join(test.root, "data"),
@@ -344,14 +419,14 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
 
   it(
     "separates protocol cache keys without changing identical content digests",
-    async () => {
-      const test = await fixture(mode);
+    async (context) => {
+      const test = await fixture(mode, context);
       const runner: CcAppArtifactCommandRunner = async (command, args, cwd) => {
         if (command === "pnpm") {
           await test.refreshHostPackage();
           return "built";
         }
-        return (await execFileAsync(command, [...args], { cwd })).stdout;
+        return defaultCommandRunner(command, args, cwd);
       };
       const baseOptions = {
         dataDir: join(test.root, "data"),
@@ -376,8 +451,8 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
 
   it(
     "keeps the previous content-addressed artifact when a rebuild fails",
-    async () => {
-      const test = await fixture(mode);
+    async (context) => {
+      const test = await fixture(mode, context);
       let failNextPack = false;
       const runner: CcAppArtifactCommandRunner = async (command, args, cwd) => {
         if (command === "pnpm") {
@@ -385,7 +460,7 @@ describe.each(MODES)("cc-app artifact service (%s)", (mode) => {
           return "built";
         }
         if (failNextPack) throw new Error("npm pack exploded");
-        return (await execFileAsync(command, [...args], { cwd })).stdout;
+        return defaultCommandRunner(command, args, cwd);
       };
       const options = {
         dataDir: join(test.root, "data"),

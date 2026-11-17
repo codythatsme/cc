@@ -8,6 +8,18 @@ import {
 } from "@codythatsme/plugin-sdk/testing/app";
 import { makeTask, rpcInput } from "../../test-fixtures.js";
 
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 if (!window.matchMedia) {
   window.matchMedia = (query: string) => ({
     matches: false,
@@ -23,14 +35,9 @@ if (!window.matchMedia) {
 
 installTestPluginRuntime();
 const { PropertiesRail } = await import("./rail");
-const { TasksRefreshProvider } = await import("../../shell/refresh");
 
 function RailHarness(props: ComponentProps<typeof PropertiesRail>) {
-  return (
-    <TasksRefreshProvider>
-      <PropertiesRail {...props} />
-    </TasksRefreshProvider>
-  );
+  return <PropertiesRail {...props} />;
 }
 
 afterEach(cleanup);
@@ -60,17 +67,49 @@ const task = makeTask({
   position: 1,
 });
 
-function railProps(linkedCcProjectId: string | null) {
+const HOME_PROJECT = {
+  ...projectRow(null),
+  id: "01HZZZZZZZZZZZZZZZZZZZZZP2",
+  name: "Home",
+  prefix: "HOME",
+  color: "purple",
+};
+
+function railProps(
+  linkedCcProjectId: string | null,
+  onMoveToProject: (projectId: string) => void = () => {},
+) {
+  const project = projectRow(linkedCcProjectId);
   return {
     task,
-    project: projectRow(linkedCcProjectId),
+    project,
+    projects: [project, HOME_PROJECT],
     labels: [],
     threads: [],
     presets: [],
     onUpdate: () => {},
+    onMoveToProject,
     onError: () => {},
   };
 }
+
+describe("project rail control", () => {
+  it("moves the task only when a different project is picked", async () => {
+    const moves: string[] = [];
+    const slot = renderSlot(
+      { component: RailHarness },
+      railProps(null, (projectId) => moves.push(projectId)),
+      { rpc: { listCcProjects: () => ({ ccProjects: [] }) } },
+    );
+    fireEvent.click(slot.getByRole("button", { name: "Move to project" }));
+    fireEvent.click(await slot.findByRole("option", { name: /Tasks Plugin/ }));
+    expect(moves).toEqual([]);
+
+    fireEvent.click(slot.getByRole("button", { name: "Move to project" }));
+    fireEvent.click(await slot.findByRole("option", { name: /Home/ }));
+    expect(moves).toEqual([HOME_PROJECT.id]);
+  });
+});
 
 describe("dispatch target rail control", () => {
   it("links a discovered cc project", async () => {

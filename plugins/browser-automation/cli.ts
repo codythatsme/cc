@@ -86,11 +86,11 @@ export function createBrowserAutomationCli(deps: {
     name: "browser-automation",
     summary: "Persistent DevBrowser desktop and headless sessions",
     description:
-      "Sessions belong to the thread that opened them and expire after 30 minutes idle.\nA stopped or expired session cannot be resumed; open a new one.",
+      "Sessions belong to the thread that opened them. run, pages, and screenshot renew expiry to 30 minutes after use, capped at 8 hours from creation.\nDesktop sessions also expire at their non-renewable control lease/connection deadline (at most 30 minutes).\nlist and live preview do not renew expiry. A stopped or expired session cannot be resumed; open a new one.",
     commands: {
       open: cliCommand({
         summary:
-          "Open an isolated desktop or local headless session; --tab hands off an existing tab",
+          "Open a desktop or local headless session; --tab takes over an existing tab",
         options: {
           backend: {
             type: "enum",
@@ -187,7 +187,7 @@ export function createBrowserAutomationCli(deps: {
       run: cliCommand({
         summary: "Run a trusted DevBrowser script; runs serialize per session",
         description:
-          "Scripts may return at most 4 screenshots per run, JPEG only, 500 KB combined;\nanything larger or in another format fails the run.",
+          "Scripts may return at most 4 screenshots per run, JPEG only, 500 KB combined;\nanything larger or in another format fails the run. Output over 512 KB stops\nthe run with exit code 1 and keeps the session open.",
         positionals: [SESSION_POSITIONAL],
         constraints: [
           { kind: "exactly-one", options: ["script", "script-file"] },

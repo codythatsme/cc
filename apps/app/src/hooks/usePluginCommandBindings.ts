@@ -6,7 +6,7 @@ import {
   type AppKeybindingOverrides,
 } from "@cc/domain";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
-import { usePluginSlots } from "@/lib/plugin-slots";
+import { useBuiltinPluginIds, usePluginSlotKind } from "@/lib/plugin-slots";
 import { browserPlatform } from "@/lib/app-keybindings";
 import { getCcDesktopInfo } from "@/lib/cc-desktop";
 import { resolvePluginCommandDefaults } from "@/lib/plugin-command-keybindings";
@@ -16,7 +16,8 @@ const EMPTY_OVERRIDES: AppKeybindingOverrides = [];
 
 export function usePluginCommandBindings() {
   const { data } = useSystemConfig();
-  const { commandPaletteActions } = usePluginSlots();
+  const commandPaletteActions = usePluginSlotKind("commandPaletteActions");
+  const builtinPluginIds = useBuiltinPluginIds();
   const builtInDefaults = data?.defaultKeybindings ?? EMPTY_DEFAULTS;
   const overrides = data?.keybindingOverrides ?? EMPTY_OVERRIDES;
   const isDesktop = getCcDesktopInfo() !== null;
@@ -27,14 +28,26 @@ export function usePluginCommandBindings() {
         command: pluginCommandId(command.pluginId, command.id),
         desktopOnly: false,
         shortcut: command.defaultShortcut,
-        when: { all: ["mainSurface"], none: ["modalOpen"] },
+        when:
+          command.target === "composer"
+            ? {
+                all: ["mainSurface", "promptAvailable"],
+                none: ["modalOpen", "terminalFocus", "browserFocus"],
+              }
+            : { all: ["mainSurface"], none: ["modalOpen"] },
       }),
+    );
+    const bundledCommands = new Set(
+      commandPaletteActions
+        .filter((command) => builtinPluginIds.has(command.pluginId))
+        .map((command) => pluginCommandId(command.pluginId, command.id)),
     );
     const resolved = resolvePluginCommandDefaults(
       [...builtInDefaults, ...pluginDefaults],
       overrides,
       isDesktop,
       platform,
+      bundledCommands,
     );
     const pluginIds = new Set(pluginDefaults.map((binding) => binding.command));
     return {
@@ -50,6 +63,7 @@ export function usePluginCommandBindings() {
     };
   }, [
     builtInDefaults,
+    builtinPluginIds,
     commandPaletteActions,
     data?.keybindings,
     isDesktop,

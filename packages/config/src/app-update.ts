@@ -60,7 +60,6 @@ export const appUpdatePendingSchema = z
 export type AppUpdatePending = z.infer<typeof appUpdatePendingSchema>;
 
 export const appUpdateOutcomeSchema = z.enum(["updated", "failed"]);
-export type AppUpdateOutcome = z.infer<typeof appUpdateOutcomeSchema>;
 
 export const appUpdateResultSchema = z
   .object({
@@ -195,6 +194,7 @@ export const sourceUpdateCheckSchema = z.object({
   current: sourceAppRevisionSchema,
   incoming: z
     .object({
+      behindSince: z.iso.datetime(),
       commit: gitCommitSchema,
       commitCount: z.number().int().nonnegative(),
       subjects: z.array(z.string()),
@@ -249,6 +249,7 @@ export const appUpdateLauncherRequestSchema = z.discriminatedUnion("type", [
   z.object({ id: z.string().min(1), type: z.literal("acknowledge-result") }),
   z.object({ type: z.literal("restart") }),
   z.object({ message: z.string().min(1), type: z.literal("cancel") }),
+  z.object({ type: z.literal("defer") }),
 ]);
 export type AppUpdateLauncherRequest = z.infer<
   typeof appUpdateLauncherRequestSchema

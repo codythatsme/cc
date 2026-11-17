@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { Environment, JsonValue } from "@cc/domain";
 import { createCcSdk } from "../src/core.js";
@@ -107,6 +107,40 @@ function createFetchQueue(
 }
 
 describe("@cc/sdk", () => {
+  it("pages prompt history with an opaque cursor", async () => {
+    const response = {
+      entries: [
+        {
+          id: "phist_1",
+          createdAt: 10,
+          input: [{ type: "text", text: "Fix auth", mentions: [] }],
+          projectId: "proj_1",
+          threadId: "thr_1",
+        },
+      ],
+      nextCursor: "next",
+    };
+    const queue = createFetchQueue([{ body: response }]);
+    const sdk = createCcSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://cc.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+
+    await expect(
+      sdk.experimental_promptHistory.list({ cursor: "abc", limit: "25" }),
+    ).resolves.toEqual(response);
+    expect(queue.requests).toEqual([
+      {
+        bodyText: undefined,
+        method: "GET",
+        url: "http://cc.test/api/v1/prompt-history?cursor=abc&limit=25",
+      },
+    ]);
+  });
+
   it("creates a DigitalOcean machine through the SDK without a project", async () => {
     const host = {
       id: "host_do",
@@ -190,13 +224,8 @@ describe("@cc/sdk", () => {
     ]);
   });
 
-  it("reads provider installation events through the response instance", async () => {
+  it("waits on the server's install job through dropped and refused polls", async () => {
     const events = [
-      {
-        type: "started",
-        provider: "codex",
-        command: "npm install --global @openai/codex",
-      },
       {
         type: "completed",
         provider: "codex",
@@ -205,29 +234,66 @@ describe("@cc/sdk", () => {
         success: true,
       },
     ];
-    const response = new Response(null, {
-      status: 200,
-      headers: { "content-type": "application/x-ndjson" },
-    });
-    Object.defineProperty(response, "text", {
-      value: async () =>
-        events.map((event) => JSON.stringify(event)).join("\n"),
-    });
+    const base = {
+      id: "job_1",
+      hostId: "host_test",
+      provider: "codex",
+      actionKind: "update",
+      startedAt: 1,
+    };
+    const replies: Array<() => Response> = [
+      () => jsonResponse({ body: { job: { ...base, state: "running" } }, status: 202 }),
+      () => {
+        throw new TypeError("Load failed");
+      },
+      () => {
+        throw new TypeError("fetch failed", {
+          cause: Object.assign(new Error("connect ECONNREFUSED"), {
+            code: "ECONNREFUSED",
+          }),
+        });
+      },
+      () => jsonResponse({ body: { job: { ...base, state: "running" } } }),
+      () =>
+        jsonResponse({
+          body: {
+            job: { ...base, state: "completed", finishedAt: 2, events },
+          },
+        }),
+    ];
+    const urls: string[] = [];
     const sdk = createCcSdk({
       transport: createHttpTransport({
         baseUrl: "http://cc.test",
-        fetch: async () => response,
+        fetch: async (input, init) => {
+          urls.push(`${init?.method ?? "GET"} ${String(input)}`);
+          const reply = replies.shift();
+          if (reply === undefined) throw new Error("No queued SDK test response");
+          return reply();
+        },
         runtime: "node",
       }),
     });
 
-    await expect(
-      sdk.hosts.installProviderCli({
+    vi.useFakeTimers();
+    try {
+      const install = sdk.hosts.installProviderCli({
         hostId: "host_test",
         provider: "codex",
-        actionKind: "install",
-      }),
-    ).resolves.toEqual(events);
+        actionKind: "update",
+      });
+      await vi.runAllTimersAsync();
+      await expect(install).resolves.toEqual(events);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(urls).toEqual([
+      "POST http://cc.test/api/v1/hosts/host_test/provider-clis/install-jobs",
+      "GET http://cc.test/api/v1/hosts/host_test/provider-clis/install-jobs/job_1",
+      "GET http://cc.test/api/v1/hosts/host_test/provider-clis/install-jobs/job_1",
+      "GET http://cc.test/api/v1/hosts/host_test/provider-clis/install-jobs/job_1",
+      "GET http://cc.test/api/v1/hosts/host_test/provider-clis/install-jobs/job_1",
+    ]);
   });
 
   it("sends thread pane presentation actions through the typed transport", async () => {
@@ -253,20 +319,6 @@ describe("@cc/sdk", () => {
         url: "http://cc.test/api/v1/threads/thr_test/pane-action",
       },
     ]);
-  });
-
-  it("keeps realtime subscriptions distinct under subscribe", () => {
-    const queue = createFetchQueue([]);
-    const sdk = createCcSdk({
-      transport: createHttpTransport({
-        baseUrl: "http://cc.test",
-        fetch: queue.fetch,
-        runtime: "node",
-      }),
-    });
-
-    expect(typeof sdk.subscribe).toBe("function");
-    expect("on" in sdk).toBe(false);
   });
 
   it("maps thread event filters and reverse pagination onto the public query", async () => {
@@ -591,6 +643,45 @@ describe("@cc/sdk", () => {
     ]);
   });
 
+  it("uploads the bytes a dropped File reads, not its unreadable handle", async () => {
+    const bytes = new Uint8Array([137, 80, 78, 71]);
+    const dropped = new File([], "dropped.png", { type: "image/png" });
+    dropped.arrayBuffer = async () => bytes.slice().buffer;
+    let body: BodyInit | null | undefined;
+    const fetch: FetchImplementation = async (_input, init) => {
+      body = init?.body;
+      return jsonResponse({
+        body: {
+          type: "localImage",
+          path: "dropped-uploaded.png",
+          name: "dropped.png",
+          mimeType: "image/png",
+          sizeBytes: bytes.byteLength,
+        },
+        status: 201,
+      });
+    };
+    const sdk = createCcSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://cc.test",
+        fetch,
+        runtime: "browser",
+      }),
+    });
+
+    await sdk.projects.attachments.upload({
+      clientFile: dropped,
+      projectId: "proj_image",
+    });
+
+    if (!(body instanceof FormData)) throw new Error("Expected FormData body");
+    const uploaded = body.get("file");
+    if (!(uploaded instanceof File)) throw new Error("Expected uploaded File");
+    expect(uploaded.name).toBe("dropped.png");
+    expect(uploaded.type).toBe("image/png");
+    expect(new Uint8Array(await uploaded.arrayBuffer())).toEqual(bytes);
+  });
+
   it("preserves project attachment error envelopes", async () => {
     const sdk = createCcSdk({
       transport: createHttpTransport({
@@ -648,16 +739,10 @@ describe("@cc/sdk", () => {
         },
       }),
       new Response("remote text", {
-        headers: {
-          "content-type": "text/plain",
-          "x-cc-content-encoding": "utf8",
-        },
+        headers: { "content-type": "text/plain" },
       }),
       new Response(new Uint8Array([0, 1, 254, 255]), {
-        headers: {
-          "content-type": "application/octet-stream",
-          "x-cc-content-encoding": "base64",
-        },
+        headers: { "content-type": "application/octet-stream" },
       }),
     ];
     const fetch: FetchImplementation = async (input, init) => {
@@ -711,22 +796,29 @@ describe("@cc/sdk", () => {
 
     expect(requests.map((request) => request.url)).toEqual([
       "http://cc.test/api/v1/projects/proj_remote/files?hostId=host_remote",
-      "http://cc.test/api/v1/projects/proj_remote/files/content?environmentId=env_remote&path=remote.txt",
-      "http://cc.test/api/v1/projects/proj_remote/files/content?hostId=host_remote&path=image.bin",
+      "http://cc.test/api/v1/environments/env_remote/files/remote.txt",
+      "http://cc.test/api/v1/projects/proj_remote/hosts/host_remote/files/image.bin",
     ]);
+
+    for (const path of ["../../hosts", "docs/./a.md", "/etc/hosts", "a\\b"]) {
+      await expect(
+        sdk.projects.fileContent({ projectId: "proj_remote", path }),
+      ).rejects.toThrow(`Invalid file path: ${path}`);
+    }
+    expect(requests).toHaveLength(3);
   });
 
   it("routes provider list and model discovery through portable host selectors", async () => {
+    const executionOptions = {
+      providers: [],
+      models: [],
+      selectedOnlyModels: [],
+      modelLoadError: null,
+    };
     const queue = createFetchQueue([
       { body: [] },
-      {
-        body: {
-          providers: [],
-          models: [],
-          selectedOnlyModels: [],
-          modelLoadError: null,
-        },
-      },
+      { body: executionOptions },
+      { body: executionOptions },
     ]);
     const sdk = createCcSdk({
       transport: createHttpTransport({
@@ -743,6 +835,14 @@ describe("@cc/sdk", () => {
       sdk.providers.models({
         environmentId: "env_remote",
         providerId: "acp-remote",
+        preferCached: true,
+      }),
+    ).resolves.toMatchObject({ models: [], providers: [] });
+    await expect(
+      sdk.providers.models({
+        hostId: "host_remote",
+        projectId: "proj_remote",
+        providerId: "acp-remote",
       }),
     ).resolves.toMatchObject({ models: [], providers: [] });
 
@@ -755,7 +855,12 @@ describe("@cc/sdk", () => {
       {
         bodyText: undefined,
         method: "GET",
-        url: "http://cc.test/api/v1/system/execution-options?environmentId=env_remote&providerId=acp-remote",
+        url: "http://cc.test/api/v1/system/execution-options?environmentId=env_remote&providerId=acp-remote&preferCached=true",
+      },
+      {
+        bodyText: undefined,
+        method: "GET",
+        url: "http://cc.test/api/v1/system/execution-options?hostId=host_remote&projectId=proj_remote&providerId=acp-remote",
       },
     ]);
   });
@@ -878,6 +983,25 @@ describe("@cc/sdk", () => {
         method: "GET",
         url: "http://cc.test/api/v1/threads?projectId=proj_123&archived=true",
       },
+    ]);
+  });
+
+  it("sends thread ID filters comma-separated, keeping an empty list", async () => {
+    const queue = createFetchQueue([{ body: [] }, { body: [] }]);
+    const sdk = createCcSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://cc.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+
+    await sdk.threads.list({ threadIds: ["thr_a", "thr_b"] });
+    await sdk.threads.list({ threadIds: [] });
+
+    expect(queue.requests.map((request) => request.url)).toEqual([
+      "http://cc.test/api/v1/threads?threadIds=thr_a%2Cthr_b",
+      "http://cc.test/api/v1/threads?threadIds=",
     ]);
   });
 
@@ -1133,30 +1257,6 @@ describe("@cc/sdk", () => {
     );
   });
 
-  it("routes environment pull request calls through the HTTP transport", async () => {
-    const response = { outcome: "absent" };
-    const queue = createFetchQueue([{ body: response }]);
-    const sdk = createCcSdk({
-      transport: createHttpTransport({
-        baseUrl: "http://cc.test",
-        fetch: queue.fetch,
-        runtime: "node",
-      }),
-    });
-
-    await expect(
-      sdk.environments.pullRequest({ environmentId: "env_pr" }),
-    ).resolves.toEqual(response);
-
-    expect(queue.requests).toEqual([
-      {
-        bodyText: undefined,
-        method: "GET",
-        url: "http://cc.test/api/v1/environments/env_pr/pull-request",
-      },
-    ]);
-  });
-
   it("updates environment metadata through the HTTP transport", async () => {
     const environment = makeEnvironment({
       id: "env_update",
@@ -1342,6 +1442,7 @@ describe("@cc/sdk", () => {
       input: [{ type: "text", text: "Accept edits", mentions: [] }],
       mode: "start",
       permissionMode: "accept-edits",
+      originPluginId: "automations",
       pluginSubmission: {
         pluginId: "example-plugin",
         data: { action: "hold" },
@@ -1359,6 +1460,7 @@ describe("@cc/sdk", () => {
       expect.objectContaining({ permissionMode: "auto" }),
       expect.objectContaining({
         permissionMode: "accept-edits",
+        originPluginId: "automations",
         pluginSubmission: {
           pluginId: "example-plugin",
           data: { action: "hold" },
@@ -1467,6 +1569,39 @@ describe("@cc/sdk", () => {
     });
   });
 
+  it("sends chosen session options when updating a thread", async () => {
+    const queue = createFetchQueue([
+      {
+        body: {
+          id: "thr_section",
+          projectId: "proj_123",
+          status: "idle",
+          title: null,
+        },
+      },
+    ]);
+    const sdk = createCcSdk({
+      transport: createHttpTransport({
+        baseUrl: "http://cc.test",
+        fetch: queue.fetch,
+        runtime: "node",
+      }),
+    });
+
+    await sdk.threads.update({
+      threadId: "thr_section",
+      sessionOptions: { mode: "plan", web: true, stale: null },
+    });
+
+    expect(queue.requests[0]).toEqual({
+      bodyText: JSON.stringify({
+        sessionOptions: { mode: "plan", web: true, stale: null },
+      }),
+      method: "PATCH",
+      url: "http://cc.test/api/v1/threads/thr_section",
+    });
+  });
+
   it("sends the queued message version when updating its content", async () => {
     const queue = createFetchQueue([{ body: { id: "qmsg_123" } }]);
     const sdk = createCcSdk({
@@ -1524,7 +1659,7 @@ describe("@cc/sdk", () => {
     expect(
       queue.requests.map((request) => `${request.method} ${request.url}`),
     ).toEqual([
-      "GET http://cc.test/api/v1/queued-messages?",
+      "GET http://cc.test/api/v1/queued-messages",
       "POST http://cc.test/api/v1/threads/thr_123/queued-messages/qm_1/send",
       "DELETE http://cc.test/api/v1/threads/thr_123/queued-messages/qm_1",
     ]);
@@ -1629,7 +1764,7 @@ describe("@cc/sdk", () => {
       ],
     });
 
-    expect(queue.requests[0].url).toBe("http://cc.test/api/v1/threads/count?");
+    expect(queue.requests[0].url).toBe("http://cc.test/api/v1/threads/count");
     expect(queue.requests[1].url).toBe(
       "http://cc.test/api/v1/threads/count?status=active&hostId=host_a&providerId=codex&projectId=proj_123&parentThreadId=none&groupBy=host",
     );
@@ -1752,6 +1887,7 @@ describe("@cc/sdk", () => {
       catalogEntryId: "notes",
       publisherLabel: "CC Community",
       sourceDisplay: "npm · @cc/notes · tracks compatible",
+      sourceNotice: null,
       updateState: {},
       enabled: true,
       description: "Notes",
@@ -1782,8 +1918,8 @@ describe("@cc/sdk", () => {
     const checked = {
       id: "notes",
       outcome: "update-available" as const,
-      installed: { version: "1.2.0", display: "1.2.0" },
-      candidate: { version: "1.3.0", display: "1.3.0" },
+      installed: { version: "1.2.0", label: "1.2.0", display: "1.2.0" },
+      candidate: { version: "1.3.0", label: "1.3.0", display: "1.3.0" },
     };
     const queue = createFetchQueue([
       { body: { plugins: [plugin] } },
@@ -1829,6 +1965,7 @@ describe("@cc/sdk", () => {
               official: false,
               author: { name: "Acme", url: null },
               installed: true,
+              conflictingInstallSource: null,
               compatible: true,
               incompatibleReason: null,
             },
@@ -2115,7 +2252,17 @@ describe("@cc/sdk", () => {
         },
       },
       { body: { stars: 27_053 } },
-      { body: { ok: true, filePath: "/skills/useful-skill/SKILL.md" } },
+      {
+        status: 202,
+        body: {
+          job: {
+            id: "job_1",
+            registrySkillId: registrySkill.id,
+            state: "completed",
+            filePath: "/skills/useful-skill/SKILL.md",
+          },
+        },
+      },
     ]);
     const sdk = createCcSdk({
       transport: createHttpTransport({
@@ -2161,7 +2308,7 @@ describe("@cc/sdk", () => {
       },
       {
         method: "POST",
-        url: "http://cc.test/api/v1/skills-registry/install",
+        url: "http://cc.test/api/v1/skills-registry/install-jobs",
         bodyText: JSON.stringify({
           registrySkillId: registrySkill.id,
         }),

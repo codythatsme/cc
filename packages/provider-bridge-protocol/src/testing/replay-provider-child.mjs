@@ -33,8 +33,8 @@
  * STALL_MS is answered with a generic success, and a child past the end of its
  * segment answers everything generically. Both are logged on stderr.
  */
-import { createWriteStream, existsSync, mkdirSync, readFileSync, rmdirSync } from "node:fs";
-import { Socket } from "node:net";
+import { existsSync, mkdirSync, readFileSync, rmdirSync } from "node:fs";
+import { connect } from "node:net";
 import { StringDecoder } from "node:string_decoder";
 import { join } from "node:path";
 
@@ -159,15 +159,15 @@ const DIALECTS = {
    * `pi --mode rpc`: commands carry `{ id, type }`, responses are
    * `{ id, type: "response", command, success }`, and every other line is a
    * raw AgentSessionEvent (or an `extension_ui_request`). The cc extension's
-   * channel (fd 3 child → bridge, fd 4 bridge → child) is recorded on the
-   * same lanes wrapped as `{ ccChannel: <message> }`; this dialect routes
-   * those back onto the channel fds.
+   * channel (the socket the bridge names in `CC_PI_BRIDGE_CHANNEL`) is
+   * recorded on the same lanes wrapped as `{ ccChannel: <message> }`; this
+   * dialect routes those back onto that socket.
    */
   "pi-rpc": {
     channel: {
       key: "ccChannel",
-      childToBridgeFd: 3,
-      bridgeToChildFd: 4,
+      addressEnv: "CC_PI_BRIDGE_CHANNEL",
+      tokenEnv: "CC_PI_BRIDGE_CHANNEL_TOKEN",
     },
     classify(message) {
       const channel = message.ccChannel;
@@ -281,16 +281,19 @@ function readCursor(stateDir) {
   let text;
   try {
     text = readFileSync(join(stateDir, "cursor"), "utf8").trim();
-  } catch {
-    return null;
+  } catch (error) {
+    return error?.code === "ENOENT" ? null : false;
   }
-  if (text === "end" || text === "") return null;
+  if (text === "end") return null;
+  if (!/^\d+ \d+$/u.test(text)) return false;
   const [run, seq] = text.split(" ").map(Number);
+  if (!Number.isSafeInteger(run) || !Number.isSafeInteger(seq)) return false;
   return { run, seq };
 }
 
 function cursorAllows(cursor, entry) {
   if (cursor === null) return true;
+  if (cursor === false) return false;
   return entry.run < cursor.run || (entry.run === cursor.run && entry.seq < cursor.seq);
 }
 
@@ -350,9 +353,78 @@ function readNewlineDelimitedLines(input, onLine) {
   });
 }
 
+function connectChannel(channel) {
+  const socket = connect(process.env[channel.addressEnv]);
+  socket.on("error", () => {});
+  socket.unref();
+  socket.write(`${process.env[channel.tokenEnv]}\n`);
+  return socket;
+}
+
 // ---------------------------------------------------------------------------
 // Player
 // ---------------------------------------------------------------------------
+
+function servePiCatalog(entries) {
+  const models = new Map();
+  let state = {};
+  for (const entry of entries) {
+    if (entry.dir !== "provider→bridge") continue;
+    const message = parseLine(entry.line);
+    if (message?.type !== "response" || message.success !== true) continue;
+    const candidates = [];
+    if (message.command === "get_state" && message.data?.model) {
+      candidates.push(message.data.model);
+      if (!state.model) state = message.data;
+    }
+    if (
+      message.command === "get_available_models" &&
+      Array.isArray(message.data?.models)
+    ) {
+      candidates.push(...message.data.models);
+    }
+    for (const model of candidates) {
+      if (typeof model?.provider === "string" && typeof model.id === "string") {
+        models.set(`${model.provider}/${model.id}`, model);
+      }
+    }
+  }
+  const channel = connectChannel(DIALECTS["pi-rpc"].channel);
+  readNewlineDelimitedLines(channel, (line) => {
+    const message = parseLine(line);
+    if (message?.kind !== "request" || message.method !== "model-scope") return;
+    channel.write(
+      `${JSON.stringify({
+        kind: "reply",
+        id: message.id,
+        result: {
+          scopedModelIds: [...models.keys()],
+          ...(state.model
+            ? { defaultModelId: `${state.model.provider}/${state.model.id}` }
+            : {}),
+        },
+      })}\n`,
+    );
+  });
+  readNewlineDelimitedLines(process.stdin, (line) => {
+    const message = parseLine(line);
+    if (typeof message?.id !== "string") return;
+    process.stdout.write(
+      `${JSON.stringify({
+        id: message.id,
+        type: "response",
+        command: message.type,
+        success: true,
+        data:
+          message.type === "get_available_models"
+            ? { models: [...models.values()] }
+            : state,
+      })}\n`,
+    );
+  });
+  process.stdin.on("end", () => process.exit(0));
+  process.on("SIGTERM", () => process.exit(0));
+}
 
 function main() {
   // A bridge's install gate may probe `<cli> --version` through the replay
@@ -369,9 +441,21 @@ function main() {
     ...readLane(args.recording, "provider→bridge"),
     ...readLane(args.recording, "bridge→provider"),
   ].sort((left, right) => left.run - right.run || left.seq - right.seq);
+  if (
+    args.dialect === "pi-rpc" &&
+    process.argv.includes("--no-session") &&
+    !process.argv.includes("--session-dir")
+  ) {
+    servePiCatalog(entries);
+    return;
+  }
   const segments = buildSegments(entries, dialect);
-  const segmentIndex = claimSegmentIndex(args.state);
-  let script = segments[segmentIndex] ?? [];
+  const diagnosticFork =
+    args.dialect === "claude-cli" &&
+    process.argv.includes("--fork-session") &&
+    process.argv.includes("--no-session-persistence");
+  const segmentIndex = diagnosticFork ? null : claimSegmentIndex(args.state);
+  let script = segmentIndex === null ? [] : (segments[segmentIndex] ?? []);
   const log = (text) => process.stderr.write(`[replay-child #${segmentIndex}] ${text}\n`);
   if (script.length === 0) {
     log(`no recorded segment ${segmentIndex} (recording has ${segments.length}); answering generically`);
@@ -392,10 +476,10 @@ function main() {
   let emitTimer = null;
 
   const channel = dialect.channel ?? null;
-  const channelOut = channel ? createWriteStream(null, { fd: channel.childToBridgeFd }) : null;
+  const channelSocket = channel ? connectChannel(channel) : null;
   function emit(message) {
     if (channel && typeof message[channel.key] === "object" && message[channel.key] !== null) {
-      channelOut.write(`${JSON.stringify(message[channel.key])}\n`);
+      channelSocket.write(`${JSON.stringify(message[channel.key])}\n`);
       return;
     }
     process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -631,13 +715,7 @@ function main() {
     process.exit(0);
   });
   if (channel) {
-    // The bridge's channel writes (tool results, fork requests) arrive on
-    // their own fd; wrap them the way the recorder did so they match. A
-    // net.Socket reads the pipe non-blockingly, as the real extension does.
-    const channelIn = new Socket({ fd: channel.bridgeToChildFd, readable: true, writable: false });
-    channelIn.on("error", () => {});
-    channelIn.unref();
-    readNewlineDelimitedLines(channelIn, (line) => {
+    readNewlineDelimitedLines(channelSocket, (line) => {
       const message = parseLine(line);
       if (message !== null) onLiveMessage({ [channel.key]: message });
     });

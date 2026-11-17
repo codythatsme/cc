@@ -8,8 +8,8 @@ const PAGE_TITLE = "Privacy — cc";
 const PAGE_DESCRIPTION =
   "What cc collects, what stays on your own machines, and what cc connect can see.";
 
-const LAST_UPDATED = "August 20, 2026";
-const CONTACT_EMAIL = "sawyer@terragonlabs.com";
+const LAST_UPDATED = "October 30, 2026";
+const CONTACT_EMAIL = "support@terragonlabs.com";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
@@ -26,7 +26,7 @@ function PrivacyRoute() {
 
       <article className="post article">
         <div className="post-body">
-          <time className="date-pill" dateTime="2026-08-20">
+          <time className="date-pill" dateTime="2026-10-30">
             Last updated {LAST_UPDATED}
           </time>
           <h1>Privacy</h1>
@@ -34,7 +34,8 @@ function PrivacyRoute() {
           <p className="lede">
             cc runs on your own machines. Your prompts, your code, and your
             files go to the cc server that you run, and from there to the AI
-            provider that you choose. They do not come to us.
+            provider that you choose. Optional remote access and push
+            notifications involve the services described below.
           </p>
 
           <p>
@@ -44,7 +45,7 @@ function PrivacyRoute() {
           <ol>
             <li>
               <strong>The cc apps</strong> — the desktop app, the CLI, and the
-              iOS app.
+              iOS and Android apps.
             </li>
             <li>
               <strong>cc connect</strong> — an optional relay you configure to
@@ -59,17 +60,24 @@ function PrivacyRoute() {
 
           <p>
             The apps talk to a cc server that you run. We do not operate that
-            server and we do not receive its data. This includes your prompts,
-            your agent conversations, your source code, your files, your
-            terminal output, and your provider API keys.
+            server. It does not send us your prompts, your agent conversations,
+            your source code, your files, your terminal output, or your provider
+            API keys.
           </p>
 
-          <p>The iOS app keeps this on the device:</p>
+          <p>
+            The cc app sends no usage events, analytics, telemetry, or crash
+            reports, and creates no installation identifier. There is no
+            setting that turns reporting on.
+          </p>
+
+          <p>The iOS and Android apps store the following on your device:</p>
           <ul>
             <li>
               <strong>Server profiles</strong> — the address of each cc server
               you added, and the credential that reaches it. These live in the
-              iOS Keychain.
+              operating system&rsquo;s secure storage: Keychain on iOS and
+              encrypted storage backed by Android Keystore on Android.
             </li>
             <li>
               <strong>Preferences and drafts</strong> — your theme, your list
@@ -79,8 +87,8 @@ function PrivacyRoute() {
           </ul>
 
           <p>
-            The iOS app sends no analytics, no telemetry, and no crash reports
-            to us.
+            The iOS and Android apps send no analytics, no telemetry, and no
+            crash reports to us.
           </p>
 
           <p>
@@ -89,12 +97,52 @@ function PrivacyRoute() {
             to your cc server. It does not go to us.
           </p>
 
+          <h3>Push notifications</h3>
+
+          <p>
+            Push notifications are optional. When you enable them, the mobile
+            app registers with Expo and the platform notification service. It
+            sends an Expo push token, the platform (iOS or Android), and a
+            device label to your cc server. Your server stores that subscription
+            so it can send notifications to your device. A push token identifies
+            an app installation for delivery; it is not your phone number.
+          </p>
+
+          <p>
+            Your server sends notifications through Expo Push Service, which
+            forwards them to Apple Push Notification service on iOS or Firebase
+            Cloud Messaging on Android. The payload includes the push token,
+            thread title, notification text, project and thread identifiers,
+            and, when available, your server URL so tapping the notification
+            opens the right conversation. Notification text can include a short
+            preview of an agent question, a command awaiting approval, or an
+            error. Those providers process the payload to deliver it, so push
+            notifications are not end-to-end encrypted between your server and
+            phone.
+          </p>
+
+          <p>
+            You can turn notifications off in the app&rsquo;s device settings or
+            your phone&rsquo;s notification settings. Turning them off in the
+            app requests removal of the subscription from your server; the
+            server must be reachable for that request to succeed. See{" "}
+            <a href="https://expo.dev/privacy">Expo&rsquo;s privacy policy</a>,{" "}
+            <a href="https://www.apple.com/legal/privacy/">
+              Apple&rsquo;s privacy policy
+            </a>
+            , and{" "}
+            <a href="https://policies.google.com/privacy">
+              Google&rsquo;s privacy policy
+            </a>{" "}
+            for their data handling practices.
+          </p>
+
           <h2>2. cc connect</h2>
 
           <p>
             cc connect is optional and requires a relay that you deploy and
             configure. It gives your machine an address on your relay domain, so
-            the iOS app can reach it from a phone network. If you only use cc on
+            the mobile apps can reach it from a phone network. If you only use cc on
             your own network, you never touch it.
           </p>
 
@@ -172,8 +220,8 @@ function PrivacyRoute() {
           </p>
 
           <p>
-            Data held by the cc apps is yours. Deleting the iOS app removes its
-            profiles, preferences, and drafts from the device.
+            Data held by the cc apps is yours. Deleting the iOS or Android app
+            removes its local preferences and drafts from the device.
           </p>
 
           <h2>Children</h2>

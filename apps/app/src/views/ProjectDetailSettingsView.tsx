@@ -79,7 +79,6 @@ interface CheckoutRowProps {
   isPrimary: boolean;
   source: LocalPathProjectSource | null;
   isPathInvalid: boolean;
-  canEditPath: boolean;
   isOnlySource: boolean;
   pending: boolean;
   onSetUp: () => void;
@@ -92,7 +91,6 @@ function CheckoutRow({
   isPrimary,
   source,
   isPathInvalid,
-  canEditPath,
   isOnlySource,
   pending,
   onSetUp,
@@ -149,10 +147,10 @@ function CheckoutRow({
               {
                 label: "Change folder",
                 icon: "Folder",
-                disabled: !canEditPath || pending,
-                disabledReason: canEditPath
+                disabled: !connected || pending,
+                disabledReason: connected
                   ? undefined
-                  : "Folders on other machines are changed from that machine.",
+                  : "Bring this machine online to change its folder.",
                 onSelect: onChangePath,
               },
               {
@@ -211,9 +209,13 @@ export function ProjectDetailSettingsView() {
     useState<ProjectSourceDeleteDialogTarget | null>(null);
   const [machineSetupTarget, setMachineSetupTarget] =
     useState<ProjectMachineSetupDialogTarget | null>(null);
+  const [now] = useState(Date.now);
 
   const projects = sidebarNavigationQuery.data?.projects;
-  const project = projects?.find((entry) => entry.id === projectId) ?? null;
+  const project = useMemo(
+    () => projects?.find((entry) => entry.id === projectId) ?? null,
+    [projectId, projects],
+  );
   const projectSources = project?.sources;
   const sources = useMemo(() => projectSources ?? [], [projectSources]);
   const projectName = project?.name ?? "";
@@ -335,7 +337,6 @@ export function ProjectDetailSettingsView() {
       : (PERMISSION_MODE_OPTIONS.find(
           (option) => option.value === defaults.permissionMode,
         )?.label ?? defaults.permissionMode);
-  const now = Date.now();
 
   return (
     <PageShell contentClassName="pt-4 md:pt-5">
@@ -415,7 +416,6 @@ export function ProjectDetailSettingsView() {
                       isPickerHost &&
                       isHostPathMissing(pathExistence, source.path)
                     }
-                    canEditPath={isPickerHost}
                     isOnlySource={sources.length <= 1}
                     pending={localSourcePending || deleteSource.isPending}
                     onSetUp={() => openSetUp(host)}
@@ -426,6 +426,8 @@ export function ProjectDetailSettingsView() {
                         projectId: project.id,
                         projectName,
                         currentPath: source.path,
+                        hostId: host.id,
+                        hostName: host.name,
                       });
                     }}
                     onRemove={() => {
@@ -597,7 +599,9 @@ export function ProjectDetailSettingsView() {
           deleteProject.mutate(id, {
             onSuccess: () => {
               setDeleteTarget(null);
-              navigate(getSettingsRoutePath("projects"), { replace: true });
+              void navigate(getSettingsRoutePath("projects"), {
+                replace: true,
+              });
             },
           })
         }

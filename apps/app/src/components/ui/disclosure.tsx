@@ -6,13 +6,15 @@ import {
   useMemo,
   useRef,
   useState,
+  type HTMLAttributes,
   type ReactNode,
 } from "react";
+import { HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS } from "@cc/shared-ui/hover-reveal";
 import { cn } from "@cc/shared-ui/lib/utils";
 import {
   observedBorderBoxBlockSize,
   observeSharedResize,
-} from "@/lib/shared-resize-observer";
+} from "@cc/shared-ui/lib/shared-resize-observer";
 import { layoutAnimationInFlightCountAtom } from "./layoutAnimationAtoms.js";
 import { CONTROL_HOVER_TRANSITION } from "@cc/shared-ui/motion";
 
@@ -29,10 +31,10 @@ interface ChevronProps {
   className?: string;
 }
 
-const COLLAPSIBLE_HEADER_COLLAPSED_TONE_CLASS = `text-muted-foreground ${CONTROL_HOVER_TRANSITION} hover:text-foreground focus-visible:text-foreground`;
+export const COLLAPSIBLE_HEADER_COLLAPSED_TONE_CLASS = `text-muted-foreground ${CONTROL_HOVER_TRANSITION} hover:text-foreground focus-visible:text-foreground`;
 const COLLAPSIBLE_HEADER_EXPANDED_TONE_CLASS = "text-foreground";
 export const COLLAPSIBLE_HEADER_STATIC_TONE_CLASS = "text-muted-foreground";
-const COLLAPSIBLE_HEADER_BUTTON_BASE_CLASS =
+export const COLLAPSIBLE_HEADER_BUTTON_BASE_CLASS =
   "inline-flex max-w-full items-center gap-1 overflow-hidden py-0.5 text-left text-sm";
 const COLLAPSIBLE_HEADER_TEXT_CLASS = "min-w-0 truncate";
 
@@ -109,14 +111,24 @@ export function CollapsibleHeader({
             ? "rotate-90"
             : forceChevronVisible
               ? "opacity-100"
-              : "opacity-0 group-hover/toggle:opacity-100 group-focus-visible/toggle:opacity-100 max-md:pointer-coarse:opacity-100",
+              : cn(
+                  "opacity-0 group-hover/toggle:opacity-100 group-focus-visible/toggle:opacity-100",
+                  HOVER_REVEAL_NO_HOVER_VISIBLE_CLASS,
+                ),
         )}
       />
     </button>
   );
 }
 
+export type ExpandablePanelIntentHandlers = Pick<
+  HTMLAttributes<HTMLDivElement>,
+  "onFocus" | "onPointerDown" | "onPointerEnter" | "onPointerLeave"
+>;
+
 interface ExpandablePanelProps {
+  animate?: boolean;
+  intentHandlers?: ExpandablePanelIntentHandlers;
   isExpanded: boolean;
   summaryContent: ReactNode;
   headerToneClass: string;
@@ -132,6 +144,7 @@ interface ExpandablePanelProps {
 }
 
 interface AnimatedExpandablePanelContentProps {
+  animate: boolean;
   collapsedContent: ReactNode;
   contentClassName?: string;
   isBodyExpanded: boolean;
@@ -139,6 +152,7 @@ interface AnimatedExpandablePanelContentProps {
 }
 
 function AnimatedExpandablePanelContent({
+  animate,
   collapsedContent,
   contentClassName,
   isBodyExpanded,
@@ -147,15 +161,22 @@ function AnimatedExpandablePanelContent({
   const regionRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const toggleAnimationDeadlineRef = useRef(0);
-  const isFirstToggleEffectRef = useRef(true);
+  const previousBodyExpandedRef = useRef(isBodyExpanded);
   useBrowserLayoutEffect(() => {
-    if (isFirstToggleEffectRef.current) {
-      isFirstToggleEffectRef.current = false;
-      return;
+    if (previousBodyExpandedRef.current === isBodyExpanded) return;
+    previousBodyExpandedRef.current = isBodyExpanded;
+    if (typeof ResizeObserver === "undefined") return;
+    toggleAnimationDeadlineRef.current = animate
+      ? performance.now() + EXPANDABLE_PANEL_TRANSITION_MS
+      : 0;
+    const region = regionRef.current;
+    const target = contentRef.current;
+    if (region && target) {
+      const height = target.offsetHeight;
+      region.style.transitionDuration = animate ? "" : "0s";
+      region.style.height = `${height}px`;
     }
-    toggleAnimationDeadlineRef.current =
-      performance.now() + EXPANDABLE_PANEL_TRANSITION_MS;
-  }, [isBodyExpanded]);
+  }, [animate, isBodyExpanded]);
 
   useBrowserLayoutEffect(() => {
     const region = regionRef.current;
@@ -183,8 +204,7 @@ function AnimatedExpandablePanelContent({
       region.style.height = `${heightPx}px`;
     };
 
-    writeHeightSync(readHeightSync(undefined));
-
+    region.style.transitionDuration = "0s";
     if (typeof ResizeObserver === "undefined") {
       return;
     }
@@ -193,7 +213,7 @@ function AnimatedExpandablePanelContent({
       read: readHeightSync,
       write: writeHeightSync,
     });
-  }, [collapsedContent, isBodyExpanded, renderedBody]);
+  }, []);
 
   return (
     <div
@@ -218,6 +238,8 @@ function AnimatedExpandablePanelContent({
 }
 
 export function ExpandablePanel({
+  animate = true,
+  intentHandlers,
   isExpanded,
   summaryContent,
   headerToneClass,
@@ -234,7 +256,10 @@ export function ExpandablePanel({
   const hasCollapsedContent =
     collapsedContent !== undefined && collapsedContent !== null;
   const headerRootClassName = cn("px-2 py-1", headerClassName);
-  const [isClosing, setIsClosing] = useState(false);
+  const [closingBody, setClosingBody] = useState<{ body: ReactNode } | null>(
+    null,
+  );
+  const isClosing = closingBody !== null;
   const renderedBodyRef = useRef<ReactNode>(null);
   const deferredIsExpanded = useDeferredValue(isExpanded);
   const expandedBody = useMemo(() => {
@@ -254,11 +279,12 @@ export function ExpandablePanel({
       isFirstAnimationEffectRef.current = false;
       return;
     }
+    if (!animate) return;
     setLayoutAnimationInFlightCount((c) => c + 1);
-    let released = false;
+    const releaseState = { released: false };
     const release = () => {
-      if (released) return;
-      released = true;
+      if (releaseState.released) return;
+      releaseState.released = true;
       setLayoutAnimationInFlightCount((c) => Math.max(0, c - 1));
     };
     const timer = window.setTimeout(release, EXPANDABLE_PANEL_TRANSITION_MS);
@@ -266,7 +292,7 @@ export function ExpandablePanel({
       window.clearTimeout(timer);
       release();
     };
-  }, [isBodyExpanded, setLayoutAnimationInFlightCount]);
+  }, [animate, isBodyExpanded, setLayoutAnimationInFlightCount]);
 
   useBrowserLayoutEffect(() => {
     if (!deferredIsExpanded) {
@@ -279,29 +305,35 @@ export function ExpandablePanel({
     if (isExpanded) {
       return;
     }
-    if (hasCollapsedContent) {
+    if (hasCollapsedContent || !animate) {
       renderedBodyRef.current = null;
-      setIsClosing(false);
+      setClosingBody(null);
       return;
     }
     if (renderedBodyRef.current === null) {
       return;
     }
-    setIsClosing(true);
+    setClosingBody({ body: renderedBodyRef.current });
     const timeout = setTimeout(() => {
       renderedBodyRef.current = null;
-      setIsClosing(false);
+      setClosingBody(null);
     }, EXPANDABLE_PANEL_TRANSITION_MS);
     return () => clearTimeout(timeout);
-  }, [hasCollapsedContent, isExpanded]);
-  const renderedBody = deferredIsExpanded
-    ? expandedBody
-    : isClosing
-      ? renderedBodyRef.current
-      : null;
+  }, [animate, hasCollapsedContent, isExpanded]);
+  const renderedBody =
+    !isExpanded && !animate
+      ? null
+      : deferredIsExpanded
+        ? expandedBody
+        : closingBody !== null
+          ? closingBody.body
+          : null;
 
   return (
-    <div className={cn("rounded-md text-muted-foreground", className)}>
+    <div
+      className={cn("rounded-md text-muted-foreground", className)}
+      {...intentHandlers}
+    >
       {}
       <div className="group/timeline-row">
         <CollapsibleHeader
@@ -318,6 +350,7 @@ export function ExpandablePanel({
       </div>
       {hasCollapsedContent ? (
         <AnimatedExpandablePanelContent
+          animate={animate}
           collapsedContent={collapsedContent}
           contentClassName={contentClassName}
           isBodyExpanded={isBodyExpanded}
@@ -326,6 +359,7 @@ export function ExpandablePanel({
       ) : (
         <div
           aria-hidden={!isBodyExpanded}
+          style={{ transitionDuration: animate ? undefined : "0s" }}
           className={cn(
             "grid transition-[grid-template-rows,opacity] duration-200 ease-out",
             isBodyExpanded
@@ -335,6 +369,7 @@ export function ExpandablePanel({
         >
           <div className="overflow-hidden">
             <div
+              style={{ transitionDuration: animate ? undefined : "0s" }}
               className={cn(
                 "px-2 pb-1 pt-0 transition-[transform,opacity] duration-200 ease-out",
                 isBodyExpanded

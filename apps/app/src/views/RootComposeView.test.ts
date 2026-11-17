@@ -12,8 +12,8 @@ import type {
 import { describe, expect, it } from "vitest";
 import type { ReuseThreadOption } from "@/components/pickers/ReuseEnvironmentPicker";
 import {
-  mergeMissingPromptDraftAttachments,
   resolveNewThreadProjectDefaultsState,
+  resolveNewThreadBlocker,
   resolveNewThreadSubmitDisabledReason,
   restorePromptDraftAfterOptionChange,
   type ResolveNewThreadSubmitDisabledReasonArgs,
@@ -21,17 +21,16 @@ import {
 import { getProjectStoredPromptAttachmentPaths } from "@cc/client-core";
 import {
   buildRootComposeTerminalSessions,
+  isRootComposeTerminalSession,
   buildMobileRecentThreads,
   canCreateRootComposeTerminal,
   hasSingleUseRootComposeTargetState,
   readNewEnvironmentHostIdFromLocationState,
   readRootComposeEnvironmentTargetFromLocationState,
-  readSectionIdFromLocationState,
   readRootComposeSectionTargetFromLocationState,
   readInitialPromptFromLocationState,
   shouldReplaceInitialPromptFromLocationState,
   shouldStartComposingFromLocationState,
-  shouldNavigateAfterThreadCreate,
 } from "./RootComposeView";
 import { resolveRootComposeProjectFileRouting } from "./RootComposePanelTabContent";
 import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
@@ -132,22 +131,6 @@ describe("resolveNewThreadHostEnvironmentProvider", () => {
 });
 
 describe("root-compose project file routing", () => {
-  it("uses a persisted opener host instead of the newly selected context", () => {
-    expect(
-      resolveRootComposeProjectFileRouting({
-        fileOpenerSource: {
-          kind: "workspace",
-          threadId: null,
-          environmentId: null,
-          projectId: "proj_opened",
-          experimental_hostId: "host_opened",
-        },
-        selectedEnvironmentId: "env_selected",
-        selectedHostId: "host_selected",
-      }),
-    ).toEqual({ environmentId: null, hostId: "host_opened" });
-  });
-
   it("keeps primary-host routing when a persisted opener omits a host", () => {
     expect(
       resolveRootComposeProjectFileRouting({
@@ -161,6 +144,22 @@ describe("root-compose project file routing", () => {
         selectedHostId: "host_selected",
       }),
     ).toEqual({ environmentId: null, hostId: null });
+  });
+
+  it("keeps a persisted opener's host after compose context changes", () => {
+    expect(
+      resolveRootComposeProjectFileRouting({
+        fileOpenerSource: {
+          kind: "workspace",
+          threadId: null,
+          environmentId: null,
+          experimental_hostId: "host_opened",
+          projectId: "proj_opened",
+        },
+        selectedEnvironmentId: "env_selected",
+        selectedHostId: "host_selected",
+      }),
+    ).toEqual({ environmentId: null, hostId: "host_opened" });
   });
 
   it("retains live routing for a native project file tab", () => {
@@ -330,6 +329,42 @@ describe("resolveNewThreadSubmitDisabledReason", () => {
     expect(
       resolveNewThreadSubmitDisabledReason({ ...readyState, ...change }),
     ).toBe(reason);
+  });
+
+  it.each<
+    [
+      change: Partial<ResolveNewThreadSubmitDisabledReasonArgs>,
+      reason: string | null,
+    ]
+  >([
+    [{ isLoadingModels: true }, null],
+    [{ promptInputEmpty: true }, null],
+    [
+      {
+        modelLoadError: {
+          providerId: "codex",
+          code: "missing_executable",
+          detail: null,
+        },
+      },
+      "agent_missing",
+    ],
+    [
+      {
+        modelLoadError: {
+          providerId: "codex",
+          code: "auth_required",
+          detail: null,
+        },
+      },
+      "sign_in",
+    ],
+    [{ selectedThreadModel: "" }, "model_selection"],
+    [{ submissionEnvironmentUnavailable: true }, "project_setup"],
+  ])("classifies blocker %o as %s", (change, reason) => {
+    expect(resolveNewThreadBlocker({ ...readyState, ...change })?.reason).toBe(
+      reason,
+    );
   });
 
   it("returns no reason when every submission requirement is ready", () => {
@@ -557,21 +592,6 @@ describe("shouldReplaceInitialPromptFromLocationState", () => {
   });
 });
 
-describe("readSectionIdFromLocationState", () => {
-  it("returns a trimmed section id seeded by navigation state", () => {
-    expect(readSectionIdFromLocationState({ sectionId: " sec_work " })).toBe(
-      "sec_work",
-    );
-  });
-
-  it("returns null when no usable section id is present", () => {
-    expect(readSectionIdFromLocationState(null)).toBeNull();
-    expect(readSectionIdFromLocationState({})).toBeNull();
-    expect(readSectionIdFromLocationState({ sectionId: "" })).toBeNull();
-    expect(readSectionIdFromLocationState({ sectionId: 42 })).toBeNull();
-  });
-});
-
 describe("readRootComposeSectionTargetFromLocationState", () => {
   it("returns a section target when navigation provides a section id", () => {
     expect(
@@ -591,78 +611,14 @@ describe("readRootComposeSectionTargetFromLocationState", () => {
     expect(
       readRootComposeSectionTargetFromLocationState({ sectionId: "" }),
     ).toEqual({ kind: "clear" });
+    expect(
+      readRootComposeSectionTargetFromLocationState({ sectionId: 42 }),
+    ).toEqual({ kind: "clear" });
   });
 
   it("returns null when no section target instruction is present", () => {
     expect(readRootComposeSectionTargetFromLocationState(null)).toBeNull();
     expect(readRootComposeSectionTargetFromLocationState({})).toBeNull();
-  });
-});
-
-describe("mergeMissingPromptDraftAttachments", () => {
-  it("restores attachments that disappeared during option changes", () => {
-    expect(
-      mergeMissingPromptDraftAttachments(
-        [
-          {
-            type: "localFile",
-            path: "notes.md",
-            name: "notes.md",
-            mimeType: "text/markdown",
-            sizeBytes: 32,
-          },
-        ],
-        [
-          {
-            type: "localImage",
-            path: "screenshot.png",
-            name: "screenshot.png",
-            mimeType: "image/png",
-            sizeBytes: 64,
-          },
-        ],
-      ),
-    ).toEqual([
-      {
-        type: "localFile",
-        path: "notes.md",
-        name: "notes.md",
-        mimeType: "text/markdown",
-        sizeBytes: 32,
-      },
-      {
-        type: "localImage",
-        path: "screenshot.png",
-        name: "screenshot.png",
-        mimeType: "image/png",
-        sizeBytes: 64,
-      },
-    ]);
-  });
-
-  it("leaves attachments alone when the preserved paths are still present", () => {
-    expect(
-      mergeMissingPromptDraftAttachments(
-        [
-          {
-            type: "localImage",
-            path: "screenshot.png",
-            name: "screenshot.png",
-            mimeType: "image/png",
-            sizeBytes: 64,
-          },
-        ],
-        [
-          {
-            type: "localImage",
-            path: "screenshot.png",
-            name: "screenshot.png",
-            mimeType: "image/png",
-            sizeBytes: 64,
-          },
-        ],
-      ),
-    ).toBeNull();
   });
 });
 
@@ -752,41 +708,54 @@ describe("restorePromptDraftAfterOptionChange", () => {
     });
   });
 
-  it("merges missing attachments without replacing new draft text", () => {
+  it("appends missing attachments without replacing new draft text or attachments", () => {
+    const notes = {
+      type: "localFile" as const,
+      path: "notes.md",
+      name: "notes.md",
+      mimeType: "text/markdown",
+      sizeBytes: 32,
+    };
+    const screenshot = {
+      type: "localImage" as const,
+      path: "screenshot.png",
+      name: "screenshot.png",
+      mimeType: "image/png",
+      sizeBytes: 64,
+    };
+
     expect(
       restorePromptDraftAfterOptionChange({
         currentDraft: {
           text: "newer text",
           mentions: [],
-          attachments: [],
+          attachments: [notes],
         },
         preservedDraft: {
           text: "older text",
           mentions: [],
-          attachments: [
-            {
-              type: "localImage",
-              path: "screenshot.png",
-              name: "screenshot.png",
-              mimeType: "image/png",
-              sizeBytes: 64,
-            },
-          ],
+          attachments: [screenshot],
         },
       }),
     ).toEqual({
       text: "newer text",
       mentions: [],
-      attachments: [
-        {
-          type: "localImage",
-          path: "screenshot.png",
-          name: "screenshot.png",
-          mimeType: "image/png",
-          sizeBytes: 64,
-        },
-      ],
+      attachments: [notes, screenshot],
     });
+    expect(
+      restorePromptDraftAfterOptionChange({
+        currentDraft: {
+          text: "newer text",
+          mentions: [],
+          attachments: [screenshot],
+        },
+        preservedDraft: {
+          text: "older text",
+          mentions: [],
+          attachments: [screenshot],
+        },
+      }),
+    ).toBeNull();
   });
 
   it("does not rewrite an unchanged draft", () => {
@@ -863,32 +832,6 @@ describe("shouldStartComposingFromLocationState", () => {
     expect(shouldStartComposingFromLocationState({ focusPrompt: false })).toBe(
       false,
     );
-  });
-});
-
-describe("shouldNavigateAfterThreadCreate", () => {
-  it("follows the preference for ordinary new threads", () => {
-    expect(
-      shouldNavigateAfterThreadCreate({
-        isForkDraft: false,
-        navigateToThreadAfterCreate: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldNavigateAfterThreadCreate({
-        isForkDraft: false,
-        navigateToThreadAfterCreate: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("always navigates for submitted fork drafts", () => {
-    expect(
-      shouldNavigateAfterThreadCreate({
-        isForkDraft: true,
-        navigateToThreadAfterCreate: false,
-      }),
-    ).toBe(true);
   });
 });
 
@@ -1255,6 +1198,30 @@ describe("buildRootComposeTerminalSessions", () => {
         },
       }),
     ).toEqual([matching]);
+  });
+});
+
+describe("isRootComposeTerminalSession", () => {
+  it("accepts only threadless terminals of the root environment", () => {
+    const target = { kind: "environment" as const, environmentId: "env_1" };
+    expect(
+      isRootComposeTerminalSession(
+        makeTerminalSession({ environmentId: "env_1" }),
+        target,
+      ),
+    ).toBe(true);
+    expect(
+      isRootComposeTerminalSession(
+        makeTerminalSession({ environmentId: "env_1", threadId: "thr_1" }),
+        target,
+      ),
+    ).toBe(false);
+    expect(
+      isRootComposeTerminalSession(
+        makeTerminalSession({ environmentId: "env_2" }),
+        target,
+      ),
+    ).toBe(false);
   });
 });
 

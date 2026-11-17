@@ -5,10 +5,12 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { PostBlocks, PostHeader, PostLede } from "../blog/post-body";
 import { getPost } from "../blog/posts";
 import { stripMarkdown } from "../blog/parse-post";
+import { useInitAnalytics } from "../landing/analytics";
 import { SubscribeSection } from "../landing/cta";
 import { pageMeta, siteHeadLinks } from "../landing/page-head";
 import { SiteFooter, SiteNav } from "../landing/site-chrome";
 import blogCss from "../blog/blog.css?url";
+import pluginGuideCss from "../plugin-guide/plugin-guide.css?url";
 
 export const Route = createFileRoute("/blog_/$slug")({
   loader: ({ params }) => {
@@ -27,7 +29,12 @@ export const Route = createFileRoute("/blog_/$slug")({
     const title = `${post.title} — cc`;
     return {
       meta: pageMeta(title, description, `/blog/${post.slug}`),
-      links: siteHeadLinks(blogCss),
+      links: post.blocks.some((block) => block.kind === "component")
+        ? [
+            { rel: "stylesheet", href: pluginGuideCss },
+            ...siteHeadLinks(blogCss),
+          ]
+        : siteHeadLinks(blogCss),
     };
   },
   component: BlogPostRoute,
@@ -35,6 +42,7 @@ export const Route = createFileRoute("/blog_/$slug")({
 
 function BlogPostRoute() {
   const { post } = Route.useLoaderData();
+  useInitAnalytics();
 
   return (
     <div className="wrap">

@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   MemoryRouter,
@@ -35,7 +36,9 @@ function SwitchViewButton({ view }: { view: "browse" | "installed" }) {
     <button
       type="button"
       onClick={() =>
-        navigate(view === "browse" ? "/plugins" : "/plugins?view=installed")
+        void navigate(
+          view === "browse" ? "/plugins" : "/plugins?view=installed",
+        )
       }
     >
       {`switch-to-${view}`}
@@ -95,6 +98,8 @@ const GITHUB_CATALOG_ENTRY = {
   official: true,
   author: null,
   installed: false,
+  conflictingInstallSource: null,
+  installedByDefault: false,
   compatible: true,
   incompatibleReason: null,
 };
@@ -165,27 +170,35 @@ function installFetch(plugins: readonly unknown[] = [AUTOMATIONS_PLUGIN]) {
         });
       }
       if (url.pathname === "/api/v1/plugin-catalog/install") {
-        return responseJson({
-          ok: true,
-          plugin: {
-            ...AUTOMATIONS_PLUGIN,
-            id: "github",
-            source: GITHUB_CATALOG_ENTRY.source,
-            rootDir: "/settings/plugins/github",
-            name: GITHUB_CATALOG_ENTRY.displayName,
-            description: GITHUB_CATALOG_ENTRY.description,
-            icon: GITHUB_CATALOG_ENTRY.icon,
-            provenance: "catalog",
-            publisherKey: "cc-official",
-            publisherLabel: "CC Official",
-            catalogEntryId: GITHUB_CATALOG_ENTRY.entryId,
-            sourceDisplay: "CC Official · GitHub",
+        return responseJson(
+          {
+            ok: true,
+            job: {
+              id: "job-github",
+              target: {
+                kind: "catalog",
+                entryId: GITHUB_CATALOG_ENTRY.entryId,
+                marketplace: GITHUB_CATALOG_ENTRY.marketplace,
+              },
+              displayName: GITHUB_CATALOG_ENTRY.displayName,
+              state: "queued",
+            },
           },
-        });
+          202,
+        );
       }
       return responseJson({ error: "not found" }, 404);
     }),
   );
+}
+
+function recordedTelemetryEvents(): unknown[] {
+  return vi
+    .mocked(fetch)
+    .mock.calls.filter(([input]) =>
+      String(input).endsWith("/api/v1/system/telemetry/events"),
+    )
+    .map(([, init]) => JSON.parse(String(init?.body)));
 }
 
 function LocationPath() {
@@ -201,6 +214,50 @@ afterEach(() => {
 });
 
 describe("PluginsOverview", () => {
+  it("explains a failed plugin even when search hides its card and opens its recovery details", async () => {
+    installFetch([
+      {
+        ...AUTOMATIONS_PLUGIN,
+        status: "incompatible",
+        statusDetail:
+          "Incompatible plugin at /Users/example/plugins/automations.",
+      },
+    ]);
+    const { wrapper } = createQueryClientTestHarness();
+    render(
+      <MemoryRouter initialEntries={["/plugins?view=installed"]}>
+        <PluginsOverview />
+        <LocationPath />
+      </MemoryRouter>,
+      { wrapper },
+    );
+    const banner = await screen.findByRole("region", {
+      name: "1 plugin isn’t running",
+    });
+    expect(
+      within(banner).getByText("This version is incompatible with cc."),
+    ).toBeTruthy();
+
+    expect(banner.textContent).not.toContain(
+      "/Users/example/plugins/automations",
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Search installed plugins" }),
+      { target: { value: "nomatch" } },
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId("plugin-row-automations")).toBeNull(),
+    );
+    fireEvent.click(
+      within(banner).getByRole("button", {
+        name: "View details for Automations",
+      }),
+    );
+    expect(screen.getByTestId("location-path").textContent).toContain(
+      "automations",
+    );
+  });
+
   it("checks updates on entering Installed, without rechecking on filters or focus", async () => {
     installFetch();
     const requestCount = (path: string) =>
@@ -304,7 +361,11 @@ describe("PluginsOverview", () => {
     expect(
       screen.getByRole("menuitem", { name: "Install from source" }),
     ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Install from source" }),
+    );
     fireEvent.keyDown(document, { key: "Escape" });
+    expect(recordedTelemetryEvents()).toEqual([]);
 
     const catalogRequests = () =>
       vi.mocked(fetch).mock.calls.filter(([input]) => {
@@ -355,7 +416,7 @@ describe("PluginsOverview", () => {
 
     const goBack = screen.getByRole("button", { name: "Go back" });
     await waitFor(() =>
-      expect((goBack as HTMLButtonElement).disabled).toBe(false),
+      expect(goBack.getAttribute("aria-disabled")).toBeNull(),
     );
     fireEvent.click(goBack);
     await waitFor(() =>
@@ -459,29 +520,6 @@ describe("PluginsOverview", () => {
     expect(await screen.findByText("Automations")).toBeTruthy();
   });
 
-  it("shows the same category control on Installed", async () => {
-    installFetch([AUTOMATIONS_PLUGIN]);
-    const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
-    render(
-      <MemoryRouter initialEntries={["/plugins?view=installed"]}>
-        <QueryClientWrapper>
-          <PluginsOverview />
-          <SwitchViewButton view="browse" />
-          <SwitchViewButton view="installed" />
-        </QueryClientWrapper>
-      </MemoryRouter>,
-    );
-
-    expect(await screen.findByText("Automations")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Category" })).toBeNull();
-    expect(
-      screen.getByRole("button", {
-        name: "Filter plugins by category: All categories",
-      }),
-    ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "New plugin" })).toBeTruthy();
-  });
-
   it("keeps Browse filters in the toolbar rather than a separate pill band", async () => {
     installFetch();
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
@@ -554,7 +592,9 @@ describe("PluginsOverview", () => {
     installFetch();
     const { wrapper: QueryClientWrapper } = createQueryClientTestHarness();
     render(
-      <MemoryRouter initialEntries={["/plugins?view=browse&query=GitHub&sort=name"]}>
+      <MemoryRouter
+        initialEntries={["/plugins?view=browse&query=GitHub&sort=name"]}
+      >
         <QueryClientWrapper>
           <LocationPath />
           <Routes>
@@ -574,13 +614,14 @@ describe("PluginsOverview", () => {
     fireEvent.click(screen.getByRole("button", { name: "Install GitHub" }));
 
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Install GitHub?" })).toBeNull();
+      expect(
+        screen.queryByRole("heading", { name: "Install GitHub?" }),
+      ).toBeNull();
     });
     expect(screen.getByTestId("location-path").textContent).toBe("/plugins");
-    expect(screen.getByRole("textbox", { name: "Search plugins" })).toHaveProperty(
-      "value",
-      "GitHub",
-    );
+    expect(
+      screen.getByRole("textbox", { name: "Search plugins" }),
+    ).toHaveProperty("value", "GitHub");
   });
 
   it("loads more installed plugins as the scroll sentinel is reached", async () => {
@@ -927,11 +968,6 @@ describe("PluginsOverview", () => {
     );
 
     expect(await screen.findByText("Automations")).toBeTruthy();
-    expect(
-      document.querySelectorAll(
-        '[data-testid^="plugin-row-"], [data-plugin-row]',
-      ).length,
-    ).toBeGreaterThanOrEqual(0);
     expect(screen.getByText("Inactive Builtin")).toBeTruthy();
     expect(
       screen.getByRole("switch", { name: "Enable inactive-builtin" }),

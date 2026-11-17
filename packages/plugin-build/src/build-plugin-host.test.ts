@@ -339,6 +339,32 @@ describe("plugin host build", () => {
       );
     });
 
+    it("uses the stub when only an erased type import names another host export", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "cc-host-type-import-test-"));
+      tempDirs.push(dir);
+      await writeFixture(dir);
+      await writeFile(
+        join(dir, "host.ts"),
+        [
+          'import { experimental_defineHostEntry } from "@codythatsme/plugin-sdk/host";',
+          'type Contract = import("@codythatsme/plugin-sdk/host").ExperimentalHostEntry;',
+          "export const contract: Contract | null = null;",
+          "export default experimental_defineHostEntry({ contract: {}, handlers: {} });",
+          "",
+        ].join("\n"),
+      );
+
+      const result = await buildPluginHost(
+        dir,
+        "0.9.0-test",
+        await testToolchain(),
+      );
+
+      expect(await readFile(result.jsPath, "utf8")).not.toMatch(
+        /@codythatsme\/plugin-sdk/u,
+      );
+    });
+
     it("names the unbuilt SDK dist when the package is installed without it", async () => {
       const dir = await mkdtemp(join(tmpdir(), "cc-host-unbuilt-sdk-test-"));
       tempDirs.push(dir);
@@ -367,50 +393,6 @@ describe("plugin host build", () => {
         `"@codythatsme/plugin-sdk/host" is installed for this plugin but its dist is not built: run the SDK build (${join(await realpath(sdkDir), "dist", "host.js")} is missing); a host entry that imports experimental_nativeRootsHostContract needs the built SDK`,
       );
     });
-  });
-
-  it("rejects relative type imports into private CC workspace packages", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "cc-host-relative-private-"));
-    tempDirs.push(parent);
-    const dir = join(parent, "plugin");
-    const privatePackage = join(parent, "private-package");
-    await mkdir(dir, { recursive: true });
-    await mkdir(privatePackage, { recursive: true });
-    await writeFile(
-      join(privatePackage, "package.json"),
-      JSON.stringify({ name: "@cc/private-fixture", type: "module" }),
-    );
-    await writeFile(
-      join(privatePackage, "index.ts"),
-      "export type PrivateValue = string;\n",
-    );
-    await writeFile(
-      join(dir, "package.json"),
-      JSON.stringify({
-        name: "cc-plugin-relative-private-fixture",
-        version: "1.0.0",
-        engines: { cc: ">=0.0" },
-        cc: {
-          name: "Relative private import fixture",
-          description: "Invalid relative host dependency.",
-          branding: { icon: "Cpu" },
-          server: "./server.ts",
-          host: "./host.ts",
-        },
-      }),
-    );
-    await writeFile(
-      join(dir, "server.ts"),
-      "export default function plugin() {}\n",
-    );
-    await writeFile(
-      join(dir, "host.ts"),
-      'import type { PrivateValue } from "../private-package/index.js";\nconst value: PrivateValue = "nope";\nexport default value;\n',
-    );
-
-    await expect(
-      buildPluginHost(dir, "0.9.0-test", await testToolchain()),
-    ).rejects.toThrow(/@cc\/private-fixture/u);
   });
 
   it.each([

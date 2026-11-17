@@ -7,11 +7,12 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PluginCatalogSearchEntry } from "@/hooks/queries/plugin-catalog-queries";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { PluginAuthorPage } from "./PluginAuthorPage";
+import { LocationProbe } from "@/test/location-probe";
 
 function catalogEntry(
   pluginId: string,
@@ -43,6 +44,8 @@ function catalogEntry(
       url: "https://github.com/patlee",
     },
     installed: false,
+    conflictingInstallSource: null,
+    installedByDefault: false,
     installs: 10,
     compatible: true,
     incompatibleReason: null,
@@ -79,13 +82,6 @@ const GAMMA = catalogEntry("Gamma", {
 const OTHER = catalogEntry("Other", {
   author: { name: "Pat Lee", github: null, url: null },
 });
-
-function LocationProbe() {
-  const location = useLocation();
-  return (
-    <output data-testid="location">{`${location.pathname}${location.search}`}</output>
-  );
-}
 
 function cardOrder(): string[] {
   return [
@@ -172,7 +168,7 @@ describe("PluginAuthorPage", () => {
     },
   ])("selects an author name by $rule", async ({ entries, expected }) => {
     renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee",
+      "/plugins?author=12%3Acc-community%3Agithub%3Apatlee",
       vi.fn(),
       entries,
     );
@@ -183,7 +179,7 @@ describe("PluginAuthorPage", () => {
 
   it("restores the URL and shows only the selected author's plugins", async () => {
     renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee&sort=recently-added&direction=asc",
+      "/plugins?author=12%3Acc-community%3Agithub%3Apatlee&sort=recently-added&direction=asc",
     );
 
     expect(
@@ -202,13 +198,13 @@ describe("PluginAuthorPage", () => {
     ]);
     expect(screen.queryByText("Other")).toBeNull();
     expect(screen.getByTestId("location").textContent).toContain(
-      "author=12%3Abb-community%3Agithub%3Apatlee",
+      "author=12%3Acc-community%3Agithub%3Apatlee",
     );
   });
 
   it("applies search, multiple categories, and both optional-value sorts", async () => {
     const onOpenPlugin = renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee&sort=most-installed",
+      "/plugins?author=12%3Acc-community%3Agithub%3Apatlee&sort=most-installed",
     );
 
     await screen.findByRole("heading", { name: /^Pat Lee/u });
@@ -256,7 +252,7 @@ describe("PluginAuthorPage", () => {
 
   it("uses the catalog search result for a tag-only query", async () => {
     renderPage(
-      "/plugins?author=12%3Abb-community%3Agithub%3Apatlee&query=agent-interaction",
+      "/plugins?author=12%3Acc-community%3Agithub%3Apatlee&query=agent-interaction",
     );
 
     expect(

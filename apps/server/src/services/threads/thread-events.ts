@@ -2,6 +2,8 @@ import {
   appendStoredThreadEventsInTransaction,
   createEventId,
   getActiveStoredTurnId,
+  isStoredTurnMainRunIdle,
+  isStoredTurnProviderCompactionRunning,
   getLastStoredProviderThreadId,
   getLastStoredTurnRequestEvent,
   getStoredProviderSession,
@@ -9,6 +11,7 @@ import {
   getThread,
   listStoredTurnStartedKeys,
   noopNotifier,
+  supersedeQueuedRetriesInTransaction,
   updateThread,
   type StoredTurnRequestEventRow,
 } from "@cc/db";
@@ -19,7 +22,6 @@ import {
   getThreadEventScopeTurnId,
   isStandaloneBuiltinCompactCommand,
   parseStoredThreadEvent,
-  resolveSystemErrorReconnectProgress,
   systemErrorEventDataSchema,
   threadScope,
   turnRequestEventDataSchema,
@@ -85,6 +87,7 @@ interface ClientTurnRequestedEventArgs {
   initiator: ThreadTurnInitiator;
   input: PromptInput[];
   inputGroups?: PromptInput[][];
+  originPluginId: string | null;
   requestMethod: "thread/start" | "turn/start";
   senderThreadId: string | null;
   source: "spawn" | "tell";
@@ -136,8 +139,6 @@ interface AppendSystemErrorEventArgs {
   detail?: string;
   environmentId?: string | null;
   message: string;
-  reconnectAttempt?: number;
-  reconnectTotal?: number;
   scope: ThreadEventScope;
   threadId: string;
 }
@@ -210,6 +211,9 @@ function buildClientTurnRequestedEventData(
         }
       : {}),
     senderThreadId: args.senderThreadId,
+    ...(args.originPluginId !== null
+      ? { originPluginId: args.originPluginId }
+      : {}),
     ...(args.systemMessageKind !== undefined
       ? { systemMessageKind: args.systemMessageKind }
       : {}),
@@ -244,6 +248,7 @@ interface AppendThreadEventsTransactionResult {
 }
 
 interface BuildAppendThreadEventNotificationMetadataArgs {
+  sequence: number;
   readStateUpdate: ThreadReadStateUpdate | null;
   eventType: ThreadEventType;
 }
@@ -312,7 +317,10 @@ function applyUserTurnReadForEvent(
   if (args.type !== "client/turn/requested") {
     return null;
   }
-  if (args.data.initiator !== "user") {
+  if (
+    args.data.initiator !== "user" ||
+    args.data.originPluginId !== undefined
+  ) {
     return null;
   }
 
@@ -371,11 +379,13 @@ function buildAppendThreadEventNotificationChanges(
 }
 
 function buildAppendThreadEventNotificationMetadata({
+  sequence,
   readStateUpdate,
   eventType,
 }: BuildAppendThreadEventNotificationMetadataArgs): ThreadChangeMetadata {
   const metadata: ThreadChangeMetadata = {
     eventTypes: [eventType],
+    timelineSequence: sequence,
   };
   if (readStateUpdate?.changed === true) {
     metadata.projectId = readStateUpdate.projectId;
@@ -463,19 +473,25 @@ function assertStoredTurnStartedForEvents(
 export function appendThreadEvent<TType extends ThreadEventType>(
   deps: Pick<AppDeps, "db" | "hub">,
   args: AppendThreadEventArgs<TType>,
+  beforeAppendInTransaction?: (args: { tx: DbTransaction }) => void,
 ): number;
 export function appendThreadEvent(
   deps: Pick<AppDeps, "db" | "hub">,
   args: AppendThreadEventArgs,
+  beforeAppendInTransaction?: (args: { tx: DbTransaction }) => void,
 ): number {
   const result = deps.db.transaction(
-    (tx) => appendThreadEventInTransactionWithAttention(tx, args),
+    (tx) => {
+      beforeAppendInTransaction?.({ tx });
+      return appendThreadEventInTransactionWithAttention(tx, args);
+    },
     { behavior: "immediate" },
   );
   deps.hub.notifyThread(
     args.threadId,
     buildAppendThreadEventNotificationChanges(result.readStateUpdate),
     buildAppendThreadEventNotificationMetadata({
+      sequence: result.sequence,
       readStateUpdate: result.readStateUpdate,
       eventType: args.type,
     }),
@@ -541,13 +557,22 @@ export function appendPreparedClientTurnRequestedEventWithNotificationInTransact
     db,
     buildClientTurnRequestedEventArgs(args),
   );
+  const supersededRetries = supersedeQueuedRetriesInTransaction(db, {
+    threadId: args.threadId,
+    retryOfTurnRequestId: args.retryOf?.requestId ?? null,
+  });
+  const notificationChanges = buildAppendThreadEventNotificationChanges(
+    result.readStateUpdate,
+  );
   return {
     requestId: args.requestId,
     sequence: result.sequence,
-    notificationChanges: buildAppendThreadEventNotificationChanges(
-      result.readStateUpdate,
-    ),
+    notificationChanges:
+      supersededRetries > 0
+        ? [...notificationChanges, "queue-changed"]
+        : notificationChanges,
     notificationMetadata: buildAppendThreadEventNotificationMetadata({
+      sequence: result.sequence,
       readStateUpdate: result.readStateUpdate,
       eventType: args.type,
     }),
@@ -696,26 +721,19 @@ export function appendSystemErrorEventInTransaction(
     buildSystemErrorEventArgs(args),
   );
   deps.hub.notifyThread(args.threadId, ["events-appended"], {
+    timelineSequence: sequence,
     eventTypes: ["system/error"],
   });
   return sequence;
 }
 
 export function buildSystemErrorEventData(
-  args: Pick<
-    AppendSystemErrorEventArgs,
-    "code" | "detail" | "message" | "reconnectAttempt" | "reconnectTotal"
-  >,
+  args: Pick<AppendSystemErrorEventArgs, "code" | "detail" | "message">,
 ): SystemErrorEventData {
-  const reconnectProgress = resolveSystemErrorReconnectProgress(args);
   return systemErrorEventDataSchema.parse({
     code: args.code,
     message: args.message,
     ...(args.detail ? { detail: args.detail } : {}),
-    ...(reconnectProgress
-      ? { reconnectAttempt: reconnectProgress.attempt }
-      : {}),
-    ...(reconnectProgress ? { reconnectTotal: reconnectProgress.total } : {}),
   });
 }
 
@@ -836,7 +854,9 @@ export function appendThreadOwnershipChangeEventInTransaction(
   }
 
   const sequence = appendThreadEventInTransaction(deps.db, eventArgs);
-  deps.hub.notifyThread(args.threadId, ["events-appended"]);
+  deps.hub.notifyThread(args.threadId, ["events-appended"], {
+    timelineSequence: sequence,
+  });
   return sequence;
 }
 
@@ -845,6 +865,23 @@ export function getActiveTurnId(
   threadId: string,
 ): string | null {
   return getActiveStoredTurnId(deps.db, threadId);
+}
+
+export function isActiveTurnMainRunIdle(
+  deps: ThreadEventReadDeps,
+  thread: Pick<Thread, "id" | "status">,
+): boolean {
+  if (thread.status !== "active") {
+    return false;
+  }
+  const activeTurnId = getActiveStoredTurnId(deps.db, thread.id);
+  return (
+    activeTurnId !== null &&
+    isStoredTurnMainRunIdle(deps.db, {
+      threadId: thread.id,
+      turnId: activeTurnId,
+    })
+  );
 }
 
 export function isManualCompactionActive(
@@ -856,6 +893,15 @@ export function isManualCompactionActive(
   }
 
   const activeTurnId = getActiveStoredTurnId(deps.db, thread.id);
+  if (
+    activeTurnId !== null &&
+    isStoredTurnProviderCompactionRunning(deps.db, {
+      threadId: thread.id,
+      turnId: activeTurnId,
+    })
+  ) {
+    return true;
+  }
   const requestRow = activeTurnId
     ? (getStoredTurnRequestEventForTurn(deps.db, {
         threadId: thread.id,

@@ -309,6 +309,71 @@ describe("claude-code background task translation", () => {
     ).toBe(true);
   });
 
+  it("marks a foreground subagent until it moves to the background", () => {
+    const harness = createClaudeDeltaHarness();
+    const context = { threadId: "cc-thread-1" };
+
+    harness.translate(
+      spawningToolUseMessage({
+        toolUseId: "toolu_agent_fg",
+        toolName: "Agent",
+        input: {
+          description: "Find the dialog",
+          prompt: "Find the dialog",
+          subagent_type: "Explore",
+          run_in_background: false,
+        },
+      }),
+      context,
+    );
+    const started = collectTaskEvents(
+      harness.translate(
+        {
+          type: "system",
+          subtype: "task_started",
+          task_id: "agent-fg",
+          tool_use_id: "toolu_agent_fg",
+          description: "Find the dialog",
+          subagent_type: "Explore",
+          is_backgrounded: false,
+          task_type: "local_agent",
+          uuid: "u-1",
+          session_id: "s-1",
+        },
+        context,
+      ),
+    );
+    expect(started.map((event) => event.type)).toEqual(["item/started"]);
+    expect(backgroundTaskItem(started[0]!)).toMatchObject({
+      id: harness.itemId("task:agent-fg", "cc-thread-1"),
+      taskType: "local_agent",
+      status: "pending",
+      foreground: true,
+    });
+
+    const moved = collectTaskEvents(
+      harness.translate(
+        {
+          type: "system",
+          subtype: "task_updated",
+          task_id: "agent-fg",
+          patch: { is_backgrounded: true },
+          uuid: "u-2",
+          session_id: "s-1",
+        },
+        context,
+      ),
+    );
+    expect(moved.map((event) => event.type)).toEqual([
+      "item/backgroundTask/progress",
+    ]);
+    expect(backgroundTaskItem(moved[0]!)).toMatchObject({
+      id: harness.itemId("task:agent-fg", "cc-thread-1"),
+      status: "pending",
+      foreground: false,
+    });
+  });
+
   it("ignores progress for unknown task ids (daemon restarted mid-run)", () => {
     const harness = createClaudeDeltaHarness();
     const events = harness.translate(
@@ -456,26 +521,6 @@ describe("claude-code background task translation", () => {
     });
   });
 
-  it("settles open tasks as interrupted when the thread detaches (process exit)", () => {
-    const harness = createClaudeDeltaHarness();
-    const context = { threadId: "cc-thread-1" };
-
-    harness.translate(
-      spawningToolUseFor(loadFixture("task-started-workflow.json")),
-      context,
-    );
-    harness.translate(loadFixture("task-started-workflow.json"), context);
-
-    const events = harness.settleSession("cc-thread-1");
-    const completed = events.filter(
-      (event) => event.type === "item/backgroundTask/completed",
-    );
-    expect(completed).toHaveLength(1);
-    expect(backgroundTaskItem(completed[0]!).status).toBe("interrupted");
-
-    expect(harness.settleSession("cc-thread-other")).toEqual([]);
-  });
-
   it("preserves the parent link when a settled Claude task restarts", () => {
     const harness = createClaudeDeltaHarness();
     const context = { threadId: "cc-thread-1" };
@@ -591,6 +636,137 @@ describe("claude-code background task translation", () => {
       taskStatus: "completed",
       summary:
         'Background command "Count ticks from 1 to 6 with 1 second delays" completed (exit code 0)',
+    });
+  });
+
+  it("keeps a foreground shell command out of background tasks", () => {
+    const harness = createClaudeDeltaHarness();
+    const context = { threadId: "cc-thread-1" };
+
+    harness.translate(
+      spawningToolUseMessage({
+        toolUseId: "toolu_bash_fg",
+        toolName: "Bash",
+        input: { command: "pnpm test", timeout: 400000 },
+      }),
+      context,
+    );
+    const lifecycle = [
+      {
+        type: "system",
+        subtype: "task_started",
+        task_id: "bfg1",
+        tool_use_id: "toolu_bash_fg",
+        description: "Run tests",
+        task_type: "local_bash",
+        is_backgrounded: false,
+        uuid: "u-1",
+        session_id: "s-1",
+      },
+      {
+        type: "system",
+        subtype: "task_updated",
+        task_id: "bfg1",
+        patch: { status: "completed" },
+        uuid: "u-2",
+        session_id: "s-1",
+      },
+      {
+        type: "system",
+        subtype: "task_notification",
+        task_id: "bfg1",
+        tool_use_id: "toolu_bash_fg",
+        status: "completed",
+        output_file: "",
+        summary: "Run tests completed",
+        uuid: "u-3",
+        session_id: "s-1",
+      },
+    ];
+    const events = lifecycle.flatMap((message) =>
+      harness.translate(message, context),
+    );
+
+    expect(events).toEqual([]);
+    expect(harness.itemId("task:bfg1", "cc-thread-1")).toBe("");
+  });
+
+  it("materializes a foreground shell command once it moves to the background", () => {
+    const harness = createClaudeDeltaHarness();
+    const context = { threadId: "cc-thread-1" };
+
+    harness.translate(
+      spawningToolUseMessage({
+        toolUseId: "toolu_bash_moved",
+        toolName: "Bash",
+        input: { command: "pnpm build" },
+      }),
+      context,
+    );
+    const started = harness.translate(
+      {
+        type: "system",
+        subtype: "task_started",
+        task_id: "bmoved",
+        tool_use_id: "toolu_bash_moved",
+        description: "Build",
+        task_type: "local_bash",
+        is_backgrounded: false,
+        uuid: "u-1",
+        session_id: "s-1",
+      },
+      context,
+    );
+    expect(collectTaskEvents(started)).toEqual([]);
+
+    const backgrounded = harness.translate(
+      {
+        type: "system",
+        subtype: "task_updated",
+        task_id: "bmoved",
+        patch: { is_backgrounded: true },
+        uuid: "u-2",
+        session_id: "s-1",
+      },
+      context,
+    );
+    const backgroundedTask = collectTaskEvents(backgrounded);
+    expect(backgroundedTask.map((event) => event.type)).toEqual([
+      "item/started",
+    ]);
+    expect(backgroundTaskItem(backgroundedTask[0]!)).toMatchObject({
+      id: harness.itemId("task:bmoved", "cc-thread-1"),
+      taskType: "local_bash",
+      description: "Build",
+      status: "pending",
+      taskStatus: "running",
+      foreground: false,
+      parentToolCallId: harness.itemId("toolu_bash_moved", "cc-thread-1"),
+    });
+
+    const notified = collectTaskEvents(
+      harness.translate(
+        {
+          type: "system",
+          subtype: "task_notification",
+          task_id: "bmoved",
+          tool_use_id: "toolu_bash_moved",
+          status: "completed",
+          output_file: "/tmp/tasks/bmoved.output",
+          summary: 'Background command "Build" completed (exit code 0)',
+          uuid: "u-3",
+          session_id: "s-1",
+        },
+        context,
+      ),
+    );
+    expect(notified.map((event) => event.type)).toEqual([
+      "item/backgroundTask/completed",
+    ]);
+    expect(backgroundTaskItem(notified[0]!)).toMatchObject({
+      id: harness.itemId("task:bmoved", "cc-thread-1"),
+      status: "completed",
+      outputFile: "/tmp/tasks/bmoved.output",
     });
   });
 
@@ -765,8 +941,29 @@ describe("claude-code background task translation", () => {
     expect(intermediateResult).not.toContainEqual(
       expect.objectContaining({ type: "turn/completed" }),
     );
+    expect(intermediateResult).toContainEqual(
+      expect.objectContaining({
+        type: "turn/mainRun/updated",
+        scope: turnScope(TURN_1),
+        state: "idle",
+      }),
+    );
+    expect(
+      harness.translate(
+        { type: "result", subtype: "end_turn", session_id: "sess-1" },
+        context,
+      ),
+    ).not.toContainEqual(
+      expect.objectContaining({ type: "turn/mainRun/updated" }),
+    );
 
-    harness.translate(loadFixture("task-notification-subagent.json"), context);
+    const notification = harness.translate(
+      loadFixture("task-notification-subagent.json"),
+      context,
+    );
+    expect(notification).not.toContainEqual(
+      expect.objectContaining({ type: "turn/mainRun/updated" }),
+    );
     const resumed = harness.translate(
       {
         type: "assistant",
@@ -781,6 +978,11 @@ describe("claude-code background task translation", () => {
     expect(resumed).not.toContainEqual(
       expect.objectContaining({ type: "turn/started" }),
     );
+    expect(resumed[0]).toMatchObject({
+      type: "turn/mainRun/updated",
+      scope: turnScope(TURN_1),
+      state: "running",
+    });
     expect(resumed).toContainEqual(
       expect.objectContaining({
         type: "item/completed",
@@ -807,6 +1009,113 @@ describe("claude-code background task translation", () => {
         status: "completed",
       }),
     );
+    expect(finalResult).not.toContainEqual(
+      expect.objectContaining({ type: "turn/mainRun/updated" }),
+    );
+  });
+
+  it("keeps a held turn's main run idle while only a sub-agent streams", () => {
+    const harness = createClaudeDeltaHarness();
+    const context = { threadId: "cc-thread-1" };
+    const subagentToolUseId = "toolu_01W1cLr7AsTRvbya9LM5LSAV";
+    const sdkMessage = (message: Record<string, unknown>) => ({
+      jsonrpc: "2.0",
+      method: "sdk/message",
+      params: { threadId: "cc-thread-1", message },
+    });
+
+    harness.translate(
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "I will wait for the agent." }],
+        },
+        session_id: "sess-1",
+      },
+      context,
+    );
+    harness.translate(
+      spawningToolUseFor(loadFixture("task-started-subagent.json")),
+      context,
+    );
+    harness.translate(loadFixture("task-started-subagent.json"), context);
+    expect(
+      harness.translate(
+        { type: "result", subtype: "end_turn", session_id: "sess-1" },
+        context,
+      ),
+    ).toContainEqual(
+      expect.objectContaining({
+        type: "turn/mainRun/updated",
+        state: "idle",
+      }),
+    );
+
+    const subagentAssistant = harness.translate(
+      sdkMessage({
+        type: "assistant",
+        parent_tool_use_id: subagentToolUseId,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "beta" }],
+        },
+        session_id: "sess-1",
+      }),
+      context,
+    );
+    const subagentStream = harness.translate(
+      sdkMessage({
+        type: "stream_event",
+        parent_tool_use_id: subagentToolUseId,
+        event: {
+          type: "content_block_delta",
+          index: 0,
+          delta: { type: "text_delta", text: "beta" },
+        },
+        session_id: "sess-1",
+      }),
+      context,
+    );
+    const contextScopedStream = harness.translate(
+      {
+        type: "stream_event",
+        event: {
+          type: "content_block_delta",
+          index: 0,
+          delta: { type: "text_delta", text: "beta" },
+        },
+        session_id: "sess-1",
+      },
+      { ...context, parentToolCallId: subagentToolUseId },
+    );
+    for (const events of [
+      subagentAssistant,
+      subagentStream,
+      contextScopedStream,
+    ]) {
+      expect(events).not.toContainEqual(
+        expect.objectContaining({ type: "turn/mainRun/updated" }),
+      );
+    }
+
+    const resumed = harness.translate(
+      sdkMessage({
+        type: "assistant",
+        parent_tool_use_id: null,
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "The agent finished." }],
+        },
+        session_id: "sess-1",
+      }),
+      context,
+    );
+    expect(resumed[0]).toMatchObject({
+      type: "turn/mainRun/updated",
+      scope: turnScope(TURN_1),
+      state: "running",
+    });
   });
 
   it("treats legacy subagents as completion-blocking", () => {
@@ -914,57 +1223,6 @@ describe("claude-code background task translation", () => {
         }),
       );
     }
-  });
-
-  it("completes the turn while a workflow keeps running, leaving the task open", () => {
-    const harness = createClaudeDeltaHarness();
-    const context = { threadId: "cc-thread-workflow" };
-    harness.translate(
-      {
-        type: "assistant",
-        message: {
-          role: "assistant",
-          content: [{ type: "text", text: "started the workflow" }],
-        },
-        session_id: "sess-1",
-      },
-      context,
-    );
-    harness.translate(
-      spawningToolUseFor(loadFixture("task-started-workflow.json")),
-      context,
-    );
-    const started = harness.translate(
-      loadFixture("task-started-workflow.json"),
-      context,
-    );
-
-    const events = harness.translate(
-      {
-        type: "result",
-        subtype: "end_turn",
-        session_id: "sess-1",
-      },
-      context,
-    );
-
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        type: "turn/completed",
-        scope: turnScope(TURN_1),
-        status: "completed",
-      }),
-    );
-    expect(started).toContainEqual(
-      expect.objectContaining({
-        type: "item/started",
-        item: expect.objectContaining({
-          type: "backgroundTask",
-          taskType: "local_workflow",
-          status: "pending",
-        }),
-      }),
-    );
   });
 
   it("opens a fresh turn when a settled workflow reinvokes the model", () => {

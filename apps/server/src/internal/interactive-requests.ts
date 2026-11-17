@@ -19,7 +19,10 @@ import type { Hono } from "hono";
 import type { AppDeps } from "../types.js";
 import { ApiError } from "../errors.js";
 import { deferAfterResponse } from "../services/lib/response-deferral.js";
-import { requireThreadEnvironment } from "../services/lib/entity-lookup.js";
+import {
+  requireThreadEnvironment,
+  requireThreadEnvironmentAllowingDestroyed,
+} from "../services/lib/entity-lookup.js";
 import { queueChildThreadNeedsAttentionNotificationBestEffort } from "../services/threads/child-thread-notifications.js";
 import { requireAuthenticatedDaemonSession } from "./session-state.js";
 
@@ -109,7 +112,10 @@ function requestChildThreadNeedsAttentionNotification(
   args: RequestChildThreadNeedsAttentionNotificationArgs,
 ): void {
   const childThread = getThread(deps.db, args.childThreadId);
-  if (!childThread || !isParentNotifiableChildThread(childThread)) {
+  if (
+    !childThread ||
+    !isParentNotifiableChildThread(childThread, "needs-attention")
+  ) {
     return;
   }
   const parentThreadId = childThread.parentThreadId;
@@ -224,10 +230,17 @@ export function registerInternalInteractiveRequestRoutes(
       for (const threadId of payload.threadIds) {
         let environmentHostId: string;
         try {
-          const { environment } = requireThreadEnvironment(deps.db, threadId);
+          const { environment } = requireThreadEnvironmentAllowingDestroyed(
+            deps.db,
+            threadId,
+          );
           environmentHostId = environment.hostId;
         } catch (error) {
-          if (error instanceof ApiError && error.status === 404) {
+          if (
+            error instanceof ApiError &&
+            (error.status === 404 ||
+              error.body.code === "thread_environment_unavailable")
+          ) {
             continue;
           }
           throw error;

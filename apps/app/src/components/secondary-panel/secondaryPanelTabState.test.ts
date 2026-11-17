@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  createAttachmentFilePreviewFixedPanelTab,
   createBrowserFixedPanelTab,
   createEmptyFixedPanelTabsState,
   createGitDiffFixedPanelTab,
   createHostFilePreviewFixedPanelTab,
   createNewTabFixedPanelTab,
+  createPluginFixedPanelTab,
   createPluginPageFixedPanelTab,
   createPluginPanelFixedPanelTab,
   parseFixedPanelTabsState,
@@ -147,6 +149,47 @@ describe("secondaryPanelTabState", () => {
     expect(nextState.secondary.isOpen).toBe(true);
   });
 
+  it("restores pinned plugin tabs and their order after visibility and registration changes", () => {
+    const info = createThreadInfoFixedPanelTab();
+    const first = createPluginFixedPanelTab({
+      pluginId: "example",
+      tabId: "status",
+    });
+    const second = createPluginFixedPanelTab({
+      pluginId: "other",
+      tabId: "status",
+    });
+    const original = createEmptyFixedPanelTabsState({
+      secondary: {
+        tabs: [second, info, first],
+        activeTabId: first.id,
+        isOpen: true,
+      },
+    });
+    const restored = parseFixedPanelTabsState({
+      storedValue: serializeFixedPanelTabsState({ state: original }),
+      initialValue: createEmptyFixedPanelTabsState(),
+      now: original.lastUsedAt,
+    });
+    const hidden = reconcileFixedPanelViewTabsInState({
+      state: restored,
+      fixedTabs: [info, second],
+    });
+    expect(hidden.secondary.tabs).toEqual([second, info, first]);
+    expect(hidden.secondary.activeTabId).toBe(info.id);
+    const reloaded = reconcileFixedPanelViewTabsInState({
+      state: hidden,
+      fixedTabs: [info, first, second],
+    });
+    expect(reloaded.secondary.tabs).toEqual([second, info, first]);
+    expect(
+      buildOrderedSecondaryPanelFileTabs({
+        tabs: reloaded.secondary.tabs,
+        resolvedEnvironmentId: undefined,
+      }),
+    ).toEqual([]);
+  });
+
   it("reconciles every surface's fixed tabs ahead of closable content", () => {
     const infoTab = createThreadInfoFixedPanelTab();
     const diffTab = createGitDiffFixedPanelTab();
@@ -202,7 +245,7 @@ describe("secondaryPanelTabState", () => {
     ).toBe(hidden);
   });
 
-  it("falls back through the shared fixed-tab order when one disappears", () => {
+  it("falls back while retaining a hidden fixed tab’s saved position", () => {
     const firstTab = createPluginPageFixedPanelTab({
       fixedTabId: "navigation",
       pageId: "docs",
@@ -229,8 +272,15 @@ describe("secondaryPanelTabState", () => {
     expect(nextState.secondary).toEqual({
       activeTabId: secondTab.id,
       isOpen: true,
-      tabs: [secondTab],
+      tabs: [firstTab, secondTab],
+      previousActiveTabId: firstTab.id,
     });
+    expect(
+      reconcileFixedPanelViewTabsInState({
+        fixedTabs: [firstTab, secondTab],
+        state: nextState,
+      }).secondary.tabs,
+    ).toEqual([firstTab, secondTab]);
   });
 
   it("retains an active Diff tab until eligibility is authoritative", () => {
@@ -257,7 +307,8 @@ describe("secondaryPanelTabState", () => {
     expect(onceIneligible.secondary).toEqual({
       activeTabId: infoTab.id,
       isOpen: true,
-      tabs: [infoTab],
+      tabs: [infoTab, diffTab],
+      previousActiveTabId: diffTab.id,
     });
   });
 
@@ -275,39 +326,6 @@ describe("secondaryPanelTabState", () => {
       isOpen: false,
       tabs: [],
     });
-  });
-
-  it("keeps the active tab when closing an inactive file tab", () => {
-    const activeTab = createHostFilePreviewFixedPanelTab({
-      environmentId: "env-1",
-      tab: {
-        lineRange: null,
-        path: "/tmp/active.txt",
-      },
-      threadId: "thr-1",
-    });
-    const inactiveTab = createHostFilePreviewFixedPanelTab({
-      environmentId: "env-1",
-      tab: {
-        lineRange: null,
-        path: "/tmp/inactive.txt",
-      },
-      threadId: "thr-1",
-    });
-    const state = createEmptyFixedPanelTabsState({
-      secondary: {
-        activeTabId: activeTab.id,
-        isOpen: true,
-        tabs: [activeTab, inactiveTab],
-      },
-    });
-
-    const nextState = closeSecondaryPanelTabInState(state, inactiveTab.id);
-
-    expect(nextState.secondary.activeTabId).toBe(activeTab.id);
-    expect(nextState.secondary.tabs.map((tab) => tab.id)).toEqual([
-      activeTab.id,
-    ]);
   });
 
   it("does not collide workspace tabs for the same path in different environments", () => {
@@ -335,6 +353,26 @@ describe("secondaryPanelTabState", () => {
     ).toEqual([firstTab.id, secondTab.id]);
   });
 
+  it("shows an opened attachment preview among the panel's file tabs", () => {
+    const attachmentTab = createAttachmentFilePreviewFixedPanelTab({
+      name: "Pasted text.txt",
+      path: "Pasted-text-1791431248908-krajcq.txt",
+      projectId: "proj_app",
+    });
+    const state = openSecondaryPanelTabInState({
+      state: createEmptyFixedPanelTabsState(),
+      tab: attachmentTab,
+    });
+
+    expect(state.secondary.activeTabId).toBe(attachmentTab.id);
+    expect(
+      buildOrderedSecondaryPanelFileTabs({
+        resolvedEnvironmentId: "env-1",
+        tabs: state.secondary.tabs,
+      }),
+    ).toEqual([attachmentTab]);
+  });
+
   it("replaces the transient new tab when selecting another tab", () => {
     const newTab = createNewTabFixedPanelTab();
     const workspaceTab = makeWorkspaceTab("env-1");
@@ -350,24 +388,6 @@ describe("secondaryPanelTabState", () => {
     expect(state.secondary.tabs.map((tab) => tab.id)).toEqual([
       workspaceTab.id,
     ]);
-  });
-
-  it("replaces the transient new tab when opening a browser tab", () => {
-    const newTab = createNewTabFixedPanelTab();
-    const browserTab = createBrowserFixedPanelTab({
-      environmentId: null,
-      url: "https://example.com",
-    });
-    let state = createEmptyFixedPanelTabsState();
-
-    state = openSecondaryPanelTabInState({ state, tab: newTab });
-    state = replaceNewTabWithSecondaryPanelTabInState({
-      state,
-      tab: browserTab,
-    });
-
-    expect(state.secondary.activeTabId).toBe(browserTab.id);
-    expect(state.secondary.tabs.map((tab) => tab.id)).toEqual([browserTab.id]);
   });
 });
 

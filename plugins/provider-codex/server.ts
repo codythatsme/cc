@@ -1,4 +1,5 @@
 import { registerCodexAiService } from "./src/ai-service.js";
+import { registerAsyncQuestions } from "./src/async-questions.js";
 import { registerUsageSource } from "./src/usage-source.js";
 import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { codexExtensionKinds } from "./src/extension-kinds.js";
@@ -7,6 +8,7 @@ import { CODEX_NATIVE_ROOTS_DECLARATION } from "./src/native-roots.js";
 export default function plugin(cc: CcPluginApi) {
   registerUsageSource(cc);
   registerCodexAiService(cc);
+  registerAsyncQuestions(cc);
 
   cc.settings.define({
     memoryEnabled: {
@@ -46,9 +48,18 @@ export default function plugin(cc: CcPluginApi) {
       supportsThreadArchive: true,
       supportsThreadRename: true,
       permissionModes: ["accept-edits", "auto", "full"],
-      reasoningLevels: ["low", "medium", "high", "xhigh", "max", "ultra"],
+      reasoningLevels: [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+      ],
     },
     reasoningLevels: [
+      { id: "none", label: "None" },
       { id: "low", label: "Low" },
       { id: "medium", label: "Medium" },
       { id: "high", label: "High" },
@@ -63,8 +74,14 @@ export default function plugin(cc: CcPluginApi) {
     serviceTiers: [
       { id: "default", label: "Default" },
       { id: "fast", label: "Fast" },
+      {
+        id: "ultrafast",
+        label: "Ultrafast",
+        experimental_icon: "provider-codex/ultrafast",
+      },
     ],
     composerActions: ["plan", "goal"],
+    internal_DO_NOT_USE_guidedSignIn: true,
     deriveProviderOptions(context) {
       return {
         memoryEnabled: context.settings.memoryEnabled !== false,

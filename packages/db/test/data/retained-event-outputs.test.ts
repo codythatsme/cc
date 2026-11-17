@@ -9,6 +9,7 @@ import type { InsertEventInput } from "../../src/data/events.js";
 import { upsertHost } from "../../src/data/hosts.js";
 import { createProject } from "../../src/data/projects.js";
 import {
+  canHydrateRetainedEventOutputRowsWithinDataByteLimit,
   deleteExpiredRetainedEventOutputs,
   hydrateRetainedEventOutputRows,
   hydrateRetainedEventOutputRowsWithinDataByteLimit,
@@ -21,7 +22,7 @@ import {
 } from "../../src/retained-event-output.js";
 import { createThread } from "../../src/data/threads.js";
 import { noopNotifier } from "../../src/notifier.js";
-import { createMigratedConnection } from "../helpers/migrated-connection.js";
+import { createMigratedConnection } from "../../src/testing.js";
 import type {
   CreateConnectionOptions,
   SlowDbQueryLogFields,
@@ -81,6 +82,27 @@ function hasUnpairedSurrogate(value: string): boolean {
     }
   }
   return false;
+}
+
+function insertTurnStartedEvents(
+  db: ReturnType<typeof setup>["db"],
+  args: { count: number; createdAt: number; threadId: string },
+): void {
+  insertEvents(
+    db,
+    noopNotifier,
+    Array.from({ length: args.count }, (_, index) => ({
+      createdAt: args.createdAt,
+      data: JSON.stringify({ text: `message ${index}` }),
+      itemId: null,
+      itemKind: null,
+      parentToolCallId: null,
+      scope: turnScope("turn-small"),
+      sequence: index + 1,
+      threadId: args.threadId,
+      type: "turn/started" as const,
+    })),
+  );
 }
 
 afterEach(() => {
@@ -466,6 +488,135 @@ describe("retained completed-event outputs", () => {
     db.$client.close();
   });
 
+  it("copies ordinary rows in a few statements and still truncates legacy oversized outputs", () => {
+    const now = 1_800_000_000_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    const queries: SlowDbQueryLogFields[] = [];
+    const { db, source, target } = setup({
+      slowQueryLogger: {
+        info(fields) {
+          queries.push(fields);
+        },
+      },
+      slowQueryThresholdMs: 0,
+    });
+    const retainedOutput = "retained-" + "r".repeat(60_000);
+    const legacyOutput = "legacy-" + "l".repeat(60_000);
+    const command = (index: number, output: string) => ({
+      createdAt: now,
+      data: JSON.stringify({
+        item: {
+          aggregatedOutput: output,
+          id: `command-${index}`,
+          type: "commandExecution",
+        },
+      }),
+      itemId: `command-${index}`,
+      itemKind: "commandExecution" as const,
+      parentToolCallId: null,
+      scope: turnScope("turn-copy"),
+      sequence: index + 1,
+      threadId: source.id,
+      type: "item/completed" as const,
+    });
+    insertEvents(db, noopNotifier, [
+      ...Array.from({ length: 300 }, (_, index) =>
+        command(index, `output ${index}`),
+      ),
+      command(300, retainedOutput),
+    ]);
+    db.$client
+      .prepare(
+        `INSERT INTO events (id, thread_id, environment_id, scope_kind, turn_id, provider_thread_id, sequence, type, item_id, item_kind, parent_tool_call_id, data, created_at)
+        VALUES ('evt_legacy', ?, NULL, 'turn', 'turn-copy', NULL, 302, 'item/completed', 'command-legacy', 'commandExecution', NULL, ?, ?)`,
+      )
+      .run(
+        source.id,
+        JSON.stringify({
+          item: {
+            aggregatedOutput: legacyOutput,
+            id: "command-legacy",
+            type: "commandExecution",
+          },
+        }),
+        now,
+      );
+    const sourceRows = listStoredEventRows(db, { threadId: source.id });
+    queries.length = 0;
+
+    db.transaction(
+      (tx) =>
+        copyStoredThreadEventsInTransaction(tx, {
+          rows: sourceRows,
+          targetEnvironmentId: null,
+          targetThreadId: target.id,
+        }),
+      { behavior: "immediate" },
+    );
+
+    expect(queries.length).toBeLessThan(20);
+    const targetRows = listStoredEventRows(db, { threadId: target.id });
+    const withoutIdentity = ({
+      id: _id,
+      threadId: _threadId,
+      ...row
+    }: (typeof targetRows)[number]) => row;
+    expect(targetRows.slice(0, -1).map(withoutIdentity)).toEqual(
+      sourceRows.slice(0, -1).map(withoutIdentity),
+    );
+    const legacy = targetRows.at(-1)!;
+    expect(legacy.data.length).toBeLessThan(10_000);
+    expect(
+      hydrateRetainedEventOutputRows(db, targetRows, now).map((row) =>
+        readOutput(row.data, "aggregatedOutput"),
+      ),
+    ).toEqual([
+      ...Array.from({ length: 300 }, (_, index) => `output ${index}`),
+      retainedOutput,
+      legacyOutput,
+    ]);
+    db.$client.close();
+  });
+
+  it("copies nothing when a source row is missing", () => {
+    const { db, source, target } = setup();
+    insertEvents(db, noopNotifier, [
+      {
+        createdAt: 1,
+        data: JSON.stringify({
+          item: {
+            aggregatedOutput: "kept",
+            id: "kept",
+            type: "commandExecution",
+          },
+        }),
+        itemId: "kept",
+        itemKind: "commandExecution",
+        parentToolCallId: null,
+        scope: turnScope("turn-missing"),
+        sequence: 1,
+        threadId: source.id,
+        type: "item/completed",
+      },
+    ]);
+    const [row] = listStoredEventRows(db, { threadId: source.id });
+
+    expect(() =>
+      db.transaction(
+        (tx) =>
+          copyStoredThreadEventsInTransaction(tx, {
+            rows: [row!, { ...row!, id: "evt_missing", sequence: 2 }],
+            targetEnvironmentId: null,
+            targetThreadId: target.id,
+          }),
+        { behavior: "immediate" },
+      ),
+    ).toThrow("Expected copied event row to be inserted");
+    expect(listStoredEventRows(db, { threadId: target.id })).toEqual([]);
+    db.$client.close();
+  });
+
   it("deletes a bounded number of expired sidecars without deleting previews", () => {
     const now = 1_800_000_000_000;
     vi.useFakeTimers();
@@ -505,6 +656,121 @@ describe("retained completed-event outputs", () => {
         (row) => readOutput(row.data, "aggregatedOutput") === output,
       ),
     ).toHaveLength(1);
+    db.$client.close();
+  });
+
+  it("looks up retained outputs for a thousand rows in one query", () => {
+    const now = 1_800_000_000_000;
+    let queries = 0;
+    const { db, source } = setup({
+      slowQueryLogger: {
+        info() {
+          queries += 1;
+        },
+      },
+      slowQueryThresholdMs: 0,
+    });
+    const output = `head-${"x".repeat(COMPLETED_EVENT_OUTPUT_TRUNCATION_THRESHOLD_CHARS)}-tail`;
+    insertTurnStartedEvents(db, {
+      count: 1_000,
+      createdAt: now,
+      threadId: source.id,
+    });
+    insertEvents(db, noopNotifier, [
+      {
+        createdAt: now,
+        data: JSON.stringify({
+          item: {
+            aggregatedOutput: output,
+            id: "command-1",
+            type: "commandExecution",
+          },
+        }),
+        itemId: "command-1",
+        itemKind: "commandExecution",
+        parentToolCallId: null,
+        scope: turnScope("turn-1"),
+        sequence: 1_001,
+        threadId: source.id,
+        type: "item/completed",
+      },
+    ]);
+    const rows = listStoredEventRows(db, { threadId: source.id });
+    const stored = rows.find((row) => row.itemKind === "commandExecution");
+    if (!stored) throw new Error("Expected stored command event");
+    expect(readOutput(stored.data, "aggregatedOutput")).not.toBe(output);
+
+    queries = 0;
+    const hydrated = hydrateRetainedEventOutputRows(db, rows, now);
+    expect(queries).toBe(1);
+    expect(
+      readOutput(
+        hydrated[rows.indexOf(stored)]?.data ?? "",
+        "aggregatedOutput",
+      ),
+    ).toBe(output);
+
+    queries = 0;
+    expect(
+      hydrateRetainedEventOutputRowsWithinDataByteLimit(
+        db,
+        rows,
+        4 * 1024 * 1024,
+        now,
+      ),
+    ).toEqual(hydrated);
+    expect(queries).toBe(2);
+
+    expect(
+      hydrateRetainedEventOutputRows(
+        db,
+        rows,
+        now + COMPLETED_EVENT_OUTPUT_RETENTION_MS + 1,
+      ),
+    ).toEqual(rows);
+    db.$client.close();
+  });
+
+  it("refuses an over-budget read before looking up retained outputs", () => {
+    const now = 1_800_000_000_000;
+    let queries = 0;
+    const { db, source } = setup({
+      slowQueryLogger: {
+        info() {
+          queries += 1;
+        },
+      },
+      slowQueryThresholdMs: 0,
+    });
+    insertTurnStartedEvents(db, {
+      count: 3,
+      createdAt: now,
+      threadId: source.id,
+    });
+    const rows = listStoredEventRows(db, { threadId: source.id });
+    const storedBytes = rows.reduce(
+      (total, row) => total + Buffer.byteLength(row.data),
+      0,
+    );
+    expect(
+      canHydrateRetainedEventOutputRowsWithinDataByteLimit(
+        db,
+        rows,
+        storedBytes,
+        now,
+      ),
+    ).toBe(true);
+
+    queries = 0;
+    expect(
+      hydrateRetainedEventOutputRowsWithinDataByteLimit(
+        db,
+        rows,
+        storedBytes - 1,
+        now,
+      ),
+    ).toEqual(rows);
+    expect(queries).toBe(0);
     db.$client.close();
   });
 });

@@ -2,10 +2,20 @@
 
 import {
   buildBridgeInjectionScript,
+  buildBridgeEventScript,
   parsePageToShellMessage,
   type NativeShellHandshake,
 } from "@cc/mobile-bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  openApplicationUrl,
+  resolveApplicationUrlConfirmation,
+} from "../application-url";
+import { appToast } from "@/components/ui/app-toast";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { createElement } from "react";
+import { MemoryRouter } from "react-router-dom";
+import { NativeShellReporter } from "./NativeShellReporter";
 import {
   getNativeShell,
   isInsideNativeShell,
@@ -55,6 +65,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   Reflect.deleteProperty(window as unknown as Record<string, unknown>, "cc");
   Reflect.deleteProperty(
     window as unknown as Record<string, unknown>,
@@ -92,11 +103,6 @@ describe("getNativeShell", () => {
     expect(getNativeShell()).toBeNull();
   });
 
-  it("treats a nonsense bridge version as no bridge", () => {
-    installShell({ bridgeVersion: 0 });
-    expect(getNativeShell()).toBeNull();
-  });
-
   it("keeps working with a shell newer than this page", () => {
     installShell({ bridgeVersion: 99 });
     expect(getNativeShell()).not.toBeNull();
@@ -116,4 +122,78 @@ describe("shellOpenExternal", () => {
   it("declines in a plain browser so the caller can use window.open", () => {
     expect(shellOpenExternal("https://example.com/docs")).toBe(false);
   });
+});
+
+it("applies native bottom insets to portaled UI and updates them when the safe area changes", () => {
+  installShell({
+    platform: "android",
+    safeArea: { top: 24, right: 0, bottom: 24, left: 0 },
+  });
+  const { unmount } = render(
+    createElement(MemoryRouter, null, createElement(NativeShellReporter)),
+  );
+  expect(
+    document.documentElement.style.getPropertyValue("--cc-safe-area-bottom"),
+  ).toBe("24px");
+  act(() => {
+    new Function(
+      "window",
+      buildBridgeEventScript({
+        type: "safe-area",
+        safeArea: { top: 0, right: 24, bottom: 0, left: 0 },
+      }),
+    )(window);
+  });
+  expect(
+    document.documentElement.style.getPropertyValue("--cc-safe-area-bottom"),
+  ).toBe("0px");
+  unmount();
+  expect(
+    document.documentElement.style.getPropertyValue("--cc-safe-area-bottom"),
+  ).toBe("");
+});
+
+describe("application link compatibility", () => {
+  it.each([2, 3])(
+    "uses an acknowledged native request only with bridge version 3 (version %s)",
+    async (bridgeVersion) => {
+      installShell({ bridgeVersion });
+      const error = vi
+        .spyOn(appToast, "error")
+        .mockImplementation(() => "toast");
+      openApplicationUrl("reflect://note/Project%20X");
+      expect(posted).toEqual([]);
+      resolveApplicationUrlConfirmation("open");
+      await act(async () => {});
+      if (bridgeVersion === 2) {
+        await waitFor(() =>
+          expect(error).toHaveBeenCalledWith("Couldn't open application link", {
+            description: "Update the CC mobile app to open application links.",
+          }),
+        );
+        expect(posted).toEqual([]);
+        return;
+      }
+      const parsed = parsePageToShellMessage(posted.at(-1));
+      if (!parsed.ok || parsed.message.type !== "request")
+        throw new Error("Missing native request");
+      expect(parsed.message.request).toEqual({
+        kind: "open-application",
+        payload: { url: "reflect://note/Project%20X" },
+      });
+      new Function(
+        "window",
+        buildBridgeEventScript({
+          type: "response",
+          id: parsed.message.id,
+          response: { ok: false, error: "App not installed" },
+        }),
+      )(window);
+      await waitFor(() =>
+        expect(error).toHaveBeenCalledWith("Couldn't open application link", {
+          description: "App not installed",
+        }),
+      );
+    },
+  );
 });

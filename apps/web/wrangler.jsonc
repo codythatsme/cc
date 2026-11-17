@@ -11,6 +11,13 @@
 //                 && pnpm --filter @cc/web exec wrangler deploy
 // Secrets (per worker): wrangler secret put [--name cc-web] GITHUB_CLIENT_ID /
 //   GITHUB_CLIENT_SECRET / BETTER_AUTH_SECRET / RESEND_API_KEY
+// Var: NEXT_BASE_DOMAIN — cc connect next's domain; /oauth/authorize also
+//   issues MCP tokens for https://<label>.<NEXT_BASE_DOMAIN>/mcp.
+// Var: GATE_PUBLIC_KEYS — the cc connect next gate's Ed25519 public key set
+//   as a JSON string ({"keys":[{"kid","kty":"OKP","crv":"Ed25519","x"}]}),
+//   served at /.well-known/cc-connect-gate-keys.json. Unset = 404. It is
+//   public, so it lives in "vars" here (not the dashboard: a deploy replaces
+//   dashboard vars). Set it to your own gate's public key set.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "send_metrics": false,
@@ -25,7 +32,8 @@
     "APP_URL": "https://cc-staging.example.invalid",
     // Resend audience that /api/subscribe adds emails to ("cc users").
     // Not a secret — only the API key is.
-
+    "PRESENCE_WRITES": "on-change",
+    "NEXT_BASE_DOMAIN": "next.cc-staging.example.invalid",
   },
   "secrets": {
     "required": [
@@ -35,11 +43,11 @@
       "RESEND_API_KEY",
     ],
   },
-  "d1_databases": [
+  "hyperdrive": [
     {
-      "binding": "DB",
-      "database_name": "cc-connect-staging",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000000",
+      "localConnectionString": "postgresql://cc:cc@localhost:5432/cc_connect",
     },
   ],
   "durable_objects": {
@@ -51,7 +59,7 @@
       },
     ],
   },
-  // CC Official plugin marketplace. The registry repo (get-cc/marketplace)
+  // CC Official plugin marketplace. The registry repo (codythatsme/marketplace)
   // uploads marketplace.json + icons here; /marketplace/v1/* serves them.
   // The route answers 404 until the bucket exists, so this binding can land
   // before the bucket is provisioned.
@@ -59,6 +67,13 @@
     {
       "binding": "MARKETPLACE",
       "bucket_name": "cc-marketplace-staging",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "LINK_START_RATE_LIMITER",
+      "namespace_id": "4203",
+      "simple": { "limit": 10, "period": 60 },
     },
   ],
   "routes": [],
@@ -85,13 +100,14 @@
       "vars": {
         "BASE_DOMAIN": "cc.example.invalid",
         "APP_URL": "https://cc.example.invalid",
-
+        "PRESENCE_WRITES": "on-change",
+        "NEXT_BASE_DOMAIN": "next.cc.example.invalid",
       },
-      "d1_databases": [
+      "hyperdrive": [
         {
-          "binding": "DB",
-          "database_name": "cc-connect-prod",
-          "database_id": "00000000-0000-0000-0000-000000000000",
+          "binding": "HYPERDRIVE",
+          "id": "00000000000000000000000000000000",
+          "localConnectionString": "postgresql://cc:cc@localhost:5432/cc_connect",
         },
       ],
       "durable_objects": {
@@ -107,6 +123,13 @@
         {
           "binding": "MARKETPLACE",
           "bucket_name": "cc-marketplace",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "LINK_START_RATE_LIMITER",
+          "namespace_id": "4204",
+          "simple": { "limit": 10, "period": 60 },
         },
       ],
     },

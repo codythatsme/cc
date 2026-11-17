@@ -12,10 +12,14 @@ describe("createAppVersionService", () => {
       });
       vi.stubGlobal("fetch", fetch);
       const service = createAppVersionService({
-        config: { appVersion: "0.44.0", isDevelopment },
+        installKind: "desktop",
+        sourceCommit: null,
+        config: { appVersion: "0.49.0", isDevelopment },
       });
       expect(await service.getSystemVersion({ forceRefresh: true })).toEqual({
-        currentVersion: "0.44.0",
+        currentCommit: null,
+        installKind: "desktop",
+        currentVersion: "0.49.0",
         latestVersion: null,
         source: "homebrew",
         updateAvailable: false,
@@ -25,4 +29,20 @@ describe("createAppVersionService", () => {
       expect(fetch).not.toHaveBeenCalled();
     },
   );
+
+  it("reports the source commit only for source checkouts", async () => {
+    const commit = "a".repeat(40);
+    const source = createAppVersionService({
+      installKind: "source",
+      sourceCommit: commit,
+      config: { appVersion: "0.49.0", isDevelopment: false },
+    });
+    const desktop = createAppVersionService({
+      installKind: "desktop",
+      sourceCommit: commit,
+      config: { appVersion: "0.49.0", isDevelopment: false },
+    });
+    expect((await source.getSystemVersion()).currentCommit).toBe(commit);
+    expect((await desktop.getSystemVersion()).currentCommit).toBeNull();
+  });
 });

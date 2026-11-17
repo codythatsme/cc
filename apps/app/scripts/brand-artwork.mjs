@@ -18,25 +18,42 @@ async function markSource(appearance) {
   return marks.get(appearance);
 }
 
-export async function renderMarkPng(
-  size,
-  { appearance = "carbon", background, scale = 0.9, monochrome = false } = {},
+export async function renderMarkPng(size, options = {}) {
+  return renderMarkCanvasPng(size, size, options);
+}
+
+export async function renderMarkCanvasPng(
+  width,
+  height,
+  {
+    appearance = "carbon",
+    background,
+    scale = 0.9,
+    monochrome = false,
+    monochromeColor = "#ffffff",
+  } = {},
 ) {
   const source = await markSource(appearance);
-  const extent = Math.round(size * scale);
   let mark = await sharp(source)
-    .resize(extent, extent, { fit: "inside" })
+    .resize(Math.round(width * scale), Math.round(height * scale), {
+      fit: "inside",
+    })
     .png()
     .toBuffer();
   if (monochrome) {
-    const { width, height } = await sharp(mark).metadata();
+    const metadata = await sharp(mark).metadata();
     const alpha = await sharp(mark)
       .ensureAlpha()
       .extractChannel("alpha")
       .threshold(32)
       .toBuffer();
     mark = await sharp({
-      create: { width, height, channels: 3, background: "#ffffff" },
+      create: {
+        width: metadata.width,
+        height: metadata.height,
+        channels: 3,
+        background: monochromeColor,
+      },
     })
       .joinChannel(alpha)
       .png()
@@ -44,8 +61,8 @@ export async function renderMarkPng(
   }
   return sharp({
     create: {
-      width: size,
-      height: size,
+      width,
+      height,
       channels: background ? 3 : 4,
       background: background ?? "#00000000",
     },

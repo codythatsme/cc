@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import type { PromptTextMention, ThreadListEntry } from "@cc/domain";
+import type { ReactNode } from "react";
+import type { ThreadListEntry } from "@cc/domain";
 import {
   NewThreadPromptBoxUI,
   type NewThreadEnvironmentConfig,
@@ -24,8 +24,10 @@ import {
   makeThreadListEntry,
   makeTypeaheadConfig,
 } from "../../.ladle/story-fixtures";
-import { RootComposeCompactHome } from "./RootComposeCompactHome";
+import { RootComposeHome } from "./RootComposeHome";
 import { RootComposeMobileRecents } from "./RootComposeMobileRecents";
+import { ThreadActionsProvider } from "@/components/thread/ThreadActionsProvider";
+import { useComposerDraftFixture } from "@/test/fixtures/composer-draft";
 
 export const projectNamesById = new Map<string, string>([
   [PROJECT_IDS.cc, PROJECT_NAMES.cc],
@@ -158,25 +160,22 @@ export function MobileRecentsVisibilityStyle() {
   );
 }
 
-export function StoryComposer() {
-  const [value, setValue] = useState("");
-  const [mentionRanges, setMentionRanges] = useState<PromptTextMention[]>([]);
+export function StoryComposer({
+  initialValue = "",
+}: {
+  initialValue?: string;
+}) {
+  const draft = useComposerDraftFixture(initialValue);
   return (
     <ModelPickerStoryQueryProvider>
       <NewThreadPromptBoxUI
         mentionMenuPlacement="top"
         id="story-compact-home-composer"
-        value={value}
-        mentionRanges={mentionRanges}
-        onChange={(nextValue, nextMentionRanges) => {
-          setValue(nextValue);
-          setMentionRanges(nextMentionRanges);
-        }}
+        draft={draft}
         onSubmit={noop}
         isSubmitting={false}
         disabled={false}
         history={{
-          currentDraft: { text: "", mentions: [], attachments: [] },
           entries: [],
           onSelectEntry: noop,
         }}
@@ -192,32 +191,45 @@ export function StoryComposer() {
 
 export function HomeRecents({ threads }: { threads: ThreadListEntry[] }) {
   return (
-    <RootComposeMobileRecents
-      highlightedThreadId={null}
-      projectNamesById={projectNamesById}
-      providersById={STORY_PROVIDERS_BY_ID}
-      showCreatingRow={false}
-      threads={threads}
-    />
+    <ThreadActionsProvider>
+      <RootComposeMobileRecents
+        highlightedThreadId={null}
+        projectNamesById={projectNamesById}
+        providersById={STORY_PROVIDERS_BY_ID}
+        showCreatingRow={false}
+        threads={threads}
+      />
+    </ThreadActionsProvider>
   );
 }
 
 export function CompactHomePage({
   threads = HOME_THREADS,
+  composerValue,
 }: {
   threads?: ThreadListEntry[];
+  composerValue?: string;
 }) {
   return (
-    <RootComposeCompactHome composer={<StoryComposer />}>
-      <HomeRecents threads={threads} />
-    </RootComposeCompactHome>
+    <RootComposeHome
+      isCompact
+      composer={<StoryComposer initialValue={composerValue} />}
+      compactScrollContent={<HomeRecents threads={threads} />}
+      homepageSections={null}
+    />
   );
 }
 
-export function PhoneFrame({ children }: { children: ReactNode }) {
+export function PhoneFrame({
+  children,
+  heightClass = "h-[852px]",
+}: {
+  children: ReactNode;
+  heightClass?: string;
+}) {
   return (
     <div
-      className={`${MOBILE_RECENTS_VISIBILITY_CLASS} flex h-[852px] w-[393px] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background`}
+      className={`${MOBILE_RECENTS_VISIBILITY_CLASS} flex ${heightClass} w-[393px] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background`}
     >
       <MobileRecentsVisibilityStyle />
       {children}

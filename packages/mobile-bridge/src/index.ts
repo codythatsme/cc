@@ -5,9 +5,10 @@ export {
   isBridgeUsable,
 } from "./version.js";
 export {
-  NATIVE_CAPABILITIES,
+  parseBridgeServers,
   parseNativeShellHandshake,
   safeAreaInsetsSchema,
+  type BridgeServer,
   type NativeCapability,
   type NativeShellHandshake,
   type SafeAreaInsets,

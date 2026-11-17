@@ -22,7 +22,16 @@ import {
 import { providerHealthSchema as providerHealthSchema } from "@cc/provider-bridge-protocol/provider-maintenance";
 import { hostPlatformSchema } from "@cc/host-daemon-contract/local";
 import { machineEnvironmentSetSchema } from "./machine-environment.js";
-
+import { systemVoiceTranscriptionResponseSchema } from "./system-voice.js";
+import {
+  systemEnvironmentProviderSchema,
+  systemEnvironmentProvidersResponseSchema,
+} from "./system-environment-providers.js";
+export {
+  systemEnvironmentProviderSchema,
+  systemEnvironmentProvidersResponseSchema,
+} from "./system-environment-providers.js";
+export { systemVoiceTranscriptionResponseSchema } from "./system-voice.js";
 const machineEnvironmentReplacementVariableSchema =
   machineEnvironmentSetSchema.extend({
     value: machineEnvironmentSetSchema.shape.value.nullable(),
@@ -95,18 +104,42 @@ export const systemProvidersQuerySchema = z
   .superRefine(rejectMultipleWorkspaceSelectors);
 export type SystemProvidersQuery = z.infer<typeof systemProvidersQuerySchema>;
 
-export const systemExecutionOptionsQuerySchema = z
+export const systemProviderStatesQuerySchema = z
   .object({
     ...systemProviderHostQueryFields,
+    capability: z.enum(["usage"]),
     providerId: z.string().min(1),
   })
   .partial()
   .superRefine(rejectMultipleWorkspaceSelectors);
+export type SystemProviderStatesQuery = z.infer<
+  typeof systemProviderStatesQuerySchema
+>;
+
+export const systemExecutionOptionsQuerySchema = z
+  .object({
+    ...systemProviderHostQueryFields,
+    providerId: z.string().min(1),
+    projectId: z.string().min(1),
+    selectedModel: z.string().min(1),
+    preferCached: z.enum(["true", "false"]),
+  })
+  .partial()
+  .superRefine(rejectMultipleWorkspaceSelectors)
+  .superRefine((query, context) => {
+    if (query.projectId !== undefined && query.environmentId !== undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "projectId and environmentId are mutually exclusive",
+      });
+    }
+  });
 export type SystemExecutionOptionsQuery = z.infer<
   typeof systemExecutionOptionsQuerySchema
 >;
 
 export const systemUsageLimitsQuerySchema = z.object({
+  refresh: z.enum(["true", "false"]).optional(),
   hostId: z.string().min(1).optional(),
   providerId: z.string().min(1).optional(),
 });
@@ -121,9 +154,6 @@ export interface SystemVoiceTranscriptionForm {
 export { providerInfoSchema as systemProviderInfoSchema } from "@cc/domain";
 export type { ProviderInfo as SystemProviderInfo } from "@cc/domain";
 
-export const systemVoiceTranscriptionResponseSchema = z.object({
-  text: z.string(),
-});
 export type SystemVoiceTranscriptionResponse = z.infer<
   typeof systemVoiceTranscriptionResponseSchema
 >;
@@ -131,6 +161,9 @@ export type SystemVoiceTranscriptionResponse = z.infer<
 export const systemProviderStateSchema = providerHealthSchema.extend({
   providerId: z.string().min(1),
   displayName: z.string().min(1),
+  localLoginCommand: z.string().min(1).nullable(),
+  internal_DO_NOT_USE_guidedSignIn: z.boolean(),
+  internal_DO_NOT_USE_setupGuidePlanLabel: z.string().min(1).nullable(),
 });
 export type SystemProviderState = z.infer<typeof systemProviderStateSchema>;
 
@@ -191,6 +224,45 @@ export const testAiServiceResponseSchema = z.discriminatedUnion("ok", [
 ]);
 export type TestAiServiceResponse = z.infer<typeof testAiServiceResponseSchema>;
 
+export const onboardingFailureDetailSchema = z.enum([
+  "not_found",
+  "permission",
+  "network",
+  "disk_full",
+  "npm_error",
+  "verification_failed",
+  "unavailable",
+  "in_progress",
+  "signal",
+  "exit_nonzero",
+  "denied",
+  "expired",
+  "login_failed",
+  "rate_limited",
+  "service_unavailable",
+  "account_unavailable",
+  "invalid_code",
+  "expired_code",
+  "already_used",
+  "unauthorized",
+  "profile_unavailable",
+  "superseded",
+  "other",
+]);
+export type OnboardingFailureDetail = z.infer<
+  typeof onboardingFailureDetailSchema
+>;
+
+export const setupGuideVariantSchema = z.enum(["control", "new"]);
+export type SetupGuideVariant = z.infer<typeof setupGuideVariantSchema>;
+
+export const systemSetupGuideResponseSchema = z.object({
+  variant: setupGuideVariantSchema,
+});
+export type SystemSetupGuideResponse = z.infer<
+  typeof systemSetupGuideResponseSchema
+>;
+
 export const serverAccessStatusSchema = z.object({
   providers: z.array(
     z.object({
@@ -228,6 +300,7 @@ export const systemConfigResponseSchema = z.object({
   defaultKeybindings: appDefaultKeybindingsSchema,
   keybindingOverrides: appKeybindingOverridesSchema,
   experiments: experimentsSchema,
+  performanceDiagnosticsAvailable: z.boolean(),
   appearance: appThemeSchema,
   customThemes: z.array(z.string()),
   pluginThemes: z.array(pluginThemeMetaSchema),
@@ -258,6 +331,11 @@ export const themeCatalogResponseSchema = z.object({
 export type ThemeCatalogResponse = z.infer<typeof themeCatalogResponseSchema>;
 
 export const systemVersionResponseSchema = z.object({
+  currentCommit: z
+    .string()
+    .regex(/^[a-f0-9]{40}$/i)
+    .nullable(),
+  installKind: z.enum(["desktop", "npm", "source"]).nullable(),
   currentVersion: z.string(),
   latestVersion: z.string().nullable(),
   source: z.enum(["homebrew", "npm"]),
@@ -271,6 +349,24 @@ export const systemVersionQuerySchema = z.object({
   force: z.enum(["true", "false"]).optional(),
 });
 export type SystemVersionQuery = z.infer<typeof systemVersionQuerySchema>;
+
+export const systemCliCommandShadowSchema = z.object({
+  path: z.string().min(1),
+  source: z.enum(["machine", "npm", "other"]),
+});
+export type SystemCliCommandShadow = z.infer<
+  typeof systemCliCommandShadowSchema
+>;
+
+export const systemCliCommandStatusSchema = z.object({
+  installedPath: z.string().min(1).nullable(),
+  onPath: z.boolean(),
+  shadowedBy: systemCliCommandShadowSchema.nullable(),
+  supported: z.boolean(),
+});
+export type SystemCliCommandStatus = z.infer<
+  typeof systemCliCommandStatusSchema
+>;
 
 export const systemAppUpdateRevisionSchema = z.object({
   commit: z.string().nullable(),
@@ -295,6 +391,7 @@ export type SystemAppUpdateSupport = z.infer<
 >;
 
 export const systemAppUpdateAvailableSchema = z.object({
+  behindSince: z.iso.datetime().nullable(),
   channel: z.enum(["latest", "nightly", "main"]),
   commit: z.string().nullable(),
   commitCount: z.number().int().nonnegative().nullable(),
@@ -315,9 +412,6 @@ export const systemAppUpdateBlockedSchema = z.object({
     "fetch-failed",
   ]),
 });
-export type SystemAppUpdateBlocked = z.infer<
-  typeof systemAppUpdateBlockedSchema
->;
 
 export const systemAppUpdateActivitySchema = z.discriminatedUnion("phase", [
   z.object({ phase: z.literal("idle") }),
@@ -331,6 +425,7 @@ export const systemAppUpdateActivitySchema = z.discriminatedUnion("phase", [
   z.object({
     phase: z.literal("restarting"),
     startedAt: z.string(),
+    targetCommit: z.string().nullable(),
     targetVersion: z.string(),
   }),
 ]);
@@ -352,12 +447,21 @@ export const systemAppUpdateResultSchema = z.object({
 export type SystemAppUpdateResult = z.infer<typeof systemAppUpdateResultSchema>;
 
 export const systemAppUpdateStatusSchema = z.object({
+  desktopUpdateSupported: z.literal(true).optional(),
   activity: systemAppUpdateActivitySchema,
+  autoUpdate: z.boolean(),
   available: systemAppUpdateAvailableSchema.nullable(),
+  availableSkipped: z.boolean(),
   blocked: systemAppUpdateBlockedSchema.nullable(),
   current: systemAppUpdateRevisionSchema,
   lastResult: systemAppUpdateResultSchema.nullable(),
   runningThreadCount: z.number().int().nonnegative(),
+  scheduled: z
+    .object({
+      requestedAt: z.string(),
+      requiredIdleMs: z.number().int().nonnegative(),
+    })
+    .nullable(),
   support: systemAppUpdateSupportSchema,
 });
 export type SystemAppUpdateStatus = z.infer<typeof systemAppUpdateStatusSchema>;
@@ -372,6 +476,13 @@ export const systemAppUpdateApplyRequestSchema = z.object({
 });
 export type SystemAppUpdateApplyRequest = z.infer<
   typeof systemAppUpdateApplyRequestSchema
+>;
+
+export const systemAppUpdateAutoRequestSchema = z.object({
+  enabled: z.boolean(),
+});
+export type SystemAppUpdateAutoRequest = z.infer<
+  typeof systemAppUpdateAutoRequestSchema
 >;
 
 export const systemAppUpdateAcknowledgeRequestSchema = z.object({
@@ -450,54 +561,10 @@ export type SystemConfigReloadResponse = z.infer<
   typeof systemConfigReloadResponseSchema
 >;
 
-const systemEnvironmentProviderAvailabilitySchema = z.discriminatedUnion(
-  "status",
-  [
-    z.object({ status: z.literal("available") }),
-    z.object({
-      status: z.literal("setup-required"),
-      message: z.string().min(1),
-    }),
-    z.object({
-      status: z.literal("unavailable"),
-      message: z.string().min(1),
-    }),
-  ],
-);
-
-export const systemEnvironmentProviderSchema = z.object({
-  environmentProviderId: z.string().min(1).optional(),
-  machineProviderId: z.string().min(1).nullable(),
-  id: z.string().min(1),
-  displayName: z.string().min(1),
-  description: z.string().min(1).nullable(),
-  icon: z.string().min(1).nullable(),
-  logoUrl: z.string().min(1).nullable(),
-  pluginId: z.string().min(1),
-  requires: z.object({
-    projectCheckout: z.boolean(),
-    gitCheckout: z.boolean(),
-    gitRemote: z.boolean(),
-    projectless: z.boolean(),
-  }),
-  inputs: jsonValueSchema.nullable(),
-  acceptsEmptyInputs: z.boolean(),
-  availability: systemEnvironmentProviderAvailabilitySchema.nullable(),
-  machineAvailability: z.record(
-    z.string().min(1),
-    systemEnvironmentProviderAvailabilitySchema.nullable(),
-  ),
-  machineInputs: jsonValueSchema.nullable().optional(),
-  machineAcceptsEmptyInputs: z.boolean().optional(),
-  machineProviderPluginId: z.string().min(1).optional(),
-});
 export type SystemEnvironmentProvider = z.infer<
   typeof systemEnvironmentProviderSchema
 >;
 
-export const systemEnvironmentProvidersResponseSchema = z.object({
-  providers: z.array(systemEnvironmentProviderSchema),
-});
 export type SystemEnvironmentProvidersResponse = z.infer<
   typeof systemEnvironmentProvidersResponseSchema
 >;
@@ -538,4 +605,37 @@ export const systemMachineProvidersResponseSchema = z.object({
 });
 export type SystemMachineProvidersResponse = z.infer<
   typeof systemMachineProvidersResponseSchema
+>;
+
+export const androidAppArtifactSchema = z.object({
+  version: z.string().min(1),
+  versionCode: z.number().int().positive(),
+  size: z.number().int().positive(),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+});
+export type AndroidAppArtifact = z.infer<typeof androidAppArtifactSchema>;
+
+export interface SystemMobileAppReleasesResponse {
+  android: (AndroidAppArtifact & { updatedAt: string }) | null;
+}
+
+export const systemProviderCatalogEntrySchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  pluginId: z.string(),
+  pluginName: z.string(),
+  pluginEnabled: z.boolean(),
+  enabled: z.boolean(),
+  available: z.boolean(),
+  logoUrl: z.string().nullable(),
+  info: providerInfoSchema.nullable(),
+});
+export type SystemProviderCatalogEntry = z.infer<
+  typeof systemProviderCatalogEntrySchema
+>;
+export const systemProviderEnabledRequestSchema = z
+  .object({ enabled: z.boolean() })
+  .strict();
+export type SystemProviderEnabledRequest = z.infer<
+  typeof systemProviderEnabledRequestSchema
 >;

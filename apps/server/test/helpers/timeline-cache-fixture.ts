@@ -14,11 +14,11 @@ import {
   createThread,
   getLatestThreadSequence,
   insertEvents,
-  migrate,
   noopNotifier,
   upsertHost,
   type DbConnection,
 } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 
 export type Random = () => number;
 
@@ -45,8 +45,7 @@ let migratedImage: Buffer | null = null;
 
 function readMigratedImage(): Buffer {
   if (migratedImage === null) {
-    const db = createConnection(":memory:");
-    migrate(db);
+    const db = createMigratedConnection();
     migratedImage = db.$client.serialize();
     db.$client.close();
   }

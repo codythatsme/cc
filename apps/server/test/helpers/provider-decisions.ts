@@ -6,10 +6,17 @@ import type {
 } from "@codythatsme/plugin-sdk/environment-provider";
 import type { ProviderReadyEnvironmentInput } from "@cc/server-contract";
 
+type TestReadyEnvironment =
+  | Exclude<ProviderReadyEnvironmentInput, { type: "host" }>
+  | (Omit<
+      Extract<ProviderReadyEnvironmentInput, { type: "host" }>,
+      "mergeBaseBranch"
+    > & { mergeBaseBranch?: string | null });
+
 export type TestProviderDecision =
   | {
       action: "ready";
-      environment: ProviderReadyEnvironmentInput;
+      environment: TestReadyEnvironment;
       log?: string;
     }
   | { action: "wait"; reason: string; log?: string }

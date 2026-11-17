@@ -1,19 +1,31 @@
-import { eq, inArray } from "drizzle-orm";
 import {
+  GIT_PLUGIN_ID,
   aiServiceSelectionSchema,
   AI_TASKS,
   appKeybindingOverridesSchema,
   appSettingsSchema,
   defaultAiServiceSelections,
   defaultAppSettings,
+  disabledProviderIdsSchema,
+  pluginPackageJsonSchema,
   type AiServiceSelection,
   type AiServiceSelections,
   type AiTask,
   type AppKeybindingOverrides,
   type AppSettings,
 } from "@cc/domain";
-import type { DbConnection, DbQueryConnection } from "../connection.js";
+import { eq, inArray } from "drizzle-orm";
+import {
+  prepareCachedQuery,
+  type DbConnection,
+  type DbQueryConnection,
+} from "../connection.js";
 import { appSettingsValues } from "../schema.js";
+import {
+  deepFreeze,
+  sameStoredSettingRows,
+  type StoredSettingRow,
+} from "./stored-setting-rows.js";
 
 const appSettingsKeySchema = appSettingsSchema.keyof();
 const appSettingsKeys = appSettingsKeySchema.options;
@@ -21,7 +33,11 @@ const appSettingsKeys = appSettingsKeySchema.options;
 const KEYBINDING_OVERRIDES_KEY = "keybindingOverrides";
 const AI_SERVICE_SELECTIONS_KEY = "aiServiceSelections";
 const PLUGIN_SAFE_MODE_KEY = "pluginSafeMode";
+const DISABLED_PROVIDER_IDS_KEY = "disabledProviderIds";
 const LEGACY_DIAGNOSTIC_EVENTS_KEY = "showUnhandledProviderEvents";
+const APP_UPDATE_SEND_HOLD_KEY = "appUpdateSendHold";
+const SKIPPED_APP_UPDATE_KEY = "skippedAppUpdate";
+const AUTO_APP_UPDATE_KEY = "autoAppUpdate";
 
 function parseStoredValue(text: string): unknown {
   try {
@@ -47,9 +63,8 @@ function writeValue(
     .run();
 }
 
-export function getAppSettings(db: DbConnection): AppSettings {
-  const values: Record<string, unknown> = { ...defaultAppSettings };
-  const rows = db
+const prepareAppSettingsRows = (db: DbQueryConnection) =>
+  db
     .select({ key: appSettingsValues.key, value: appSettingsValues.value })
     .from(appSettingsValues)
     .where(
@@ -58,8 +73,27 @@ export function getAppSettings(db: DbConnection): AppSettings {
         LEGACY_DIAGNOSTIC_EVENTS_KEY,
       ]),
     )
-    .all();
+    .orderBy(appSettingsValues.key)
+    .prepare();
 
+const parsedAppSettings = new WeakMap<
+  DbConnection,
+  { rows: StoredSettingRow[]; settings: AppSettings }
+>();
+
+export function getAppSettings(db: DbConnection): AppSettings {
+  const rows = prepareCachedQuery(db, prepareAppSettingsRows).all();
+  const cached = parsedAppSettings.get(db);
+  if (cached !== undefined && sameStoredSettingRows(cached.rows, rows)) {
+    return cached.settings;
+  }
+  const settings = deepFreeze(parseAppSettingsRows(rows));
+  parsedAppSettings.set(db, { rows, settings });
+  return settings;
+}
+
+function parseAppSettingsRows(rows: readonly StoredSettingRow[]): AppSettings {
+  const values: Record<string, unknown> = { ...defaultAppSettings };
   const legacyDiagnosticEvents = rows.find(
     (row) => row.key === LEGACY_DIAGNOSTIC_EVENTS_KEY,
   );
@@ -95,6 +129,45 @@ export function setAppSettings(db: DbConnection, settings: AppSettings): void {
   });
 }
 
+const RETIRED_KEYBOARD_COMMAND_IDS: ReadonlyMap<string, string> = new Map([
+  ["diff.toggle", `plugin:${GIT_PLUGIN_ID}/toggle-diff`],
+]);
+
+function overrideSlot(entry: unknown): string | null {
+  if (
+    typeof entry !== "object" ||
+    entry === null ||
+    !("command" in entry) ||
+    typeof entry.command !== "string"
+  ) {
+    return null;
+  }
+  const platform =
+    "platform" in entry && typeof entry.platform === "string"
+      ? entry.platform
+      : "all";
+  return `${entry.command}:${platform}`;
+}
+
+function migrateRetiredKeyboardCommands(stored: unknown): unknown {
+  if (!Array.isArray(stored)) return stored;
+  const explicitSlots = new Set(stored.map(overrideSlot));
+  return stored.flatMap((entry: unknown) => {
+    if (
+      typeof entry !== "object" ||
+      entry === null ||
+      !("command" in entry) ||
+      typeof entry.command !== "string"
+    ) {
+      return [entry];
+    }
+    const replacement = RETIRED_KEYBOARD_COMMAND_IDS.get(entry.command);
+    if (replacement === undefined) return [entry];
+    const migrated = { ...entry, command: replacement };
+    return explicitSlots.has(overrideSlot(migrated)) ? [] : [migrated];
+  });
+}
+
 export function getAppKeybindingOverrides(
   db: DbConnection,
 ): AppKeybindingOverrides {
@@ -107,7 +180,9 @@ export function getAppKeybindingOverrides(
   if (row === undefined) {
     return [];
   }
-  return appKeybindingOverridesSchema.parse(parseStoredValue(row.value));
+  return appKeybindingOverridesSchema.parse(
+    migrateRetiredKeyboardCommands(parseStoredValue(row.value)),
+  );
 }
 
 export function setAppKeybindingOverrides(
@@ -155,4 +230,163 @@ export function getPluginSafeMode(db: DbConnection): boolean {
 
 export function setPluginSafeMode(db: DbConnection, enabled: boolean): void {
   writeValue(db, PLUGIN_SAFE_MODE_KEY, enabled, Date.now());
+}
+
+export function getDisabledProviderIds(db: DbConnection): string[] {
+  const row = db
+    .select({ value: appSettingsValues.value })
+    .from(appSettingsValues)
+    .where(eq(appSettingsValues.key, DISABLED_PROVIDER_IDS_KEY))
+    .get();
+  const parsed = disabledProviderIdsSchema.safeParse(
+    row === undefined ? [] : parseStoredValue(row.value),
+  );
+  return parsed.success ? parsed.data : [];
+}
+
+export function setDisabledProviderIds(
+  db: DbConnection,
+  providerIds: readonly string[],
+): void {
+  writeValue(db, DISABLED_PROVIDER_IDS_KEY, providerIds, Date.now());
+}
+
+const pluginProviderCatalogSchema =
+  pluginPackageJsonSchema.shape.cc.shape.experimental_providers
+    .unwrap()
+    .element.omit({ kind: true })
+    .array();
+
+function pluginProviderCatalogKey(pluginId: string): string {
+  return `pluginProviders:${pluginId}`;
+}
+
+export function getDisabledPluginProviderCatalog(
+  db: DbConnection,
+  pluginId: string,
+): Array<{ id: string; displayName: string }> {
+  const row = db
+    .select({ value: appSettingsValues.value })
+    .from(appSettingsValues)
+    .where(eq(appSettingsValues.key, pluginProviderCatalogKey(pluginId)))
+    .get();
+  const parsed = pluginProviderCatalogSchema.safeParse(
+    row === undefined ? [] : parseStoredValue(row.value),
+  );
+  return parsed.success ? parsed.data : [];
+}
+
+export function setDisabledPluginProviderCatalog(
+  db: DbConnection,
+  pluginId: string,
+  providers: Array<{ id: string; displayName: string }>,
+): void {
+  writeValue(db, pluginProviderCatalogKey(pluginId), providers, Date.now());
+}
+
+export function forgetPluginProviders(
+  db: DbConnection,
+  pluginId: string,
+  providerIds: ReadonlySet<string>,
+): void {
+  const disabledProviderIds = getDisabledProviderIds(db);
+  db.transaction((transaction) => {
+    writeValue(
+      transaction,
+      DISABLED_PROVIDER_IDS_KEY,
+      disabledProviderIds.filter((id) => !providerIds.has(id)),
+      Date.now(),
+    );
+    transaction
+      .delete(appSettingsValues)
+      .where(eq(appSettingsValues.key, pluginProviderCatalogKey(pluginId)))
+      .run();
+  });
+}
+
+function pluginRecommendationKey(pluginId: string): string {
+  return `pluginRecommendation:${pluginId}`;
+}
+
+export function getPluginRecommendationId(
+  db: DbConnection,
+  pluginId: string,
+): string | null {
+  const row = db
+    .select({ value: appSettingsValues.value })
+    .from(appSettingsValues)
+    .where(eq(appSettingsValues.key, pluginRecommendationKey(pluginId)))
+    .get();
+  const value = row === undefined ? undefined : parseStoredValue(row.value);
+  return typeof value === "string" ? value : null;
+}
+
+export function setPluginRecommendationId(
+  db: DbConnection,
+  pluginId: string,
+  recommendationId: string,
+): void {
+  writeValue(db, pluginRecommendationKey(pluginId), recommendationId, Date.now());
+}
+
+export function deletePluginRecommendationId(
+  db: DbConnection,
+  pluginId: string,
+): void {
+  db.delete(appSettingsValues)
+    .where(eq(appSettingsValues.key, pluginRecommendationKey(pluginId)))
+    .run();
+}
+
+export function isAppUpdateSendHoldSet(db: DbQueryConnection): boolean {
+  return (
+    db
+      .select({ key: appSettingsValues.key })
+      .from(appSettingsValues)
+      .where(eq(appSettingsValues.key, APP_UPDATE_SEND_HOLD_KEY))
+      .get() !== undefined
+  );
+}
+
+export function setAppUpdateSendHold(
+  db: DbQueryConnection,
+  held: boolean,
+): boolean {
+  if (held) {
+    writeValue(db, APP_UPDATE_SEND_HOLD_KEY, true, Date.now());
+    return true;
+  }
+  return (
+    db
+      .delete(appSettingsValues)
+      .where(eq(appSettingsValues.key, APP_UPDATE_SEND_HOLD_KEY))
+      .run().changes > 0
+  );
+}
+
+export function getSkippedAppUpdate(db: DbQueryConnection): string | null {
+  const row = db
+    .select({ value: appSettingsValues.value })
+    .from(appSettingsValues)
+    .where(eq(appSettingsValues.key, SKIPPED_APP_UPDATE_KEY))
+    .get();
+  const value = row === undefined ? undefined : parseStoredValue(row.value);
+  return typeof value === "string" ? value : null;
+}
+
+export function setSkippedAppUpdate(db: DbQueryConnection, key: string): void {
+  writeValue(db, SKIPPED_APP_UPDATE_KEY, key, Date.now());
+}
+
+export function getAutoAppUpdate(db: DbQueryConnection): boolean {
+  const row = db
+    .select({ value: appSettingsValues.value })
+    .from(appSettingsValues)
+    .where(eq(appSettingsValues.key, AUTO_APP_UPDATE_KEY))
+    .get();
+  return row !== undefined && parseStoredValue(row.value) === true;
+}
+
+export function setAutoAppUpdate(db: DbQueryConnection, enabled: boolean): void {
+  writeValue(db, AUTO_APP_UPDATE_KEY, enabled, Date.now());
 }

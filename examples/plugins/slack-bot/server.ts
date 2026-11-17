@@ -136,7 +136,7 @@ export default async function plugin(cc: CcPluginApi) {
           await cc.sdk.threads.send({
             threadId: existing,
             mode: "auto",
-            input: [{ type: "text", text: prompt }],
+            input: [{ type: "text", text: prompt, mentions: [] }],
           });
           return context.json({ ok: true });
         }

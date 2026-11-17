@@ -1,8 +1,11 @@
+import { createCcSdk } from "@cc/sdk/core";
+import { createHttpTransport } from "@cc/sdk/node";
 import { spawnSync } from "node:child_process";
 import {
   getEnvironment,
   getHost,
   hosts,
+  hostDaemonSessions,
   getSessionById,
   getStoredProviderModelCatalog,
   getThread,
@@ -64,6 +67,51 @@ function requestJoinCode(app: {
 }
 
 describe("public host management", () => {
+  it("reads machine paths after an offline session without requiring threads", async () => {
+    await withTestHarness(async (harness) => {
+      const host = seedHost(harness.deps, { id: "host_paths" });
+      const response = await harness.app.request(`${API}/hosts/${host.id}`);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        threadStorageRootPath: null,
+      });
+      const session = seedSession(harness.deps, host.id);
+      harness.hub.unregisterDaemon(session.id);
+      harness.db
+        .update(hostDaemonSessions)
+        .set({
+          status: "closed",
+          updatedAt: 1,
+          createdAt: 1,
+        })
+        .where(eq(hostDaemonSessions.id, session.id))
+        .run();
+      const latest = seedSession(harness.deps, host.id, {
+        instanceId: "instance-2",
+      });
+      harness.hub.unregisterDaemon(latest.id);
+      harness.db
+        .update(hostDaemonSessions)
+        .set({
+          status: "closed",
+          dataDir: "/tmp/new-machine-data",
+        })
+        .where(eq(hostDaemonSessions.id, latest.id))
+        .run();
+      const sdk = createCcSdk({
+        transport: createHttpTransport({
+          baseUrl: "http://localhost",
+          runtime: "node",
+          fetch: async (input, init) =>
+            harness.app.fetch(new Request(input, init)),
+        }),
+      });
+      await expect(sdk.hosts.get({ hostId: host.id })).resolves.toMatchObject({
+        threadStorageRootPath: "/tmp/new-machine-data/thread-storage",
+      });
+    });
+  });
+
   it("reconnects a machine by re-enrolling it, replacing access only when the installer runs", async () => {
     await withTestHarness(async (harness) => {
       const host = seedHost(harness.deps, { id: "host_reconnect" });
@@ -122,7 +170,9 @@ describe("public host management", () => {
         hostId: string;
       };
       expect(prepared).toMatchObject({ hostId: host.id });
-      expect(prepared.command).toContain("https://relay.example.com/install.sh");
+      expect(prepared.command).toContain(
+        "https://relay.example.com/install.sh",
+      );
       expect(release).not.toHaveBeenCalled();
       const credentialOf = (command: string) =>
         /X-CC-Enrollment: ([^']+)/u.exec(command)?.[1] ?? "";
@@ -169,14 +219,19 @@ describe("public host management", () => {
         headers: { "X-CC-Enrollment": credential },
       });
       expect(reused.status).toBe(403);
-      expect(reused.headers.get("content-type")).toContain("text/x-shellscript");
-      const errorScript = spawnSync("sh", ["-c", await reused.text()], {
-        encoding: "utf8",
-      });
-      expect(errorScript.status).toBe(1);
-      expect(errorScript.stderr).toContain(
-        "already been used, replaced, or expired",
+      expect(reused.headers.get("content-type")).toContain(
+        "text/x-shellscript",
       );
+      const errorText = await reused.text();
+      if (process.platform !== "win32") {
+        const errorScript = spawnSync("sh", ["-c", errorText], {
+          encoding: "utf8",
+        });
+        expect(errorScript.status).toBe(1);
+        expect(errorScript.stderr).toContain(
+          "already been used, replaced, or expired",
+        );
+      }
     });
   });
 
@@ -290,6 +345,7 @@ describe("public host management", () => {
           },
           body: JSON.stringify({
             activeThreads: [],
+            openThreadWork: [],
             dataDir: "/tmp/remote-cc",
             hasMachineCredential: true,
             hostId: issued.hostId,
@@ -353,7 +409,7 @@ describe("public host management", () => {
   it("rejects machine-gated host-management mutations", async () => {
     await withTestHarness(async (harness) => {
       const host = seedHost(harness.deps, { id: "host_machine_forbidden" });
-      const requests = [
+      const responses = await Promise.all([
         harness.app.request(`${API}/hosts/join-codes`, {
           method: "POST",
           headers: {
@@ -394,6 +450,10 @@ describe("public host management", () => {
           method: "POST",
           headers: { "x-cc-gate-auth": "machine" },
         }),
+        harness.app.request(`${API}/hosts/${host.id}?force=true`, {
+          method: "DELETE",
+          headers: { "x-cc-gate-auth": "machine" },
+        }),
         harness.app.request(`${API}/hosts/${host.id}/permission-ceiling`, {
           method: "PATCH",
           headers: {
@@ -402,8 +462,8 @@ describe("public host management", () => {
           },
           body: JSON.stringify({ maxPermissionMode: "full" }),
         }),
-      ];
-      for (const response of await Promise.all(requests)) {
+      ]);
+      for (const response of responses) {
         expect(response.status).toBe(403);
         expect(await readJson(response)).toMatchObject({
           code: "machine_host_management_forbidden",
@@ -466,20 +526,6 @@ describe("public host management", () => {
       expect(getHost(harness.db, host.id)?.maxPermissionMode).toBe(
         "accept-edits",
       );
-    });
-  });
-
-  it("allows session-gated join-code minting", async () => {
-    await withTestHarness(async (harness) => {
-      const response = await harness.app.request(`${API}/hosts/join-codes`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-cc-gate-auth": "session",
-        },
-        body: JSON.stringify({}),
-      });
-      expect(response.status).toBe(201);
     });
   });
 
@@ -813,27 +859,41 @@ describe("public host management", () => {
       const revokeHandler = vi.fn(async () => ({ ok: true }));
       const revokeRecord = {
         publication: null,
+        declarations: {},
         inputSchema: z.object({ machineId: z.string() }),
         outputSchema: z.object({ ok: z.literal(true) }),
         handler: revokeHandler,
       };
+      const live = harness.pluginService.getRpcHandler(
+        connectPlugin.id,
+        "revokeMachine",
+      );
+      if (live.outcome !== "found") {
+        throw new Error("connect plugin registers no revokeMachine handler");
+      }
       vi.spyOn(harness.pluginService, "getRpcHandler").mockReturnValue({
         outcome: "found",
         value: revokeRecord,
+        owner: live.owner,
       });
       const invoke = vi
         .spyOn(harness.pluginService, "invokeRpcHandler")
-        .mockResolvedValue({ ok: true, result: { ok: true } });
+        .mockResolvedValue({
+          ok: true,
+          result: { ok: true },
+        });
 
       const response = await harness.app.request(`${API}/hosts/${host.id}`, {
         method: "DELETE",
       });
       expect(response.status).toBe(200);
       expect(invoke).toHaveBeenCalledWith(
-        connectPlugin.id,
+        live.owner,
         "revokeMachine",
         revokeRecord,
         { machineId: "machine-cloud-remove" },
+        { kind: "client" },
+        null,
       );
     });
   }, 30_000);

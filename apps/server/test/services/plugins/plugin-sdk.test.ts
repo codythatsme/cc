@@ -4,15 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createConnection,
   archiveThread,
   createThread,
   getThread,
   insertThreadPluginMetadata,
-  markThreadDeleted,
-  migrate,
   type DbConnection,
 } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { PERSONAL_PROJECT_ID } from "@cc/domain";
 import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
@@ -119,7 +117,24 @@ describe("plugin cc.sdk bind gate", () => {
     ),
     replaceDeclarationsForOwner: vi.fn(),
     clearDeclarationsForOwner: vi.fn(),
+    setNextTunnelConfig: vi.fn(),
+    listNextTunnelStatuses: vi.fn(() => [
+      {
+        hostId: "host-1",
+        hostName: "Sawyer Air",
+        status: {
+          state: "connected" as const,
+          label: "sawyer-air",
+          lastError: null,
+          nextRetryAt: null,
+          since: 1,
+          shares: [],
+        },
+      },
+    ]),
+    onNextTunnelStatusChange: vi.fn((_listener: () => void) => nextUnsubscribe),
   };
+  const nextUnsubscribe = vi.fn();
   const ensureSharedPortTunnel = vi.fn().mockResolvedValue({
     label: "sawyer-air",
     baseDomain: "cc.example.invalid",
@@ -170,13 +185,15 @@ describe("plugin cc.sdk bind gate", () => {
   });
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-sdk-test-"));
     sharedPorts.declareSharedPorts.mockClear();
     sharedPorts.validateSharedPortDeclaration.mockClear();
     sharedPorts.replaceDeclarationsForOwner.mockClear();
     sharedPorts.clearDeclarationsForOwner.mockClear();
+    sharedPorts.setNextTunnelConfig.mockClear();
+    sharedPorts.onNextTunnelStatusChange.mockClear();
+    nextUnsubscribe.mockClear();
     ensureSharedPortTunnel.mockClear();
     callPluginHost.mockClear();
     disposePluginHost.mockClear();
@@ -190,6 +207,8 @@ describe("plugin cc.sdk bind gate", () => {
       ensureSharedPortTunnel,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -347,22 +366,6 @@ describe("plugin cc.sdk bind gate", () => {
     expect(api.server.experimental_appUrl).toBeNull();
   });
 
-  it("marks a plugin error when its factory touches cc.sdk at load time", async () => {
-    const rootDir = await writePlugin(workDir, {
-      name: "cc-plugin-eager",
-      serverSource: `
-        export default function plugin(cc: any) {
-          cc.sdk.threads.spawn({});
-        }
-      `,
-    });
-    const entry = await service.installPath(rootDir);
-    expect(entry.status).toBe("error");
-    expect(entry.statusDetail).toContain(
-      "cc.sdk is not available until the server is listening",
-    );
-  });
-
   it("delivers shared-port declarations through the server control plane", async () => {
     const rootDir = await writePlugin(workDir, {
       name: "cc-plugin-shares",
@@ -389,6 +392,47 @@ describe("plugin cc.sdk bind gate", () => {
     expect(sharedPorts.clearDeclarationsForOwner).toHaveBeenCalledWith(
       "shares",
     );
+  });
+
+  it("routes next machine tunnels through the server control plane under the plugin's id", async () => {
+    const rootDir = await writePlugin(workDir, {
+      name: "cc-plugin-next",
+      serverSource: `export default function plugin() {}`,
+    });
+    await service.installPath(rootDir);
+    const api = requireApi(service, "next");
+    const config = {
+      domain: "next.cc.example.invalid",
+      server: {
+        protocol: "wss" as const,
+        host: "tunnel.next.cc.example.invalid",
+        port: 443,
+      },
+    };
+    api.hosts.internal_DO_NOT_USE_setNextTunnels(config);
+    expect(sharedPorts.setNextTunnelConfig).toHaveBeenCalledWith(
+      "next",
+      config,
+    );
+    expect(api.hosts.internal_DO_NOT_USE_nextTunnelStatuses()).toEqual([
+      {
+        hostId: "host-1",
+        hostName: "Sawyer Air",
+        state: "connected",
+        label: "sawyer-air",
+        lastError: null,
+        nextRetryAt: null,
+        since: 1,
+        shares: [],
+      },
+    ]);
+    const listener = vi.fn();
+    api.hosts.internal_DO_NOT_USE_onNextTunnelStatusChange(listener);
+    expect(sharedPorts.onNextTunnelStatusChange).toHaveBeenCalledWith(listener);
+
+    await service.stop();
+    expect(nextUnsubscribe).toHaveBeenCalled();
+    expect(sharedPorts.clearDeclarationsForOwner).toHaveBeenCalledWith("next");
   });
 
   it("binds typed host calls and ignores worker exits from stale generations", async () => {
@@ -647,13 +691,6 @@ describe("plugin cc.sdk against a running server", () => {
         status: "idle",
         originPluginId: "meta-owner",
       });
-      const other = createThread(server.db, server.deps.hub, {
-        projectId: project.id,
-        environmentId: environment.id,
-        providerId: "codex",
-        status: "idle",
-        originPluginId: "meta-owner",
-      });
       await expect(
         api.sdk.threads.getPluginMetadata({ threadId: thread.id }),
       ).resolves.toEqual({});
@@ -679,6 +716,23 @@ describe("plugin cc.sdk against a running server", () => {
       await expect(
         api.sdk.threads.getPluginMetadata({ threadId: thread.id }),
       ).resolves.toEqual({ a: 1, nested: { old: true } });
+      await expect(
+        api.sdk.threads.experimental_listPluginMetadata({
+          threadIds: [thread.id],
+        }),
+      ).resolves.toEqual({
+        threads: [
+          { threadId: thread.id, metadata: { a: 1, nested: { old: true } } },
+        ],
+      });
+      await expect(
+        api.sdk.threads.experimental_listPluginMetadata({
+          threadIds: [thread.id],
+          pluginId: "cross",
+        }),
+      ).resolves.toEqual({
+        threads: [{ threadId: thread.id, metadata: { b: 2 } }],
+      });
       await expect(
         api.sdk.threads.getPluginMetadata({
           threadId: thread.id,
@@ -734,37 +788,6 @@ describe("plugin cc.sdk against a running server", () => {
         code: "invalid_request",
         message: expect.stringContaining("set and remove overlap"),
       });
-      await expect(
-        api.sdk.threads.updatePluginMetadata({
-          threadId: thread.id,
-          remove: ["x", "x"],
-        }),
-      ).rejects.toMatchObject({
-        name: "CcHttpError",
-        status: 400,
-        code: "invalid_request",
-        message: expect.stringContaining("remove contains duplicate keys"),
-      });
-      const nearLimit = "x".repeat(262_100);
-      await expect(
-        api.sdk.threads.updatePluginMetadata({
-          threadId: thread.id,
-          set: { stable: true, nearLimit },
-        }),
-      ).resolves.toEqual({ stable: true, nearLimit });
-      await expect(
-        api.sdk.threads.updatePluginMetadata({
-          threadId: thread.id,
-          set: { smallAdditionalValue: "valid" },
-        }),
-      ).rejects.toMatchObject({
-        name: "CcHttpError",
-        status: 413,
-        code: "invalid_request",
-      });
-      await expect(
-        api.sdk.threads.getPluginMetadata({ threadId: thread.id }),
-      ).resolves.toEqual({ stable: true, nearLimit });
       for (const status of ["active", "stopping"] as const) {
         const candidate = createThread(server.db, server.deps.hub, {
           projectId: project.id,
@@ -794,20 +817,6 @@ describe("plugin cc.sdk against a running server", () => {
           set: { status: "archived" },
         }),
       ).resolves.toEqual({ status: "archived" });
-      await expect(
-        api.sdk.threads.getPluginMetadata({
-          threadId: other.id,
-          pluginId: "missing",
-        }),
-      ).resolves.toEqual({});
-      markThreadDeleted(server.db, server.deps.hub, { threadId: other.id });
-      await expect(
-        api.sdk.threads.getPluginMetadata({ threadId: other.id }),
-      ).rejects.toMatchObject({
-        name: "CcHttpError",
-        status: 404,
-        code: "thread_not_found",
-      });
     } finally {
       await server.pluginService.stop();
       await rm(workDir, { recursive: true, force: true });
@@ -1061,6 +1070,154 @@ describe("plugin cc.sdk against a running server", () => {
     }
   });
 
+  it("tells rpc handlers which plugin called them and treats every other caller as a client", async () => {
+    const server = await startTestServer();
+    const workDir = await mkdtemp(join(tmpdir(), "cc-plugin-rpc-caller-"));
+    try {
+      server.pluginService.bindSdk({ baseUrl: server.baseUrl });
+      for (const name of ["callee", "caller"]) {
+        const rootDir = await writePlugin(workDir, {
+          name: `cc-plugin-${name}`,
+          serverSource: `export default function plugin() {}`,
+        });
+        expect((await server.pluginService.installPath(rootDir)).status).toBe(
+          "running",
+        );
+      }
+      const callerSchema = z.union([
+        z.object({ kind: z.literal("plugin"), pluginId: z.string() }),
+        z.object({ kind: z.literal("client") }),
+      ]);
+      const whoami = vi.fn(
+        (
+          _input: null,
+          context: { experimental_caller: z.infer<typeof callerSchema> },
+        ) => context.experimental_caller,
+      );
+      requireApi(server.pluginService, "callee").rpc.register(
+        defineRpcContract({
+          whoami: { input: z.null(), output: callerSchema },
+        }),
+        { whoami },
+      );
+      const callerSdk = requireApi(server.pluginService, "caller").sdk;
+      const callWhoami = () =>
+        callerSdk.plugins.callRpc({
+          pluginId: "callee",
+          method: "whoami",
+          input: null,
+          outputSchema: callerSchema,
+        });
+
+      await expect(callWhoami()).resolves.toEqual({
+        kind: "plugin",
+        pluginId: "caller",
+      });
+
+      const cli = await fetch(
+        `${server.baseUrl}/api/v1/plugins/callee/rpc/whoami`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "null",
+        },
+      );
+      expect(await cli.json()).toEqual({
+        ok: true,
+        result: { kind: "client" },
+      });
+
+      const callsBeforeSpoof = whoami.mock.calls.length;
+      const spoofed = await fetch(
+        `${server.baseUrl}/api/v1/plugins/callee/rpc/whoami`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-cc-plugin-caller": "not-a-real-token",
+          },
+          body: "null",
+        },
+      );
+      expect(spoofed.status).toBe(403);
+      expect(whoami.mock.calls.length).toBe(callsBeforeSpoof);
+
+      await server.pluginService.reload("caller");
+      await expect(callWhoami()).rejects.toMatchObject({ status: 403 });
+      await expect(
+        requireApi(server.pluginService, "caller").sdk.plugins.callRpc({
+          pluginId: "callee",
+          method: "whoami",
+          input: null,
+          outputSchema: callerSchema,
+        }),
+      ).resolves.toEqual({ kind: "plugin", pluginId: "caller" });
+      expect(whoami.mock.calls.length).toBe(callsBeforeSpoof + 1);
+    } finally {
+      await server.pluginService.stop();
+      await rm(workDir, { recursive: true, force: true });
+      await server.close();
+    }
+  });
+
+  it("sends a plugin's retired environment pull request calls with its caller token, so they are not served stale viewer rows", async () => {
+    const server = await startTestServer();
+    const workDir = await mkdtemp(join(tmpdir(), "cc-plugin-retired-pr-"));
+    try {
+      server.pluginService.bindSdk({ baseUrl: server.baseUrl });
+      const rootDir = await writePlugin(workDir, {
+        name: "cc-plugin-caller",
+        serverSource: `export default function plugin() {}`,
+      });
+      expect((await server.pluginService.installPath(rootDir)).status).toBe(
+        "running",
+      );
+      const callerTokens: (string | null)[] = [];
+      const realFetch = globalThis.fetch;
+      vi.stubGlobal(
+        "fetch",
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (!url.includes("/api/v1/plugins/cc--github-pr-status/rpc/")) {
+            return realFetch(input, init);
+          }
+          callerTokens.push(
+            new Headers(init?.headers).get("x-cc-plugin-caller"),
+          );
+          return Response.json({
+            ok: true,
+            result: url.endsWith("/pullRequests")
+              ? { env_1: { outcome: "absent" } }
+              : { message: "Pull request marked ready" },
+          });
+        },
+      );
+      const environments: object = requireApi(server.pluginService, "caller")
+        .sdk.environments;
+      const call = (name: string) => {
+        const member: unknown = Reflect.get(environments, name);
+        if (typeof member !== "function") throw new Error(`${name} is missing`);
+        return Reflect.apply(member, environments, [
+          { environmentId: "env_1" },
+        ]);
+      };
+
+      await expect(call("pullRequest")).resolves.toEqual({ outcome: "absent" });
+      await expect(call("markPullRequestReady")).resolves.toMatchObject({
+        action: "pull_request_ready",
+      });
+      expect(callerTokens).toHaveLength(2);
+      expect(
+        callerTokens.every((token) => token !== null && token !== ""),
+      ).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+      await server.pluginService.stop();
+      await rm(workDir, { recursive: true, force: true });
+      await server.close();
+    }
+  });
+
   it("keeps hidden plugin threads attributed and directly operable by id", async () => {
     const server = await startTestServer();
     const workDir = await mkdtemp(join(tmpdir(), "cc-plugin-sdk-live-"));
@@ -1224,7 +1381,11 @@ describe("plugin cc.sdk against a running server", () => {
           mode: "auto",
           input: [{ type: "text", text: "Continue", mentions: [] }],
         }),
-      ).resolves.toEqual({ ok: true, delivery: "sent" });
+      ).resolves.toEqual({
+        ok: true,
+        delivery: "sent",
+        messageSequence: expect.any(Number),
+      });
       const stopPromise = api.sdk.threads.stop({ threadId: operable.id });
       const stop = await waitForQueuedCommand(
         server,

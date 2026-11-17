@@ -12,6 +12,7 @@ import {
   targetsResourceAction,
 } from "@cc/shared-ui/resource-list";
 import { AddMachineDialog } from "@/components/dialogs/AddMachineDialog";
+import { AttentionBanner } from "@/components/ui/attention-banner";
 import { appToast } from "@/components/ui/app-toast";
 import { machineActions } from "@/components/machines/machine-actions";
 import { MachineReconnectDialog } from "@/components/machines/MachineReconnectDialog";
@@ -43,11 +44,11 @@ import { useSystemMachineProviders } from "@/hooks/queries/machine-provider-quer
 import { useServerMoveStatus } from "@/hooks/queries/server-move-queries";
 import { useSidebarNavigation } from "@/hooks/queries/sidebar-navigation-query";
 import { useSystemConfig } from "@/hooks/queries/system-queries";
+import { machineAttentionIssue } from "@/hooks/useMachineAttention";
 import { useHostDaemon } from "@/hooks/useHostDaemon";
 import { getSettingsMachineRoutePath } from "@/lib/route-paths";
 import { PERMISSION_MODE_OPTIONS } from "@/lib/permission-mode-options";
 import { getMutationErrorMessage } from "@/lib/mutation-errors";
-import { formatHostUpdateStatus } from "@/lib/host-update-status";
 
 const PERMISSION_MODE_PRESENTATION: Record<
   PermissionMode,
@@ -60,6 +61,7 @@ const PLATFORM_LABELS: Record<HostPlatform, string | null> = {
   darwin: "macOS",
   linux: "Linux",
   wsl: "WSL",
+  win32: "Windows",
   unknown: null,
 };
 
@@ -113,7 +115,6 @@ export function MachineRowContent({
   const permission = PERMISSION_MODE_PRESENTATION[host.maxPermissionMode];
   const projectLabel = `${projectCount} ${projectCount === 1 ? "project" : "projects"}`;
   const connectionLabel = machineStatusLabel({ host, now });
-  const updateStatus = formatHostUpdateStatus(host);
 
   return (
     <SettingsRow>
@@ -123,7 +124,7 @@ export function MachineRowContent({
           className="group group/machine -mx-2 flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-state-hover focus-within:bg-state-hover"
           onClick={(event) => {
             if (targetsResourceAction(event)) return;
-            navigate(detailPath);
+            void navigate(detailPath);
           }}
         >
           <Link
@@ -160,11 +161,6 @@ export function MachineRowContent({
                 >
                   {permission.label}
                 </span>
-                {updateStatus === null ? null : (
-                  <span className="min-w-0 text-warning-text">
-                    {updateStatus}
-                  </span>
-                )}
               </div>
             </div>
           </Link>
@@ -199,6 +195,7 @@ export function MachineRowContent({
 
 export function MachinesSettingsSection() {
   const systemConfig = useSystemConfig();
+  const [openedAt] = useState(Date.now);
   const hostsQuery = useHosts({ includeCreating: true });
   const { providers: machineProviders } = useSystemMachineProviders();
   const { localDaemonHostId, platform: localDaemonPlatform } = useHostDaemon();
@@ -234,9 +231,19 @@ export function MachinesSettingsSection() {
     return counts;
   }, [projects]);
 
-  const now = Date.now();
+  const now = Math.max(openedAt, hostsQuery.dataUpdatedAt);
   const primaryHostPlatform = systemConfig.data?.primaryHostPlatform ?? null;
   const persistentHosts = hosts?.filter((host) => host.type === "persistent");
+  const attentionHosts = (hosts ?? []).flatMap((host) => {
+    const issue = machineAttentionIssue(host);
+    return issue === null ? [] : [{ host, issue }];
+  });
+  const allAttentionHostsOffline = attentionHosts.every(
+    ({ issue }) => issue.offline,
+  );
+  const [firstAttentionHost] = attentionHosts;
+  const singleAttentionHost =
+    attentionHosts.length === 1 ? firstAttentionHost : undefined;
   const sandboxHosts = hosts?.filter((host) => host.type === "ephemeral");
   const visibleHosts =
     showAllMachines && sandboxHosts !== undefined
@@ -349,6 +356,43 @@ export function MachinesSettingsSection() {
           </Button>
         }
       >
+        {attentionHosts.length > 0 ? (
+          <AttentionBanner
+            title={
+              singleAttentionHost !== undefined
+                ? singleAttentionHost.issue.label
+                : allAttentionHostsOffline
+                  ? `${attentionHosts.length} machines are offline`
+                  : `${attentionHosts.length} machines need attention`
+            }
+          >
+            {singleAttentionHost !== undefined ? (
+              singleAttentionHost.issue.offline ||
+              singleAttentionHost.host.lifecycle.message === null ? null : (
+                <p className="line-clamp-3 whitespace-pre-wrap text-xs text-muted-foreground">
+                  {singleAttentionHost.host.lifecycle.message}
+                </p>
+              )
+            ) : (
+              <ul className="space-y-2">
+                {attentionHosts.map(({ host, issue }) => (
+                  <li key={host.id} className="min-w-0">
+                    <p className="font-medium">{host.name}</p>
+                    {allAttentionHostsOffline ? null : (
+                      <p className="line-clamp-2 whitespace-pre-wrap text-xs text-muted-foreground">
+                        {issue.offline
+                          ? "Offline"
+                          : host.lifecycle.message === null
+                            ? "Cleanup failed"
+                            : `Cleanup failed: ${host.lifecycle.message}`}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </AttentionBanner>
+        ) : null}
         <div
           role="note"
           aria-label="About the cc server"

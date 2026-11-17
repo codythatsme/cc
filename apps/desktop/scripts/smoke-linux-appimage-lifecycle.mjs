@@ -201,13 +201,13 @@ async function processIsLive(pid) {
 }
 
 async function findProcessesExecutingFromMount(mountPath) {
-  const entries = await readdir("/proc", { withFileTypes: true });
+  const entries = await readdir("/proc");
   const processes = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || !/^\d+$/u.test(entry.name)) {
+    if (!/^\d+$/u.test(entry)) {
       continue;
     }
-    const processInfo = await readProcess(Number(entry.name));
+    const processInfo = await readProcess(Number(entry));
     if (
       processInfo !== null &&
       processInfo.state !== "Z" &&
@@ -416,12 +416,12 @@ async function stopRuntime(runtime) {
 }
 
 async function killIsolatedProcesses({ dataDir, userDataDir }) {
-  const entries = await readdir("/proc", { withFileTypes: true });
+  const entries = await readdir("/proc");
   for (const entry of entries) {
-    if (!entry.isDirectory() || !/^\d+$/u.test(entry.name)) {
+    if (!/^\d+$/u.test(entry)) {
       continue;
     }
-    const pid = Number(entry.name);
+    const pid = Number(entry);
     if (pid === process.pid) {
       continue;
     }
@@ -570,6 +570,18 @@ async function smokeLinuxAppImageLifecycle() {
     }
 
     guiMount = resolveMountFromBridgePath(runtime.bridgePath);
+    const bundledLibraryDirectory = join(guiMount, "usr", "lib");
+    const bundledLibraries = await readdir(bundledLibraryDirectory);
+    if (
+      ["libnotify.so.4", "libnotify.so.5", "libnotify.so.1"].some((name) =>
+        bundledLibraries.includes(name),
+      )
+    ) {
+      throw new Error(
+        "The AppImage overrides the system's versioned libnotify",
+      );
+    }
+    await readFile(join(bundledLibraryDirectory, "libnotify.so"));
     runtimeMount = runtimeProcess.environment.APPDIR ?? null;
     if (runtimeMount === null || runtimeMount.length === 0) {
       throw new Error("The runtime supervisor did not inherit APPDIR");

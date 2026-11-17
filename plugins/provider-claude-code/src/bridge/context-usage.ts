@@ -177,29 +177,53 @@ export function normalizeClaudeContextUsage(
 }
 
 export class ClaudeContextUsageCollector {
+  private activeRead: AbortController | null = null;
   private revision = 0;
+  private capacityRevision = 0;
 
   invalidate(): void {
     this.revision += 1;
   }
 
+  invalidateCapacity(): void {
+    this.capacityRevision += 1;
+    this.invalidate();
+  }
+
+  cancel(): void {
+    this.activeRead?.abort();
+    this.activeRead = null;
+  }
+
   async capture(args: {
-    read: () => Promise<unknown>;
+    read: (signal: AbortSignal) => Promise<unknown>;
     isCurrent: () => boolean;
-    publish: (snapshot: ContextSnapshot) => void;
+    publish: (snapshot: ContextSnapshot, snapshotCurrent: boolean) => void;
     providerSessionId: string;
   }): Promise<void> {
+    this.cancel();
+    const activeRead = new AbortController();
+    this.activeRead = activeRead;
     const revision = ++this.revision;
+    const capacityRevision = ++this.capacityRevision;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       const report = await Promise.race([
-        args.read(),
+        args.read(activeRead.signal),
         new Promise<null>((resolve) => {
-          timeout = setTimeout(() => resolve(null), 5_000);
+          activeRead.signal.addEventListener("abort", () => resolve(null), {
+            once: true,
+          });
+          timeout = setTimeout(() => activeRead.abort(), 5_000);
           timeout.unref();
         }),
       ]);
-      if (report === null || revision !== this.revision || !args.isCurrent())
+      if (
+        report === null ||
+        activeRead.signal.aborted ||
+        capacityRevision !== this.capacityRevision ||
+        !args.isCurrent()
+      )
         return;
       args.publish(
         normalizeClaudeContextUsage(report, {
@@ -207,11 +231,14 @@ export class ClaudeContextUsageCollector {
           providerSessionId: args.providerSessionId,
           providerTurnId: null,
         }),
+        revision === this.revision,
       );
     } catch {
       return;
     } finally {
       clearTimeout(timeout);
+      activeRead.abort();
+      if (this.activeRead === activeRead) this.activeRead = null;
     }
   }
 }

@@ -307,14 +307,20 @@ describe("AppCommandProvider", () => {
 
     expect(screen.getByText("released")).toBeDefined();
     fireEvent.keyDown(window, { key: "Control", ctrlKey: true });
-    act(() => vi.advanceTimersByTime(699));
+    act(() => {
+      vi.advanceTimersByTime(699);
+    });
     expect(screen.getByText("released")).toBeDefined();
-    act(() => vi.advanceTimersByTime(1));
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
     expect(screen.getByText("held")).toBeDefined();
     fireEvent.keyUp(window, { key: "Control" });
     expect(screen.getByText("released")).toBeDefined();
     fireEvent.keyDown(window, { key: "Control", ctrlKey: true });
-    act(() => vi.advanceTimersByTime(700));
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
     expect(screen.getByText("held")).toBeDefined();
     fireEvent.blur(window);
     expect(screen.getByText("released")).toBeDefined();
@@ -327,38 +333,84 @@ describe("AppCommandProvider", () => {
     renderProvider(<ModifierState />);
 
     fireEvent.keyDown(window, { key: "Meta", metaKey: true });
-    act(() => vi.advanceTimersByTime(700));
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
     expect(screen.getByText("held")).toBeDefined();
     fireEvent.keyUp(window, { key: "Meta" });
     expect(screen.getByText("released")).toBeDefined();
 
     fireEvent.keyDown(window, { key: "Control", ctrlKey: true });
-    act(() => vi.advanceTimersByTime(700));
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
     expect(screen.getByText("held")).toBeDefined();
     fireEvent.keyUp(window, { key: "Control" });
     expect(screen.getByText("released")).toBeDefined();
     vi.useRealTimers();
   });
 
-  it("cancels keyboard hints when the modifier becomes part of a shortcut chord", () => {
+  it("cancels pending hints but preserves revealed hints through shortcut dispatch", () => {
     vi.useFakeTimers();
-    renderProvider(<ModifierState />);
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+    renderProvider(
+      <>
+        <ModifierState />
+        <Handler command="thread.jump.1" name="thread" result={true} />
+      </>,
+    );
 
     fireEvent.keyDown(window, { key: "Control", ctrlKey: true });
-    act(() => vi.advanceTimersByTime(699));
+    act(() => {
+      vi.advanceTimersByTime(699);
+    });
     fireEvent.keyDown(window, {
       key: "Shift",
       ctrlKey: true,
       shiftKey: true,
     });
-    act(() => vi.advanceTimersByTime(1));
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
     expect(screen.getByText("released")).toBeDefined();
 
     fireEvent.keyUp(window, { key: "Control" });
     fireEvent.keyDown(window, { key: "Control", ctrlKey: true });
-    act(() => vi.advanceTimersByTime(700));
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
     expect(screen.getByText("held")).toBeDefined();
-    fireEvent.keyDown(window, { key: "3", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(window, { key: "1", ctrlKey: true });
+    expect(testState.calls).toEqual(["thread"]);
+    expect(screen.getByText("held")).toBeDefined();
+    fireEvent.keyUp(window, { key: "1", ctrlKey: true });
+    expect(screen.getByText("held")).toBeDefined();
+    fireEvent.keyUp(window, { key: "Control" });
+    expect(screen.getByText("released")).toBeDefined();
+    vi.useRealTimers();
+  });
+
+  it("tracks modifier holds and releases from controls that stop propagation", () => {
+    vi.useFakeTimers();
+    renderProvider(
+      <>
+        <ModifierState />
+        <button
+          onKeyDown={(event) => event.stopPropagation()}
+          onKeyUp={(event) => event.stopPropagation()}
+        >
+          Collapse section
+        </button>
+      </>,
+    );
+    const button = screen.getByRole("button", { name: "Collapse section" });
+    button.focus();
+    fireEvent.keyDown(button, { key: "Control", ctrlKey: true });
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(screen.getByText("held")).toBeDefined();
+    fireEvent.keyUp(button, { key: "Control" });
     expect(screen.getByText("released")).toBeDefined();
     vi.useRealTimers();
   });
@@ -373,7 +425,9 @@ describe("AppCommandProvider", () => {
       ctrlKey: true,
       shiftKey: true,
     });
-    act(() => vi.advanceTimersByTime(700));
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
 
     expect(screen.getByText("released")).toBeDefined();
     vi.useRealTimers();
@@ -385,7 +439,9 @@ describe("AppCommandProvider", () => {
     renderProvider(<ModifierState />);
 
     fireEvent.keyDown(window, { key: "Control", ctrlKey: true });
-    act(() => vi.advanceTimersByTime(700));
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
     expect(screen.getByText("released")).toBeDefined();
     vi.useRealTimers();
   });

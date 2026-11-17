@@ -1,3 +1,4 @@
+import { SidebarFooterCustomizeHeader } from "./SidebarFooterCustomizeHeader";
 import { useEffect, useRef } from "react";
 import { closestCenter, DndContext, type DragEndEvent } from "@dnd-kit/core";
 import {
@@ -5,20 +6,19 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Button } from "@cc/shared-ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@cc/shared-ui/tooltip";
 import { Icon } from "@cc/shared-ui/icon";
 import { cn } from "@cc/shared-ui/lib/utils";
-import { CHROME_SECTION_LABEL_CLASS } from "@cc/shared-ui/chrome-style-tokens";
 import { FooterItemIcon } from "@/components/plugin/PluginSidebarFooterItems";
 import {
   type FooterItem,
   useMeasureSidebarFooterCapacity,
   useSidebarFooterPreferences,
 } from "./sidebarFooterPreferences";
-import { SIDEBAR_FOOTER_ACTION_CLASS } from "./sidebarRowClasses";
-import { useSidebarReorderDnd } from "./useSidebarReorderDnd";
-import { useSidebarSortable } from "./sortableMotion";
+import { SIDEBAR_FOOTER_ACTION_CLASS } from "@cc/shared-ui/sidebar-row-classes";
+import { useSidebarReorderDnd } from "@cc/shared-ui/use-sidebar-reorder-dnd";
+import { SidebarTouchSensor } from "./sidebarTouchSensor";
+import { useSidebarSortable } from "@cc/shared-ui/sortable-motion";
 
 const BADGE_CLASS =
   "flex size-4 cursor-pointer items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground outline-none after:absolute after:-inset-1.5 after:content-[''] hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:cursor-default disabled:opacity-40";
@@ -38,8 +38,12 @@ export function SidebarFooterCustomize({ onDone }: { onDone: () => void }) {
     axis: "free",
     collisionDetection: closestCenter,
     onDragEnd: handleDragEnd,
+    touchSensor: SidebarTouchSensor,
   });
-  const moreDnd = useSidebarReorderDnd({ onDragEnd: handleDragEnd });
+  const moreDnd = useSidebarReorderDnd({
+    onDragEnd: handleDragEnd,
+    touchSensor: SidebarTouchSensor,
+  });
   useEffect(() => {
     containerRef.current
       ?.querySelector<HTMLButtonElement>("[data-footer-placement-toggle]")
@@ -61,29 +65,14 @@ export function SidebarFooterCustomize({ onDone }: { onDone: () => void }) {
         onDone();
       }}
     >
-      <div className="flex items-center gap-1 px-1 pb-1">
-        <div
-          className={cn("min-w-0 flex-1 px-2 py-1", CHROME_SECTION_LABEL_CLASS)}
-        >
-          Customize footer
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-6 shrink-0 px-2 text-xs text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent focus-visible:ring-2"
-          onClick={onDone}
-        >
-          Done
-        </Button>
-      </div>
+      <SidebarFooterCustomizeHeader onDone={onDone} />
       <div
         ref={footerRowRef}
-        className="flex items-center gap-1 overflow-hidden bg-sidebar-accent py-2"
+        className="relative flex items-center gap-1 overflow-hidden bg-sidebar-accent px-3 py-2"
       >
         <ul
           aria-label="Footer icons"
-          className="flex min-w-0 items-center gap-1"
+          className="flex min-w-0 flex-1 items-center justify-between gap-1"
           onClickCapture={footerDnd.onClickCapture}
         >
           <DndContext {...footerDnd.dndContextProps}>
@@ -117,18 +106,16 @@ export function SidebarFooterCustomize({ onDone }: { onDone: () => void }) {
           aria-hidden="true"
           className={cn(
             SIDEBAR_FOOTER_ACTION_CLASS,
-            "flex shrink-0 items-center justify-center text-muted-foreground",
+            "invisible absolute pointer-events-none",
           )}
-        >
-          <Icon name="MoreHorizontal" />
-        </span>
+        />
       </div>
       {preferences.more.length > 0 && (
         <>
           <ZoneLabel label="More menu" />
           <ul
             aria-label="More menu items"
-            className="space-y-0.5 px-1"
+            className="space-y-0.5 px-2"
             onClickCapture={moreDnd.onClickCapture}
           >
             <DndContext {...moreDnd.dndContextProps}>
@@ -156,7 +143,7 @@ export function SidebarFooterCustomize({ onDone }: { onDone: () => void }) {
 
 function ZoneLabel({ label }: { label: string }) {
   return (
-    <div className="px-2 pb-1 pt-2 text-xs text-muted-foreground">{label}</div>
+    <div className="px-3 pb-1 pt-2 text-xs text-muted-foreground">{label}</div>
   );
 }
 
@@ -173,15 +160,16 @@ function FooterIconTile({
     id: item.key,
     disabled: reorderDisabled,
   });
+  const { setActivatorNodeRef, attributes, listeners } = dragBindings;
   return (
     <li ref={setNodeRef} style={style} className="relative flex shrink-0">
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             type="button"
-            ref={dragBindings.setActivatorNodeRef}
-            {...dragBindings.attributes}
-            {...dragBindings.listeners}
+            ref={setActivatorNodeRef}
+            {...attributes}
+            {...listeners}
             aria-label={`Reorder ${item.label}`}
             data-footer-icon={item.key}
             className={cn(
@@ -199,7 +187,7 @@ function FooterIconTile({
         type="button"
         aria-label={`Remove ${item.label} from footer`}
         data-footer-placement-toggle={item.key}
-        className={cn(BADGE_CLASS, "absolute -right-1 -top-1")}
+        className={cn(BADGE_CLASS, "absolute -top-1.5 right-0")}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={onRemove}
       >
@@ -224,6 +212,7 @@ function MoreMenuRow({
     id: item.key,
     disabled: reorderDisabled,
   });
+  const { setActivatorNodeRef, attributes, listeners } = dragBindings;
   return (
     <li
       ref={setNodeRef}
@@ -233,9 +222,9 @@ function MoreMenuRow({
     >
       <button
         type="button"
-        ref={dragBindings.setActivatorNodeRef}
-        {...dragBindings.attributes}
-        {...dragBindings.listeners}
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
         aria-label={`Reorder ${item.label}`}
         className="flex size-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm text-subtle-foreground/60 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring active:cursor-grabbing"
       >

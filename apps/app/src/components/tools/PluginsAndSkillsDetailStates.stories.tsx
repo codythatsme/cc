@@ -457,6 +457,7 @@ const UPDATE_AVAILABLE_PLUGIN: PluginListItem = {
   updateState: {
     ...EMPTY_PLUGIN_UPDATE_STATE,
     availableVersion: "1.5.0",
+    availableLabel: "1.5.0",
     lastCheckAt: new Date(2026, 6, 20).getTime(),
   },
 };
@@ -467,8 +468,10 @@ const UPDATE_FAILED_PLUGIN: PluginListItem = {
   updateState: {
     ...EMPTY_PLUGIN_UPDATE_STATE,
     availableVersion: "1.5.0",
+    availableLabel: "1.5.0",
     lastFailure: {
       version: "1.5.0",
+      label: "1.5.0",
       at: new Date(2026, 6, 22).getTime(),
       detail: "The plugin failed to load after the update.",
     },
@@ -517,6 +520,8 @@ Sign in once with \`gh auth login\`. The plugin reuses your GitHub CLI session a
   official: true,
   author: null,
   installed: false,
+  conflictingInstallSource: null,
+  installedByDefault: false,
   installs: null,
   compatible: true,
   incompatibleReason: null,
@@ -528,6 +533,7 @@ const COMPATIBILITY_BLOCKED_PLUGIN: PluginListItem = {
   updateState: {
     ...EMPTY_PLUGIN_UPDATE_STATE,
     blockedVersion: "2.0.0",
+    blockedLabel: "2.0.0",
     blockedReasons: ["Requires cc 0.20 or newer, and this cc is 0.18."],
   },
 };
@@ -537,7 +543,7 @@ function FailedReleaseLifecycle() {
 
   useEffect(() => {
     const originalFetch = globalThis.fetch;
-    let cancelled = false;
+    const lifecycle = new AbortController();
     globalThis.fetch = async (input, init) => {
       const url =
         typeof input === "string"
@@ -550,7 +556,7 @@ function FailedReleaseLifecycle() {
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 8_000));
-      if (!cancelled) {
+      if (!lifecycle.signal.aborted) {
         setPlugin((current) => ({
           ...current,
           version: "1.5.0",
@@ -572,7 +578,7 @@ function FailedReleaseLifecycle() {
       );
     };
     return () => {
-      cancelled = true;
+      lifecycle.abort();
       globalThis.fetch = originalFetch;
     };
   }, []);
@@ -591,7 +597,11 @@ function Plugin({
     <div className="flex min-w-0 flex-col">
       {plugin === null ? null : (
         <div className="-mx-4 md:-mx-5">
-          <PluginDetailBanners plugin={plugin} />
+          <PluginDetailBanners
+            plugin={plugin}
+            catalogEntries={[]}
+            onOpenPlugin={noop}
+          />
         </div>
       )}
       <div className="pt-3 md:pt-4">
@@ -621,7 +631,7 @@ function CatalogPlugin({
   return (
     <>
       <div className="-mx-4 md:-mx-5">
-        <CatalogPluginDetailBanner entry={entry} />
+        <CatalogPluginDetailBanner entry={entry} onOpenPlugin={noop} />
       </div>
       <div className="pt-3 md:pt-4">
         <CatalogPluginDetail

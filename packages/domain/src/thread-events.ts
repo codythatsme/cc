@@ -12,6 +12,7 @@ import {
   recordedThreadExecutionOptionsSchema,
 } from "./shared-types.js";
 import { jsonValueSchema } from "./json-value.js";
+import { pluginIdSchema } from "./plugin-id.js";
 import { clientTurnRequestIdSchema } from "./protocol-ids.js";
 import {
   systemMessageKindSchema,
@@ -19,23 +20,7 @@ import {
   systemThreadInterruptedReasonSchema,
 } from "./system-message.js";
 
-export const systemEventTypeValues = [
-  "client/thread/start",
-  "client/turn/requested",
-  "client/turn/rejected",
-  "client/turn/start",
-  "system/error",
-  "system/manager/user_message",
-  "system/thread/interrupted",
-  "system/operation",
-  "system/interaction/lifecycle",
-  "system/permissionGrant/lifecycle",
-  "system/userQuestion/lifecycle",
-  "system/thread-provisioning",
-  // Legacy persisted watchdog diagnostic; retained for read/decode/render
-  // only, with no current producer.
-  "system/provider-turn-watchdog",
-] as const;
+export { systemEventTypeValues } from "./thread-event-types.js";
 
 const threadTurnInitiatorValues = ["user", "agent", "system"] as const;
 export const threadTurnInitiatorSchema = z.enum(threadTurnInitiatorValues);
@@ -90,6 +75,7 @@ export const turnRequestEventDataSchema = z.object({
   source: z.enum(["spawn", "tell"]),
   initiator: threadTurnInitiatorSchema,
   senderThreadId: z.string().nullable(),
+  originPluginId: pluginIdSchema.optional(),
   systemMessageKind: systemMessageKindSchema.optional(),
   systemMessageSubject: systemMessageSubjectSchema.nullable().optional(),
   input: z.array(promptInputSchema),
@@ -132,81 +118,12 @@ export const turnRequestRejectedEventDataSchema = z.object({
   message: z.string().min(1),
 });
 
-export const systemErrorEventDataSchema = z
-  .object({
-    code: z.string().optional(),
-    message: z.string(),
-    detail: z.string().optional(),
-    reconnectAttempt: z.number().int().positive().optional(),
-    reconnectTotal: z.number().int().positive().optional(),
-  })
-  .superRefine((value, ctx) => {
-    const hasReconnectAttempt = value.reconnectAttempt !== undefined;
-    const hasReconnectTotal = value.reconnectTotal !== undefined;
-    if (hasReconnectAttempt !== hasReconnectTotal) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "system/error reconnectAttempt and reconnectTotal must be provided together",
-      });
-      return;
-    }
-
-    if (
-      value.reconnectAttempt !== undefined &&
-      value.reconnectTotal !== undefined &&
-      value.reconnectAttempt > value.reconnectTotal
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "system/error reconnectAttempt cannot be greater than reconnectTotal",
-      });
-    }
-  });
+export const systemErrorEventDataSchema = z.object({
+  code: z.string().optional(),
+  message: z.string(),
+  detail: z.string().optional(),
+});
 export type SystemErrorEventData = z.infer<typeof systemErrorEventDataSchema>;
-
-export function resolveSystemErrorReconnectProgress(args: {
-  code?: string;
-  message: string;
-  reconnectAttempt?: number;
-  reconnectTotal?: number;
-}): { attempt: number; total: number } | null {
-  if (
-    args.reconnectAttempt !== undefined &&
-    args.reconnectTotal !== undefined
-  ) {
-    return {
-      attempt: args.reconnectAttempt,
-      total: args.reconnectTotal,
-    };
-  }
-
-  if (args.code !== "provider_reconnect") {
-    return null;
-  }
-
-  const match = args.message
-    .trim()
-    .match(/^Reconnecting\.\.\.\s+(\d+)\/(\d+)$/);
-  if (!match) {
-    return null;
-  }
-
-  const attempt = Number.parseInt(match[1] ?? "", 10);
-  const total = Number.parseInt(match[2] ?? "", 10);
-  if (
-    !Number.isFinite(attempt) ||
-    !Number.isFinite(total) ||
-    attempt <= 0 ||
-    total <= 0 ||
-    attempt > total
-  ) {
-    return null;
-  }
-
-  return { attempt, total };
-}
 
 const ownershipChangeOperationActionValues = [
   "assign",
@@ -232,6 +149,8 @@ export type OwnershipChangeOperationMetadata = z.infer<
 >;
 
 export const THREAD_CONTEXT_CLEAR_OPERATION = "context_clear";
+export const THREAD_CONTEXT_CLEARED_DETAIL =
+  "New prompts won’t include messages above. Thread history and workspace are unchanged.";
 
 export const systemOperationEventDataSchema = z.object({
   operation: z.string(),

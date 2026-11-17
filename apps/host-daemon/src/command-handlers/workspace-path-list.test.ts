@@ -1,10 +1,11 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { runGit } from "@cc/host-workspace";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { initRepo } from "@cc/test-helpers";
 import { listWorkspacePaths } from "./file-list.js";
 import { listHostPaths } from "./host-files.js";
+import { runGit } from "cc-environment-provider-host/workspace-git";
 
 const roots: string[] = [];
 
@@ -17,10 +18,6 @@ async function createRoot() {
 async function write(root: string, file: string, content = "fixture") {
   await fs.mkdir(path.dirname(path.join(root, file)), { recursive: true });
   await fs.writeFile(path.join(root, file), content);
-}
-
-async function initRepo(root: string) {
-  await runGit(["init", "-b", "main"], { cwd: root });
 }
 
 function listingArgs(root: string) {
@@ -50,8 +47,9 @@ afterEach(async () => {
 
 describe("workspace path discovery", () => {
   it("includes tracked and non-ignored untracked files while pruning Git-ignored trees", async () => {
+    const fileNameBreak = process.platform === "win32" ? " " : "\n";
     const root = await createRoot();
-    await initRepo(root);
+    await initRepo(root, { commit: false });
     await write(root, ".github/workflows/ci.yml");
     await write(root, ".generated/tracked.txt");
     await runGit(["add", "."], { cwd: root });
@@ -66,11 +64,14 @@ describe("workspace path discovery", () => {
     await write(root, "local-output/ignored.txt");
     await write(root, ".state/drop.txt");
     await write(root, ".state/keep.txt");
-    await write(root, "src/new\nfile.ts");
-    await write(root, "src/ignored\nfile.log");
+    await write(root, `src/new${fileNameBreak}file.ts`);
+    await write(root, `src/ignored${fileNameBreak}file.log`);
     await write(root, "src/.gitignore", "*.log\n");
     await fs.mkdir(path.join(root, "empty"));
-    await fs.symlink("src/new\nfile.ts", path.join(root, "link.ts"));
+    await fs.symlink(
+      `src/new${fileNameBreak}file.ts`,
+      path.join(root, "link.ts"),
+    );
 
     expect(await paths(root)).toEqual([
       ".generated",
@@ -84,13 +85,13 @@ describe("workspace path discovery", () => {
       "empty",
       "src",
       "src/.gitignore",
-      "src/new\nfile.ts",
+      `src/new${fileNameBreak}file.ts`,
     ]);
   });
 
   it("resolves ignore rules relative to a subdirectory and a linked worktree", async () => {
     const root = await createRoot();
-    await initRepo(root);
+    await initRepo(root, { commit: false });
     await write(root, ".gitignore", "/.sandboxes/\n*.log\n");
     await write(root, "src/README.md");
     await runGit(["add", "."], { cwd: root });
@@ -139,7 +140,7 @@ describe("workspace path discovery", () => {
         "src/worktrees/index.ts",
       ],
     );
-    await initRepo(root);
+    await initRepo(root, { commit: false });
     expect(await paths(root)).not.toContain("output/result.txt");
     expect(
       (await listWorkspacePaths({ ...args, respectGitIgnore: false })).map(
@@ -155,7 +156,7 @@ describe("workspace path discovery", () => {
 
   it("shares pending discovery but refreshes completed results and ignore rules", async () => {
     const root = await createRoot();
-    await initRepo(root);
+    await initRepo(root, { commit: false });
     await write(root, "first.txt");
     const args = listingArgs(root);
     const first = listWorkspacePaths(args);
@@ -174,6 +175,45 @@ describe("workspace path discovery", () => {
     );
   });
 
+  it("reuses a slow listing and refreshes it in the background", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const root = await createRoot();
+      await write(root, "first.txt");
+      const slowListing = paths(root);
+      vi.setSystemTime(Date.now() + 1_000);
+      expect(await slowListing).toEqual(["first.txt"]);
+
+      await write(root, "second.txt");
+      expect(await paths(root)).toEqual(["first.txt"]);
+
+      vi.setSystemTime(Date.now() + 2_000);
+      expect(await paths(root)).toEqual(["first.txt"]);
+      await vi.waitFor(async () => {
+        expect(await paths(root)).toEqual(["first.txt", "second.txt"]);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("walks again once a cached slow listing expires", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const root = await createRoot();
+      await write(root, "first.txt");
+      const slowListing = paths(root);
+      vi.setSystemTime(Date.now() + 1_000);
+      expect(await slowListing).toEqual(["first.txt"]);
+
+      await write(root, "second.txt");
+      vi.setSystemTime(Date.now() + 30_000);
+      expect(await paths(root)).toEqual(["first.txt", "second.txt"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not retain failed discovery", async () => {
     const root = path.join(await createRoot(), "missing");
     await expect(listWorkspacePaths(listingArgs(root))).rejects.toMatchObject({
@@ -185,7 +225,7 @@ describe("workspace path discovery", () => {
 
   it("ranks concurrent queries independently over the shared listing", async () => {
     const root = await createRoot();
-    await initRepo(root);
+    await initRepo(root, { commit: false });
     await write(root, "alpha.md");
     await write(root, "beta.md");
     const command = {
@@ -198,12 +238,51 @@ describe("workspace path discovery", () => {
       excludeNames: [],
       limit: 1,
     };
+    const signal = new AbortController().signal;
     const [alpha, beta] = await Promise.all([
-      listHostPaths({ ...command, query: "alpha" }),
-      listHostPaths({ ...command, query: "beta" }),
+      listHostPaths({ ...command, query: "alpha" }, signal),
+      listHostPaths({ ...command, query: "beta" }, signal),
     ]);
     expect(alpha.paths.map((entry) => entry.path)).toEqual(["alpha.md"]);
     expect(beta.paths.map((entry) => entry.path)).toEqual(["beta.md"]);
+  });
+
+  it("stops an unqueried listing after the limit with the same entries as a full walk", async () => {
+    const root = await createRoot();
+    for (const dir of ["a", "b", "c", "d"]) {
+      await write(root, `${dir}/one.txt`);
+      await write(root, `${dir}/nested/two.txt`);
+    }
+    const command = {
+      type: "host.list_paths" as const,
+      path: root,
+      includeFiles: true,
+      includeDirectories: true,
+      includeHidden: true,
+      respectGitIgnore: false,
+      excludeNames: [],
+      limit: 5,
+    };
+    const signal = new AbortController().signal;
+    const fullWalk = await listWorkspacePaths(listingArgs(root));
+    const readdir = vi.spyOn(fs, "readdir");
+    try {
+      const result = await listHostPaths(command, signal);
+      expect(result.truncated).toBe(true);
+      expect(
+        result.paths.map(({ kind, name, path }) => ({ kind, name, path })),
+      ).toEqual(fullWalk.slice(0, 5));
+      expect(readdir.mock.calls.length).toBeLessThan(5);
+    } finally {
+      readdir.mockRestore();
+    }
+
+    const exact = await listHostPaths(
+      { ...command, limit: fullWalk.length },
+      signal,
+    );
+    expect(exact.truncated).toBe(false);
+    expect(exact.paths).toHaveLength(fullWalk.length);
   });
 
   it("skips excluded names at any depth and never lists .git", async () => {
@@ -245,25 +324,48 @@ describe("workspace path discovery", () => {
   it("does not overflow the call stack merging a large subdirectory", async () => {
     const root = await createRoot();
     const nested = path.join(root, "many");
-    await fs.mkdir(nested, { recursive: true });
+    await write(root, "many/seed.txt", "");
     const fileCount = 150_000;
-    const batchSize = 500;
-    for (let start = 0; start < fileCount; start += batchSize) {
-      const end = Math.min(start + batchSize, fileCount);
-      await Promise.all(
-        Array.from({ length: end - start }, (_, offset) =>
-          fs.writeFile(path.join(nested, `f${start + offset}.txt`), ""),
-        ),
-      );
+    const readDirectory = fs.readdir;
+    const readdir = vi
+      .spyOn(fs, "readdir")
+      .mockImplementation(async (...args) => {
+        const entries = await readDirectory(...args);
+        if (args[0] !== nested) return entries;
+        const [seed] = entries;
+        return Array.from(
+          { length: fileCount },
+          (_, index) =>
+            new Proxy(seed, {
+              get(target, property, receiver) {
+                if (property === "name") return `f${index}.txt`;
+                return Reflect.get(target, property, receiver);
+              },
+            }),
+        );
+      });
+    try {
+      const result = await listWorkspacePaths({
+        ...listingArgs(root),
+        includeDirectories: false,
+        includeHidden: false,
+        respectGitIgnore: false,
+      });
+
+      expect(result).toHaveLength(fileCount);
+      expect(new Set(result.map((entry) => entry.path)).size).toBe(fileCount);
+      expect(result[0]).toEqual({
+        kind: "file",
+        name: "f0.txt",
+        path: "many/f0.txt",
+      });
+      expect(result.at(-1)).toEqual({
+        kind: "file",
+        name: "f149999.txt",
+        path: "many/f149999.txt",
+      });
+    } finally {
+      readdir.mockRestore();
     }
-
-    const result = await listWorkspacePaths({
-      ...listingArgs(root),
-      includeDirectories: false,
-      includeHidden: false,
-      respectGitIgnore: false,
-    });
-
-    expect(result).toHaveLength(fileCount);
-  }, 60_000);
+  });
 });

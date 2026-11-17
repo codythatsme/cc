@@ -4,7 +4,9 @@ not already exist. Dispatch requires an existing preset.
 
 Create or update the same execution selection exposed in the Tasks UI with
 `--provider`, `--model`, `--reasoning`, and optional
-`--service-tier default|fast|none`:
+`--service-tier <tier>`. A tier is an id the provider lists for the model
+(`default`, `fast`, or another such as Codex `ultrafast`; see
+`cc provider models <provider> --json`):
 
 ```sh
 cc tasks preset create --name "Codex high" --provider codex \
@@ -12,4 +14,5 @@ cc tasks preset create --name "Codex high" --provider codex \
   --permission auto
 ```
 
-`preset update` accepts the same flags; `--service-tier none` clears a tier.
+`preset update` accepts the same flags; `--clear-service-tier` clears a tier.
+Do not combine it with `--service-tier`; `none` is a literal tier id.

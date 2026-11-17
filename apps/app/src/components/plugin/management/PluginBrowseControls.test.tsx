@@ -252,7 +252,7 @@ function ToolbarHarness({
 
 function mockToolbarWidth(initial: number, publishedWidth = 96) {
   let width = initial;
-  const callbacks = new Set<() => void>();
+  const callbacks = new Set<(entries: ResizeObserverEntry[]) => void>();
   const original = HTMLElement.prototype.getBoundingClientRect;
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function (this: HTMLElement) {
@@ -287,8 +287,8 @@ function mockToolbarWidth(initial: number, publishedWidth = 96) {
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      callback: () => void;
-      constructor(callback: () => void) {
+      callback: (entries: ResizeObserverEntry[]) => void;
+      constructor(callback: (entries: ResizeObserverEntry[]) => void) {
         this.callback = callback;
       }
       observe(target: Element) {
@@ -304,7 +304,7 @@ function mockToolbarWidth(initial: number, publishedWidth = 96) {
   return (next: number) =>
     act(() => {
       width = next;
-      callbacks.forEach((callback) => callback());
+      callbacks.forEach((callback) => callback([]));
     });
 }
 
@@ -319,6 +319,7 @@ describe("PluginCollectionToolbar", () => {
       mockToolbarWidth(800);
       render(<ToolbarHarness installed />);
       const trigger = screen.getByRole("button", { name: control });
+      fireEvent.keyDown(document, { key: "Tab" });
       act(() => trigger.focus());
       expect((await screen.findByRole("tooltip")).textContent).toBe(tooltip);
     },
@@ -332,6 +333,7 @@ describe("PluginCollectionToolbar", () => {
     expect(
       trigger.querySelector('[data-icon="FilterHorizontal"]'),
     ).not.toBeNull();
+    fireEvent.keyDown(document, { key: "Tab" });
     act(() => trigger.focus());
     expect((await screen.findByRole("tooltip")).textContent).toBe(
       "Category: Security; Source: Local; Sort: Name · Z–A",
@@ -556,7 +558,9 @@ describe("PluginCollectionToolbar", () => {
     const resize = mockToolbarWidth(354);
     render(<ToolbarHarness installed createAction />);
     expect(screen.getByRole("button", { name: "Filter & sort" })).toBeTruthy();
-    expect(screen.queryByRole("textbox", { name: "Search plugins" })).toBeNull();
+    expect(
+      screen.queryByRole("textbox", { name: "Search plugins" }),
+    ).toBeNull();
     expect(screen.getByRole("button", { name: "Search plugins" })).toBeTruthy();
     resize(320);
     expect(screen.getByRole("button", { name: "Search plugins" })).toBeTruthy();
@@ -578,15 +582,21 @@ describe("PluginCollectionToolbar", () => {
       name: "Search plugins",
     });
     fireEvent.change(search, { target: { value: "Notes" } });
-    act(() => vi.advanceTimersByTime(250));
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
     expect(search.value).toBe("Notes");
     fireEvent.change(search, { target: { value: "Notes app" } });
-    act(() => vi.advanceTimersByTime(550));
+    act(() => {
+      vi.advanceTimersByTime(550);
+    });
     expect(screen.getByLabelText("Parameters").textContent).toContain(
       "query=Notes&",
     );
     expect(search.value).toBe("Notes app");
-    act(() => vi.advanceTimersByTime(1000));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     expect(screen.getByLabelText("Parameters").textContent).toContain(
       "query=Notes+app",
     );

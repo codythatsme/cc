@@ -1,6 +1,16 @@
-import { spawn } from "node:child_process";
+import {
+  experimental_hostToolchain as hostToolchain,
+  experimental_spawnHostProcess as spawn,
+} from "@codythatsme/plugin-sdk/process";
 import { createHash, randomBytes } from "node:crypto";
-import { constants, createReadStream, createWriteStream } from "node:fs";
+import {
+  constants,
+  createReadStream,
+  createWriteStream,
+  readFileSync,
+  statSync,
+  unlinkSync,
+} from "node:fs";
 import {
   access,
   chmod,
@@ -15,7 +25,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { delimiter, join } from "node:path";
+import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
@@ -153,6 +163,8 @@ function installEnvironment(
     "no_proxy",
     "SSL_CERT_FILE",
     "NODE_EXTRA_CA_CERTS",
+    "NODE_USE_SYSTEM_CA",
+    "NODE_USE_ENV_PROXY",
   ]) {
     if (base[key]) env[key] = base[key];
   }
@@ -169,13 +181,8 @@ function installEnvironment(
 }
 
 export async function findNpm(env: NodeJS.ProcessEnv): Promise<string> {
-  for (const dir of (env.PATH ?? "").split(delimiter).filter(Boolean)) {
-    const candidate = join(dir, "npm");
-    try {
-      await access(candidate, constants.X_OK);
-      return candidate;
-    } catch {}
-  }
+  const command = hostToolchain.resolve("npm", { env });
+  if (command !== null) return command;
   throw new Error(
     "npm is not available on this browser host's PATH; install Node.js with npm on the selected host so the DevBrowser runtime can be installed there.",
   );
@@ -433,8 +440,10 @@ async function fetchText(url: string, signal: AbortSignal): Promise<string> {
 
 const lockInitGraceMs = 10_000;
 
-async function lockOwner(path: string): Promise<number | null> {
-  const match = (await readFile(path, "utf8")).trim().match(/^([0-9]+)(?: |$)/);
+function lockOwner(path: string): number | null {
+  const match = readFileSync(path, "utf8")
+    .trim()
+    .match(/^([0-9]+)(?: |$)/);
   return match ? Number(match[1]) : null;
 }
 
@@ -455,10 +464,10 @@ export async function acquireLock(
       return async () => {
         try {
           if (
-            (await stat(path, { bigint: true })).ino === acquired &&
-            (await readFile(path, "utf8")) === content
+            statSync(path, { bigint: true }).ino === acquired &&
+            readFileSync(path, "utf8") === content
           )
-            await unlink(path);
+            unlinkSync(path);
         } catch {}
       };
     } catch (error) {
@@ -472,10 +481,10 @@ export async function acquireLock(
     let holder: number | null = null;
     let seen: { ino: bigint; mtimeMs: number } | null = null;
     try {
-      const info = await stat(path, { bigint: true });
+      const info = statSync(path, { bigint: true });
       seen = { ino: info.ino, mtimeMs: Number(info.mtimeMs) };
       const age = Date.now() - seen.mtimeMs;
-      holder = await lockOwner(path);
+      holder = lockOwner(path);
       if (age > lockStaleMs) stale = true;
       else if (holder === null) stale = age > lockInitGraceMs;
       else if (holder !== process.pid) {
@@ -495,13 +504,13 @@ export async function acquireLock(
     }
     if (stale && seen) {
       try {
-        const current = await stat(path, { bigint: true });
+        const current = statSync(path, { bigint: true });
         if (
           current.ino === seen.ino &&
           Number(current.mtimeMs) === seen.mtimeMs &&
-          (await lockOwner(path)) === holder
+          lockOwner(path) === holder
         )
-          await unlink(path);
+          unlinkSync(path);
       } catch {}
     } else await delay(250, undefined, { signal });
   }
@@ -584,6 +593,7 @@ export async function installRuntime(
           "--no-audit",
           "--no-fund",
           "--omit=dev",
+          "--omit-lockfile-registry-resolved=false",
           "--loglevel=error",
           `--registry=${release.registry}`,
         ],

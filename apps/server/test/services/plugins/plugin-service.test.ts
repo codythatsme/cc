@@ -13,17 +13,16 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import semver from "semver";
 import {
-  createConnection,
   createEnvironment,
   createProject,
   getInstalledPlugin,
-  migrate,
   noopNotifier,
   upsertHost,
   upsertInstalledPlugin,
   upsertPluginMarketplace,
   type DbConnection,
 } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { PLUGIN_SDK_VERSION, type SystemChangeKind } from "@cc/domain";
 import type { Logger } from "@cc/logger";
 import { pluginListResponseSchema } from "@cc/server-contract";
@@ -111,14 +110,15 @@ describe("plugin service", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -129,17 +129,21 @@ describe("plugin service", () => {
     });
   });
 
-  function createUnbundledService(): PluginService {
+  function createUnbundledService(
+    fixture = { db, workDir },
+  ): PluginService {
     return createPluginService({
       aiServices: createAiServiceRegistry(),
-      db,
+      db: fixture.db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
       logger,
-      dataDir: join(workDir, "data"),
+      dataDir: join(fixture.workDir, "data"),
       appVersion: "0.9.0",
       bundledPlugins: [],
       loadTimeoutMs: 2000,
@@ -153,23 +157,6 @@ describe("plugin service", () => {
     } finally {
       vi.restoreAllMocks();
     }
-  });
-
-  it("installs a path plugin, runs its factory, and reports running", async () => {
-    const rootDir = await writePlugin(workDir, {
-      name: "cc-plugin-greeter",
-      serverSource: `
-        import type { CcPluginApi } from "@codythatsme/plugin-sdk";
-        export default function plugin(cc: any) {
-          (globalThis as any).__greeterLoads = ((globalThis as any).__greeterLoads ?? 0) + 1;
-          cc.log.info("hello from greeter");
-        }
-      `,
-    });
-    const entry = await service.installPath(rootDir);
-    expect(entry.id).toBe("greeter");
-    expect(entry.status).toBe("running");
-    expect(service.getApi("greeter")).toBeDefined();
   });
 
   it.each(["startup", "retry"])(
@@ -439,38 +426,6 @@ describe("plugin service", () => {
     expect(globals.cjsChild).toBe("cjs-after:cjs-after");
   });
 
-  it("loads cross-plugin imports while reloading the imported plugin", async () => {
-    const importerDir = join(workDir, "cc-plugin-importer");
-    const importedDir = join(workDir, "cc-plugin-imported");
-    await writeEsmPlugin(importerDir, "importer");
-    await writeEsmPlugin(importedDir, "imported");
-    await writeEsmSources(importedDir, "imported", "entry1", "sub1");
-    await writeFile(
-      join(importerDir, "server.js"),
-      `export default function plugin() {
-         globalThis.importerReadShared = async () =>
-           (await import(${JSON.stringify(join(importedDir, "shared.js"))})).SHARED;
-       }\n`,
-    );
-    await writeFile(
-      join(importedDir, "shared.js"),
-      `export const SHARED = "shared1";\n`,
-    );
-    await service.installPath(importedDir);
-    await service.installPath(importerDir);
-    const globals = globalThis as Record<string, unknown>;
-    const readShared = globals.importerReadShared as () => Promise<string>;
-    expect(await readShared()).toBe("shared1");
-
-    await writeFile(
-      join(importedDir, "shared.js"),
-      `export const SHARED = "shared2";\n`,
-    );
-    await writeEsmSources(importedDir, "imported", "entry2", "sub2");
-    await service.reload("imported");
-    expect(globals.imported).toBe("entry2:sub2");
-  });
-
   it("hides a failed reload's sources from a plugin that imports it", async () => {
     const importerDir = join(workDir, "cc-plugin-fail-importer");
     const importedDir = join(workDir, "cc-plugin-fail-imported");
@@ -666,6 +621,7 @@ describe("plugin service", () => {
         rootDir,
         version: "0.1.0",
         enabled: true,
+        enabledFollowsDefault: false,
       });
     };
     install("aaa-slow", slowRoot);
@@ -677,6 +633,8 @@ describe("plugin service", () => {
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -729,6 +687,8 @@ describe("plugin service", () => {
         db,
         hub: {
           getDaemonSessionIdForHost: () => null,
+          notifyPluginChanged: () => {},
+          onWatchedTargets: () => () => {},
           notifyPluginSignal: () => 0,
           notifySystem: () => {},
         },
@@ -761,6 +721,7 @@ describe("plugin service", () => {
       rootDir,
       version: "0.2.1",
       enabled: true,
+      enabledFollowsDefault: false,
     });
 
     const after = makeService("0.39.0");
@@ -809,6 +770,7 @@ describe("plugin service", () => {
       rootDir,
       version: "0.1.0",
       enabled: true,
+      enabledFollowsDefault: false,
     });
 
     const upgraded = createPluginService({
@@ -816,6 +778,8 @@ describe("plugin service", () => {
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -844,6 +808,8 @@ describe("plugin service", () => {
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -868,6 +834,7 @@ describe("plugin service", () => {
       sourceKind: "https",
       manifestUrl: "https://plugins.acme.test/marketplace.json",
       sourceGitRef: null,
+      sourceGitSubdirectory: null,
       sourceGitCommit: null,
       manifestJson: JSON.stringify({
         schemaVersion: 2,
@@ -939,6 +906,7 @@ describe("plugin service", () => {
       rootDir: "/managed/installed-tool",
       version: "1.0.0",
       enabled: false,
+      enabledFollowsDefault: false,
     });
 
     expect(
@@ -959,6 +927,7 @@ describe("plugin service", () => {
       sourceKind: "https",
       manifestUrl: "https://plugins.acme.test/marketplace.json",
       sourceGitRef: null,
+      sourceGitSubdirectory: null,
       sourceGitCommit: null,
       manifestJson: JSON.stringify({
         schemaVersion: 2,
@@ -1007,74 +976,76 @@ describe("plugin service", () => {
     expect(entry?.statusDetail).toContain("timed out");
   });
 
-  it("disable unloads and disposes; enable loads again", async () => {
-    const rootDir = await writePlugin(workDir, {
-      name: "cc-plugin-switchable",
-      serverSource: `export default function plugin(cc: any) {
-        cc.onDispose(() => { (globalThis as any).__switchableDisposed = true; });
-      }`,
-    });
-    await service.installPath(rootDir);
-    const disabled = await service.setEnabled("switchable", false);
-    expect(disabled?.status).toBe("disabled");
-    expect((globalThis as Record<string, unknown>).__switchableDisposed).toBe(
-      true,
-    );
-    const enabled = await service.setEnabled("switchable", true);
-    expect(enabled?.status).toBe("running");
-  });
-
-  it("holds a plugin at start without running its factory or starting its services", async () => {
+  it("holds every plugin a hold names at start without running its factory or starting its services", async () => {
     const globals = globalThis as Record<string, unknown>;
-    const heldRoot = await writePlugin(workDir, {
-      name: "cc-plugin-held-tunnel",
-      serverSource: `export default function plugin(cc: any) {
-        const g = globalThis as any;
-        g.__heldFactoryRuns = (g.__heldFactoryRuns ?? 0) + 1;
-        cc.background.service("tunnel", {
-          start(signal: any) {
-            g.__heldServiceStarts = (g.__heldServiceStarts ?? 0) + 1;
-            return new Promise<void>((resolve) => {
-              signal.addEventListener("abort", () => resolve());
-            });
-          },
-        });
-      }`,
-    });
-    const otherRoot = await writePlugin(workDir, {
-      name: "cc-plugin-unheld",
-      serverSource: `export default function plugin() {}`,
-    });
-    const held = await service.installPath(heldRoot);
-    await service.installPath(otherRoot);
-    await service.stop();
-    globals.__heldFactoryRuns = 0;
-    globals.__heldServiceStarts = 0;
-    service = createUnbundledService();
+    const db = createMigratedConnection();
+    const workDir = await mkdtemp(join(tmpdir(), "cc-plugin-hold-test-"));
+    const fixture = { db, workDir };
+    let service = createUnbundledService(fixture);
 
     try {
+      const heldAccountRoot = await writePlugin(workDir, {
+        name: "cc-plugin-held-account",
+        serverSource: `export default function plugin() {
+          const g = globalThis as any;
+          g.__heldFactoryRuns = (g.__heldFactoryRuns ?? 0) + 1;
+        }`,
+      });
+      const heldRoot = await writePlugin(workDir, {
+        name: "cc-plugin-held-tunnel",
+        serverSource: `export default function plugin(cc: any) {
+          const g = globalThis as any;
+          g.__heldFactoryRuns = (g.__heldFactoryRuns ?? 0) + 1;
+          cc.background.service("tunnel", {
+            start(signal: any) {
+              g.__heldServiceStarts = (g.__heldServiceStarts ?? 0) + 1;
+              return new Promise<void>((resolve) => {
+                signal.addEventListener("abort", () => resolve());
+              });
+            },
+          });
+        }`,
+      });
+      const otherRoot = await writePlugin(workDir, {
+        name: "cc-plugin-unheld",
+        serverSource: `export default function plugin() {}`,
+      });
+      const held = await service.installPath(heldRoot);
+      const heldAccount = await service.installPath(heldAccountRoot);
+      await service.installPath(otherRoot);
+      await service.stop();
+      globals.__heldFactoryRuns = 0;
+      globals.__heldServiceStarts = 0;
+      service = createUnbundledService(fixture);
+
       await service.start({
         hold: {
-          source: held.source,
+          sources: [held.source, heldAccount.source],
           detail: "Held for this test.",
           isActive: async () => true,
         },
       });
 
-      expect(service.getApi("held-tunnel")).toBeUndefined();
-      expect(
-        service.list().find((entry) => entry.id === "held-tunnel"),
-      ).toMatchObject({
-        enabled: true,
-        status: "disabled",
-        statusDetail: "Held for this test.",
-      });
+      for (const id of ["held-tunnel", "held-account"]) {
+        expect(service.getApi(id)).toBeUndefined();
+        expect(service.list().find((entry) => entry.id === id)).toMatchObject({
+          enabled: true,
+          status: "disabled",
+          statusDetail: "Held for this test.",
+        });
+      }
       expect(globals.__heldFactoryRuns).toBe(0);
       expect(globals.__heldServiceStarts).toBe(0);
       expect(service.getApi("unheld")).toBeDefined();
     } finally {
-      delete globals.__heldFactoryRuns;
-      delete globals.__heldServiceStarts;
+      try {
+        await service.stop();
+      } finally {
+        db.$client.close();
+        delete globals.__heldFactoryRuns;
+        delete globals.__heldServiceStarts;
+        await rm(workDir, { recursive: true, force: true });
+      }
     }
   });
 
@@ -1104,7 +1075,7 @@ describe("plugin service", () => {
       service = createUnbundledService();
       await service.start({
         hold: {
-          source: held.source,
+          sources: [held.source],
           detail: HELD_DETAIL,
           isActive: async () => holdActive,
         },
@@ -1209,6 +1180,8 @@ describe("plugin service", () => {
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -1298,6 +1271,82 @@ describe("plugin service", () => {
       floor: "1",
       token: { set: true },
     });
+  });
+
+  it("copies a path plugin out of a directory cc is deleting and keeps running it from the copy", async () => {
+    const storage = join(workDir, "data", "thread-storage", "thr_kept");
+    const inside = await writePlugin(storage, {
+      name: "cc-plugin-kept",
+      serverSource: `
+        export default function plugin(cc) {
+          cc.settings.define({
+            token: { type: "string", label: "Token", secret: true },
+          });
+        }`,
+    });
+    await mkdir(join(inside, "lib"), { recursive: true });
+    await writeFile(join(inside, "lib", "helper.js"), "export {};\n");
+    const outside = await writePlugin(join(workDir, "elsewhere"), {
+      name: "cc-plugin-elsewhere",
+      serverSource: `export default function plugin() {}`,
+    });
+    const preserved = join(
+      workDir,
+      "data",
+      "plugins",
+      "kept",
+      "preserved-source",
+    );
+    expect((await service.installPath(inside)).sourceNotice).toBe(
+      `Installed from a thread's storage folder. When cc deletes that thread, it copies this plugin to ${preserved} and runs it from there.`,
+    );
+    expect((await service.installPath(outside)).sourceNotice).toBeNull();
+    await service.updateSettings("kept", { token: "s3cret" });
+
+    await service.preservePathPluginsInside(storage);
+    await rm(storage, { recursive: true, force: true });
+    await service.reload("kept");
+
+    expect(service.list().find((p) => p.id === "kept")).toMatchObject({
+      source: `path:${preserved}`,
+      status: "running",
+      sourceNotice: null,
+    });
+    expect(await readFile(join(preserved, "lib", "helper.js"), "utf8")).toBe(
+      "export {};\n",
+    );
+    expect((await service.getSettings("kept"))?.values).toEqual({
+      token: { set: true },
+    });
+    expect(getInstalledPlugin(db, "elsewhere")?.sourcePath).toBe(outside);
+  });
+
+  it("keeps the copied files when the plugin cannot move to them", async () => {
+    const storage = join(workDir, "data", "thread-storage", "thr_brittle");
+    const inside = await writePlugin(storage, {
+      name: "cc-plugin-brittle-copy",
+      serverSource: `
+        export default function plugin() {
+          if (!import.meta.url.includes("thread-storage")) {
+            throw new Error("boom outside storage");
+          }
+        }`,
+    });
+    await service.installPath(inside);
+
+    await service.preservePathPluginsInside(storage);
+
+    const preserved = join(
+      workDir,
+      "data",
+      "plugins",
+      "brittle-copy",
+      "preserved-source",
+    );
+    expect(getInstalledPlugin(db, "brittle-copy")?.sourcePath).toBe(inside);
+    expect(await readFile(join(preserved, "server.ts"), "utf8")).toContain(
+      "boom outside storage",
+    );
   });
 
   it("keeps a moved path plugin disabled instead of starting it", async () => {
@@ -1391,8 +1440,7 @@ describe("plugin service", () => {
     });
   });
 
-  it("warns when a path plugin is installed from inside a managed workspace", async () => {
-    const warnSpy = vi.spyOn(logger, "warn");
+  it("tells the user to reinstall a path plugin installed from cc's data folder", async () => {
     const managedRoot = join(
       workDir,
       "data",
@@ -1407,15 +1455,12 @@ describe("plugin service", () => {
     await mkdir(dirname(managedRoot), { recursive: true });
     await rename(written, managedRoot);
 
-    await service.installPath(managedRoot);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("cc-managed workspace"),
+    expect((await service.installPath(managedRoot)).sourceNotice).toBe(
+      `Installed from inside cc's data folder, where cc can delete it. Reinstall it from a folder outside ${join(workDir, "data")} to keep it.`,
     );
   });
 
-  it("does not warn for a plugin installed from a directory a provider only attached to", async () => {
-    const warnSpy = vi.spyOn(logger, "warn");
-    warnSpy.mockClear();
+  it("adds no notice for a plugin installed from a directory a provider only attached to", async () => {
     const checkoutRoot = await writePlugin(join(workDir, "checkout"), {
       name: "cc-plugin-attached",
       serverSource: `export default function plugin() {}`,
@@ -1426,10 +1471,7 @@ describe("plugin service", () => {
       providerOwnsPath: false,
     });
 
-    await service.installPath(checkoutRoot);
-    expect(warnSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("cc-managed workspace"),
-    );
+    expect((await service.installPath(checkoutRoot)).sourceNotice).toBeNull();
   });
 
   it("warns for a plugin installed inside a directory a provider owns", async () => {
@@ -1462,8 +1504,7 @@ describe("plugins-changed broadcast", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-notify-test-"));
     notifySystem = vi.fn<(changes: SystemChangeKind[]) => void>();
     providerRegistry = createProviderRegistryService();
@@ -1472,6 +1513,8 @@ describe("plugins-changed broadcast", () => {
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem,
       },

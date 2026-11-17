@@ -6,15 +6,19 @@ import {
 } from "./desktop-browser-import.js";
 
 const id = z.string().min(1).max(256);
+export const desktopBrowserBrokerChallengeSchema = z
+  .string()
+  .regex(/^[a-f0-9]{64}$/u);
+export const desktopBrowserBrokerProofSchema = z
+  .object({
+    proof: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict();
 export const desktopBrowserInstanceSchema = z.object({
   instanceId: id,
   generation: id,
   label: z.string().min(1).max(256),
 });
-export const desktopBrowserProfileSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("automation"), id }),
-  z.object({ kind: z.literal("personal") }),
-]);
 export const desktopBrowserLeaseSchema = z.object({
   leaseId: id,
   controllerLabel: z.string().min(1).max(256),
@@ -27,7 +31,6 @@ export const desktopBrowserTabSchema = z.object({
   url: z.string().max(32768),
   title: z.string().max(8192),
   control: desktopBrowserLeaseSchema.nullable(),
-  profile: desktopBrowserProfileSchema,
   presentation: z.enum(["hidden", "reveal"]),
 });
 const instanceTarget = { instanceId: id, generation: id };
@@ -67,7 +70,6 @@ export const desktopBrowserCommandSchemas = {
       type: z.literal("desktop.browser.create_tab"),
       ...tabTarget,
       url: desktopBrowserNavigationUrlSchema,
-      profile: desktopBrowserProfileSchema,
       presentation: z.enum(["hidden", "reveal"]),
     })
     .strict(),
@@ -113,7 +115,6 @@ export const desktopBrowserCommandSchemas = {
       type: z.literal("desktop.browser.import_cookies"),
       ...instanceTarget,
       ...desktopBrowserImportSelectionSchema.shape,
-      profile: desktopBrowserProfileSchema,
     })
     .strict(),
 };

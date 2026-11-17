@@ -2,6 +2,7 @@ import {
   applyAppKeybindingOverrides,
   isAppKeybindingAvailableForClient,
   isMacKeyboardPlatform,
+  keyboardPlatform,
   matchesAppShortcut,
   type AppDefaultKeybindings,
   type AppKeybindingOverrides,
@@ -34,15 +35,24 @@ export function resolvePluginCommandDefaults(
   overrides: AppKeybindingOverrides,
   isDesktop: boolean,
   platform: string,
+  bundledCommands: ReadonlySet<KeyboardCommandId>,
 ): {
   defaults: AppDefaultKeybindings;
   conflicts: ReadonlyMap<KeyboardCommandId, readonly KeyboardCommandId[]>;
 } {
-  const client = { isDesktop, isMac: isMacKeyboardPlatform(platform) };
+  const client = { isDesktop, platform };
   const effective = applyAppKeybindingOverrides(defaults, overrides).filter(
     (binding) => isAppKeybindingAvailableForClient(binding, client),
   );
-  const customized = new Set(overrides.map((override) => override.command));
+  const customized = new Set(
+    overrides
+      .filter(
+        (override) =>
+          override.platform === undefined ||
+          override.platform === keyboardPlatform(platform),
+      )
+      .map((override) => override.command),
+  );
   const conflicts = new Map<KeyboardCommandId, KeyboardCommandId[]>();
   const resolved = defaults.map((binding) => {
     if (
@@ -52,9 +62,13 @@ export function resolvePluginCommandDefaults(
     )
       return binding;
     const shortcut = binding.shortcut;
+    const bundled = bundledCommands.has(binding.command);
     const collisions = effective.filter(
       (candidate) =>
         candidate.command !== binding.command &&
+        (!bundled ||
+          !candidate.command.startsWith("plugin:") ||
+          bundledCommands.has(candidate.command)) &&
         shortcutsConflict(shortcut, candidate.shortcut, platform),
     );
     if (collisions.length === 0) return binding;

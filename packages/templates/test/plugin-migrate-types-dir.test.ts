@@ -83,6 +83,7 @@ describe("migratePluginToPackageLayout when types/ survives the rmdir", () => {
     const result = await migratePluginToPackageLayout({
       rootDir,
       sdkVersion: SDK_VERSION,
+      sdkInDependencies: false,
     });
 
     expect(result.deletedFiles).toEqual(["types/cc-plugin-sdk.d.ts"]);

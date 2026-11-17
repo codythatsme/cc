@@ -121,6 +121,7 @@ function builtinPlugin(id: string): UpsertInstalledPluginInput {
     rootDir: `/opt/cc-app/plugins/${id}`,
     version: "1.0.0",
     enabled: true,
+    enabledFollowsDefault: false,
   };
 }
 
@@ -798,7 +799,7 @@ describe("server move checks", () => {
             resolveMode: async () => ({
               mode: "connect",
               connectHandle: "laptop",
-              serverUrl: "https://laptop.getbb.test",
+              serverUrl: "https://laptop.cc.test",
             }),
           }),
           { moveInProgress: false, request: request({ serverUrl: null }) },
@@ -827,7 +828,7 @@ describe("server move checks", () => {
           resolveMode: async () => ({
             mode: "connect",
             connectHandle: "laptop",
-            serverUrl: "https://laptop.getbb.test",
+            serverUrl: "https://laptop.cc.test",
           }),
         }),
         { moveInProgress: false, request: request({ serverUrl: null }) },
@@ -835,7 +836,7 @@ describe("server move checks", () => {
       expect(connect.response).toMatchObject({
         mode: "connect",
         requiresServerUrl: false,
-        serverUrl: "https://laptop.getbb.test",
+        serverUrl: "https://laptop.cc.test",
         canMove: true,
       });
       expect(itemIds(connect.response.items)).toEqual([

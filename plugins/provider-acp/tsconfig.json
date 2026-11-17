@@ -4,21 +4,25 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
     "lib": ["ES2022", "DOM"],
+    "esModuleInterop": true,
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "@codythatsme/plugin-sdk": [
-        "../../packages/plugin-sdk/bundled-types/cc-plugin-sdk.d.ts"
+      "@/components/ui/icon": [
+        "../../packages/plugin-registry/flavors/components/ui/icon.tsx"
       ],
-      "@codythatsme/plugin-sdk/app": [
-        "../../packages/plugin-sdk/bundled-types/cc-plugin-sdk-app.d.ts"
-      ],
-      "@codythatsme/plugin-sdk/provider-bridge/acp": [
-        "../../packages/plugin-sdk/bundled-types/cc-plugin-sdk-provider-bridge-acp.d.ts"
-      ]
+      "@/*": ["../../packages/shared-ui/src/*"]
     },
     "types": ["node"]
   },
-  "include": ["server.ts", "server.test.ts", "src", "vitest.config.ts"]
+  "include": [
+    "server.ts",
+    "server.test.ts",
+    "src",
+    "app.tsx",
+    "app.test.tsx",
+    "vitest.config.ts"
+  ]
 }

@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -20,10 +21,7 @@ import {
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import type { SidebarThread } from "../model/sidebar-thread.js";
-import {
-  experimental_useSidebarThreadActions,
-  useSdk,
-} from "@codythatsme/plugin-sdk/app";
+import { useSdk } from "@codythatsme/plugin-sdk/app";
 import type { NeighborReorderRequest } from "../model/neighbor-reorder.js";
 import {
   getSidebarDndItemId,
@@ -37,19 +35,22 @@ import {
   reorderSidebarSectionOrder,
 } from "../model/sidebar-section-order.js";
 import { sidebarCollapsedThreadSectionsAtom } from "../preferences/atoms.js";
-import { useSidebarReorderDnd } from "./useSidebarReorderDnd.js";
+import { useSidebarReorderDnd } from "@/components/ui/use-sidebar-reorder-dnd";
+import { SidebarTouchSensor } from "./sidebarTouchSensor.js";
 import {
   reorderCollisionDetection,
   type ReorderDndContextProps,
-} from "../ui/useReorderDnd.js";
-import type { ConsumeDragClickSuppression } from "../ui/use-drag-click-suppression.js";
+} from "@/components/ui/use-reorder-dnd";
+import type { ConsumeDragClickSuppression } from "@/components/ui/use-drag-click-suppression";
 import { useNeighborReorderSortable } from "./useNeighborReorderSortable.js";
+import { canKeepSortableItemIds } from "./useStableItemIds.js";
 import {
   getSidebarThreadRowDroppableId,
   parseSidebarThreadRowDroppableId,
   type SidebarNestTargetState,
   type SidebarReorderPlacement,
 } from "../rows/sidebarThreadRowDroppable.js";
+import { useThreadSelectionStore } from "../selection/threadSelection.js";
 
 export const PINNED_THREAD_PARENT_KEY = "sidebar:pinned-threads";
 export const NEST_BAND_FRACTION = 0.7;
@@ -87,7 +88,9 @@ export interface SectionThreadReorderTarget {
 
 export interface SectionThreadDndState {
   activeItemId: string | null;
+  isDragging: boolean;
   activeThread: SidebarThread | null;
+  draggedThreadIds: ReadonlySet<string> | null;
   consumeClickSuppression: ConsumeDragClickSuppression;
   dndContextProps: ReorderDndContextProps;
   itemIdsByParentKey: ReadonlyMap<string, readonly string[]>;
@@ -103,6 +106,7 @@ export interface SectionThreadDndState {
 
 interface UseSectionThreadDndArgs {
   containerId: string;
+  containerProjectId?: string;
   enabled: boolean;
   rootItems: readonly ProjectThreadItem[];
   topLevelSectionOrder: readonly SidebarSectionId[];
@@ -126,12 +130,53 @@ interface SectionThreadDndLookup {
   sectionParentKeyBySectionId: Map<string, string>;
   sectionSectionIdByParentKey: Map<string, SidebarSectionId>;
   sectionIdByParentKey: Map<string, string | null>;
+  projectIdByParentKey: Map<string, string>;
   itemIdsByParentKey: Map<string, string[]>;
   itemKindById: Map<string, ProjectThreadItem["kind"]>;
   parentKeyByItemId: Map<string, string>;
   threadByItemId: Map<string, SidebarThread>;
   nodeByItemId: Map<string, ProjectThreadNode>;
   nestParentIdByItemId: Map<string, string>;
+}
+
+function shareItemIdsByParentKey(
+  previous: ReadonlyMap<string, readonly string[]>,
+  next: ReadonlyMap<string, readonly string[]>,
+  dragging: boolean,
+): ReadonlyMap<string, readonly string[]> {
+  if (previous === next) return previous;
+  let changed = previous.size !== next.size;
+  const shared = new Map<string, readonly string[]>();
+  for (const [parentKey, itemIds] of next) {
+    const previousItemIds = previous.get(parentKey);
+    if (
+      previousItemIds !== undefined &&
+      canKeepSortableItemIds(
+        previousItemIds,
+        itemIds,
+        dragging || parentKey === PINNED_THREAD_PARENT_KEY,
+      )
+    ) {
+      shared.set(parentKey, previousItemIds);
+    } else {
+      shared.set(parentKey, itemIds);
+      changed = true;
+    }
+  }
+  return changed ? shared : previous;
+}
+
+function useSharedItemIdsByParentKey(
+  next: ReadonlyMap<string, readonly string[]>,
+  dragging: boolean,
+): ReadonlyMap<string, readonly string[]> {
+  const [kept, setKept] = useState(next);
+  const shared = useMemo(
+    () => shareItemIdsByParentKey(kept, next, dragging),
+    [dragging, kept, next],
+  );
+  if (shared !== kept) setKept(shared);
+  return shared;
 }
 
 interface SectionThreadUpdate {
@@ -198,6 +243,7 @@ type RowDropState = SectionThreadNestTarget;
 
 interface CollectSectionThreadDndLookupOptions {
   groups?: boolean;
+  containerProjectId?: string;
   pinnedRootItems?: readonly ProjectThreadItem[];
 }
 
@@ -233,6 +279,11 @@ export function collectSectionThreadDndLookup(
       [PINNED_THREAD_PARENT_KEY, "pinned"],
     ]),
     sectionIdByParentKey: new Map([[containerId, null]]),
+    projectIdByParentKey: new Map(
+      options.containerProjectId === undefined
+        ? []
+        : [[containerId, options.containerProjectId]],
+    ),
     itemIdsByParentKey: new Map([
       [PINNED_THREAD_PARENT_KEY, pinnedThreads.map((thread) => thread.id)],
     ]),
@@ -321,6 +372,12 @@ export function collectSectionThreadDndLookup(
         lookup.sectionParentKeyBySectionId.set(sectionId, item.group.key);
         lookup.sectionSectionIdByParentKey.set(item.group.key, sectionId);
         lookup.sectionIdByParentKey.set(item.group.key, item.group.id);
+        if (options.groups && sectionId.startsWith("project:")) {
+          lookup.projectIdByParentKey.set(
+            item.group.key,
+            sectionId.slice("project:".length),
+          );
+        }
         walk(item.group.items, item.group.key);
       }
     }
@@ -506,6 +563,7 @@ function resolveSectionThreadDropParentKey(
 
 interface ResolveSectionThreadDropDecisionOptions {
   groups?: boolean;
+  selectedThreadIds?: readonly string[];
 }
 
 function getPinnedThreadIds(threads: readonly SidebarThread[]): string[] {
@@ -568,10 +626,54 @@ function resolveNestDecision(
   };
 }
 
+function hasSelectedAncestor(
+  lookup: SectionThreadDndLookup,
+  threadId: string,
+  selected: ReadonlySet<string>,
+): boolean {
+  let parentId = lookup.nestParentIdByItemId.get(threadId);
+  while (parentId !== undefined) {
+    if (selected.has(parentId)) return true;
+    parentId = lookup.nestParentIdByItemId.get(parentId);
+  }
+  return false;
+}
+
+export function resolveDraggedSelection(
+  lookup: SectionThreadDndLookup,
+  activeId: string,
+  selectedThreadIds: readonly string[] | undefined,
+): SidebarThread[] | null {
+  if (
+    selectedThreadIds === undefined ||
+    selectedThreadIds.length < 2 ||
+    !selectedThreadIds.includes(activeId) ||
+    lookup.itemKindById.get(activeId) !== "thread"
+  ) {
+    return null;
+  }
+  const selected = new Set(selectedThreadIds);
+  return selectedThreadIds.flatMap((threadId) => {
+    const thread = lookup.threadByItemId.get(threadId);
+    return thread === undefined ||
+      lookup.itemKindById.get(threadId) !== "thread" ||
+      hasSelectedAncestor(lookup, threadId, selected)
+      ? []
+      : [thread];
+  });
+}
+
 function resolveDraggedRootThreads(
   lookup: SectionThreadDndLookup,
   activeId: string,
+  selectedThreadIds?: readonly string[],
 ): SidebarThread[] | null {
+  const selection = resolveDraggedSelection(
+    lookup,
+    activeId,
+    selectedThreadIds,
+  );
+  if (selection !== null) return selection;
   const threads: SidebarThread[] = [];
   for (const threadId of lookup.rootThreadIdsByItemId.get(activeId) ?? [
     activeId,
@@ -581,6 +683,14 @@ function resolveDraggedRootThreads(
     threads.push(thread);
   }
   return threads;
+}
+
+function getSelectionDragPreviewThread(
+  thread: SidebarThread,
+  count: number,
+): SidebarThread & { displayTitle: string } {
+  const title = `${count} threads`;
+  return { ...thread, title, titleFallback: title, displayTitle: title };
 }
 
 function getGroupDragPreviewThread(
@@ -600,7 +710,11 @@ export function resolveSectionThreadDropDecision(
   options: ResolveSectionThreadDropDecisionOptions = {},
 ): SectionThreadDropDecision | null {
   const fromParentKey = lookup.parentKeyByItemId.get(activeId);
-  const threads = resolveDraggedRootThreads(lookup, activeId);
+  const threads = resolveDraggedRootThreads(
+    lookup,
+    activeId,
+    options.selectedThreadIds,
+  );
   if (!fromParentKey || !threads) return null;
 
   const overRowThreadId =
@@ -631,6 +745,13 @@ export function resolveSectionThreadDropDecision(
   const toParentKey =
     directParentKey ?? (isSelfCollision ? projectedParentKey : null);
   if (!toParentKey) return null;
+  const projectId = lookup.projectIdByParentKey.get(toParentKey);
+  if (
+    projectId !== undefined &&
+    threads.some((thread) => thread.projectId !== projectId)
+  ) {
+    return null;
+  }
 
   const threadIds = threads.map((thread) => thread.id);
   if (toParentKey === PINNED_THREAD_PARENT_KEY) {
@@ -656,6 +777,7 @@ export function resolveSectionThreadDropDecision(
     if (
       overId !== null &&
       overId !== activeId &&
+      threads.length === 1 &&
       lookup.itemKindById.get(activeId) === "thread" &&
       lookup.parentKeyByItemId.get(overId) === PINNED_THREAD_PARENT_KEY
     ) {
@@ -871,6 +993,7 @@ function hasDropDecisionLanded(
 
 export function useSectionThreadDnd({
   containerId,
+  containerProjectId,
   enabled,
   rootItems,
   topLevelSectionOrder,
@@ -890,10 +1013,11 @@ export function useSectionThreadDnd({
         containerId,
         pinnedThreads,
         pinnedRootNodes,
-        { groups, pinnedRootItems },
+        { groups, pinnedRootItems, containerProjectId },
       ),
     [
       containerId,
+      containerProjectId,
       groups,
       pinnedRootItems,
       pinnedRootNodes,
@@ -901,7 +1025,19 @@ export function useSectionThreadDnd({
       rootItems,
     ],
   );
-  const decisionOptions = useMemo(() => ({ groups }), [groups]);
+  const selectionStore = useThreadSelectionStore();
+  const [draggedSelection, setDraggedSelection] = useState<
+    readonly string[] | null
+  >(null);
+  const draggedSelectionRef = useRef<readonly string[] | null>(null);
+  const decisionOptions = useMemo(
+    () => ({ groups, selectedThreadIds: draggedSelection ?? undefined }),
+    [draggedSelection, groups],
+  );
+  const draggedThreadIds = useMemo(
+    () => (draggedSelection === null ? null : new Set(draggedSelection)),
+    [draggedSelection],
+  );
   const topLevelSectionIds = useMemo(
     () => new Set<string>(topLevelSectionOrder),
     [topLevelSectionOrder],
@@ -1012,9 +1148,12 @@ export function useSectionThreadDnd({
         typeof args.active.id === "string"
           ? lookup.groupThreadsByItemId.get(args.active.id)
           : undefined;
+      const selectedThreadIds = draggedSelectionRef.current;
       const groupThreadIds = groupThreads
         ? new Set(groupThreads.map((thread) => thread.id))
-        : null;
+        : selectedThreadIds !== null
+          ? new Set(selectedThreadIds)
+          : null;
       const reorderCollisions = reorderCollisionDetection(
         groupThreadIds
           ? {
@@ -1042,10 +1181,29 @@ export function useSectionThreadDnd({
         onResolvedRow: handleResolvedRow,
         holdNestCandidate,
       });
-      const nestedCollisions = collisions.filter(({ id }) =>
+      const draggedThreads =
+        typeof args.active.id === "string"
+          ? resolveDraggedRootThreads(
+              lookup,
+              args.active.id,
+              selectedThreadIds ?? undefined,
+            )
+          : null;
+      const allowedCollisions = collisions.filter(({ id }) => {
+        if (typeof id !== "string" || draggedThreads === null) return true;
+        const parentKey = resolveSectionThreadDropParentKey(lookup, id);
+        const projectId = parentKey
+          ? lookup.projectIdByParentKey.get(parentKey)
+          : undefined;
+        return (
+          projectId === undefined ||
+          draggedThreads.every((thread) => thread.projectId === projectId)
+        );
+      });
+      const nestedCollisions = allowedCollisions.filter(({ id }) =>
         typeof id === "string" ? !topLevelSectionIds.has(id) : true,
       );
-      return nestedCollisions.length > 0 ? nestedCollisions : collisions;
+      return nestedCollisions.length > 0 ? nestedCollisions : allowedCollisions;
     },
     [
       getNestBandFraction,
@@ -1057,7 +1215,6 @@ export function useSectionThreadDnd({
     ],
   );
   const sdk = useSdk();
-  const sidebarActions = experimental_useSidebarThreadActions();
   const { handleDragEnd: handlePinnedDragEnd } = useNeighborReorderSortable({
     disabled: pinnedReorderPending || pinnedThreads.length < 2,
     getId: (thread: SidebarThread) => thread.id,
@@ -1066,6 +1223,7 @@ export function useSectionThreadDnd({
   });
   const setCollapsedSections = useSetAtom(sidebarCollapsedThreadSectionsAtom);
   const [activeThread, setActiveThread] = useState<SidebarThread | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [dragOverParentKey, setDragOverParentKey] = useState<string | null>(
     null,
   );
@@ -1077,6 +1235,7 @@ export function useSectionThreadDnd({
     useState<SectionThreadReorderTarget | null>(null);
   const [pendingDropDecision, setPendingDropDecision] =
     useState<SectionThreadDropDecision | null>(null);
+  const pendingDropDecisionRef = useRef<SectionThreadDropDecision | null>(null);
   const draggingThreadRef = useRef(false);
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dwellTargetKeyRef = useRef<string | null>(null);
@@ -1088,11 +1247,14 @@ export function useSectionThreadDnd({
   }, []);
   const clearDropState = useCallback(() => {
     setActiveThread(null);
+    setDraggedSelection(null);
+    draggedSelectionRef.current = null;
     setDragOverParentKey(null);
     setUnchangedParentKey(null);
     setRowDrop(null);
     setReorderTarget(null);
     setPendingDropDecision(null);
+    pendingDropDecisionRef.current = null;
     setReadyNestCandidate(null);
     clearNestCandidate();
     armedNestThreadIdRef.current = null;
@@ -1113,6 +1275,7 @@ export function useSectionThreadDnd({
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
+      setIsDragging(true);
       const activeId =
         typeof event.active.id === "string" ? event.active.id : null;
       const thread = activeId
@@ -1120,6 +1283,7 @@ export function useSectionThreadDnd({
         : null;
       draggingThreadRef.current = thread !== null;
       setPendingDropDecision(null);
+      pendingDropDecisionRef.current = null;
       activeIdRef.current = thread ? activeId : null;
       armedNestThreadIdRef.current = null;
       latestRowCollisionRef.current = null;
@@ -1133,10 +1297,19 @@ export function useSectionThreadDnd({
       const groupThreads = activeId
         ? lookup.groupThreadsByItemId.get(activeId)
         : undefined;
+      const selected = selectionStore.getSelected();
+      const selection =
+        thread && activeId
+          ? resolveDraggedSelection(lookup, activeId, selected)
+          : null;
+      draggedSelectionRef.current = selection === null ? null : selected;
+      setDraggedSelection(selection === null ? null : selected);
       setActiveThread(
         thread && groupThreads
           ? getGroupDragPreviewThread(thread, groupThreads)
-          : thread,
+          : thread && selection !== null
+            ? getSelectionDragPreviewThread(thread, selection.length)
+            : thread,
       );
       setDragOverParentKey(null);
       setUnchangedParentKey(null);
@@ -1144,7 +1317,7 @@ export function useSectionThreadDnd({
       setReorderTarget(null);
       setReadyNestCandidate(null);
     },
-    [clearDropDwell, clearNestCandidate, lookup],
+    [clearDropDwell, clearNestCandidate, lookup, selectionStore],
   );
 
   const projectedNestParentId =
@@ -1254,12 +1427,19 @@ export function useSectionThreadDnd({
         { kind: "move" | "nest" | "pin" }
       >,
       failureMessage: string,
-    ) =>
-      Promise.all(
-        decision.unpinThreadIds.map((threadId) =>
-          sidebarActions.setPinned(threadId, false),
-        ),
-      )
+    ) => {
+      const setPinned = (threadIds: readonly string[], pinned: boolean) =>
+        Promise.all(
+          threadIds.map((threadId) =>
+            pinned
+              ? sdk.threads.pin({ threadId })
+              : sdk.threads.unpin({ threadId }),
+          ),
+        ).catch((error: unknown) => {
+          toast.error(failureMessage);
+          throw error;
+        });
+      return setPinned(decision.unpinThreadIds, false)
         .then(() =>
           Promise.allSettled(
             decision.updates.map((update) => sdk.threads.update(update)),
@@ -1273,17 +1453,15 @@ export function useSectionThreadDnd({
             toast.error(failureMessage);
             throw new AggregateError(failures, failureMessage);
           }
-          return Promise.all(
-            decision.pinThreadIds.map((threadId) =>
-              sidebarActions.setPinned(threadId, true),
-            ),
-          );
-        }),
-    [sdk, sidebarActions],
+          return setPinned(decision.pinThreadIds, true);
+        });
+    },
+    [sdk],
   );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      setIsDragging(false);
       draggingThreadRef.current = false;
       clearDropDwell();
       clearNestCandidate();
@@ -1326,7 +1504,13 @@ export function useSectionThreadDnd({
         return;
       }
       const settle = (request: Promise<unknown>) => {
-        void request.catch(() => undefined).finally(clearProjectedDrag);
+        void request
+          .catch(() => undefined)
+          .finally(() => {
+            if (pendingDropDecisionRef.current === decision) {
+              clearProjectedDrag();
+            }
+          });
       };
       switch (decision.kind) {
         case "move":
@@ -1361,6 +1545,7 @@ export function useSectionThreadDnd({
           clearProjectedDrag();
           return;
       }
+      pendingDropDecisionRef.current = decision;
       setPendingDropDecision(decision);
     },
     [
@@ -1384,43 +1569,104 @@ export function useSectionThreadDnd({
   );
 
   const handleDragCancel = useCallback(() => {
+    setIsDragging(false);
     draggingThreadRef.current = false;
     clearDropDwell();
     clearProjectedDrag();
   }, [clearDropDwell, clearProjectedDrag]);
 
+  const latestDragHandlers = useRef({
+    collisionDetection,
+    handleDragEnd,
+    handleDragStart,
+    handleDragMove,
+    handleDragOver,
+    handleDragCancel,
+  });
+  useLayoutEffect(() => {
+    latestDragHandlers.current = {
+      collisionDetection,
+      handleDragEnd,
+      handleDragStart,
+      handleDragMove,
+      handleDragOver,
+      handleDragCancel,
+    };
+  });
+  const [dragHandlers] = useState(() => {
+    const detectCollisions: CollisionDetection = (args) =>
+      latestDragHandlers.current.collisionDetection(args);
+    return {
+      collisionDetection: detectCollisions,
+      onDragEnd: (event: DragEndEvent) =>
+        latestDragHandlers.current.handleDragEnd(event),
+      onDragStart: (event: DragStartEvent) =>
+        latestDragHandlers.current.handleDragStart(event),
+      onDragMove: (event: DragMoveEvent) =>
+        latestDragHandlers.current.handleDragMove(event),
+      onDragOver: (event: DragOverEvent) =>
+        latestDragHandlers.current.handleDragOver(event),
+      onDragCancel: () => latestDragHandlers.current.handleDragCancel(),
+    };
+  });
   const { consumeClickSuppression, dndContextProps, onClickCapture } =
     useSidebarReorderDnd({
+      touchSensor: SidebarTouchSensor,
       axis: "free",
-      collisionDetection,
       measuring: SECTION_THREAD_DROPPABLE_MEASURING,
-      onDragEnd: handleDragEnd,
-      onDragStart: handleDragStart,
-      onDragMove: handleDragMove,
-      onDragOver: handleDragOver,
-      onDragCancel: handleDragCancel,
+      ...dragHandlers,
     });
 
-  if (!enabled) return null;
   const dropDecisionLanded =
     pendingDropDecision !== null &&
     hasDropDecisionLanded(lookup, pendingDropDecision);
-  return {
-    activeItemId: dropDecisionLanded ? null : activeIdRef.current,
-    activeThread: dropDecisionLanded ? null : activeThread,
-    consumeClickSuppression,
-    dndContextProps,
-    itemIdsByParentKey: lookup.itemIdsByParentKey,
-    onClickCapture,
-    dragOverParentKey:
-      dropDecisionLanded || reorderTarget !== null ? null : dragOverParentKey,
-    unchangedParentKey:
-      dropDecisionLanded || reorderTarget !== null ? null : unchangedParentKey,
-    nestTarget: dropDecisionLanded ? null : rowDrop,
-    nestPreviewBeforeKey: null,
-    reorderTarget: dropDecisionLanded ? null : reorderTarget,
-    pinnedItemIds:
-      lookup.itemIdsByParentKey.get(PINNED_THREAD_PARENT_KEY) ?? [],
-    pinnedReorderPending,
-  };
+  useEffect(() => {
+    if (dropDecisionLanded) clearProjectedDrag();
+  }, [clearProjectedDrag, dropDecisionLanded]);
+
+  const activeItemId = activeIdRef.current;
+  const itemIdsByParentKey = useSharedItemIdsByParentKey(
+    lookup.itemIdsByParentKey,
+    isDragging,
+  );
+  const state = useMemo<SectionThreadDndState>(
+    () => ({
+      activeItemId: dropDecisionLanded ? null : activeItemId,
+      isDragging,
+      activeThread: dropDecisionLanded ? null : activeThread,
+      draggedThreadIds: dropDecisionLanded ? null : draggedThreadIds,
+      consumeClickSuppression,
+      dndContextProps,
+      itemIdsByParentKey,
+      onClickCapture,
+      dragOverParentKey:
+        dropDecisionLanded || reorderTarget !== null ? null : dragOverParentKey,
+      unchangedParentKey:
+        dropDecisionLanded || reorderTarget !== null
+          ? null
+          : unchangedParentKey,
+      nestTarget: dropDecisionLanded ? null : rowDrop,
+      nestPreviewBeforeKey: null,
+      reorderTarget: dropDecisionLanded ? null : reorderTarget,
+      pinnedItemIds: itemIdsByParentKey.get(PINNED_THREAD_PARENT_KEY) ?? [],
+      pinnedReorderPending,
+    }),
+    [
+      activeItemId,
+      activeThread,
+      consumeClickSuppression,
+      dndContextProps,
+      draggedThreadIds,
+      dragOverParentKey,
+      dropDecisionLanded,
+      isDragging,
+      itemIdsByParentKey,
+      onClickCapture,
+      pinnedReorderPending,
+      reorderTarget,
+      rowDrop,
+      unchangedParentKey,
+    ],
+  );
+  return enabled ? state : null;
 }

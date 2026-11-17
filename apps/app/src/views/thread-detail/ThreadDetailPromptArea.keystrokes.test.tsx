@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { promptAreaMocks as mocks } from "@/test/thread-detail-prompt-area-harness";
 import type {
   PendingInteraction,
   ThreadQueuedMessage,
@@ -17,264 +18,31 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import {
   PluginComposerHostScopeProvider,
   usePluginComposerHost,
   usePluginComposerHostDraft,
 } from "@/components/plugin/plugin-composer-host";
+import { LazyQueuedMessagesList } from "@/components/promptbox/banner/LazyQueuedMessagesList";
 import { getPromptDraftAccessor } from "@/hooks/usePromptDraftStorage";
 import { ThreadDetailPromptArea } from "./ThreadDetailPromptArea";
 
-const mocks = vi.hoisted(() => ({
-  sendMessageMutateAsync: vi.fn(),
-  shellProbeRenders: vi.fn(),
-  updateQueuedMessageMutateAsync: vi.fn(),
-}));
-
-vi.mock("@/components/promptbox/FollowUpPromptBox", () => ({
-  FollowUpPromptBox: ({
-    composer,
-    pendingInteraction = null,
-    stack,
-  }: {
-    composer: {
-      message: string;
-      onChangeMessage: (message: string, mentions: []) => void;
-      onSubmit: () => void;
-    } | null;
-    pendingInteraction?: ReactNode;
-    stack: ReactNode;
-  }) => (
-    <div data-testid="follow-up-prompt-box">
-      <div data-testid="prompt-stack">
-        {stack}
-        {pendingInteraction}
-      </div>
-      {composer ? (
-        <div hidden={pendingInteraction !== null}>
-          <input
-            aria-label="Composer message"
-            value={composer.message}
-            onChange={(event) =>
-              composer.onChangeMessage(event.currentTarget.value, [])
-            }
-          />
-          <button type="button" onClick={composer.onSubmit}>
-            Submit composer
-          </button>
-        </div>
-      ) : null}
-    </div>
-  ),
-}));
-
-vi.mock("@/components/promptbox/ThreadEnvironmentSummary", () => ({
-  ThreadEnvironmentSummary: () => <div />,
-}));
-
-vi.mock("@/components/promptbox/banner/QueuedMessagesList", () => ({
-  QueuedMessagesList: ({
-    inlineEditor,
-    queuedMessages,
-    onEdit,
-  }: {
-    inlineEditor?: { content: ReactNode; onDismiss: () => void };
-    queuedMessages: readonly ThreadQueuedMessage[];
-    onEdit: (request: {
-      queuedMessageId: string;
-      queuedMessageIndex: number;
-    }) => void;
-  }) => (
-    <div data-testid="queued-message-list">
-      {queuedMessages.map((message, index) => (
-        <button
-          key={message.id}
-          type="button"
-          onClick={() =>
-            onEdit({ queuedMessageId: message.id, queuedMessageIndex: index })
-          }
-        >
-          Edit queued message {index + 1}
-        </button>
-      ))}
-      {inlineEditor ? (
-        <div data-testid="inline-queued-message-editor">
-          {inlineEditor.content}
-          <button type="button" onClick={inlineEditor.onDismiss}>
-            Cancel queued edit
-          </button>
-        </div>
-      ) : null}
-    </div>
-  ),
-}));
-
-vi.mock("@/components/promptbox/banner/ThreadBackgroundCommandsCard", () => ({
-  ThreadBackgroundCommandsCard: () => null,
-}));
-
-vi.mock("@/components/promptbox/banner/ThreadGoalCard", () => ({
-  ThreadGoalCard: () => null,
-}));
-
-vi.mock("@/components/promptbox/banner/ThreadPromptContextBanner", () => ({
-  ThreadPromptContextBanner: () => null,
-}));
-
-vi.mock("@/components/promptbox/banner/ThreadPromptModeCard", () => ({
-  ThreadPromptModeCard: () => null,
-}));
-
-vi.mock("@/components/promptbox/banner/ThreadTodoCard", () => ({
-  ThreadTodoCard: () => null,
-}));
-
-vi.mock("@/components/promptbox/banner/ThreadWorkflowCard", () => ({
-  ThreadWorkflowCard: () => null,
-}));
-
-vi.mock(
-  "@/components/thread/pending-interactions/ThreadPendingInteractionBanner",
-  () => ({
-    ThreadPendingInteractionBanner: () => (
-      <div data-testid="pending-interaction" />
-    ),
-  }),
-);
-
-vi.mock("@/components/plugin/PluginPendingInteractionComposer", () => ({
-  PluginPendingInteractionComposer: () => null,
-}));
-
-vi.mock("@/components/ui/app-toast", () => ({
-  appToast: { error: vi.fn() },
-}));
-
-vi.mock("@/hooks/useCommandSuggestions", () => ({
-  useCommandSuggestions: () => ({
-    hasMore: false,
-    isError: false,
-    isLoading: false,
-    isLoadingMore: false,
-    loadMore: vi.fn(),
-    suggestions: [],
-    triggers: [],
-  }),
-}));
-
-vi.mock("@/hooks/usePromptMentions", () => ({
-  usePromptMentions: () => ({
-    isError: false,
-    isLoading: false,
-    setQuery: vi.fn(),
-    suggestions: [],
-  }),
-}));
-
-vi.mock("@/hooks/useThreadCreationOptions", () => ({
-  useThreadCreationOptions: () => ({
-    activeModel: null,
-    executionInputSources: {},
-    hasMultipleProviders: false,
-    isLoadingModels: false,
-    modelLoadError: null,
-    modelLoadFailed: false,
-    modelOptions: [],
-    moreModelOptions: [],
-    permissionMode: "auto",
-    permissionModeOptions: [],
-    providers: [],
-    providerOptions: [],
-    reasoningLevel: "medium",
-    reasoningOptions: [],
-    selectedModel: "gpt-5",
-    selectedProviderComposerActions: [],
-    selectedProviderDisplayName: "Codex",
-    selectedProviderId: "codex",
-    serviceTier: undefined,
-    serviceTierSupportByProvider: {},
-    setPermissionMode: vi.fn(),
-    setReasoningLevel: vi.fn(),
-    setSelectedModel: vi.fn(),
-    setServiceTier: vi.fn(),
-    supportsPermissionModeSelection: true,
-    supportsServiceTier: false,
-  }),
-}));
-
-vi.mock("@/hooks/mutations/project-mutations", () => ({
-  useUploadPromptAttachment: () => ({
-    isPending: false,
-    mutateAsync: vi.fn(),
-  }),
-}));
-
-vi.mock("@/hooks/mutations/thread-runtime-mutations", () => {
-  const idleMutation = () => ({
-    isPending: false,
-    mutate: vi.fn(),
-    mutateAsync: vi.fn(),
-    variables: null,
-  });
-  return {
-    useCancelThreadPlan: idleMutation,
-    useClearThreadGoal: idleMutation,
-    useCreateThread: idleMutation,
-    useCreateThreadQueuedMessage: idleMutation,
-    useDeleteThreadQueuedMessage: idleMutation,
-    useReorderThreadQueuedMessage: idleMutation,
-    useSetThreadQueuedMessageGroupBoundary: idleMutation,
-    useSendThreadQueuedMessage: idleMutation,
-    useStopThread: idleMutation,
-    useUpdateThreadQueuedMessage: () => ({
-      isPending: false,
-      mutateAsync: mocks.updateQueuedMessageMutateAsync,
-    }),
-  };
+const renderRecorder = await vi.hoisted(async () => {
+  const { installRenderRecorder } = await import("@/test/render-recorder");
+  return installRenderRecorder();
 });
 
-vi.mock("@/hooks/mutations/thread-state-mutations", () => ({
-  useRestoreThreadEnvironment: () => ({
-    isPending: false,
-    mutate: vi.fn(),
-    variables: null,
-  }),
-  useUnarchiveThread: () => ({
-    isPending: false,
-    mutate: vi.fn(),
-    variables: null,
-  }),
-}));
-
-vi.mock("@/hooks/queries/sidebar-navigation-query", () => ({
-  useProjectDisplayName: () => null,
-}));
-
-vi.mock("@/hooks/queries/thread-default-execution-options-query", () => ({
-  useThreadDefaultExecutionOptions: () => ({
-    data: {
-      model: "gpt-5",
-      permissionMode: "auto",
-      reasoningLevel: "medium",
-      serviceTier: "default",
-      source: "client/turn/requested",
-    },
-    isError: false,
-  }),
-}));
-
-const queryMocks = vi.hoisted(() => ({
-  queuedMessages: [] as ThreadQueuedMessage[],
-}));
-
-vi.mock("@/hooks/queries/thread-queries", () => ({
-  getLatestPendingInteraction: (interactions: readonly PendingInteraction[]) =>
-    interactions.at(-1) ?? null,
-  useThreadPromptHistory: () => ({ data: [] }),
-  useThreadQueuedMessages: () => ({ data: queryMocks.queuedMessages }),
-}));
+const shellProbeRenders = vi.fn();
 
 const PROJECT_ID = "proj_keystrokes";
 
@@ -319,6 +87,7 @@ function makePendingInteraction(threadId: string): PendingInteraction {
           prompt: "Continue?",
           multiSelect: false,
           allowFreeText: true,
+          required: true,
         },
       ],
     },
@@ -331,7 +100,7 @@ function makePendingInteraction(threadId: string): PendingInteraction {
 }
 
 function ShellProbe() {
-  mocks.shellProbeRenders(usePluginComposerHost());
+  shellProbeRenders(usePluginComposerHost());
   return null;
 }
 
@@ -342,11 +111,11 @@ function PublishedHostDraftProbe() {
 }
 
 function observedShellHosts(): readonly unknown[] {
-  return mocks.shellProbeRenders.mock.calls.map((call) => call[0]);
+  return shellProbeRenders.mock.calls.map((call) => call[0]);
 }
 
 function shellRenderCount(): number {
-  return mocks.shellProbeRenders.mock.calls.length;
+  return shellProbeRenders.mock.calls.length;
 }
 
 interface RenderPromptAreaArgs {
@@ -363,29 +132,25 @@ function buildPromptArea({
       <ShellProbe />
       <PublishedHostDraftProbe />
       <ThreadDetailPromptArea
-        activeBackgroundAgentCount={0}
         activeBackgroundCommands={[]}
         activePromptMode={null}
         activeWorkflows={[]}
-        canUseGitUi={false}
-        childPendingInteractions={[]}
         childThreadsSection={null}
-        composerFocusRequestNonce={0}
-        contextBannerMergeBase={null}
+        composerFocusRequestKey={0}
+        composerId="thread-detail-follow-up-composer"
+        isPrimaryComposer
+        permissionPolicy="editable"
         canRestoreEnvironment={false}
         environmentGoneStatus={null}
-        goal={null}
+        providerCommands={null}
+        sessionOptions={null}
         modelFallback={null}
-        isEnvironmentActionPending={false}
-        onChangedFileClick={vi.fn()}
         parentThreadSection={null}
         pendingInteractions={pendingInteractions}
-        pendingInteractionsInitialLoading={false}
         queuedMessageCount={0}
         pendingTodos={null}
         projectId={PROJECT_ID}
-        pullRequest={null}
-        pullRequestMergeMethod="squash"
+        contextEnvironmentId={null}
         resolveMentionLink={() => null}
         sendMessage={{
           isPending: false,
@@ -393,8 +158,6 @@ function buildPromptArea({
         }}
         steerActiveThreadOnEnter={false}
         thread={thread}
-        workspaceChangedFilesSection={null}
-        workspaceStatusPending={false}
       />
     </PluginComposerHostScopeProvider>
   );
@@ -413,18 +176,25 @@ function getBottomComposerInput(): HTMLInputElement {
 let threadCounter = 0;
 let threadId = "";
 
+beforeAll(() => LazyQueuedMessagesList.preload());
+
 beforeEach(() => {
   threadCounter += 1;
   threadId = `thr_keystrokes_${threadCounter}`;
-  queryMocks.queuedMessages = [];
+  mocks.queuedMessages = [];
   mocks.sendMessageMutateAsync.mockResolvedValue(undefined);
   mocks.updateQueuedMessageMutateAsync.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   cleanup();
+  renderRecorder.reset();
   window.localStorage.clear();
   vi.clearAllMocks();
+});
+
+afterAll(() => {
+  renderRecorder.uninstall();
 });
 
 describe("ThreadDetailPromptArea published composer host", () => {
@@ -444,6 +214,24 @@ describe("ThreadDetailPromptArea published composer host", () => {
     expect(screen.getByTestId("published-host-draft").textContent).toBe(typed);
     expect(shellRenderCount()).toBe(rendersAfterMount);
     expect(observedShellHosts().at(-1)).toBe(hostAfterMount);
+  });
+
+  it("renders nothing outside the composer input once the draft has text", () => {
+    renderPromptArea({ thread: makeThread(threadId) });
+    const input = getBottomComposerInput();
+    fireEvent.change(input, { target: { value: "a" } });
+    renderRecorder.reset();
+
+    for (const text of ["ab", "abc", "abcd"]) {
+      fireEvent.change(input, { target: { value: text } });
+    }
+
+    expect(input.value).toBe("abcd");
+    expect(
+      renderRecorder
+        .renderedOutside("MockComposerInput")
+        .filter((name) => name !== "PublishedHostDraftProbe"),
+    ).toEqual([]);
   });
 
   it("submits the draft as typed, read imperatively at event time", async () => {
@@ -480,7 +268,7 @@ describe("ThreadDetailPromptArea published composer host", () => {
       thread: makeThread(threadId),
       pendingInteractions: [makePendingInteraction(threadId)],
     });
-    expect(screen.getByTestId("pending-interaction")).toBeTruthy();
+    expect(screen.getByText("Pending interaction")).toBeTruthy();
     expect(screen.getByTestId("published-host-draft").textContent).toBe("");
     const rendersAfterMount = shellRenderCount();
 
@@ -509,7 +297,7 @@ describe("ThreadDetailPromptArea published composer host", () => {
   });
 
   it("swaps to a per-session stable host for inline queued-message edits and streams the inline draft", () => {
-    queryMocks.queuedMessages = [makeQueuedMessage()];
+    mocks.queuedMessages = [makeQueuedMessage()];
     renderPromptArea({ thread: makeThread(threadId) });
     const rendersAfterMount = shellRenderCount();
     const threadHost = observedShellHosts().at(-1);

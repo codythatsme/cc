@@ -4,6 +4,7 @@ import { createDeferredPromise } from "@cc/test-helpers";
 import { makeHost } from "@cc/test-helpers/domain-fixtures";
 import type { ServerAccessStatus } from "@cc/server-contract";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -17,7 +18,13 @@ import { sdk } from "@/lib/sdk";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { makeSystemConfig } from "@/test/fixtures/system-config";
 import { Dialog, DialogContent } from "@cc/shared-ui/dialog";
-import { AddMachineContent, ManualMachineSetup } from "./AddMachineDialog";
+import {
+  AddMachineContent,
+  AddMachineInline,
+  MachineEnrollmentEndedError,
+  ManualMachineSetup,
+  QuickMachineSetupView,
+} from "./AddMachineDialog";
 
 vi.mock("@/lib/sdk", () => ({
   sdk: {
@@ -60,6 +67,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
@@ -89,6 +97,7 @@ function stubManualLaunch(configure?: () => void) {
   vi.mocked(sdk.hosts.experimental_create).mockResolvedValue(reservedHost);
   vi.mocked(sdk.hosts.experimental_getEnrollmentCommand).mockResolvedValue({
     command: "cc machine enroll test",
+    windowsCommand: "irm windows-command | iex",
     expiresAt: Date.now() + 60_000,
   });
   vi.mocked(sdk.hosts.get).mockImplementation(() => new Promise(() => {}));
@@ -164,38 +173,53 @@ it("cancels a creating manual launch when the dialog content closes", async () =
 });
 
 it("retrieves the enrollment command after asynchronous access preparation", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const rendered = setup(() => {
     vi.mocked(sdk.hosts.experimental_getEnrollmentCommand)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         command: "delayed enrollment command",
+        windowsCommand: "irm windows-command | iex",
         expiresAt: Date.now() + 60_000,
       });
     vi.mocked(sdk.hosts.get).mockResolvedValue({
       ...reservedHost,
       connectMachineId: null,
+      threadStorageRootPath: null,
     });
   });
-  await screen.findByText("delayed enrollment command", {}, { timeout: 3_000 });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1_000);
+  });
+  expect(screen.getByText("delayed enrollment command")).toBeDefined();
   expect(sdk.hosts.experimental_getEnrollmentCommand).toHaveBeenCalledTimes(2);
   rendered.unmount();
 });
 
 it("marks a previously available command as used when the server withdraws it", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const rendered = setup(() => {
     vi.mocked(sdk.hosts.experimental_getEnrollmentCommand)
       .mockResolvedValueOnce({
         command: "single-use enrollment command",
+        windowsCommand: "irm windows-command | iex",
         expiresAt: Date.now() + 60_000,
       })
       .mockResolvedValue(null);
     vi.mocked(sdk.hosts.get).mockResolvedValue({
       ...reservedHost,
       connectMachineId: null,
+      threadStorageRootPath: null,
     });
   });
-  await screen.findByText("single-use enrollment command");
-  await screen.findByText("Command used", {}, { timeout: 3_000 });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(screen.getByText("single-use enrollment command")).toBeDefined();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1_000);
+  });
+  expect(screen.getByText("Command used")).toBeDefined();
   expect(
     screen.getByRole("button", { name: "Copy" }).hasAttribute("disabled"),
   ).toBe(true);
@@ -203,6 +227,7 @@ it("marks a previously available command as used when the server withdraws it", 
 });
 
 it("accepts a connection before an enrollment command is returned", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   const rendered = setup(() => {
     vi.mocked(sdk.hosts.experimental_getEnrollmentCommand).mockResolvedValue(
       null,
@@ -210,11 +235,15 @@ it("accepts a connection before an enrollment command is returned", async () => 
     vi.mocked(sdk.hosts.get).mockResolvedValue({
       ...reservedHost,
       connectMachineId: null,
+      threadStorageRootPath: null,
       status: "connected",
       lifecycle: { ...reservedHost.lifecycle, phase: "active" },
     });
   });
-  await screen.findByText("Manual machine connected", {}, { timeout: 3_000 });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1_000);
+  });
+  expect(screen.getByText("Manual machine connected")).toBeDefined();
   rendered.unmount();
   expect(sdk.hosts.delete).not.toHaveBeenCalled();
 });
@@ -247,6 +276,7 @@ it("reuses the launch key on retry and replaces it on regeneration without rando
     );
     vi.mocked(sdk.hosts.experimental_getEnrollmentCommand).mockResolvedValue({
       command: "expired enrollment command",
+      windowsCommand: "irm windows-command | iex",
       expiresAt: Date.now() - 1_000,
     });
   });
@@ -268,4 +298,104 @@ it("reuses the launch key on retry and replaces it on regeneration without rando
   expect(sdk.hosts.delete).toHaveBeenCalledWith({ hostId: reservedHost.id });
   await screen.findByText("expired enrollment command");
   rendered.unmount();
+});
+
+it.each([
+  ["dialog", "ManualMachineSetup"],
+  ["inline", "AddMachineInline"],
+] as const)(
+  "reports enrollment failures from the %s setup but not its own close",
+  async (_surface, component) => {
+    const failure = new Error("Connection lost");
+    stubManualLaunch(() => {
+      vi.mocked(sdk.hosts.experimental_create).mockRejectedValueOnce(failure);
+    });
+    const onEnrollmentFailed = vi.fn();
+    const rendered = renderInDialog(
+      component === "AddMachineInline" ? (
+        <AddMachineInline onEnrollmentFailed={onEnrollmentFailed} />
+      ) : (
+        <ManualMachineSetup
+          serverMachineName={null}
+          onOpenChange={() => {}}
+          onEnrollmentFailed={onEnrollmentFailed}
+        />
+      ),
+    );
+    await waitFor(() =>
+      expect(onEnrollmentFailed).toHaveBeenCalledExactlyOnceWith(failure),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await screen.findByText("cc machine enroll test");
+    rendered.unmount();
+    await waitFor(() => expect(sdk.hosts.delete).toHaveBeenCalled());
+    expect(onEnrollmentFailed).toHaveBeenCalledOnce();
+  },
+);
+
+it("reports a machine whose setup ended without connecting as ended", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  const onEnrollmentFailed = vi.fn();
+  stubManualLaunch(() => {
+    vi.mocked(sdk.hosts.get).mockResolvedValue({
+      ...reservedHost,
+      connectMachineId: null,
+      threadStorageRootPath: null,
+      lifecycle: { ...reservedHost.lifecycle, phase: "destroyed" },
+    });
+  });
+  renderInDialog(
+    <ManualMachineSetup
+      serverMachineName={null}
+      onOpenChange={() => {}}
+      onEnrollmentFailed={onEnrollmentFailed}
+    />,
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1_000);
+  });
+  expect(onEnrollmentFailed).toHaveBeenCalledExactlyOnceWith(
+    expect.any(MachineEnrollmentEndedError),
+  );
+});
+
+it("shows the enrollment command inline", async () => {
+  stubManualLaunch();
+  const { wrapper } = createQueryClientTestHarness();
+  render(
+    <MemoryRouter>
+      <AddMachineInline />
+    </MemoryRouter>,
+    { wrapper },
+  );
+
+  await screen.findByText("cc machine enroll test");
+  screen.getByText("On the other machine, run:");
+  screen.getByText("Waiting for it to connect…");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("Connection method")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Windows" }));
+  screen.getByText("irm windows-command | iex");
+  expect(screen.queryByText("cc machine enroll test")).toBeNull();
+});
+
+it("replaces the waiting line once the machine connects", () => {
+  render(
+    <QuickMachineSetupView
+      command={{
+        value: "cc machine enroll test",
+        windowsValue: "irm windows-command | iex",
+        expiresAt: Date.now() + 60_000,
+        unavailable: false,
+      }}
+      connectedHost={makeHost({ id: "host_new", name: "Studio Mac" })}
+      errorMessage={null}
+      onRetry={() => {}}
+      onRegenerate={() => {}}
+    />,
+  );
+
+  screen.getByText("Studio Mac connected");
+  expect(screen.queryByText("Waiting for it to connect…")).toBeNull();
 });

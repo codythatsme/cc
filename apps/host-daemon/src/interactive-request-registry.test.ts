@@ -59,28 +59,82 @@ function createRegistry(args: CreateRegistryArgs): InteractiveRequestRegistry {
 }
 
 describe("InteractiveRequestRegistry", () => {
-  it("registers a provider request and resolves it from an interactive.resolve command", async () => {
+  it("ends a wait whose registration is still in flight without an unhandled rejection", async () => {
     const request = createCommandApprovalRequest();
-    const resolution = createCommandApprovalResolution();
+    const registration =
+      createDeferredPromise<HostDaemonInteractiveRequestResponse>();
     const registry = createRegistry({
-      registerRequest: async () => ({
+      registerRequest: () => registration.promise,
+    });
+    const pending = registry.registerAndWait(request);
+
+    registry.endRequests(
+      [
+        {
+          threadId: request.threadId,
+          providerId: request.providerId,
+          providerThreadId: request.providerThreadId,
+          providerRequestId: request.providerRequestId,
+        },
+      ],
+      "closed on the server",
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    registration.resolve({
+      outcome: "created",
+      interactionId: "pint_in_flight",
+      status: "pending",
+    });
+
+    await expect(pending).rejects.toMatchObject({
+      code: "interactive_request_ended",
+    });
+    expect(registry.listOpenRequests()).toEqual([]);
+  });
+
+  it("reports open waits and ends the ones the server closed", async () => {
+    const request = createCommandApprovalRequest();
+    const other = createCommandApprovalRequest({
+      providerRequestId: "request-still-open",
+    });
+    const registry = createRegistry({
+      registerRequest: async (registered) => ({
         outcome: "created",
-        interactionId: "pint_registry",
+        interactionId: `pint_${registered.providerRequestId}`,
         status: "pending",
       }),
     });
-
-    const pending = registry.registerAndWait(request);
-    registry.resolve({
-      interactionId: "pint_registry",
-      providerId: request.providerId,
-      providerRequestId: request.providerRequestId,
-      providerThreadId: request.providerThreadId,
-      resolution,
+    const ended = registry.registerAndWait(request);
+    const stillOpen = registry.registerAndWait(other);
+    const key = {
       threadId: request.threadId,
-    });
+      providerId: request.providerId,
+      providerThreadId: request.providerThreadId,
+      providerRequestId: request.providerRequestId,
+    };
+    await Promise.resolve();
 
-    await expect(pending).resolves.toEqual(resolution);
+    expect(registry.listOpenRequests()).toEqual([
+      key,
+      { ...key, providerRequestId: "request-still-open" },
+    ]);
+
+    registry.endRequests([key], "closed on the server");
+
+    await expect(ended).rejects.toMatchObject({
+      code: "interactive_request_ended",
+      message: "closed on the server",
+    });
+    expect(registry.listOpenRequests()).toEqual([
+      { ...key, providerRequestId: "request-still-open" },
+    ]);
+    registry.resolve({
+      ...key,
+      providerRequestId: "request-still-open",
+      interactionId: "pint_request-still-open",
+      resolution: createCommandApprovalResolution(),
+    });
+    await expect(stillOpen).resolves.toEqual(createCommandApprovalResolution());
   });
 
   it("deduplicates registration retries for the same live provider request", async () => {

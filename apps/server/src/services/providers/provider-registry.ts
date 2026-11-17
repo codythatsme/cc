@@ -38,6 +38,7 @@ export type ProviderExtensionKindSchemas = Readonly<
 export interface ProviderRegistration {
   info: ProviderInfo;
   serverCapabilities: ProviderServerCapabilities;
+  guidedSignIn: boolean;
   bridgeOptions: Readonly<Record<string, JsonValue>>;
   extensionKinds: ProviderExtensionKindSchemas;
   visibility: "always" | "installed";
@@ -58,6 +59,7 @@ const PROVIDER_INSTALLED_CACHE_TTL_MS = 5 * 60_000;
 
 export interface ProviderRegistryService {
   list(): ProviderRegistration[];
+  disabledProviderIds(): ReadonlySet<string>;
   getUserDefaultProviderId(): string | null;
   get(providerId: string): ProviderRegistration | null;
   getRegistrationRevision(): number;
@@ -95,6 +97,7 @@ interface ProviderRegistryDeps {
   readUserProviderPreferences?: () => {
     providerOrder: readonly string[];
     defaultProviderId: string | null;
+    disabledProviderIds?: readonly string[];
   };
   deferRegistrationsSettled?: boolean;
 }
@@ -184,13 +187,17 @@ export function createProviderRegistryService(
       settled,
       new Promise<void>((resolve) => {
         timer = setTimeout(resolve, REGISTRATIONS_SETTLED_TIMEOUT_MS);
-        timer.unref?.();
       }),
     ]);
     clearTimeout(timer);
   }
 
   const service: ProviderRegistryService = {
+    disabledProviderIds() {
+      return new Set(
+        deps.readUserProviderPreferences?.().disabledProviderIds ?? [],
+      );
+    },
     list() {
       const entries = [...pluginRegistrations.values()].sort(
         compareInstallRank,
@@ -208,9 +215,13 @@ export function createProviderRegistryService(
     },
 
     getUserDefaultProviderId() {
-      const preferred =
-        deps.readUserProviderPreferences?.().defaultProviderId ?? null;
-      if (preferred === null || !pluginRegistrations.has(preferred)) {
+      const preferences = deps.readUserProviderPreferences?.();
+      const preferred = preferences?.defaultProviderId ?? null;
+      if (
+        preferred === null ||
+        !pluginRegistrations.has(preferred) ||
+        preferences?.disabledProviderIds?.includes(preferred) === true
+      ) {
         return null;
       }
       return preferred;

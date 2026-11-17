@@ -9,6 +9,7 @@ import {
   COMPETING_TURN_ERROR_CODE,
   type EnvironmentHookProgressMessage,
   type HostDaemonCommand,
+  type HostDaemonContributedEnvEntry,
   type ProviderHealthResult,
   type ProviderUsageResult,
   type HostDaemonBridgeLaunch,
@@ -19,6 +20,7 @@ import {
 } from "@cc/host-daemon-contract";
 import { BRIDGE_JSON_RPC_ERRORS } from "@cc/provider-bridge-protocol";
 import type {
+  CommandListResult,
   ProviderInstallationCommand,
   ProviderInstallationRunResult,
   ProviderInstallationStatus,
@@ -27,7 +29,7 @@ import { ensurePluginProcessDataDir } from "@cc/process-utils";
 import type { InteractiveResolveCommandInput } from "./interactive-request-registry.js";
 import { RuntimeManager, type RuntimeEntry } from "./runtime-manager.js";
 import type { FetchProjectAttachment } from "./project-attachments.js";
-import type { FetchSkillTree } from "./skill-trees.js";
+import type { SkillTreeTransport } from "./skill-trees.js";
 import type { HostDaemonLogger } from "./logger.js";
 import type { ServerMoveService } from "./server-move/service.js";
 import {
@@ -42,11 +44,6 @@ export type CommandOf<TType extends DispatchCommand["type"]> = Extract<
   { type: TType }
 >;
 
-export const noopEventSink: Pick<EventSink, "emit" | "flush"> = {
-  emit: () => undefined,
-  flush: async () => undefined,
-};
-
 export interface CommandDispatchOptions {
   emitEnvironmentHookProgress?: (
     message: EnvironmentHookProgressMessage,
@@ -55,7 +52,7 @@ export interface CommandDispatchOptions {
   dataDir: string;
   logger: Pick<HostDaemonLogger, "debug" | "warn">;
   fetchProjectAttachment: FetchProjectAttachment;
-  fetchSkillTree?: FetchSkillTree;
+  skillTreeTransport?: SkillTreeTransport;
   fetchPluginHostArtifact?: FetchPluginHostArtifact;
   runtimeManager: RuntimeManager;
   eventSink: Pick<EventSink, "emit" | "flush">;
@@ -63,10 +60,17 @@ export interface CommandDispatchOptions {
     providerId: string;
     bridgeLaunch: AgentRuntimeBridgeLaunch;
     cwd?: string;
+    selectedModel?: string;
+    contributedEnv: readonly HostDaemonContributedEnvEntry[];
   }) => Promise<{
     models: AvailableModel[];
     selectedOnlyModels: AvailableModel[];
   }>;
+  listCommands: (args: {
+    providerId: string;
+    bridgeLaunch: AgentRuntimeBridgeLaunch;
+    cwd: string;
+  }) => Promise<CommandListResult>;
   providerHealth: (args: {
     providerId: string;
     bridgeLaunch: AgentRuntimeBridgeLaunch;
@@ -82,6 +86,7 @@ export interface CommandDispatchOptions {
     bridgeLaunch: AgentRuntimeBridgeLaunch;
     cwd?: string;
     requirement?: "thread_rewind";
+    checkUpdates?: boolean;
   }) => Promise<ProviderInstallationStatus>;
   providerInstallationRun: (args: {
     providerId: string;

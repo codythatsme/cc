@@ -2,7 +2,8 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createConnection, migrate, type DbConnection } from "@cc/db";
+import { type DbConnection } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { type PromptInput } from "@cc/domain";
 import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
@@ -344,6 +345,7 @@ describe("plugin mention providers (cc.ui.registerMentionProvider)", () => {
     const { environment, thread } = seedColdIdleThreadFixture(harness, 1);
 
     await sendThreadMessage(harness.deps, {
+      originPluginId: null,
       environment,
       payload: {
         input: pluginMentionInput({
@@ -400,6 +402,7 @@ describe("plugin mention providers (cc.ui.registerMentionProvider)", () => {
     const { environment, thread } = seedColdIdleThreadFixture(harness, 11);
 
     await sendThreadMessage(harness.deps, {
+      originPluginId: null,
       environment,
       payload: {
         input: pluginMentionInput({
@@ -495,6 +498,7 @@ describe("plugin mention providers (cc.ui.registerMentionProvider)", () => {
 
     await expect(
       sendThreadMessage(harness.deps, {
+        originPluginId: null,
         environment,
         payload: {
           input: pluginMentionInput({
@@ -541,6 +545,7 @@ describe("plugin mention providers (cc.ui.registerMentionProvider)", () => {
     await harness.pluginService.setEnabled("mentions", false);
     await expect(
       sendThreadMessage(harness.deps, {
+        originPluginId: null,
         environment,
         payload: {
           ...basePayload,
@@ -562,6 +567,7 @@ describe("plugin mention providers (cc.ui.registerMentionProvider)", () => {
 
     await expect(
       sendThreadMessage(harness.deps, {
+        originPluginId: null,
         environment,
         payload: {
           ...basePayload,
@@ -579,6 +585,7 @@ describe("plugin mention providers (cc.ui.registerMentionProvider)", () => {
 
     await expect(
       sendThreadMessage(harness.deps, {
+        originPluginId: null,
         environment,
         payload: {
           ...basePayload,
@@ -665,14 +672,15 @@ describe("mention search time box", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-mention-timeout-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -743,14 +751,15 @@ describe("mention resolve time box", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-resolve-timeout-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -776,8 +785,6 @@ describe("mention resolve time box", () => {
             id: "stuck",
             label: "Stuck",
             search: () => [{ id: "one", title: "One" }],
-            // Never settles: without the time box this would hang
-            // POST /threads/:id/send indefinitely.
             resolve: () => new Promise(() => {}),
           });
         }

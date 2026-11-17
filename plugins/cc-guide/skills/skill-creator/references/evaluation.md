@@ -10,8 +10,13 @@ cc thread spawn --project "$CC_PROJECT_ID" --prompt "<test prompt>" --json
 cc thread wait <thread-id>
 cc thread output <thread-id>
 cc thread log <thread-id>
-cc thread show <thread-id> --git-diff
+cc thread show <thread-id> --json
+cc git diff <environment-id> --target all --merge-base-branch <branch>
 ```
+
+Take `<environment-id>` from `environment.id` in the `cc thread show` JSON and
+`<branch>` from the first non-null of `environment.mergeBaseBranch`,
+`baseBranch` and `defaultBranch`.
 
 Read the transcript, not only the final answer. Check whether the skill
 triggered, whether the agent read only relevant resources, and whether the

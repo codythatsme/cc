@@ -1,11 +1,13 @@
 import { type RefObject, useLayoutEffect } from "react";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
+import { observeSharedResize } from "@cc/shared-ui/lib/shared-resize-observer";
 import {
-  usePluginSlots,
+  usePluginSlotKind,
   type PluginSidebarFooterItemSlot,
 } from "@/lib/plugin-slots";
 import { createSyncedPreferenceAtom } from "@/lib/ui-preferences/synced-preference-atom";
 import { arrangeByStoredOrder, reorderStoredOrder } from "@/lib/stored-order";
+import { useSidebarNavigationPlacement } from "./sidebarNavigationProvider";
 
 export const sidebarFooterOrderAtom = createSyncedPreferenceAtom(
   "sidebar.footerOrder",
@@ -25,29 +27,34 @@ export function useMeasureSidebarFooterCapacity(
     const row = rowRef.current;
     const more = moreRef.current;
     if (!row || !more) return;
-    const measure = () => {
+    const measure = (): number | null => {
       const width = row.getBoundingClientRect().width;
       const controlWidth = more.getBoundingClientRect().width;
-      if (width === 0 || controlWidth === 0) return;
+      if (width === 0 || controlWidth === 0) return null;
       const gap = Number.parseFloat(getComputedStyle(row).columnGap) || 0;
-      setCapacity(
-        Math.max(0, Math.floor((width + gap) / (controlWidth + gap)) - 1),
-      );
+      return Math.max(0, Math.floor((width + gap) / (controlWidth + gap)) - 1);
     };
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(row);
-    observer.observe(more);
-    return () => observer.disconnect();
+    const apply = (capacity: number | null) => {
+      if (capacity !== null) setCapacity(capacity);
+    };
+    apply(measure());
+    return observeSharedResize([row, more], { read: measure, write: apply });
   }, [rowRef, moreRef, setCapacity]);
 }
 
-export type BuiltinFooterId = "settings" | "report-bug";
+export type BuiltinFooterId = "settings" | "mobile" | "report-bug";
 export type FooterItem = { key: string; label: string; icon: string } & (
   | { kind: "builtin"; id: BuiltinFooterId }
   | { kind: "plugin"; slot: PluginSidebarFooterItemSlot }
 );
+const SETTINGS_FOOTER_ITEM: FooterItem = {
+  kind: "builtin",
+  id: "settings",
+  key: "builtin:settings",
+  label: "Settings",
+  icon: "Settings",
+};
+
 export function footerPreferenceKey(item: {
   pluginId: string;
   id: string;
@@ -56,17 +63,19 @@ export function footerPreferenceKey(item: {
 }
 
 export function useSidebarFooterPreferences() {
-  const { sidebarFooterItems } = usePluginSlots();
+  const sidebarFooterItems = usePluginSlotKind("sidebarFooterItems");
   const [order, setOrder] = useAtom(sidebarFooterOrderAtom);
   const [hidden, setHidden] = useAtom(sidebarFooterHiddenAtom);
   const capacity = useAtomValue(sidebarFooterCapacityAtom);
+  const hasRail = useSidebarNavigationPlacement() === "rail";
   const items: FooterItem[] = [
+    ...(hasRail ? [] : [SETTINGS_FOOTER_ITEM]),
     {
       kind: "builtin",
-      id: "settings",
-      key: "builtin:settings",
-      label: "Settings",
-      icon: "Settings",
+      id: "mobile",
+      key: "builtin:mobile",
+      label: "Mobile apps",
+      icon: "Smartphone",
     },
     ...sidebarFooterItems.map((slot): FooterItem => ({
       kind: "plugin",

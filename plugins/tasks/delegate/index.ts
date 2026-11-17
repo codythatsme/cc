@@ -10,15 +10,15 @@ import type {
   TaskThreadLiveStatus,
 } from "../db";
 import {
-  publishCommentsChanged,
-  publishTasksChanged,
+  invalidateComments,
+  invalidateTaskChanged,
+  invalidateThreads,
   type TasksApiStore,
 } from "../api";
 import {
   presetPermissionModeSchema,
   presetReasoningLevelSchema,
   presetServiceTierSchema,
-  type ThreadsChangedEvent,
 } from "../shared/contract";
 import { errorMessage } from "../shared/errors";
 import { truncateToWidth } from "../shared/text-measure";
@@ -269,13 +269,7 @@ export function createSystemComment(
     presetName: input.presetName,
     threadId: input.threadId,
     body: input.body,
-    notifiedCount: 0,
   });
-}
-
-export function publishThreadsChanged(cc: CcPluginApi, taskId: string): void {
-  const payload: ThreadsChangedEvent = { taskId };
-  cc.realtime.publish("threads:changed", payload);
 }
 
 type SdkThread = Awaited<ReturnType<CcPluginApi["sdk"]["threads"]["get"]>>;
@@ -385,9 +379,9 @@ export function handlers(
         );
       }
 
-      publishThreadsChanged(cc, task.id);
-      publishTasksChanged(cc, task.id, task.projectId);
-      publishCommentsChanged(cc, task.id);
+      invalidateThreads(cc, task.id);
+      invalidateTaskChanged(cc, task);
+      invalidateComments(cc, task.id);
       return { threadId: thread.id };
     },
 
@@ -407,8 +401,8 @@ export function handlers(
         liveStatus: taskThreadLiveStatus(thread),
       });
 
-      publishThreadsChanged(cc, task.id);
-      publishTasksChanged(cc, task.id, task.projectId);
+      invalidateThreads(cc, task.id);
+      invalidateTaskChanged(cc, task);
       return { threadId: thread.id };
     },
 
@@ -425,8 +419,8 @@ export function handlers(
       }
       store.tasks.deleteTaskThread(taskThread.id);
 
-      publishThreadsChanged(cc, task.id);
-      publishTasksChanged(cc, task.id, task.projectId);
+      invalidateThreads(cc, task.id);
+      invalidateTaskChanged(cc, task);
       return { threadId: taskThread.threadId };
     },
   };

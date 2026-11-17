@@ -7,23 +7,44 @@ interface UseCreateThreadInEnvironmentArgs {
   projectId: string;
   environmentId: string;
   sectionId: string | null;
+  pinned: boolean;
+}
+
+export function buildCreateThreadInEnvironmentState({
+  environmentId,
+  sectionId,
+  pinned,
+}: Omit<UseCreateThreadInEnvironmentArgs, "projectId">) {
+  return {
+    focusPrompt: true,
+    reuseEnvironmentId: environmentId,
+    placement: { sectionId, pinned },
+  };
 }
 
 export function useCreateThreadInEnvironment({
   projectId,
   environmentId,
   sectionId,
+  pinned,
 }: UseCreateThreadInEnvironmentArgs): () => void {
   const navigate = useRouteNavigate();
   const setRootComposeProjectId = useSetRootComposeProjectId();
   return useCallback(() => {
     setRootComposeProjectId(projectId);
     navigate(getRootComposeRoutePath(), {
-      state: {
-        focusPrompt: true,
-        reuseEnvironmentId: environmentId,
+      state: buildCreateThreadInEnvironmentState({
+        environmentId,
         sectionId,
-      },
+        pinned,
+      }),
     });
-  }, [environmentId, navigate, projectId, sectionId, setRootComposeProjectId]);
+  }, [
+    environmentId,
+    navigate,
+    projectId,
+    sectionId,
+    pinned,
+    setRootComposeProjectId,
+  ]);
 }

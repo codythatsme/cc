@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BUNDLED_PLUGIN_SDK_SPECIFIER } from "../plugin-sdk-package.js";
 import { RESERVED_CC_CLI_COMMANDS } from "@cc/domain/plugin-cli";
+import { hostToolchain } from "@cc/process-utils";
 import { Command } from "commander";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -51,6 +52,7 @@ describe.sequential("cc plugin new dependency install", () => {
     process.chdir(workDir);
     await installFakeNpm(workDir);
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CC_THREAD_ID", "");
     logged = [];
     warned = [];
     vi.spyOn(console, "log").mockImplementation((line: unknown) => {
@@ -64,6 +66,7 @@ describe.sequential("cc plugin new dependency install", () => {
   afterEach(async () => {
     process.chdir(originalCwd);
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     await rm(workDir, { recursive: true, force: true });
   });
@@ -193,8 +196,56 @@ describe.sequential("cc plugin new dependency install", () => {
     expect(warnings).not.toContain("progress line");
   });
 
+  it("stays silent and succeeds when the cc server is unreachable", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("fetch failed"))),
+    );
+
+    await runPluginNew(["untracked"]);
+
+    expect(logged).toContain(
+      "Created cc-plugin-untracked/ (cc-plugin-untracked).",
+    );
+    expect(warned).toEqual([]);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it("does not record plugin_creation_started inside an agent thread", async () => {
+    vi.stubEnv("CC_THREAD_ID", "thr_agent123");
+    const telemetryFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", telemetryFetch);
+
+    await runPluginNew(["agentmade"]);
+
+    expect(logged).toContain("  cc plugin install .");
+    expect(telemetryFetch).not.toHaveBeenCalled();
+  });
+
+  it("does not record plugin_creation_started for an invalid name", async () => {
+    const telemetryFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", telemetryFetch);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`process.exit:${code}`);
+    });
+
+    await expect(runPluginNew(["Invalid"])).rejects.toThrow("process.exit:1");
+
+    expect(telemetryFetch).not.toHaveBeenCalled();
+  });
+
   it("falls back to the manual step when npm is not on PATH", async () => {
-    vi.stubEnv("PATH", join(workDir, "empty-bin"));
+    const command = hostToolchain.command.bind(hostToolchain);
+    vi.spyOn(hostToolchain, "command").mockImplementation(
+      (name, args, options) => {
+        const launch = command(name, args, options);
+        return name === "npm"
+          ? { ...launch, command: join(workDir, "empty-bin", "npm") }
+          : launch;
+      },
+    );
 
     await runPluginNew(["no-npm"]);
 

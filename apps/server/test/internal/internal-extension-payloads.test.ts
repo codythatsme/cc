@@ -5,10 +5,15 @@ import {
   groupHostDaemonEvents,
   type HostDaemonEventEnvelope,
 } from "@cc/host-daemon-contract";
+import { threadTimelineResponseSchema } from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { EXTENSION_PAYLOAD_MAX_BYTES } from "../../src/internal/extension-payloads.js";
+import {
+  EXTENSION_PAYLOAD_MAX_BYTES,
+  EXTENSION_REJECTION_REASON_MAX_CHARS,
+} from "../../src/internal/extension-payloads.js";
 import { buildPluginProviderRegistration } from "../../src/services/providers/plugin-provider-registration.js";
+import { resolvePendingThreadSessionOptions } from "../../src/services/threads/thread-session-options.js";
 import { validatePluginProviderDeclaration } from "@codythatsme/plugin-sdk/internal/host-policy";
 import { internalAuthHeaders } from "../helpers/commands.js";
 import { readJson } from "../helpers/json.js";
@@ -81,6 +86,7 @@ async function setup() {
         item: z.object({ objective: z.string().min(1) }),
         state: z.object({ status: z.enum(["active", "done"]) }),
       },
+      tags: { item: z.array(z.string()) },
     },
   });
   const { host, session } = seedHostSession(harness.deps);
@@ -344,6 +350,139 @@ describe("extension payload ingest validation", () => {
     }
   });
 
+  it.each([
+    ["item", extensionItemEvent, "objective"],
+    ["state", extensionStateEvent, "status"],
+  ] as const)(
+    "bounds persisted diagnostics for an oversized %s payload",
+    async (surface, makeEvent, field) => {
+      const { harness, session, thread } = await setup();
+      try {
+        const payload = { [field]: "\u00e9".repeat(128 * 1024) };
+        const payloadBytes = Buffer.byteLength(JSON.stringify(payload));
+        const response = await post(harness, session.id, [
+          turnStarted(thread.id),
+          makeEvent(thread.id, payload),
+        ]);
+        expect(response.status).toBe(200);
+        const rows = storedRows(harness, thread.id);
+        expect(rows.map((row) => row.type)).toEqual([
+          "turn/started",
+          "provider/unhandled",
+        ]);
+        expect(rows[1]).toMatchObject({
+          scopeKind: surface === "item" ? "turn" : "thread",
+          turnId: surface === "item" ? "turn-1" : null,
+          data: {
+            providerThreadId: "prov-1",
+            providerId: PROVIDER_ID,
+            rawType: `extension/${surface}:${GOAL_KIND}`,
+            ...(surface === "item" ? { parentToolCallId: "parent-1" } : {}),
+            rawEvent: {
+              method:
+                surface === "item"
+                  ? "item/started"
+                  : "thread/extensionState/updated",
+              params: {
+                kind: GOAL_KIND,
+                payloadOmitted: true,
+                payloadBytes,
+                reason: `payload is ${payloadBytes} bytes; the limit is 65536`,
+              },
+            },
+          },
+        });
+        expect(Buffer.byteLength(JSON.stringify(rows[1]!.data))).toBeLessThan(
+          EXTENSION_PAYLOAD_MAX_BYTES,
+        );
+      } finally {
+        await harness.cleanup();
+      }
+    },
+  );
+
+  it("keeps a rejected payload at the size limit and omits one a byte over it, whatever the rejection reason", async () => {
+    const { harness, session, thread } = await setup();
+    try {
+      const padded = (bytes: number) => {
+        const pad = bytes - JSON.stringify({ objective: "" }).length;
+        return { objective: "x".repeat(pad) };
+      };
+      const atLimit = padded(EXTENSION_PAYLOAD_MAX_BYTES);
+      const overLimit = padded(EXTENSION_PAYLOAD_MAX_BYTES + 1);
+      const response = await post(harness, session.id, [
+        turnStarted(thread.id),
+        extensionItemEvent(thread.id, atLimit, "provider-nobody/goal"),
+        extensionItemEvent(thread.id, overLimit, "provider-nobody/goal"),
+        extensionItemEvent(thread.id, overLimit, `${PLUGIN_ID}/widget`),
+        extensionStateEvent(
+          thread.id,
+          {
+            commands: [
+              {
+                name: "x".repeat(EXTENSION_PAYLOAD_MAX_BYTES),
+                description: "",
+              },
+            ],
+          },
+          "cc/provider-commands",
+        ),
+      ]);
+      expect(response.status).toBe(200);
+      const params = storedRows(harness, thread.id)
+        .slice(1)
+        .map(
+          (row) =>
+            (row.data as { rawEvent: { params: Record<string, unknown> } })
+              .rawEvent.params,
+        );
+      expect(params[0]).toMatchObject({ payload: atLimit });
+      expect(params[0]).not.toHaveProperty("payloadOmitted");
+      for (const omitted of params.slice(1)) {
+        expect(omitted).not.toHaveProperty("payload");
+        expect(omitted).toMatchObject({
+          payloadOmitted: true,
+          payloadBytes: expect.any(Number),
+        });
+      }
+      expect(params.slice(1, 3).map((p) => p.payloadBytes)).toEqual([
+        EXTENSION_PAYLOAD_MAX_BYTES + 1,
+        EXTENSION_PAYLOAD_MAX_BYTES + 1,
+      ]);
+      expect(params[1]!.reason).toContain("is owned by plugin");
+      expect(params[2]!.reason).toContain("declares no");
+      expect(params[3]!.reason).toContain("bytes; the limit is");
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("truncates a large validator reason in the persisted diagnostic", async () => {
+    const { harness, session, thread } = await setup();
+    try {
+      const response = await post(harness, session.id, [
+        turnStarted(thread.id),
+        extensionItemEvent(
+          thread.id,
+          Array.from({ length: 10_000 }, (_, index) => index),
+          `${PLUGIN_ID}/tags`,
+        ),
+      ]);
+      expect(response.status).toBe(200);
+      const [, row] = storedRows(harness, thread.id);
+      const { reason } = (
+        row!.data as { rawEvent: { params: { reason: string } } }
+      ).rawEvent.params;
+      expect(reason.startsWith("0: ")).toBe(true);
+      expect(reason.endsWith("[truncated]")).toBe(true);
+      expect(Buffer.byteLength(reason)).toBeLessThanOrEqual(
+        EXTENSION_REJECTION_REASON_MAX_CHARS,
+      );
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
   it("stops accepting a kind once its plugin's registration is disposed", async () => {
     const { harness, session, thread } = await setup();
     try {
@@ -521,6 +660,203 @@ describe("extension kind ownership at ingest", () => {
           },
         },
       ]);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("accepts cc's own thread state kinds from any provider and serves them on the timeline", async () => {
+    const { harness, session, thread } = await setup();
+    try {
+      const response = await post(harness, session.id, [
+        extensionStateEvent(
+          thread.id,
+          {
+            commands: [
+              { name: "review", description: "Review the diff" },
+              { name: "web", description: "", inputHint: "query" },
+            ],
+          },
+          "cc/provider-commands",
+        ),
+        extensionStateEvent(
+          thread.id,
+          {
+            options: [
+              {
+                type: "select",
+                id: "mode",
+                label: "Mode",
+                category: "mode",
+                value: "plan",
+                values: [
+                  { id: "plan", label: "Plan" },
+                  { id: "build", label: "Build" },
+                ],
+              },
+            ],
+          },
+          "cc/session-options",
+        ),
+      ]);
+      expect(response.status).toBe(200);
+      expect(storedRows(harness, thread.id).map((row) => row.type)).toEqual([
+        "thread/extensionState/updated",
+        "thread/extensionState/updated",
+      ]);
+
+      const timeline = threadTimelineResponseSchema.parse(
+        await readJson(
+          await harness.app.request(`/api/v1/threads/${thread.id}/timeline`),
+        ),
+      );
+      expect(timeline.providerCommands).toEqual([
+        {
+          name: "review",
+          source: "command",
+          origin: "builtin",
+          description: "Review the diff",
+          argumentHint: null,
+        },
+        {
+          name: "web",
+          source: "command",
+          origin: "builtin",
+          description: null,
+          argumentHint: "query",
+        },
+      ]);
+      expect(timeline.sessionOptions).toEqual([
+        {
+          type: "select",
+          id: "mode",
+          label: "Mode",
+          description: null,
+          category: "mode",
+          value: "plan",
+          pendingValue: null,
+          values: [
+            { id: "plan", label: "Plan", description: null, group: null },
+            { id: "build", label: "Build", description: null, group: null },
+          ],
+        },
+      ]);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("keeps a chosen session option pending until the agent reports it, and refuses the server's own state kind from a provider", async () => {
+    const { harness, session, thread } = await setup();
+    try {
+      const modeState = (value: string) =>
+        extensionStateEvent(
+          thread.id,
+          {
+            options: [
+              {
+                type: "select",
+                id: "mode",
+                label: "Mode",
+                value,
+                values: [
+                  { id: "plan", label: "Plan" },
+                  { id: "build", label: "Build" },
+                ],
+              },
+              { type: "boolean", id: "web", label: "Web", value: false },
+            ],
+          },
+          "cc/session-options",
+        );
+      const patch = (sessionOptions: Record<string, unknown>) =>
+        harness.app.request(`/api/v1/threads/${thread.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionOptions }),
+        });
+      const pendingValues = async () =>
+        Object.fromEntries(
+          (
+            threadTimelineResponseSchema.parse(
+              await readJson(
+                await harness.app.request(
+                  `/api/v1/threads/${thread.id}/timeline`,
+                ),
+              ),
+            ).sessionOptions ?? []
+          ).map((option) => [option.id, option.pendingValue]),
+        );
+
+      expect((await patch({ mode: "build" })).status).toBe(400);
+      expect(
+        (await post(harness, session.id, [modeState("plan")])).status,
+      ).toBe(200);
+
+      expect((await patch({ mode: "yolo" })).status).toBe(400);
+      expect((await patch({ absent: "plan" })).status).toBe(400);
+      expect((await patch({ web: "true" })).status).toBe(400);
+      expect(await pendingValues()).toEqual({ mode: null, web: null });
+
+      expect((await patch({ mode: "build", web: true })).status).toBe(200);
+      expect(await pendingValues()).toEqual({ mode: "build", web: true });
+      expect(
+        resolvePendingThreadSessionOptions(harness.deps.db, thread.id),
+      ).toEqual({ mode: "build", web: true });
+
+      expect((await patch({ web: null })).status).toBe(200);
+      expect(await pendingValues()).toEqual({ mode: "build", web: null });
+
+      expect(
+        (await post(harness, session.id, [modeState("build")])).status,
+      ).toBe(200);
+      expect(await pendingValues()).toEqual({ mode: null, web: null });
+      expect(
+        resolvePendingThreadSessionOptions(harness.deps.db, thread.id),
+      ).toEqual({});
+
+      expect(
+        (await post(harness, session.id, [modeState("plan")])).status,
+      ).toBe(200);
+      expect(await pendingValues()).toEqual({ mode: null, web: null });
+
+      const forged = await post(harness, session.id, [
+        extensionStateEvent(
+          thread.id,
+          { selections: { mode: "build" } },
+          "cc/session-option-selections",
+        ),
+      ]);
+      expect(forged.status).toBe(200);
+      expect(storedRows(harness, thread.id).at(-1)?.type).toBe(
+        "provider/unhandled",
+      );
+      expect(await pendingValues()).toEqual({ mode: null, web: null });
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("replaces a cc thread state whose payload does not match cc's schema with provider/unhandled", async () => {
+    const { harness, session, thread } = await setup();
+    try {
+      const response = await post(harness, session.id, [
+        extensionStateEvent(
+          thread.id,
+          { commands: [{ description: "nameless" }] },
+          "cc/provider-commands",
+        ),
+      ]);
+      expect(response.status).toBe(200);
+      expect(storedRows(harness, thread.id).map((row) => row.type)).toEqual([
+        "provider/unhandled",
+      ]);
+      const timeline = threadTimelineResponseSchema.parse(
+        await readJson(
+          await harness.app.request(`/api/v1/threads/${thread.id}/timeline`),
+        ),
+      );
+      expect(timeline.providerCommands).toBeNull();
     } finally {
       await harness.cleanup();
     }

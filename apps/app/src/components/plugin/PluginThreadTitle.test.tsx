@@ -3,46 +3,40 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@cc/domain";
 import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
-import { archivedThreadsListQueryKey } from "@/hooks/queries/query-keys";
+import {
+  archivedThreadsListQueryKey,
+  sidebarNavigationQueryKey,
+} from "@/hooks/queries/query-keys";
 import { PluginThreadTitle } from "./PluginThreadTitle";
 
-const state = vi.hoisted(() => ({
-  threads: [] as ThreadListEntry[],
-}));
-
-vi.mock("@/hooks/queries/sidebar-navigation-query", () => ({
-  useSidebarNavigation: () => ({
-    data: {
-      sections: [],
-      projects: [{ id: "proj_app", name: "App", threads: state.threads }],
-      personalProject: {
-        id: PERSONAL_PROJECT_ID,
-        name: "Personal",
-        threads: [],
-      },
+function harnessWithThreads(threads: ThreadListEntry[]) {
+  const harness = createQueryClientTestHarness();
+  harness.queryClient.setQueryData(sidebarNavigationQueryKey(), {
+    sections: [],
+    projects: [{ id: "proj_app", name: "App", threads }],
+    personalProject: {
+      id: PERSONAL_PROJECT_ID,
+      name: "Personal",
+      threads: [],
     },
-    isError: false,
-  }),
-}));
+  });
+  return harness;
+}
 
-afterEach(() => {
-  cleanup();
-  state.threads = [];
-});
+afterEach(cleanup);
 
 describe("PluginThreadTitle", () => {
   it("renders the display title with section mentions resolved to chips", () => {
-    state.threads = [
+    const { wrapper } = harnessWithThreads([
       makeThreadListEntry({
         id: "thr_1",
         projectId: "proj_app",
         title: "Triage @section:sec_slop",
       }),
-    ];
-    const { wrapper } = createQueryClientTestHarness();
+    ]);
     render(
       <ThreadTitleMentionResourcesProvider
         sectionNamesById={new Map([["sec_slop", "Slop Cop"]])}
@@ -51,28 +45,29 @@ describe("PluginThreadTitle", () => {
       >
         <PluginThreadTitle threadId="thr_1" />
       </ThreadTitleMentionResourcesProvider>,
-      { wrapper },    );
+      { wrapper },
+    );
     expect(screen.getByText("Triage")).toBeTruthy();
     expect(screen.getByText("Slop Cop")).toBeTruthy();
     expect(screen.queryByText(/@section/)).toBeNull();
   });
 
   it("falls back to the title fallback and renders nothing for an unknown id", () => {
-    state.threads = [
+    const { wrapper } = harnessWithThreads([
       makeThreadListEntry({
         id: "thr_2",
         projectId: "proj_app",
         title: null,
         titleFallback: "Untitled work",
       }),
-    ];
-    const { wrapper } = createQueryClientTestHarness();
+    ]);
     const { container } = render(
       <>
         <PluginThreadTitle threadId="thr_2" />
         <PluginThreadTitle threadId="thr_missing" />
       </>,
-      { wrapper },    );
+      { wrapper },
+    );
     expect(screen.getByText("Untitled work")).toBeTruthy();
     expect(container.textContent).toBe("Untitled work");
   });
@@ -80,14 +75,20 @@ describe("PluginThreadTitle", () => {
     const { wrapper, queryClient } = createQueryClientTestHarness();
     queryClient.setQueryData(archivedThreadsListQueryKey({}), {
       pageParams: [0],
-      pages: [[makeThreadListEntry({
-        id: "thr_archived",
-        title: "Archived investigation",
-        archivedAt: 42,
-      })]],
+      pages: [
+        [
+          makeThreadListEntry({
+            id: "thr_archived",
+            title: "Archived investigation",
+            archivedAt: 42,
+          }),
+        ],
+      ],
     });
-    render(<PluginThreadTitle threadId="thr_archived" />, { wrapper });
+    render(
+      <PluginThreadTitle threadId="thr_archived" />,
+      { wrapper },
+    );
     expect(screen.getByText("Archived investigation")).toBeTruthy();
   });
-
 });

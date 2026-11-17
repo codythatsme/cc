@@ -1,9 +1,14 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawnHostProcess as spawn } from "@cc/process-utils";
+import type { ChildProcess } from "node:child_process";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { watch, type FSWatcher } from "node:fs";
 import { join } from "node:path";
 import { escapeHtmlText } from "@cc/text-utils";
 import { z } from "zod";
+import {
+  createLogFileFollower,
+  type LogFileFollower,
+} from "./log-file-follower.js";
 import {
   LOG_VIEWER_VISIBLE_LINE_LIMIT,
   type LogViewerComponent,
@@ -15,7 +20,11 @@ export const LOG_VIEWER_IPC_BATCH_LINE_LIMIT = 250;
 
 const LOG_VIEWER_INITIAL_TAIL_LINES = 400;
 const LOG_VIEWER_ROTATION_POLL_INTERVAL_MS = 2_000;
-const LOG_VIEWER_COMPONENTS: LogViewerComponent[] = ["server", "host-daemon"];
+const LOG_VIEWER_COMPONENTS: LogViewerComponent[] = [
+  "desktop",
+  "server",
+  "host-daemon",
+];
 const PINO_LEVEL_LABELS = new Map<number, string>([
   [10, "trace"],
   [20, "debug"],
@@ -132,7 +141,8 @@ interface LogFileCandidate {
 }
 
 interface TailProcess {
-  childProcess: ChildProcess;
+  childProcess: ChildProcess | null;
+  follower: LogFileFollower | null;
 }
 
 interface ComponentTailState {
@@ -260,7 +270,7 @@ export function createLogViewerViewUrl(
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>cc - Server & Daemon Logs</title>
+  <title>cc - Local Logs</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -375,7 +385,7 @@ export function createLogViewerViewUrl(
 <body>
   <header>
     <div>
-      <h1>Server & Daemon Logs</h1>
+      <h1>Local Logs</h1>
       <div class="path" title="${escapedLogDir}">${escapedLogDir}</div>
     </div>
     <div class="actions">
@@ -523,9 +533,14 @@ export async function resolveCurrentLogFile(
     } catch {}
   }
 
+  const activeFileName = `${args.component}.log`;
   candidates.sort((left, right) => {
     if (left.timestampMs !== right.timestampMs) {
       return right.timestampMs - left.timestampMs;
+    }
+    const leftActive = left.fileName === activeFileName;
+    if (leftActive !== (right.fileName === activeFileName)) {
+      return leftActive ? -1 : 1;
     }
     if (left.sequence !== right.sequence) {
       return right.sequence - left.sequence;
@@ -599,7 +614,8 @@ export function createLogTailer(args: CreateLogTailerArgs): LogTailer {
     if (tailProcess === null) {
       return;
     }
-    tailProcess.childProcess.kill("SIGTERM");
+    tailProcess.follower?.stop();
+    tailProcess.childProcess?.kill("SIGTERM");
   }
 
   function handleDirectoryWatchError(
@@ -622,6 +638,25 @@ export function createLogTailer(args: CreateLogTailerArgs): LogTailer {
     stopTailProcess({ state: restartArgs.state });
     restartArgs.state.currentFilePath = restartArgs.filePath;
 
+    if (process.platform === "win32") {
+      restartArgs.state.tailProcess = {
+        childProcess: null,
+        follower: createLogFileFollower({
+          filePath: restartArgs.filePath,
+          initialLines: LOG_VIEWER_INITIAL_TAIL_LINES,
+          onChunk: (chunk) => {
+            handleTailChunk({ chunk, state: restartArgs.state });
+          },
+          onError: (error) => {
+            emitSystemLine({
+              text: `${restartArgs.state.component} tail failed: ${error.message}`,
+            });
+          },
+        }),
+      };
+      return;
+    }
+
     const childProcess = spawn(
       "tail",
       ["-n", String(LOG_VIEWER_INITIAL_TAIL_LINES), "-F", restartArgs.filePath],
@@ -631,6 +666,7 @@ export function createLogTailer(args: CreateLogTailerArgs): LogTailer {
     );
     const tailProcess: TailProcess = {
       childProcess,
+      follower: null,
     };
     restartArgs.state.tailProcess = tailProcess;
 
@@ -682,6 +718,9 @@ export function createLogTailer(args: CreateLogTailerArgs): LogTailer {
         component: state.component,
         logDir: args.logDir,
       });
+      if (stopped) {
+        return;
+      }
       if (currentFilePath === null) {
         if (state.currentFilePath !== null) {
           stopTailProcess({ state });
@@ -724,7 +763,7 @@ export function createLogTailer(args: CreateLogTailerArgs): LogTailer {
   return {
     processIds() {
       return componentStates.flatMap((state) => {
-        const pid = state.tailProcess?.childProcess.pid;
+        const pid = state.tailProcess?.childProcess?.pid;
         return pid === undefined ? [] : [pid];
       });
     },

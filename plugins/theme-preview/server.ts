@@ -642,21 +642,22 @@ export default async function plugin(cc: CcPluginApi) {
         if (signal.aborted) return;
         const dir = typeof raw?.dir === "string" ? raw.dir : null;
         if (!dir) return;
+        const publishChange = async () => {
+          try {
+            const next = await catalog();
+            cc.realtime.publish("theme-preview:changed", {
+              revision: next.revision,
+              at: Date.now(),
+            });
+          } catch (error) {
+            cc.log.warn(
+              `theme-preview: watch refresh failed: ${String(error)}`,
+            );
+          }
+        };
         const onChange = () => {
           if (timer) clearTimeout(timer);
-          timer = setTimeout(async () => {
-            try {
-              const next = await catalog();
-              cc.realtime.publish("theme-preview:changed", {
-                revision: next.revision,
-                at: Date.now(),
-              });
-            } catch (error) {
-              cc.log.warn(
-                `theme-preview: watch refresh failed: ${String(error)}`,
-              );
-            }
-          }, 120);
+          timer = setTimeout(() => void publishChange(), 120);
         };
         try {
           watcher = watch(dir, { recursive: true }, onChange);

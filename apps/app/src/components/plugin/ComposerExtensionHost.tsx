@@ -1,51 +1,49 @@
 import { useCallback, useMemo, type ReactNode } from "react";
-import type { ComposerView } from "@codythatsme/plugin-sdk";
-import {
-  useAppCommandContext,
-  useAppCommandHandler,
-} from "@/components/commands/AppCommandProvider";
+import { useAppCommandContext } from "@/components/commands/AppCommandProvider";
 import {
   PluginComposerHostProvider,
   PluginComposerViewProvider,
+  type ComposerDraftSource,
   type PluginComposerHost,
+  type PluginComposerStaticView,
 } from "./plugin-composer-host";
 
 interface ComposerExtensionController {
   host: PluginComposerHost | null;
-  view: ComposerView;
-  focus(): boolean;
+  view: PluginComposerStaticView;
+  draft: ComposerDraftSource;
+  focus(): void;
 }
 
 interface UseComposerExtensionControllerOptions {
   host: PluginComposerHost | null;
-  view: ComposerView;
-  isFocused: boolean;
-  isPrimary: boolean;
+  view: PluginComposerStaticView;
+  draft: ComposerDraftSource;
   collapseIfFocused?(): boolean;
-  focusDefault(): boolean;
+  focusDefault(): void;
 }
 
 export function useComposerExtensionController({
   host,
   view,
-  isFocused,
-  isPrimary,
+  draft,
   collapseIfFocused,
   focusDefault,
 }: UseComposerExtensionControllerOptions): ComposerExtensionController {
   const focus = useCallback(() => {
-    if (!isFocused || !isPrimary) return false;
-    if (collapseIfFocused?.()) return true;
+    if (collapseIfFocused?.()) return;
     if (host !== null) {
       host.focus();
-      return true;
+      return;
     }
-    return focusDefault();
-  }, [collapseIfFocused, focusDefault, host, isFocused, isPrimary]);
+    focusDefault();
+  }, [collapseIfFocused, focusDefault, host]);
   useAppCommandContext("promptAvailable", true);
-  useAppCommandHandler("composer.focus", focus);
 
-  return useMemo(() => ({ host, view, focus }), [focus, host, view]);
+  return useMemo(
+    () => ({ host, view, draft, focus }),
+    [draft, focus, host, view],
+  );
 }
 
 export function ComposerExtensionHost({
@@ -56,7 +54,7 @@ export function ComposerExtensionHost({
   defaultRenderer: ReactNode;
 }) {
   return (
-    <PluginComposerViewProvider value={controller.view}>
+    <PluginComposerViewProvider view={controller.view} draft={controller.draft}>
       <PluginComposerHostProvider value={controller.host}>
         {defaultRenderer}
       </PluginComposerHostProvider>

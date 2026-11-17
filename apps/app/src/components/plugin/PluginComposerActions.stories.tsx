@@ -1,5 +1,6 @@
+import "../../../.ladle/composer-plugin";
 import { useEffect, useState, type ComponentType } from "react";
-import type { ComposerView } from "@codythatsme/plugin-sdk";
+import type { PluginComposerScope } from "@codythatsme/plugin-sdk";
 import { Button } from "@cc/shared-ui/button";
 import { Icon, type IconName } from "@cc/shared-ui/icon";
 import { StoryCard, StoryRow } from "../../../.ladle/story-card";
@@ -7,7 +8,7 @@ import {
   makeAttachmentsConfig,
   makeTypeaheadConfig,
 } from "../../../.ladle/story-fixtures";
-import { PromptBoxInternal } from "@/components/promptbox/PromptBoxInternal";
+import { ControlledComposerBox } from "@/test/fixtures/controlled-composer-box";
 import {
   removePluginSlotRegistrations,
   setPluginSlotRegistrations,
@@ -25,7 +26,7 @@ function registrations(
       PluginRegistrationSet["composerCustomizations"]
     >[number]["actions"]
   >,
-  scopes: ComposerView["scope"]["kind"][] = ["new-thread", "thread"],
+  scopes: PluginComposerScope["kind"][] = ["new-thread", "thread"],
 ): PluginRegistrationSet {
   return makePluginRegistrationSet({
     composerCustomizations: [{ id: "story-actions", scopes, actions }],
@@ -39,7 +40,7 @@ function StoryPluginRegistration({
 }: {
   pluginId: string;
   actions: Parameters<typeof registrations>[0];
-  scopes?: ComposerView["scope"]["kind"][];
+  scopes?: PluginComposerScope["kind"][];
 }) {
   useEffect(() => {
     setPluginSlotRegistrations(pluginId, registrations(actions, scopes));
@@ -85,7 +86,8 @@ function OverflowFixture() {
         />
       ))}
       <div className="w-full max-w-xl">
-        <PromptBoxInternal
+        <ControlledComposerBox
+          surface="thread"
           value={value}
           mentionRanges={[]}
           onChange={(nextValue) => setValue(nextValue)}
@@ -115,5 +117,64 @@ export function Overflow() {
         <OverflowFixture />
       </StoryRow>
     </StoryCard>
+  );
+}
+
+const USAGE_ACTIONS = [
+  { id: "short-window", component: () => <span>5h usage: 80% remaining</span> },
+  { id: "long-window", component: () => <span>7d usage: 65% remaining</span> },
+  { id: "credit", component: () => <span>Provider credit: $123.45</span> },
+];
+
+const WIDE_ACTIONS = [
+  {
+    id: "wide-credit",
+    component: () => (
+      <span className="whitespace-nowrap">
+        {"Provider credit balance: $123.45 remaining ".repeat(6)}
+      </span>
+    ),
+  },
+];
+
+export function NarrowUsageActions() {
+  const [value, setValue] = useState("Check the narrow composer");
+  const [sent, setSent] = useState(0);
+  const [variant, setVariant] = useState("standard");
+  return (
+    <div className="w-full max-w-3xl p-2" data-composer-layout-fixture="">
+      {variant !== "none" ? (
+        <StoryPluginRegistration
+          pluginId="story-composer-usage"
+          actions={variant === "wide" ? WIDE_ACTIONS : USAGE_ACTIONS}
+        />
+      ) : null}
+      <ControlledComposerBox
+        surface="thread"
+        value={value}
+        mentionRanges={[]}
+        onChange={(nextValue) => setValue(nextValue)}
+        onSubmit={() => setSent((count) => count + 1)}
+        placeholder="Ask a follow-up"
+        typeahead={makeTypeaheadConfig()}
+        mentionMenuPlacement="top"
+        attachments={makeAttachmentsConfig()}
+        submission={{
+          isSubmitting: false,
+          disabled: false,
+          title: "Submit (Enter)",
+        }}
+      />
+      <output aria-label="Sent messages">{sent}</output>
+      <select
+        aria-label="Plugin action fixture"
+        value={variant}
+        onChange={(event) => setVariant(event.target.value)}
+      >
+        <option value="standard">Usage indicators</option>
+        <option value="wide">Oversized indicator</option>
+        <option value="none">No plugin actions</option>
+      </select>
+    </div>
   );
 }

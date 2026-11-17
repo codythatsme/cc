@@ -271,7 +271,7 @@ run_lifecycle() {
         systemctl "$systemd_scope" start "$service_name"
       fi
     elif ! owned_pid; then
-      CC_APP_NPM_PREFIX="$data_dir/npm" CC_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/cc-app" host-daemon --auto-update --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
+      CC_APP_NPM_PREFIX="$data_dir/npm" CC_DATA_DIR="$data_dir" nohup "$data_dir/npm/bin/cc-app" host-daemon --auto-update --supervise --host-daemon-port "$host_daemon_port" --server-url "$server_url" >"$data_dir/install-daemon.log" 2>&1 &
       daemon_pid=$!
       (umask 077 && printf '%s\n' "$daemon_pid" >"$pid_file")
     fi
@@ -408,6 +408,17 @@ if [ "$node_supported" != yes ]; then
   exit 1
 fi
 node_bin=$(command -v node)
+fnm_session_dir=${node_bin%/bin/node}
+case "${fnm_session_dir%/*}" in
+  */fnm_multishells)
+    if fnm_session_target=$(readlink "$fnm_session_dir"); then
+      case "$fnm_session_target" in
+        /*) node_bin="$fnm_session_target/bin/node" ;;
+        *) node_bin="${fnm_session_dir%/*}/$fnm_session_target/bin/node" ;;
+      esac
+    fi
+    ;;
+esac
 
 if [ -z "${HOME:-}" ]; then
   HOME=$(node -e 'const home = require("node:os").homedir(); if (!require("node:path").isAbsolute(home)) process.exit(1); process.stdout.write(home);')
@@ -417,6 +428,36 @@ fi
 if [ -n "$lifecycle_action" ]; then
   run_lifecycle
   exit 0
+fi
+
+systemd_host=no
+if [ "$platform" = linux ] &&
+   [ "$(ps -p 1 -o comm= 2>/dev/null | tr -d '[:space:]')" = systemd ] &&
+   ! systemd-detect-virt --container --quiet >/dev/null 2>&1; then
+  systemd_host=yes
+fi
+systemd_scope=--user
+if [ "$systemd_host" = yes ] && [ "$(id -u)" = 0 ]; then
+  systemd_scope=--system
+fi
+if [ "${CC_INSTALL_SKIP_SERVICE:-0}" != 1 ] && [ "$platform" = linux ] &&
+   [ "$systemd_scope" = --user ] && ! systemctl --user show-environment >/dev/null 2>&1; then
+  user_runtime_dir=$(loginctl show-user "$(id -u)" --property=RuntimePath --value 2>/dev/null || true)
+  case "$user_runtime_dir" in
+    /*)
+      XDG_RUNTIME_DIR=$user_runtime_dir
+      export XDG_RUNTIME_DIR
+      unset DBUS_SESSION_BUS_ADDRESS
+      ;;
+  esac
+  if ! systemctl --user show-environment >/dev/null 2>&1; then
+    if [ "$systemd_host" = yes ]; then
+      fail_step "The systemd user bus is unavailable; the cc host-daemon service was not installed."
+      detail "Run the installer from a systemd user session, then retry. To run without a persistent service, set CC_INSTALL_SKIP_SERVICE=1; the daemon will not start after a reboot." >&2
+      exit 1
+    fi
+    CC_INSTALL_SKIP_SERVICE=1
+  fi
 fi
 
 if [ "$adopt" = yes ]; then
@@ -911,17 +952,6 @@ if [ "$already_joined" = no ]; then
   complete_step "Joined successfully"
 fi
 
-systemd_scope=--user
-if [ "$platform" = linux ] && [ "$(id -u)" = 0 ] &&
-   [ "$(ps -p 1 -o comm= | tr -d '[:space:]')" = systemd ] &&
-   ! systemd-detect-virt --container --quiet >/dev/null 2>&1; then
-  systemd_scope=--system
-fi
-if [ "$platform" = linux ] &&
-   [ "$systemd_scope" = --user ] && ! systemctl --user show-environment >/dev/null 2>&1; then
-  CC_INSTALL_SKIP_SERVICE=1
-fi
-
 stop_recorded_daemon() {
   recorded_pid=
   recorded_command=
@@ -963,6 +993,7 @@ if [ "${CC_INSTALL_SKIP_SERVICE:-0}" = 1 ]; then
     detail "Host daemon output is logged to $daemon_log"
     CC_APP_NPM_PREFIX="$cc_app_npm_prefix" CC_DATA_DIR="$data_dir" nohup "$cc_app" host-daemon \
       --auto-update \
+      --supervise \
       --host-daemon-port "$host_daemon_port" \
       --server-url "$server_url" >"$daemon_log" 2>&1 &
     join_pid=$!
@@ -977,9 +1008,9 @@ if [ "${CC_INSTALL_SKIP_SERVICE:-0}" = 1 ]; then
     complete_step "Host daemon connected"
   fi
   if [ -n "$join_pid" ]; then
-    warning_step "Service installation skipped; daemon PID $join_pid is still running."
+    warning_step "Service installation skipped; temporary join daemon PID $join_pid is still running and will not restart if it exits or after a reboot."
   else
-    warning_step "Service installation skipped; the daemon is already running."
+    warning_step "Service installation skipped; the daemon is already running but will not start after a reboot."
   fi
   exit 0
 fi
@@ -1136,6 +1167,7 @@ Environment="CC_APP_NPM_PREFIX=$escaped_cc_app_npm_prefix"
 Environment="CC_DATA_DIR=$escaped_data_dir"
 Restart=always
 RestartSec=2
+OOMPolicy=continue
 
 [Install]
 WantedBy=$service_target

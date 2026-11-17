@@ -3,18 +3,21 @@ import { useStore } from "jotai";
 import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { useRouteNavigate } from "@/components/ui/app-route-anchor";
 import { openThreadInSplit } from "@/lib/split-layout/openThreadInSplit";
+import type { DroppedThreadMention } from "@/lib/thread-mention-drop";
 import { beginSidebarPaneContentSplitDrag } from "./usePaneContentSplitDrag";
 
 interface UseThreadRowSplitDragArgs {
   projectId: string;
   threadId: string;
-  title: string;
+  getTitle: () => string;
+  getMentionThreads?: () => readonly DroppedThreadMention[] | undefined;
 }
 
 export function useThreadRowSplitDrag({
   projectId,
   threadId,
-  title,
+  getTitle,
+  getMentionThreads,
 }: UseThreadRowSplitDragArgs): {
   onPointerDown: ((event: ReactPointerEvent<HTMLElement>) => void) | undefined;
   openInSplit: () => void;
@@ -33,10 +36,11 @@ export function useThreadRowSplitDrag({
         store,
         navigate,
         content: { kind: "thread", projectId, threadId },
-        label: title,
+        label: getTitle(),
+        mentionThreads: getMentionThreads?.(),
       });
     },
-    [navigate, projectId, store, threadId, title],
+    [getMentionThreads, getTitle, navigate, projectId, store, threadId],
   );
 
   const openInSplit = useCallback(() => {

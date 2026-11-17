@@ -61,6 +61,34 @@ describe("isCcManagedWorkspacePath", () => {
     ).toBe(false);
   });
 
+  it("recognises managed roots on a Windows host in any spelling", () => {
+    const windowsDataDir = "C:\\Users\\me\\.cc";
+    expect(
+      isCcManagedWorkspacePath({
+        dataDir: windowsDataDir,
+        path: "c:/users/me/.cc/plugins/environment-git-worktree/host-data/worktrees/thr_abc-1/repo",
+      }),
+    ).toBe(true);
+    expect(
+      isCcManagedWorkspacePath({
+        dataDir: windowsDataDir,
+        path: "C:\\Users\\me\\.cc\\worktrees\\env_abc\\repo",
+      }),
+    ).toBe(true);
+    expect(
+      isCcManagedWorkspacePath({
+        dataDir: windowsDataDir,
+        path: "C:\\Users\\me\\.cc\\plugins\\some-plugin\\source\\index.ts",
+      }),
+    ).toBe(false);
+    expect(
+      isCcManagedWorkspacePath({
+        dataDir: windowsDataDir,
+        path: "C:\\Users\\me\\code\\repo",
+      }),
+    ).toBe(false);
+  });
+
   it("does not treat a sibling prefix as a managed root", () => {
     expect(
       isCcManagedWorkspacePath({

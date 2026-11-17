@@ -1,6 +1,8 @@
+import { preloadThreadSecondaryPanel } from "@/components/secondary-panel/lazySecondaryPanelComponents";
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -8,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
+import { RESET } from "jotai/utils";
 import {
   Panel,
   PanelGroup,
@@ -18,7 +21,6 @@ import { Button } from "@cc/shared-ui/button";
 import { EmptyStatePanel } from "@cc/shared-ui/empty-state";
 import { Icon } from "@cc/shared-ui/icon";
 import { cn } from "@cc/shared-ui/lib/utils";
-import { HEADER_ICON_BUTTON_CLASS } from "@/components/layout/AppPageHeader";
 import { AppCommandShortcutHint } from "@/components/commands/AppCommandShortcutHint";
 import {
   useAppCommandHandler,
@@ -33,14 +35,26 @@ import {
   SecondaryPanelHostLayoutContext,
   type SecondaryPanelHostLayout,
 } from "@/components/secondary-panel/SecondaryPanelHostLayoutContext";
-import { RIGHT_PANEL_TOGGLE_ICON_NAME } from "@/components/secondary-panel/panelToggleControlState";
+import {
+  RIGHT_PANEL_TOGGLE_BUTTON_CLASS,
+  RIGHT_PANEL_TOGGLE_ICON_NAME,
+  RIGHT_PANEL_TOGGLE_SHORTCUT_HINT_CLASS,
+} from "@/components/secondary-panel/panelToggleControlState";
 import {
   getPanelCollapseTransitionStyle,
   PANEL_COLLAPSE_TRANSITION_CLASS,
   PANEL_RESIZE_HANDLE_LAYER_CLASS,
   PANEL_RESIZE_HIT_TARGET_CLASS,
 } from "@/components/secondary-panel/panelTransitionTokens";
-import { MACOS_APP_REGION_NO_DRAG_CLASS } from "@/lib/cc-desktop";
+import {
+  getCcDesktopInfo,
+  MACOS_APP_REGION_NO_DRAG_CLASS,
+  MACOS_CHROME_CONTROL_AXIS_CLASS,
+  MACOS_TITLE_BAR_CONTROL_SIZE_CLASS,
+  MACOS_TITLE_BAR_PINNED_TOGGLE_CLASS,
+  shouldUseMacosDesktopChrome,
+} from "@/lib/cc-desktop";
+import { useIsSidebarFramed } from "@/components/ui/sidebar.js";
 import { PluginComposerHostProvider } from "@/components/plugin/plugin-composer-host";
 import { usePanelResizeSnap } from "@/components/secondary-panel/usePanelResizeSnap";
 import {
@@ -66,44 +80,53 @@ export function SplitWorkspaceSecondaryPanelHost({
   const { ref: sizingRef, minimum: minimumSize } = useSecondaryPanelSizing(1);
   const model = usePaneSecondaryPanelModel(registry, focusedPaneId);
   const panelGroupRef = useRef<ImperativePanelGroupHandle | null>(null);
-  const panelWidthPercent = useAtomValue(secondaryPanelWidthPercentAtom);
+  const widthPercentAtom =
+    model?.widthPercentAtom ?? secondaryPanelWidthPercentAtom;
+  const panelWidthPercent = useAtomValue(widthPercentAtom);
   const shortcut = useAppCommandShortcut("panel.toggle");
 
   const [isPanelVisible, setIsPanelVisible] = useState<boolean | null>(null);
   const isOpen = isPanelVisible ?? model?.isOpen ?? false;
-  const lastTargetRef = useRef<{
+  const [lastTarget, setLastTarget] = useState<{
     paneId: string;
     contentKey: string;
     isOpen: boolean;
   } | null>(null);
-
-  useLayoutEffect(() => {
-    if (model === null) {
-      lastTargetRef.current = null;
-      return;
-    }
-    const previousTarget = lastTargetRef.current;
-    lastTargetRef.current = {
+  const [visibilityPush, setVisibilityPush] = useState<{
+    open: boolean;
+  } | null>(null);
+  if (model === null) {
+    if (lastTarget !== null) setLastTarget(null);
+  } else if (
+    lastTarget === null ||
+    lastTarget.paneId !== focusedPaneId ||
+    lastTarget.contentKey !== model.contentKey ||
+    lastTarget.isOpen !== model.isOpen
+  ) {
+    setLastTarget({
       paneId: focusedPaneId,
       contentKey: model.contentKey,
       isOpen: model.isOpen,
-    };
+    });
     if (isPanelVisible === null) {
       setIsPanelVisible(model.isOpen);
-      return;
-    }
-    if (
-      previousTarget !== null &&
-      previousTarget.paneId === focusedPaneId &&
-      previousTarget.contentKey === model.contentKey
+    } else if (
+      lastTarget !== null &&
+      lastTarget.paneId === focusedPaneId &&
+      lastTarget.contentKey === model.contentKey
     ) {
-      if (model.isOpen !== previousTarget.isOpen) {
-        setIsPanelVisible(model.isOpen);
-      }
-      return;
+      setIsPanelVisible(model.isOpen);
+    } else if (model.isOpen !== isPanelVisible) {
+      setVisibilityPush({ open: isPanelVisible });
     }
-    if (model.isOpen !== isPanelVisible) model.onToggle();
-  }, [focusedPaneId, isPanelVisible, model]);
+  }
+  const pushPanelVisibility = useEffectEvent((open: boolean) => {
+    if (model !== null && model.isOpen !== open) model.onToggle();
+  });
+  useLayoutEffect(() => {
+    if (visibilityPush === null) return;
+    pushPanelVisibility(visibilityPush.open);
+  }, [visibilityPush]);
 
   useEffect(() => {
     const group = panelGroupRef.current;
@@ -145,8 +168,11 @@ export function SplitWorkspaceSecondaryPanelHost({
     toggleWindowPanel();
     return true;
   });
+  const [desktopInfo] = useState(getCcDesktopInfo);
+  const usesDesktopChrome = shouldUseMacosDesktopChrome(desktopInfo);
+  const isSidebarFramed = useIsSidebarFramed();
 
-  const setPanelWidthPercent = useSetAtom(secondaryPanelWidthPercentAtom);
+  const setPanelWidthPercent = useSetAtom(widthPercentAtom);
   const lastEmptyPanelSizeRef = useRef(0);
   const handleEmptyPanelPointerResize = useCallback(
     (leadingFraction: number) => {
@@ -168,6 +194,7 @@ export function SplitWorkspaceSecondaryPanelHost({
   const emptyPanelHitTargetRef = usePanelResizeSnap({
     onResize: handleEmptyPanelPointerResize,
     onDragging: handleEmptyPanelDragging,
+    onReset: () => setPanelWidthPercent(RESET),
   });
   const handleEmptyPanelCollapse = () => {
     if (lastEmptyPanelSizeRef.current <= 0) return;
@@ -196,22 +223,31 @@ export function SplitWorkspaceSecondaryPanelHost({
             "absolute right-4 top-2.5 z-40",
             !showsCornerToggle && "hidden",
             MACOS_APP_REGION_NO_DRAG_CLASS,
+            usesDesktopChrome && MACOS_CHROME_CONTROL_AXIS_CLASS,
+            usesDesktopChrome && [
+              "flex h-7 items-center",
+              MACOS_TITLE_BAR_CONTROL_SIZE_CLASS,
+            ],
+            isSidebarFramed && MACOS_TITLE_BAR_PINNED_TOGGLE_CLASS,
           )}
         >
           <AppCommandShortcutHint
             shortcut={shortcut}
-            className="absolute right-0 top-full mt-1"
+            className={RIGHT_PANEL_TOGGLE_SHORTCUT_HINT_CLASS}
           />
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className={HEADER_ICON_BUTTON_CLASS}
+            className={RIGHT_PANEL_TOGGLE_BUTTON_CLASS}
             aria-label={
               shortcut ? `${toggleLabel} (${shortcut.label})` : toggleLabel
             }
             aria-keyshortcuts={shortcut?.ariaKeyshortcuts}
             aria-expanded={isOpen}
+            onPointerEnter={preloadThreadSecondaryPanel}
+            onFocus={preloadThreadSecondaryPanel}
+            onPointerDown={preloadThreadSecondaryPanel}
             onClick={toggleWindowPanel}
           >
             <Icon name={toggleIconName} />
@@ -239,8 +275,9 @@ export function SplitWorkspaceSecondaryPanelHost({
             }
             minSize={minimumSize.min * 100}
             order={1}
+            style={{ overflow: "clip" }}
             className={cn(
-              "min-w-0 overflow-clip transition-[flex-grow,flex-basis]",
+              "min-w-0 transition-[flex-grow,flex-basis]",
               PANEL_COLLAPSE_TRANSITION_CLASS,
             )}
           >
@@ -258,7 +295,8 @@ export function SplitWorkspaceSecondaryPanelHost({
                   hitAreaMargins={{ coarse: 0, fine: 0 }}
                   tabIndex={-1}
                   className={cn(
-                    "relative shrink-0 overflow-visible bg-border-seam transition-[width,opacity,background-color] hover:bg-ring/40 data-[dragging=true]:bg-ring/40",
+                    "relative shrink-0 overflow-visible transition-[width,opacity,background-color] hover:bg-ring/40 data-[dragging=true]:bg-ring/40",
+                    isSidebarFramed ? "bg-border" : "bg-border-seam",
                     PANEL_RESIZE_HANDLE_LAYER_CLASS,
                     PANEL_COLLAPSE_TRANSITION_CLASS,
                     isOpen
@@ -284,8 +322,9 @@ export function SplitWorkspaceSecondaryPanelHost({
                   onCollapse={handleEmptyPanelCollapse}
                   onResize={handleEmptyPanelResize}
                   order={2}
+                  style={{ overflow: "clip" }}
                   className={cn(
-                    "min-w-0 overflow-clip transition-[flex-grow,flex-basis]",
+                    "min-w-0 transition-[flex-grow,flex-basis]",
                     PANEL_COLLAPSE_TRANSITION_CLASS,
                   )}
                 >

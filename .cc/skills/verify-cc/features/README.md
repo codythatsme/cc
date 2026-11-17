@@ -58,6 +58,8 @@ were excluded. See the [audit](../MAINTENANCE.md) and
 | [Fallback question cards](plugin-ask-user-question.md) | 5 | 3 passed, 1 failed, 1 partial/blocked |
 | [Scheduled agent and script automations](plugin-automations.md) | 8 | 8 passed |
 | [Agent concurrency limits](plugin-concurrency-limit.md) | 5 | 4 passed, 1 partial/blocked |
+| [cc account sign-in](plugin-cc-account.md) | 5 | 5 not run |
+| [cc cloud AI](plugin-cc-ai.md) | 5 | 5 not run |
 | [Remote Connect and port sharing](plugin-connect.md) | 7 | 5 passed, 2 partial/blocked |
 | [Custom agent instructions](plugin-custom-instructions.md) | 3 | 2 passed, 1 partial/blocked |
 | [Docs vaults and editing](plugin-docs.md) | 9 | 7 passed, 2 partial/blocked |
@@ -92,6 +94,15 @@ were excluded. See the [audit](../MAINTENANCE.md) and
 | [Hosted website, dashboard, and marketplace](hosted-web.md) | 12 | 5 passed, 7 partial/blocked |
 | [Cloud gateway and tunnel behavior](cloud-gateway.md) | 7 | 4 passed, 3 partial/blocked |
 | [Developer tools, fixtures, and scope boundaries](developer-fixtures.md) | 5 | 2 passed, 3 partial/blocked |
+
+## Additions outside the dated audit
+
+| Feature group | Recipes | Verification status |
+| --- | --- | --- |
+| [Built-in browser CLI and SDK](desktop.md#built-in-browser-cli-and-sdk) | 4 | Not run |
+
+The desktop feature map owns these built-in browser recipes. They do not change
+the historical desktop results or describe the browser-automation plugin.
 
 ## Scope reconciliation
 

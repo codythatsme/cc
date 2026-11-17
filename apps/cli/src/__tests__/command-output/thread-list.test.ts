@@ -34,9 +34,24 @@ describe("cc thread list command output", () => {
 
     expect(list).toHaveBeenCalledWith({
       query: {
+        archived: "false",
         projectId: "proj-1",
         parentThreadId: "thread-manager-1",
       },
+    });
+  });
+
+  it("cc thread list narrows to repeated --thread IDs", async () => {
+    const list = vi.fn(async () => []);
+    stubServerApi({ "v1.threads.$get": list });
+
+    await runCommand(
+      ["thread", "list", "--thread", "thr_a", "--thread", "thr_b", "--json"],
+      register,
+    );
+
+    expect(list).toHaveBeenCalledWith({
+      query: { threadIds: "thr_a,thr_b" },
     });
   });
 
@@ -53,7 +68,9 @@ describe("cc thread list command output", () => {
       register,
     );
 
-    expect(list).toHaveBeenCalledWith({ query: { hostId: "host_removed123" } });
+    expect(list).toHaveBeenCalledWith({
+      query: { archived: "false", hostId: "host_removed123" },
+    });
     expect(hosts).not.toHaveBeenCalled();
   });
 
@@ -64,8 +81,45 @@ describe("cc thread list command output", () => {
     await runCommand(["thread", "list", "--include-hidden"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: { includeHidden: "true" },
+      query: { archived: "false", includeHidden: "true" },
     });
+  });
+
+  it.each([
+    { args: [], query: { archived: "false" } },
+    { args: ["--archived"], query: { archived: "true" } },
+    { args: ["--include-archived"], query: {} },
+    {
+      args: ["--thread", "thr_a", "--archived"],
+      query: { archived: "true", threadIds: "thr_a" },
+    },
+  ])(
+    "cc thread list $args filters archived threads like cc thread count",
+    async ({ args, query }) => {
+      const list = vi.fn(async () => []);
+      stubServerApi({ "v1.threads.$get": list });
+
+      await runCommand(["thread", "list", ...args, "--json"], register);
+
+      expect(list).toHaveBeenCalledWith({ query });
+    },
+  );
+
+  it("cc thread list rejects --archived with --include-archived", async () => {
+    const list = vi.fn(async () => []);
+    stubServerApi({ "v1.threads.$get": list });
+
+    await expect(
+      runCommand(
+        ["thread", "list", "--archived", "--include-archived"],
+        register,
+      ),
+    ).rejects.toThrow("process.exit:1");
+
+    expect(console.error).toHaveBeenCalledWith(
+      "Error: Cannot combine --archived with --include-archived.",
+    );
+    expect(list).not.toHaveBeenCalled();
   });
 
   it("cc thread list rejects invalid parent-thread values", async () => {
@@ -92,58 +146,50 @@ describe("cc thread list command output", () => {
     expect(list).not.toHaveBeenCalled();
   });
 
-  it("cc thread list renders archived status in the shared borderless table", async () => {
-    const list = vi.fn(async () => [
-      fixtures.makeThread({
-        id: "thread-archived-1",
-        projectId: "proj-1",
-        providerId: "codex",
-        status: "idle",
-        archivedAt: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
-    stubServerApi({
-      "v1.threads.$get": list,
-      "v1.projects.$get": async () => [{ id: "proj-1", name: "Alpha" }],
-    });
+  it.each([
+    {
+      flag: "archived",
+      stamp: { archivedAt: 1 },
+      table:
+        "ID                 Title  Project  Status         \n-----------------  -----  -------  ---------------\nthread-archived-1  -      Alpha    idle (archived)",
+    },
+    {
+      flag: "pinned",
+      stamp: { pinnedAt: 1 },
+      table:
+        "ID               Title  Project  Status       \n---------------  -----  -------  -------------\nthread-pinned-1  -      Alpha    idle (pinned)",
+    },
+  ])(
+    "cc thread list renders $flag status in the shared borderless table",
+    async ({ flag, stamp, table }) => {
+      const list = vi.fn(async () => [
+        fixtures.makeThread({
+          id: `thread-${flag}-1`,
+          projectId: "proj-1",
+          providerId: "codex",
+          status: "idle",
+          createdAt: 1,
+          updatedAt: 1,
+          ...stamp,
+        }),
+      ]);
+      stubServerApi({
+        "v1.threads.$get": list,
+        "v1.projects.$get": async () => [{ id: "proj-1", name: "Alpha" }],
+      });
 
-    await runCommand(["thread", "list"], register);
+      await runCommand(["thread", "list"], register);
 
-    expect(list).toHaveBeenCalledWith({
-      query: {},
-    });
-    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "",
-      "ID                 Title  Project  Status         \n-----------------  -----  -------  ---------------\nthread-archived-1  -      Alpha    idle (archived)",
-      "",
-    ]);
-  });
-
-  it("cc thread list renders pinned status in the shared borderless table", async () => {
-    const list = vi.fn(async () => [
-      fixtures.makeThread({
-        id: "thread-pinned-1",
-        projectId: "proj-1",
-        providerId: "codex",
-        status: "idle",
-        pinnedAt: 1,
-        createdAt: 1,
-        updatedAt: 1,
-      }),
-    ]);
-    stubServerApi({
-      "v1.threads.$get": list,
-      "v1.projects.$get": async () => [],
-    });
-
-    await runCommand(["thread", "list"], register);
-
-    expect(collectLogPayloads(vi.mocked(console.log)).join("\n")).toContain(
-      "idle (pinned)",
-    );
-  });
+      expect(list).toHaveBeenCalledWith({
+        query: { archived: "false" },
+      });
+      expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
+        "",
+        table,
+        "",
+      ]);
+    },
+  );
 
   it("cc thread list hides the personal project label", async () => {
     const list = vi.fn(async () => [
@@ -165,7 +211,7 @@ describe("cc thread list command output", () => {
     await runCommand(["thread", "list"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: {},
+      query: { archived: "false" },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
       "",
@@ -240,18 +286,6 @@ describe("cc thread list command output", () => {
     expect(projects).not.toHaveBeenCalled();
   });
 
-  it("cc thread list ignores CC_PROJECT_ID when --project is omitted", async () => {
-    const list = vi.fn(async () => []);
-    stubServerApi({ "v1.threads.$get": list });
-
-    vi.stubEnv("CC_PROJECT_ID", "proj-env");
-    await runCommand(["thread", "list"], register);
-
-    expect(list).toHaveBeenCalledWith({
-      query: {},
-    });
-  });
-
   it("cc thread list does not infer parent-thread from CC_THREAD_ID", async () => {
     const list = vi.fn(async () => []);
 
@@ -262,7 +296,7 @@ describe("cc thread list command output", () => {
     await runCommand(["thread", "list"], register);
 
     expect(list).toHaveBeenCalledWith({
-      query: {},
+      query: { archived: "false" },
     });
   });
 });

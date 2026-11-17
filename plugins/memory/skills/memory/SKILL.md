@@ -6,10 +6,24 @@ description: "Retrieve relevant durable CC memories or save verified knowledge u
 # CC memory
 
 This plugin is provider-independent. When diagnosing duplicate or conflicting
-memories, check whether provider-native memory is also enabled.
+memories, check whether provider-native memory is also enabled; recommend
+turning it off with the `memoryEnabled` setting of each provider plugin:
+Settings → Plugins → Claude Code provider and Codex provider, or
+`cc plugin config provider-claude-code set memoryEnabled false` and
+`cc plugin config provider-codex set memoryEnabled false`.
 
 The memory plugin automatically injects a compact index of global memories and
 memories for the current CC project. The index contains summaries only.
+Settings → Memory lists every memory for the user to edit or delete.
+
+```sh
+cc memory catalog [--scope project|global|all] [--json]
+cc memory search <query> [--scope project|global|all] [--json]
+cc memory get <id> [--scope project|global|all] [--json]
+cc memory history <id> [--scope project|global|all] [--limit 1-100] [--json]
+```
+
+Project-scoped commands use the invoking CLI's current CC project.
 
 ## Retrieve progressively
 

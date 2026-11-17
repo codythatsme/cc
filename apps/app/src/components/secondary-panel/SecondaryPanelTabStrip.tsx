@@ -41,17 +41,19 @@ import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   OverflowFade,
   type OverflowFadeTone,
-} from "@/components/ui/overflow-fade";
+} from "@cc/shared-ui/overflow-fade";
 import { TabPill } from "@/components/ui/tab-pill";
-import { useDragClickSuppression } from "@/components/ui/use-drag-click-suppression";
+import { useDragClickSuppression } from "@cc/shared-ui/use-drag-click-suppression";
+import { observeSharedResize } from "@cc/shared-ui/lib/shared-resize-observer";
 import { cn } from "@cc/shared-ui/lib/utils";
 import {
   MACOS_APP_REGION_NO_DRAG_CLASS,
   MACOS_WINDOW_NO_DRAG_CLASS,
 } from "@/lib/cc-desktop";
-import type {
-  SecondaryPanelRenderableTab,
-  SecondaryPanelTabReorderHandler,
+import {
+  PANEL_TAB_DRAG_DISTANCE_PX,
+  type SecondaryPanelRenderableTab,
+  type SecondaryPanelTabReorderHandler,
 } from "./secondaryPanelTab";
 
 const CHEVRON_SCROLL_STEP_PX = 140;
@@ -156,7 +158,7 @@ export function SecondaryPanelTabStrip({
   } = useDragClickSuppression();
   const dragDisabled = tabs.length < 2;
   const mouseSensor = useSensor(MouseSensor, {
-    activationConstraint: { distance: 4 },
+    activationConstraint: { distance: PANEL_TAB_DRAG_DISTANCE_PX },
   });
   const touchSensor = useSensor(
     isPanelOpen && !dragDisabled ? TouchSensor : InertTouchSensor,
@@ -221,17 +223,15 @@ export function SecondaryPanelTabStrip({
       });
     };
     viewport.addEventListener("scroll", handleScroll, { passive: true });
-    const resizeObserver = new ResizeObserver(measureCapacity);
-    if (stripRef.current !== null) {
-      resizeObserver.observe(stripRef.current);
-    }
-    resizeObserver.observe(viewport);
-    if (contentRef.current !== null) {
-      resizeObserver.observe(contentRef.current);
-    }
+    const unobserve = observeSharedResize(
+      [stripRef.current, viewport, contentRef.current].filter(
+        (target) => target !== null,
+      ),
+      { read: () => undefined, write: measureCapacity },
+    );
     return () => {
       viewport.removeEventListener("scroll", handleScroll);
-      resizeObserver.disconnect();
+      unobserve();
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
         scrollFrameRef.current = null;
@@ -651,7 +651,8 @@ function PanelTab({
       enlargeCloseTargetOnCoarsePointer={
         tab.tab.kind === "workspace-file-preview" ||
         tab.tab.kind === "host-file-preview" ||
-        tab.tab.kind === "thread-storage-file-preview"
+        tab.tab.kind === "thread-storage-file-preview" ||
+        tab.tab.kind === "attachment-file-preview"
       }
       closeAction={
         tab.isPinned

@@ -10,13 +10,12 @@ import { useScrollOverflowState } from "./useScrollOverflowState.js";
 import {
   TimelineWindowingScrollRootContext,
   type TimelineWindowingScrollRoot,
-} from "./TimelineWindowedItemsLoader.js";
+} from "./TimelineWindowedItems.js";
 
 interface TimelineDetailScrollProps {
   size: DetailScrollSize;
   overflowX?: "auto" | "hidden";
   streaming?: boolean;
-  contentKey: string;
   className?: string;
   scrollClassName?: string;
   showAboveFade?: boolean;
@@ -27,27 +26,32 @@ export function TimelineDetailScroll({
   size,
   overflowX = "auto",
   streaming = false,
-  contentKey,
   className,
   scrollClassName,
   showAboveFade = true,
   children,
 }: TimelineDetailScrollProps) {
-  const sticky = useStickyBottomScroll<HTMLDivElement>({
-    contentKey,
-    streaming,
-  });
-  const overflow = useScrollOverflowState<HTMLDivElement>();
+  const {
+    ref: stickyRef,
+    contentRef,
+    positionKeeper,
+  } = useStickyBottomScroll<HTMLDivElement>({ streaming });
+  const {
+    scrollRef,
+    topSentinelRef,
+    bottomSentinelRef,
+    aboveOverflow,
+    belowOverflow,
+  } = useScrollOverflowState<HTMLDivElement>();
   const maxHeightClassName = getDetailScrollMaxHeightClass(size);
-  const { aboveOverflow, belowOverflow } = overflow;
 
-  const refCallback = useComposedRefs<HTMLDivElement>(
-    sticky.ref,
-    overflow.scrollRef,
-  );
+  const refCallback = useComposedRefs<HTMLDivElement>(stickyRef, scrollRef);
   const windowingScrollRoot = useMemo<TimelineWindowingScrollRoot>(
-    () => ({ getScrollElement: () => sticky.ref.current }),
-    [sticky.ref],
+    () => ({
+      getScrollElement: () => stickyRef.current,
+      positionKeeper,
+    }),
+    [positionKeeper, stickyRef],
   );
 
   return (
@@ -57,11 +61,6 @@ export function TimelineDetailScroll({
     >
       <div
         ref={refCallback}
-        onScroll={sticky.onScroll}
-        onPointerDown={sticky.onPointerDown}
-        onTouchMove={sticky.onTouchMove}
-        onTouchStart={sticky.onTouchStart}
-        onWheel={sticky.onWheel}
         data-detail-scroll-area={size}
         className={cn(
           "min-w-0 overflow-y-auto",
@@ -70,23 +69,15 @@ export function TimelineDetailScroll({
           scrollClassName,
         )}
       >
-        <div
-          ref={overflow.topSentinelRef}
-          aria-hidden
-          className="-mb-px h-px w-full"
-        />
-        <div ref={sticky.contentRef}>
+        <div ref={topSentinelRef} aria-hidden className="-mb-px h-px w-full" />
+        <div ref={contentRef}>
           <TimelineWindowingScrollRootContext.Provider
             value={windowingScrollRoot}
           >
             {children}
           </TimelineWindowingScrollRootContext.Provider>
         </div>
-        <div
-          ref={overflow.bottomSentinelRef}
-          aria-hidden
-          className="h-px w-full"
-        />
+        <div ref={bottomSentinelRef} aria-hidden className="h-px w-full" />
       </div>
       {showAboveFade && aboveOverflow ? (
         <div

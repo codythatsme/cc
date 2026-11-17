@@ -1,6 +1,57 @@
-import type { CcPluginApi } from "@codythatsme/plugin-sdk";
+import {
+  readRetryDiagnostic,
+  retryDiagnosticContract,
+  type SenderConsent,
+} from "./src/diagnostics.js";
+import {
+  retryAvailabilityMethod,
+  retryAvailabilitySchema,
+  retryConsentMethod,
+  retryConsentSchema,
+  type RetryAvailability,
+} from "./src/retry-contract.js";
+import type { CcPluginApi, PluginTurnFailedEvent } from "@codythatsme/plugin-sdk";
 import { registerProviderRetryCli } from "./src/cli.js";
-import { DEFAULT_MAXIMUM_WAIT_MS, decideRetry } from "./src/retry-policy.js";
+import {
+  DEFAULT_MAXIMUM_WAIT_MS,
+  decideRetry,
+  isRateLimitFailure,
+  type RetryDecision,
+} from "./src/retry-policy.js";
+
+async function askSender(
+  cc: CcPluginApi,
+  event: PluginTurnFailedEvent,
+  retry: Extract<RetryDecision, { kind: "retry" }>,
+): Promise<SenderConsent | null> {
+  if (event.originPluginId === null) return null;
+  const pluginId = event.originPluginId;
+  try {
+    const sources = await cc.sdk.plugins.experimental_discoverRpc({
+      pluginId,
+      method: retryConsentMethod,
+    });
+    if (sources.length === 0) return null;
+    const answer = await cc.sdk.plugins.callRpc({
+      pluginId,
+      method: retryConsentMethod,
+      input: {
+        threadId: event.threadId,
+        requestId: event.requestId,
+        reason: retry.reason,
+        sendAt: retry.sendAt,
+      },
+      outputSchema: retryConsentSchema,
+      signal: AbortSignal.timeout(5_000),
+    });
+    return { pluginId, answer };
+  } catch (error) {
+    cc.log.warn(
+      `Retry consent from ${pluginId} failed for ${event.threadId}; retrying anyway: ${String(error)}`,
+    );
+    return { pluginId, answer: { kind: "unanswered" } };
+  }
+}
 
 const MAXIMUM_WAIT_OPTIONS = ["6 hours", "24 hours", "No limit"] as const;
 
@@ -36,14 +87,64 @@ export default async function plugin(cc: CcPluginApi) {
     maximumWait = maximumWaitMs(next.maximumWait);
   });
 
+  cc.rpc.register(retryDiagnosticContract, {
+    "decision.get": ({ threadId }) => readRetryDiagnostic(cc, threadId),
+  });
   cc.events.on("turn.failed", async (event) => {
-    const decision = decideRetry({
+    let availability: RetryAvailability = { kind: "not-routed" };
+    if (isRateLimitFailure(event)) {
+      const sources = await cc.sdk.plugins.experimental_discoverRpc({
+        method: retryAvailabilityMethod,
+      });
+      for (const source of sources) {
+        try {
+          const result = await cc.sdk.plugins.callRpc({
+            pluginId: source.pluginId,
+            method: retryAvailabilityMethod,
+            input: { threadId: event.threadId, requestId: event.requestId },
+            outputSchema: retryAvailabilitySchema,
+            signal: AbortSignal.timeout(5_000),
+          });
+          if (result.kind !== "not-routed") {
+            availability = result;
+            break;
+          }
+        } catch (error) {
+          cc.log.warn(
+            `Retry availability failed for ${event.threadId}: ${String(error)}`,
+          );
+          availability = { kind: "unavailable", reason: "source-unavailable" };
+        }
+      }
+    }
+    const policyDecision = decideRetry({
+      availability,
       failure: event,
       maximumWaitMs: maximumWait,
       now: Date.now(),
       random: Math.random(),
     });
+    const consent =
+      policyDecision.kind === "retry"
+        ? await askSender(cc, event, policyDecision)
+        : null;
+    const decision: RetryDecision =
+      consent?.answer.kind === "decline"
+        ? { kind: "decline", reason: "declined-by-sender" }
+        : policyDecision;
+    const recordDecision = () =>
+      cc.storage.kv.set(`decision:${event.threadId}`, {
+        requestId: event.requestId,
+        observedAt: Date.now(),
+        availability,
+        decision,
+        consent,
+      });
     if (decision.kind === "decline") {
+      await recordDecision();
+      cc.log.info(
+        `Automatic retry skipped for ${event.threadId}: ${decision.reason}${availability.kind === "unavailable" ? ` (${availability.reason})` : ""}${consent?.answer.kind === "decline" ? ` (${consent.pluginId}: ${consent.answer.reason})` : ""}.`,
+      );
       return;
     }
     await cc.sdk.threads.retry({
@@ -52,6 +153,7 @@ export default async function plugin(cc: CcPluginApi) {
       sendAt: decision.sendAt,
       reason: decision.reason,
     });
+    await recordDecision();
   });
 
   registerProviderRetryCli(cc);

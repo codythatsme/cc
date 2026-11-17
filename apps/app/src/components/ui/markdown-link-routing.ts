@@ -1,4 +1,5 @@
 import { createContext, type ReactNode } from "react";
+import type { WorkspaceOpenTarget } from "@cc/host-daemon-contract";
 import type { MarkdownPreviewLinkHandler } from "./markdown-link.js";
 import type {
   MarkdownAbsoluteLocalFileLinkRouting,
@@ -41,8 +42,13 @@ type MarkdownLocalFileContextMenuItemsProvider = (
 export const MarkdownLocalFileContextMenuContext =
   createContext<MarkdownLocalFileContextMenuItemsProvider | null>(null);
 
+export const MarkdownLocalFileOpenTargetsContext = createContext<
+  readonly WorkspaceOpenTarget[]
+>([]);
+
 export interface MarkdownLocalFileLinkRouting {
   absoluteLinks: MarkdownAbsoluteLocalFileLinkRouting;
+  hostId: string | null;
   onOpenLink: MarkdownPreviewLocalFileLinkHandler;
   relativeLinks?: MarkdownRelativeLocalFileLinkRouting;
 }
@@ -57,6 +63,7 @@ export interface MarkdownLocalImageRouting {
 }
 
 export interface MarkdownLinkRouting {
+  headingAnchors?: true;
   localFile?: MarkdownLocalFileLinkRouting;
   localImage?: MarkdownLocalImageRouting;
   onOpenLink?: MarkdownPreviewLinkHandler;

@@ -1,8 +1,5 @@
-import { execFile } from "node:child_process";
-import { constants as fsConstants } from "node:fs";
-import { access } from "node:fs/promises";
+import { hostToolchain, execPortableFile } from "@cc/process-utils";
 import path from "node:path";
-import { promisify } from "node:util";
 import semverCompare from "semver/functions/compare.js";
 import semverValid from "semver/functions/valid.js";
 import { z } from "zod";
@@ -13,36 +10,13 @@ import type {
   ProviderInstallationVerification,
 } from "../provider-maintenance.js";
 
-const execFileAsync = promisify(execFile);
-
 const CLI_PROBE_TIMEOUT_MS = 5_000;
 const INSTALLATION_CHECK_TIMEOUT_MS = 15_000;
 
 export async function resolveExecutablePath(
   command: string,
 ): Promise<string | null> {
-  if (path.isAbsolute(command)) {
-    try {
-      await access(command, fsConstants.X_OK);
-      return command;
-    } catch {
-      return null;
-    }
-  }
-  try {
-    const lookup = process.platform === "win32" ? "where" : "which";
-    const { stdout } = await execFileAsync(lookup, [command], {
-      timeout: CLI_PROBE_TIMEOUT_MS,
-    });
-    return (
-      stdout
-        .split(/\r?\n/u)
-        .find((line) => line.trim())
-        ?.trim() ?? null
-    );
-  } catch {
-    return null;
-  }
+  return hostToolchain.resolve(command);
 }
 
 export async function commandOutput(
@@ -50,7 +24,10 @@ export async function commandOutput(
   args: readonly string[],
 ): Promise<string | null> {
   try {
-    const { stdout, stderr } = await execFileAsync(command, [...args], {
+    const { stdout, stderr } = await execPortableFile(command, [...args], {
+      cwd: process.cwd(),
+      env: process.env,
+      maxBuffer: 1024 * 1024,
       timeout: INSTALLATION_CHECK_TIMEOUT_MS,
     });
     return `${stdout}\n${stderr}`.trim();
@@ -68,11 +45,12 @@ export function versionFrom(value: string | null): string | null {
 
 export async function readCliVersion(command: string): Promise<string | null> {
   try {
-    const probe = execFileAsync(command, ["--version"], {
+    const { stdout, stderr } = await execPortableFile(command, ["--version"], {
+      cwd: process.cwd(),
+      env: process.env,
+      maxBuffer: 1024 * 1024,
       timeout: CLI_PROBE_TIMEOUT_MS,
     });
-    probe.child.stdin?.end();
-    const { stdout, stderr } = await probe;
     return versionFrom(`${stdout}\n${stderr}`);
   } catch {
     return null;
@@ -209,7 +187,25 @@ export function installationVerification(
 
 export function downloadedInstallerCommand(
   url: string,
+  options: { platform?: NodeJS.Platform; powershellUrl?: string } = {},
 ): ProviderInstallationCommand {
+  if (
+    (options.platform ?? process.platform) === "win32" &&
+    options.powershellUrl !== undefined
+  ) {
+    const powershellScript = `irm ${options.powershellUrl} | iex`;
+    return {
+      command: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        powershellScript,
+      ],
+      displayCommand: powershellScript,
+    };
+  }
   const script = [
     'tmp=$(mktemp "${TMPDIR:-/tmp}/provider-installation.XXXXXX")',
     "trap 'rm -f \"$tmp\"' EXIT",

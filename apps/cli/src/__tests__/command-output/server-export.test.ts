@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { makeTempDir } from "@cc/test-helpers";
+import { describe, expect, it, vi } from "vitest";
 import {
   collectLogPayloads,
   runCommand,
@@ -11,14 +11,6 @@ import {
 } from "../helpers/command-output-harness.js";
 import type { CommandRegistrar } from "../helpers/command-output-harness.js";
 import { registerServerCommands } from "../../commands/server.js";
-
-const tempDirs: string[] = [];
-
-async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "cc-cli-server-export-"));
-  tempDirs.push(dir);
-  return dir;
-}
 
 function streamOf(chunks: readonly Uint8Array[], failure?: Error) {
   let index = 0;
@@ -66,14 +58,6 @@ const UNENCRYPTED_EXPORT_WARNING =
 describe("cc server export", () => {
   setupCommandOutputTestEnvironment();
 
-  afterEach(async () => {
-    await Promise.all(
-      tempDirs
-        .splice(0)
-        .map((dir) => rm(dir, { force: true, recursive: true })),
-    );
-  });
-
   const register: CommandRegistrar = (program) =>
     registerServerCommands(
       program.enablePositionalOptions(),
@@ -102,7 +86,9 @@ describe("cc server export", () => {
     const written = await readFile(outPath);
     expect(written.subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
     expect(written.length).toBe(2 + 1024 * 1024 + 512 + 4);
-    expect((await stat(outPath)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect((await stat(outPath)).mode & 0o777).toBe(0o600);
+    }
     expect(await readdir(dir)).toEqual(["backup.tar.gz"]);
   });
 
@@ -212,35 +198,41 @@ describe("cc server export", () => {
     expect(await readdir(dir)).toEqual([]);
   });
 
-  it("removes the partial file and keeps an existing archive when the download breaks", async () => {
-    const dir = await makeTempDir();
-    const outPath = join(dir, "backup.tar.gz");
-    const previous = [Buffer.from("previous backup")];
-    stubServerApi({
-      "v1.server.export.$post": vi.fn(async () =>
-        exportResponse(streamOf(previous), sha256Of(previous)),
-      ),
-    });
-    await runCommand(["server", "export", "--out", outPath], register);
-    stubServerApi({
-      "v1.server.export.$post": vi.fn(async () =>
-        exportResponse(
-          streamOf([Buffer.from("partial")], new Error("connection reset")),
-          sha256Of([Buffer.from("partial and the rest")]),
+  it.each([0, 1])(
+    "removes the partial file and keeps an existing archive when the download breaks after %i chunks",
+    async (chunkCount) => {
+      const dir = await makeTempDir();
+      const outPath = join(dir, "backup.tar.gz");
+      const previous = [Buffer.from("previous backup")];
+      stubServerApi({
+        "v1.server.export.$post": vi.fn(async () =>
+          exportResponse(streamOf(previous), sha256Of(previous)),
         ),
-      ),
-    });
+      });
+      await runCommand(["server", "export", "--out", outPath], register);
+      stubServerApi({
+        "v1.server.export.$post": vi.fn(async () =>
+          exportResponse(
+            streamOf(
+              [Buffer.from("partial")].slice(0, chunkCount),
+              new Error("connection reset"),
+            ),
+            sha256Of([Buffer.from("partial and the rest")]),
+          ),
+        ),
+      });
 
-    await expect(
-      runCommand(["server", "export", "--out", outPath], register),
-    ).rejects.toThrow("process.exit:1");
+      await expect(
+        runCommand(["server", "export", "--out", outPath], register),
+      ).rejects.toThrow("process.exit:1");
 
-    expect(await readdir(dir)).toEqual(["backup.tar.gz"]);
-    expect(await readFile(outPath, "utf8")).toBe("previous backup");
-    expect(collectLogPayloads(vi.mocked(console.error)).at(-1)).toBe(
-      "Error: connection reset",
-    );
-  });
+      expect(await readdir(dir)).toEqual(["backup.tar.gz"]);
+      expect(await readFile(outPath, "utf8")).toBe("previous backup");
+      expect(collectLogPayloads(vi.mocked(console.error)).at(-1)).toBe(
+        "Error: connection reset",
+      );
+    },
+  );
 
   it("checks the output directory before asking the server to export", async () => {
     const dir = await makeTempDir();

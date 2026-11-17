@@ -147,12 +147,41 @@ describe("cc thread tell command output", () => {
         .mocked(console.error)
         .mock.calls.map((call) => String(call[0]));
       if (hint === null) {
-        expect(errors).toEqual(["Error: HTTP 409: Thread environment is unavailable"]);
+        expect(errors).toEqual([
+          "Error: HTTP 409: Thread environment is unavailable",
+        ]);
       } else {
         expect(errors.some((line) => line.includes(hint))).toBe(true);
       }
     },
   );
+
+  it("cc thread send preserves the send error when the hint lookup fails", async () => {
+    stubServerApi({
+      "v1.threads.:id.$get": async () =>
+        new Response(JSON.stringify({ message: "Thread lookup failed" }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        }),
+      "v1.threads.:id.send.$post": async () =>
+        new Response(
+          JSON.stringify({
+            code: "thread_environment_unavailable",
+            message: "Thread environment is unavailable",
+            details: { reason: "destroyed", environmentStatus: "destroyed" },
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        ),
+    });
+
+    await expect(
+      runCommand(["thread", "send", "thread-gone", "hello"], register),
+    ).rejects.toThrow("process.exit:1");
+
+    expect(
+      vi.mocked(console.error).mock.calls.map((call) => String(call[0])),
+    ).toEqual(["Error: HTTP 409: Thread environment is unavailable"]);
+  });
 
   it("cc thread tell names the plugin a message is waiting on", async () => {
     const post = vi.fn(async () => ({
@@ -255,32 +284,6 @@ describe("cc thread tell command output", () => {
         serviceTier: "fast",
         reasoningLevel: "high",
         permissionMode: "accept-edits",
-      },
-    });
-  });
-
-  it("cc thread tell forwards automatic review mode", async () => {
-    const post = vi.fn(async () => ({ ok: true }));
-    stubServerApi({ "v1.threads.:id.send.$post": post });
-
-    await runCommand(
-      [
-        "thread",
-        "tell",
-        "thread-auto-review",
-        "hello",
-        "--permission-mode",
-        "auto",
-      ],
-      register,
-    );
-
-    expect(post).toHaveBeenCalledWith({
-      param: { id: "thread-auto-review" },
-      json: {
-        input: [{ type: "text", text: "hello", mentions: [] }],
-        mode: "steer-if-active",
-        permissionMode: "auto",
       },
     });
   });

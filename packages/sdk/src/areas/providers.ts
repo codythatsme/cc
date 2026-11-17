@@ -1,6 +1,7 @@
 import type {
   SystemExecutionOptionsResponse,
   SystemProviderInfo,
+  SystemProviderCatalogEntry,
   SystemProvidersQuery,
 } from "@cc/server-contract";
 import {
@@ -18,8 +19,13 @@ export type ProviderListArgs = ProviderHostRoutingArgs & {
   capability?: SystemProvidersQuery["capability"];
   signal?: AbortSignal;
 };
-export type ProviderModelsArgs = ProviderHostRoutingArgs & {
+export type ProviderModelsArgs = (
+  | { environmentId: string; hostId?: never; projectId?: never }
+  | { environmentId?: never; hostId: string; projectId?: string }
+  | { environmentId?: never; hostId?: never; projectId?: string }
+) & {
   providerId?: string;
+  preferCached?: boolean;
   signal?: AbortSignal;
 };
 
@@ -27,6 +33,11 @@ export type ProviderListResult = SystemProviderInfo[];
 export type ProviderModelsResult = SystemExecutionOptionsResponse;
 
 export interface ProvidersArea {
+  catalog(): Promise<SystemProviderCatalogEntry[]>;
+  setEnabled(args: {
+    providerId: string;
+    enabled: boolean;
+  }): Promise<SystemProviderCatalogEntry[]>;
   list(args?: ProviderListArgs): Promise<ProviderListResult>;
   models(args?: ProviderModelsArgs): Promise<ProviderModelsResult>;
 }
@@ -34,6 +45,19 @@ export interface ProvidersArea {
 export function createProvidersArea(args: CreateSdkAreaArgs): ProvidersArea {
   const { transport } = args;
   return {
+    async catalog() {
+      return transport.readJson(
+        transport.api.v1.system.providers.catalog.$get(),
+      );
+    },
+    async setEnabled(input) {
+      return transport.readJson(
+        transport.api.v1.system.providers[":id"].enabled.$put({
+          param: { id: input.providerId },
+          json: { enabled: input.enabled },
+        }),
+      );
+    },
     async list(input = {}) {
       return transport.readJson(
         transport.api.v1.system.providers.$get(

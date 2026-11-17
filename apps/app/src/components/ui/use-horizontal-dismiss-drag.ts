@@ -2,15 +2,16 @@ import * as React from "react";
 
 import { useLatestRef } from "@/hooks/useLatestRef";
 import {
+  browserNavigationEdgeGuardPx,
   findTouchById,
   hasTextSelectionWithin,
   isHorizontallyScrollableElement,
+  listenToGesture,
 } from "./gesture-dom";
 
 const DRAG_INTENT_PX = 12;
 const DRAG_SETTLE_MS = 220;
 const DRAG_CLICK_SUPPRESSION_MS = 400;
-const BROWSER_NAVIGATION_EDGE_PX = 24;
 const IGNORED_TARGET_SELECTOR =
   'input, textarea, select, [contenteditable="true"], [role="slider"], [data-vaul-no-drag], [data-no-sidebar-swipe], [data-no-secondary-panel-swipe]';
 
@@ -46,6 +47,7 @@ type Options = {
   onDismiss: () => void;
   onProgress: (progress: DragProgress) => void;
   resetKey: string;
+  shouldBeginDrag: () => boolean;
   suppressClick: boolean;
 };
 
@@ -144,7 +146,10 @@ export function useHorizontalDismissDrag(options: Options) {
       if (session === null) return;
       const point = trackedPoint(event, session);
       if (point === null) return;
-      if (!session.dragging && hasTextSelectionWithin(session.boundary)) {
+      if (
+        !session.dragging &&
+        (event.defaultPrevented || hasTextSelectionWithin(session.boundary))
+      ) {
         clearSession();
         return;
       }
@@ -162,8 +167,10 @@ export function useHorizontalDismissDrag(options: Options) {
           return;
         }
         if (
-          session.target !== null &&
-          (!session.target.isConnected || startsInHorizontalScroller(session))
+          !optionsRef.current.shouldBeginDrag() ||
+          (session.target !== null &&
+            (!session.target.isConnected ||
+              startsInHorizontalScroller(session)))
         ) {
           clearSession();
           return;
@@ -221,19 +228,22 @@ export function useHorizontalDismissDrag(options: Options) {
 
   const listen = React.useCallback(
     (session: DragSession) => {
-      const prefix = session.input;
-      const moveType = `${prefix}move`;
-      const endType = prefix === "pointer" ? "pointerup" : "touchend";
-      const cancelType = `${prefix}cancel`;
-      const remove = () => {
-        window.removeEventListener(moveType, move);
-        window.removeEventListener(endType, finish);
-        window.removeEventListener(cancelType, cancel);
+      const origin = session.target;
+      const removers =
+        session.input === "pointer"
+          ? [
+              listenToGesture(origin, "pointermove", move, { passive: false }),
+              listenToGesture(origin, "pointerup", finish),
+              listenToGesture(origin, "pointercancel", cancel),
+            ]
+          : [
+              listenToGesture(origin, "touchmove", move, { passive: false }),
+              listenToGesture(origin, "touchend", finish),
+              listenToGesture(origin, "touchcancel", cancel),
+            ];
+      removeListenersRef.current = () => {
+        for (const remove of removers) remove();
       };
-      window.addEventListener(moveType, move, { passive: false });
-      window.addEventListener(endType, finish);
-      window.addEventListener(cancelType, cancel);
-      removeListenersRef.current = remove;
     },
     [cancel, finish, move],
   );
@@ -249,12 +259,12 @@ export function useHorizontalDismissDrag(options: Options) {
     ) => {
       if (hasTextSelectionWithin(boundary)) return;
       const view = boundary.ownerDocument.defaultView;
+      const edgeGuardPx = browserNavigationEdgeGuardPx();
       if (
         (optionsRef.current.direction === "left" &&
           view !== null &&
-          x > view.innerWidth - BROWSER_NAVIGATION_EDGE_PX) ||
-        (optionsRef.current.direction === "right" &&
-          x < BROWSER_NAVIGATION_EDGE_PX)
+          x > view.innerWidth - edgeGuardPx) ||
+        (optionsRef.current.direction === "right" && x < edgeGuardPx)
       ) {
         return;
       }
@@ -278,10 +288,8 @@ export function useHorizontalDismissDrag(options: Options) {
     [listen, optionsRef],
   );
 
-  const beginPointerDrag = React.useCallback<
-    React.PointerEventHandler<HTMLDivElement>
-  >(
-    (event) => {
+  const beginNativePointerDrag = React.useCallback(
+    (event: PointerEvent, boundary: Element) => {
       if (
         !optionsRef.current.enabled ||
         event.defaultPrevented ||
@@ -299,16 +307,14 @@ export function useHorizontalDismissDrag(options: Options) {
         event.clientX,
         event.clientY,
         event.target,
-        event.currentTarget,
+        boundary,
       );
     },
     [optionsRef, start],
   );
 
-  const beginTouchDrag = React.useCallback<
-    React.TouchEventHandler<HTMLDivElement>
-  >(
-    (event) => {
+  const beginNativeTouchDrag = React.useCallback(
+    (event: TouchEvent, boundary: Element) => {
       if (
         !optionsRef.current.enabled ||
         event.defaultPrevented ||
@@ -330,10 +336,24 @@ export function useHorizontalDismissDrag(options: Options) {
         touch.clientX,
         touch.clientY,
         event.target,
-        event.currentTarget,
+        boundary,
       );
     },
     [clearSession, optionsRef, start],
+  );
+
+  const beginPointerDrag = React.useCallback<
+    React.PointerEventHandler<HTMLDivElement>
+  >(
+    (event) => beginNativePointerDrag(event.nativeEvent, event.currentTarget),
+    [beginNativePointerDrag],
+  );
+
+  const beginTouchDrag = React.useCallback<
+    React.TouchEventHandler<HTMLDivElement>
+  >(
+    (event) => beginNativeTouchDrag(event.nativeEvent, event.currentTarget),
+    [beginNativeTouchDrag],
   );
 
   React.useLayoutEffect(() => {
@@ -360,5 +380,10 @@ export function useHorizontalDismissDrag(options: Options) {
     [clearSession, clearSettle, optionsRef],
   );
 
-  return { beginPointerDrag, beginTouchDrag };
+  return {
+    beginNativePointerDrag,
+    beginNativeTouchDrag,
+    beginPointerDrag,
+    beginTouchDrag,
+  };
 }

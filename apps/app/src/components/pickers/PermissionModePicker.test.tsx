@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PermissionModePicker } from "./PermissionModePicker";
+import { expectNonmodalPicker } from "@/test/nonmodal-picker";
 
 const permissionOptions = [
   { value: "accept-edits", label: "Accept Edits" },
@@ -16,20 +17,21 @@ afterEach(() => {
 });
 
 describe("PermissionModePicker", () => {
-  it("keeps the warning mode caret aligned with the other prompt box carets", () => {
-    const { container } = render(
+  it("keeps the page interactive and closes when focus leaves", async () => {
+    render(
       <PermissionModePicker
-        value="full"
+        value="auto"
         options={permissionOptions}
         onChange={vi.fn()}
         supported
       />,
     );
-
-    const caret = container.querySelector('[data-icon="ChevronDown"]');
-    expect(caret).not.toBeNull();
-    expect(caret!.classList).toContain("text-subtle-foreground/75");
-    expect(caret!.classList).not.toContain("text-warning-text");
+    const trigger = screen.getByRole("button", { name: "Permission mode" });
+    await expectNonmodalPicker({
+      trigger,
+      open: () => fireEvent.keyDown(trigger, { key: "Enter" }),
+      content: () => screen.queryByRole("menu"),
+    });
   });
 
   it("can show an effective display override without changing the selected value", () => {

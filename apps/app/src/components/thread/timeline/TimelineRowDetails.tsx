@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   assertNever,
   fileNameFromPath,
@@ -9,7 +9,7 @@ import { Icon } from "@cc/shared-ui/icon";
 import { EventCodeBlock } from "../../ui/event-code-block.js";
 import { ImageLightbox } from "../../ui/image-lightbox.js";
 import { EmptyStatePanel } from "@cc/shared-ui/empty-state";
-import { TerminalOutputBlock } from "./TerminalOutputBlock.js";
+import { LazyTerminalOutputBlock } from "./LazyTerminalOutputBlock.js";
 import { TimelineDetailScroll } from "./TimelineDetailScroll.js";
 import { LazyTimelineFileDiffBlock } from "./LazyTimelineFileDiffBlock.js";
 import { ToolCallDetailBlock } from "./ToolCallDetailBlock.js";
@@ -86,10 +86,20 @@ function ImageWorkRowBody({ resolveImageViewSrc, row }: ImageWorkRowBodyProps) {
   const imageName = row.path ? fileNameFromPath(row.path) : "";
   const imageAlt = `${row.workKind === "image-generation" ? "Generated" : "Viewed"} image: ${imageName}`;
 
-  useEffect(() => {
+  const [resetKey, setResetKey] = useState({
+    completedAt: row.completedAt,
+    imageSrc,
+    status: row.status,
+  });
+  if (
+    resetKey.imageSrc !== imageSrc ||
+    resetKey.completedAt !== row.completedAt ||
+    resetKey.status !== row.status
+  ) {
+    setResetKey({ completedAt: row.completedAt, imageSrc, status: row.status });
     setLoadError(false);
     setLightboxOpen(false);
-  }, [imageSrc, row.completedAt, row.status]);
+  }
 
   if (loadError || !imageSrc) {
     return (
@@ -192,7 +202,7 @@ function CommandWorkRowBody({ row }: CommandWorkRowBodyProps) {
   const fullOutput = useTimelineWorkRowFullOutput(row);
   return (
     <div className="space-y-1">
-      <TerminalOutputBlock
+      <LazyTerminalOutputBlock
         commandLine={`$ ${row.command}`}
         metadataLines={row.source ? [`source: ${row.source}`] : []}
         output={fullOutput.output}
@@ -233,16 +243,8 @@ export function WorkRowBody({
     case "file-change":
       return (
         <div className="space-y-2">
-          <LazyTimelineFileDiffBlock
-            change={row.change}
-            workspaceRootPath={workspaceRootPath}
-          />
           {row.stderr ? (
-            <TimelineDetailScroll
-              size="base"
-              contentKey={row.stderr}
-              className="rounded-md"
-            >
+            <TimelineDetailScroll size="base" className="rounded-md">
               <EventCodeBlock
                 tone="danger"
                 className="rounded-none border-0 px-2 py-1.5"
@@ -251,6 +253,12 @@ export function WorkRowBody({
               </EventCodeBlock>
             </TimelineDetailScroll>
           ) : null}
+          {row.stderr && !row.change.diff?.trim() ? null : (
+            <LazyTimelineFileDiffBlock
+              change={row.change}
+              workspaceRootPath={workspaceRootPath}
+            />
+          )}
         </div>
       );
     case "delegation":

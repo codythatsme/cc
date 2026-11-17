@@ -16,6 +16,78 @@ describe("cc settings commands", () => {
   const register: CommandRegistrar = (program) =>
     registerSettingsCommands(program, () => "http://server");
 
+  it.each(["5", "0"])(
+    "sets the idle timeout to %s through general settings",
+    async (value) => {
+      const put = vi.fn(async ({ json }) => json);
+      stubServerApi({
+        "v1.system.config.$get": vi.fn(async () => ({
+          generalSettings: defaultAppSettings,
+        })),
+        "v1.settings.general.$put": put,
+      });
+      await runCommand(
+        ["settings", "general", "idleProviderSessionTimeoutMinutes", value],
+        register,
+      );
+      expect(put).toHaveBeenCalledWith({
+        json: {
+          ...defaultAppSettings,
+          idleProviderSessionTimeoutMinutes: JSON.parse(value),
+        },
+      });
+    },
+  );
+
+  it("rejects an idle timeout outside the allowed values without writing settings", async () => {
+    const put = vi.fn(async ({ json }) => json);
+    stubServerApi({
+      "v1.system.config.$get": vi.fn(async () => ({
+        generalSettings: defaultAppSettings,
+      })),
+      "v1.settings.general.$put": put,
+    });
+    await expect(
+      runCommand(
+        ["settings", "general", "idleProviderSessionTimeoutMinutes", "17"],
+        register,
+      ),
+    ).rejects.toThrow("process.exit:1");
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "Invalid value '17' for 'idleProviderSessionTimeoutMinutes': Invalid option: expected one of 0|5|10|30|60.",
+      ),
+    );
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it("clears the setup guide completion time and keeps every other setting", async () => {
+    const put = vi.fn(async ({ json }) => json);
+    stubServerApi({
+      "v1.system.config.$get": vi.fn(async () => ({
+        generalSettings: {
+          ...defaultAppSettings,
+          onboardingCompletedAt: "2026-10-01T00:00:00.000Z",
+          streamerMode: true,
+        },
+      })),
+      "v1.settings.general.$put": put,
+    });
+
+    await runCommand(["settings", "replay-onboarding"], register);
+
+    expect(put).toHaveBeenCalledWith({
+      json: {
+        ...defaultAppSettings,
+        onboardingCompletedAt: null,
+        streamerMode: true,
+      },
+    });
+    expect(collectLogLines(vi.mocked(console.log))).toEqual([
+      "The setup guide is showing again",
+    ]);
+  });
+
   it("sets and resets a plugin shortcut while preserving other overrides", async () => {
     const other = { command: "plugin:other/open", shortcut: null };
     const put = vi.fn(async ({ json }) => json);
@@ -50,6 +122,49 @@ describe("cc settings commands", () => {
       register,
     );
     expect(put).toHaveBeenLastCalledWith({ json: [other] });
+  });
+
+  it("keeps command scopes separate when setting and resetting platform bindings", async () => {
+    const general = { command: "thread.new", shortcut: null };
+    const mac = { command: "thread.new", platform: "mac", shortcut: null };
+    const linux = { command: "thread.new", platform: "linux", shortcut: null };
+    const put = vi.fn(async ({ json }) => json);
+    stubServerApi({
+      "v1.system.config.$get": vi.fn(async () => ({
+        keybindingOverrides: [general, mac, linux],
+      })),
+      "v1.settings.keyboard.$put": put,
+    });
+    await runCommand(
+      [
+        "settings",
+        "keyboard",
+        "set",
+        "thread.new",
+        "disabled",
+        "--platform",
+        "windows",
+      ],
+      register,
+    );
+    expect(put).toHaveBeenLastCalledWith({
+      json: [
+        general,
+        mac,
+        linux,
+        { command: "thread.new", platform: "windows", shortcut: null },
+      ],
+    });
+    await runCommand(
+      ["settings", "keyboard", "reset", "thread.new", "--platform", "mac"],
+      register,
+    );
+    expect(put).toHaveBeenLastCalledWith({ json: [general, linux] });
+    await runCommand(
+      ["settings", "keyboard", "reset", "--platform", "linux"],
+      register,
+    );
+    expect(put).toHaveBeenLastCalledWith({ json: [general, mac] });
   });
 
   const completedTurnProviders = [
@@ -196,6 +311,23 @@ describe("cc settings commands", () => {
     expect(put).not.toHaveBeenCalled();
   });
 
+  it("disables terminal copy-on-select through the general settings CLI", async () => {
+    const put = vi.fn(async ({ json }) => json);
+    stubServerApi({
+      "v1.system.config.$get": vi.fn(async () => ({
+        generalSettings: defaultAppSettings,
+      })),
+      "v1.settings.general.$put": put,
+    });
+    await runCommand(
+      ["settings", "general", "terminalCopyOnSelect", "off"],
+      register,
+    );
+    expect(put).toHaveBeenCalledExactlyOnceWith({
+      json: { ...defaultAppSettings, terminalCopyOnSelect: false },
+    });
+  });
+
   it("updates one general setting while preserving the full contract", async () => {
     const put = vi.fn(async ({ json }) => json);
     stubServerApi({
@@ -271,7 +403,7 @@ describe("cc settings commands", () => {
     });
   });
 
-  it("updates active-thread Enter behavior while preserving the full contract", async () => {
+  it("disables thread archive confirmation through general settings", async () => {
     const put = vi.fn(async ({ json }) => json);
     stubServerApi({
       "v1.system.config.$get": vi.fn(async () => ({
@@ -280,55 +412,25 @@ describe("cc settings commands", () => {
       })),
       "v1.settings.general.$put": put,
     });
-
     await runCommand(
-      ["settings", "general", "steerActiveThreadOnEnter", "true"],
+      ["settings", "general", "confirmThreadArchive", "off"],
       register,
     );
-
     expect(put).toHaveBeenCalledWith({
-      json: { ...defaultAppSettings, steerActiveThreadOnEnter: true },
+      json: { ...defaultAppSettings, confirmThreadArchive: false },
     });
   });
 
-  it("enables the changelog preview experiment", async () => {
+  it("enables an experiment", async () => {
     const put = vi.fn(async ({ json }) => json);
-    stubServerApi({
-      "v1.system.config.$get": vi.fn(async () => ({
-        generalSettings: defaultAppSettings,
-        experiments: defaultExperiments,
-      })),
-      "v1.settings.experiments.$put": put,
-    });
+    stubServerApi({ "v1.settings.experiments.$put": put });
 
     await runCommand(
-      ["settings", "experiment", "changelogPreview", "true"],
+      ["settings", "experiment", "serverMove", "true"],
       register,
     );
 
-    expect(put).toHaveBeenCalledWith({
-      json: { ...defaultExperiments, changelogPreview: true },
-    });
-  });
-
-  it("enables the legacy JITI plugin loader experiment", async () => {
-    const updateExperiments = vi.fn(async ({ json }) => json);
-    stubServerApi({
-      "v1.system.config.$get": vi.fn(async () => ({
-        generalSettings: defaultAppSettings,
-        experiments: defaultExperiments,
-      })),
-      "v1.settings.experiments.$put": updateExperiments,
-    });
-
-    await runCommand(
-      ["settings", "experiment", "legacyJitiPluginLoader", "true"],
-      register,
-    );
-
-    expect(updateExperiments).toHaveBeenCalledWith({
-      json: { ...defaultExperiments, legacyJitiPluginLoader: true },
-    });
+    expect(put).toHaveBeenCalledWith({ json: { serverMove: true } });
   });
 
   it("reads usage from a selected machine", async () => {
@@ -353,13 +455,50 @@ describe("cc settings commands", () => {
     });
 
     await runCommand(
-      ["settings", "usage", "--machine", "builder", "--json"],
+      ["settings", "usage", "--machine", "builder", "--refresh", "--json"],
       register,
     );
 
     expect(getUsage).toHaveBeenCalledWith({
-      query: { hostId: "host-remote" },
+      query: { hostId: "host-remote", refresh: "true" },
     });
+  });
+
+  it("shows, installs, and removes the cc CLI for use outside cc", async () => {
+    const install = vi.fn(async () => ({
+      installedPath: "/home/me/.local/bin/cc",
+      onPath: true,
+      shadowedBy: null,
+      supported: true,
+    }));
+    const remove = vi.fn(async () => ({
+      installedPath: null,
+      onPath: false,
+      shadowedBy: null,
+      supported: true,
+    }));
+    stubServerApi({
+      "v1.system.cli-command.$get": vi.fn(async () => ({
+        installedPath: null,
+        onPath: false,
+        shadowedBy: { path: "/usr/local/bin/cc", source: "other" },
+        supported: true,
+      })),
+      "v1.system.cli-command.install.$post": install,
+      "v1.system.cli-command.remove.$post": remove,
+    });
+
+    await runCommand(["settings", "cli-command"], register);
+    await runCommand(["settings", "cli-command", "install"], register);
+    await runCommand(["settings", "cli-command", "remove"], register);
+
+    expect(install).toHaveBeenCalledTimes(1);
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(collectLogLines(vi.mocked(console.log))).toEqual([
+      "The cc CLI is not installed for use outside cc. Another cc at /usr/local/bin/cc comes first on your PATH.",
+      "The cc CLI is installed at /home/me/.local/bin/cc for use outside cc.",
+      "Removed the cc CLI from your PATH.",
+    ]);
   });
 
   describe("ai-services", () => {

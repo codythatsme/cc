@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createConnection, migrate, type DbConnection } from "@cc/db";
+import { type DbConnection } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { encodeClientTurnRequestIdNumber } from "@cc/domain";
 import type { Logger } from "@cc/logger";
 import { RESERVED_AGENT_TOOL_NAMES } from "@codythatsme/plugin-sdk/internal/host-policy";
@@ -65,14 +66,15 @@ describe("cc.agents.registerTool", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-tools-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -561,98 +563,21 @@ describe("cc.agents.registerTool", () => {
   );
 });
 
-describe("cc.agents.experimental_registerProvider (removed in SDK 0.4.16)", () => {
-  let db: DbConnection;
-  let workDir: string;
-  let service: PluginService;
-
-  beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-old-provider-test-"));
-    service = createPluginService({
-      aiServices: createAiServiceRegistry(),
-      db,
-      hub: {
-        getDaemonSessionIdForHost: () => null,
-        notifyPluginSignal: () => 0,
-        notifySystem: () => {},
-      },
-      logger,
-      dataDir: join(workDir, "data"),
-      appVersion: "0.9.0",
-      loadTimeoutMs: 2000,
-    });
-  });
-
-  afterEach(async () => {
-    await service.stop();
-    await rm(workDir, { recursive: true, force: true });
-  });
-
-  const REMOVED_MESSAGE =
-    "cc.agents.experimental_registerProvider was removed in SDK 0.4.16; use cc.providers.register";
-
-  it("fails the plugin at factory time with a message naming the replacement", async () => {
-    const rootDir = await writePlugin(workDir, {
-      name: "cc-plugin-old-provider",
-      serverSource: `
-        export default function plugin(cc: any) {
-          cc.agents.experimental_registerProvider({ id: "old" });
-        }
-      `,
-    });
-    const entry = await service.installPath(rootDir);
-    expect(entry.status).toBe("error");
-    expect(entry.statusDetail).toContain(REMOVED_MESSAGE);
-  });
-
-  it("is invisible to enumeration and leaves the rest of cc.agents working", async () => {
-    const rootDir = await writePlugin(workDir, {
-      name: "cc-plugin-current-agents",
-      serverSource: "export default function plugin() {}",
-    });
-    await service.installPath(rootDir);
-    const api = service.getApi("current-agents")!;
-
-    expect(() =>
-      Reflect.get(api.agents, "experimental_registerProvider"),
-    ).toThrow(REMOVED_MESSAGE);
-    expect(Object.keys(api.agents).sort()).toEqual([
-      "configure",
-      "contributeInstructions",
-      "registerTool",
-    ]);
-    expect(Object.keys({ ...api.agents })).not.toContain(
-      "experimental_registerProvider",
-    );
-
-    api.agents.registerTool({
-      name: "still_works",
-      description: "Registered after the removed getter was touched",
-      parameters: { type: "object" },
-      execute: () => "ok",
-    });
-    expect(service.listAgentTools().map((tool) => tool.tool.name)).toEqual([
-      "still_works",
-    ]);
-  });
-});
-
 describe("cc.agents.contributeInstructions", () => {
   let db: DbConnection;
   let workDir: string;
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-instr-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },

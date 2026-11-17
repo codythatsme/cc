@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ConfirmDeleteDialog,
   ConfirmDeleteDialogContent,
-} from "@/components/dialogs/ConfirmDeleteDialog";
+} from "@cc/shared-ui/confirm-delete-dialog";
 import {
   pluginIsLocalSource,
   pluginRemovalDescription,

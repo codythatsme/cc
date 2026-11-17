@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createConnection, migrate, type DbConnection } from "@cc/db";
+import { type DbConnection } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
@@ -57,14 +58,15 @@ describe("cc.onInstall", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-install-hook-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -73,6 +75,7 @@ describe("cc.onInstall", () => {
       appVersion: "0.9.0",
       loadTimeoutMs: 5000,
       installHandlerTimeoutMs: 200,
+      serviceStopTimeoutMs: 100,
     });
   });
 

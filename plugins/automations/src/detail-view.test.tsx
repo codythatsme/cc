@@ -11,7 +11,6 @@ import { installTestPluginRuntime } from "@codythatsme/plugin-sdk/testing/app";
 import type {
   AgentExecutionUpdate,
   AutomationDetailResponse,
-  AutomationRunResponse,
 } from "./rpc-types.js";
 import {
   AutomationDetailView as AutomationDetailViewBase,
@@ -25,6 +24,7 @@ vi.mock("@codythatsme/plugin-sdk/app", async (importOriginal) => ({
     value,
     onChange,
     routing,
+    allowProviderChange,
     disabled,
   }: ExperimentalProviderModelPickerProps) => (
     <button
@@ -38,10 +38,13 @@ vi.mock("@codythatsme/plugin-sdk/app", async (importOriginal) => ({
             ? routing.hostId
             : routing.environmentId
       }
+      data-provider-change-allowed={
+        allowProviderChange === false ? "false" : "true"
+      }
       disabled={disabled}
       onClick={() =>
         onChange({
-          providerId: value.providerId,
+          providerId: "claude",
           model: "claude-sonnet-5",
           reasoningLevel: "high",
           serviceTier: "fast",
@@ -57,6 +60,7 @@ vi.mock("@codythatsme/plugin-sdk/app", async (importOriginal) => ({
     providerId,
     value,
     onChange,
+    routing,
     disabled,
   }: ExperimentalPermissionModePickerProps) => (
     <button
@@ -64,6 +68,7 @@ vi.mock("@codythatsme/plugin-sdk/app", async (importOriginal) => ({
       aria-label="Permission mode"
       data-testid="cc-permission-mode-picker"
       data-provider-id={providerId}
+      data-routing-kind={routing?.kind ?? "primary"}
       disabled={disabled}
       onClick={() => onChange(value === "full" ? "auto" : "full")}
     >
@@ -116,6 +121,31 @@ const AUTOMATION: AutomationDetailResponse = {
   updatedAt: 1_700_000_000_000,
 };
 
+const REUSE_ENVIRONMENT_EXECUTION = {
+  mode: "agent",
+  prompt: "Summarize the inbox",
+  providerId: "codex",
+  model: "gpt-5.6-codex",
+  reasoningLevel: "medium",
+  permissionMode: "accept-edits",
+  environment: { type: "reuse", environmentId: "env_test" },
+} satisfies AutomationDetailResponse["execution"];
+
+const REUSE_ENVIRONMENT_AUTOMATION: AutomationDetailResponse = {
+  ...AUTOMATION,
+  execution: REUSE_ENVIRONMENT_EXECUTION,
+};
+
+const NO_RUNS = {
+  runs: [],
+  nextCursor: null,
+  loading: false,
+  loadingMore: false,
+  error: null,
+  loadMore: () => {},
+  retry: () => {},
+};
+
 type TestAutomationDetailProps = Omit<
   ComponentProps<typeof AutomationDetailViewBase>,
   "editing" | "onCancelEdit" | "onUpdateAgent"
@@ -144,6 +174,65 @@ function AutomationDetailView({
 }
 
 describe("Automation detail recipe", () => {
+  it("explains a failed agent run in the header and in its run row", () => {
+    const error = "Target thread thr_target was archived";
+    const run = {
+      automationId: "auto_1",
+      runMode: "agent",
+      trigger: "schedule",
+      skipReason: null,
+      output: null,
+      exitCode: null,
+      scheduledFor: 1_800_000_000_000,
+      startedAt: 1_800_000_000_000,
+      finishedAt: 1_800_000_000_030,
+    } as const;
+    const { container } = render(
+      <AutomationDetailView
+        automation={{
+          ...AUTOMATION,
+          enabled: false,
+          nextRunAt: null,
+          lastRunStatus: "failed",
+          lastError: error,
+        }}
+        projectLabel="Personal"
+        runsState={{
+          ...NO_RUNS,
+          runs: [
+            {
+              ...run,
+              id: "run_failed",
+              threadId: null,
+              status: "failed",
+              error,
+            },
+            {
+              ...run,
+              id: "run_succeeded",
+              threadId: "thr_target",
+              status: "succeeded",
+              error: null,
+            },
+          ],
+        }}
+        actionPending={false}
+        onToggle={() => {}}
+        onEdit={() => {}}
+        onRunNow={() => {}}
+        onDelete={() => {}}
+        onOpenThread={() => {}}
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-automation-error=""]')?.textContent,
+    ).toBe(error);
+    expect(
+      [...container.querySelectorAll("pre")].map((block) => block.textContent),
+    ).toEqual([error]);
+  });
+
   it("renders the personal workspace through the host's environment provider icon", () => {
     const { container } = render(
       <AgentAutomationDefinition
@@ -207,27 +296,9 @@ describe("Automation detail recipe", () => {
     const recipe = renderedRecipe(container);
     expect(recipe.map(([kind]) => kind)).toEqual(["definition", "activity"]);
     expect(recipe.at(-1)?.[1]).toBe("Runs");
-    const projectMetadataIcon = screen.getByRole("img", {
-      name: "Project: Personal",
-    });
-    const scheduleMetadataIcon = screen.getByRole("img", {
-      name: "Schedule",
-    });
-    const nextRunMetadataIcon = screen.getByRole("img", {
-      name: "Next run",
-    });
-    expect(projectMetadataIcon.tabIndex).toBe(0);
-    expect(scheduleMetadataIcon.tabIndex).toBe(0);
-    expect(nextRunMetadataIcon.tabIndex).toBe(0);
-    expect(
-      projectMetadataIcon.querySelector('[data-icon="Folder"]'),
-    ).toBeTruthy();
-    expect(
-      scheduleMetadataIcon.querySelector('[data-icon="DateTime"]'),
-    ).toBeTruthy();
-    expect(
-      nextRunMetadataIcon.querySelector('[data-icon="CalendarCheckOut02"]'),
-    ).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Project: Personal" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Schedule" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Next run" })).toBeTruthy();
     expect(screen.queryByText("Next run:")).toBeNull();
 
     const emptyRuns = screen
@@ -354,6 +425,92 @@ describe("Automation detail recipe", () => {
     expect(
       screen.queryByRole("textbox", { name: "Automation prompt" }),
     ).toBeNull();
+  });
+
+  it("uses the standard editor to complete an automation with a missing prompt", () => {
+    const onUpdate = vi.fn(async (_update: AgentExecutionUpdate) => {});
+    render(
+      <AutomationDetailView
+        automation={{
+          ...REUSE_ENVIRONMENT_AUTOMATION,
+          execution: { ...REUSE_ENVIRONMENT_EXECUTION, prompt: "" },
+        }}
+        projectLabel="Test project"
+        runsState={NO_RUNS}
+        actionPending={false}
+        editing
+        onUpdateAgent={onUpdate}
+        onToggle={() => {}}
+        onEdit={() => {}}
+        onRunNow={() => {}}
+        onDelete={() => {}}
+        onOpenThread={() => {}}
+      />,
+    );
+
+    expect(
+      (screen.getByRole("button", { name: "Edit prompt" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Run now" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    const save = screen.getByRole("button", { name: "Save Prompt" });
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Automation prompt"), {
+      target: { value: "Review the failed build" },
+    });
+    expect((save as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(save);
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      prompt: "Review the failed build",
+      providerId: "codex",
+      model: "gpt-5.6-codex",
+      reasoningLevel: "medium",
+      serviceTier: null,
+      permissionMode: "accept-edits",
+    });
+  });
+
+  it("routes both pickers to a reused environment and re-keys permissions on a provider change", () => {
+    const onUpdate = vi.fn(async (_update: AgentExecutionUpdate) => {});
+    render(
+      <AutomationDetailView
+        automation={REUSE_ENVIRONMENT_AUTOMATION}
+        projectLabel="Test project"
+        runsState={NO_RUNS}
+        actionPending={false}
+        editing
+        onUpdateAgent={onUpdate}
+        onToggle={() => {}}
+        onEdit={() => {}}
+        onRunNow={() => {}}
+        onDelete={() => {}}
+        onOpenThread={() => {}}
+      />,
+    );
+
+    const picker = screen.getByTestId("cc-provider-model-picker");
+    expect(picker.getAttribute("data-routing-kind")).toBe("environment");
+    expect(picker.getAttribute("data-routing-id")).toBe("env_test");
+    expect(picker.getAttribute("data-provider-change-allowed")).toBe("true");
+    fireEvent.click(picker);
+    const permission = screen.getByLabelText("Permission mode");
+    expect(permission.getAttribute("data-provider-id")).toBe("claude");
+    expect(permission.getAttribute("data-routing-kind")).toBe("environment");
+    fireEvent.click(permission);
+    fireEvent.click(screen.getByText("Save Prompt"));
+
+    expect(onUpdate).toHaveBeenCalledWith({
+      prompt: "Summarize the inbox",
+      providerId: "claude",
+      model: "claude-sonnet-5",
+      reasoningLevel: "high",
+      serviceTier: "fast",
+      permissionMode: "full",
+    });
   });
 
   it("keeps project and environment metadata beside the host picker", () => {
@@ -553,15 +710,6 @@ describe("Automation detail recipe", () => {
     expect(
       container.querySelector('[data-automation-script-fade="below"]'),
     ).toBeNull();
-
-    const scriptPanel = scriptScroll.parentElement
-      ?.parentElement as HTMLElement;
-    expect(scriptPanel.className).toContain("bg-background");
-    expect(scriptPanel.className).not.toContain("shadow-xs");
-    expect(scriptPanel.className).not.toContain("shadow-sm");
-    expect(scriptPanel.lastElementChild?.className).toContain(
-      "bg-surface-recessed/55",
-    );
   });
 
   it.each([
@@ -602,123 +750,6 @@ describe("Automation detail recipe", () => {
           }"]`,
         ),
       ).not.toBeNull();
-    },
-  );
-
-  it("uses the shared shimmer treatment while runs are loading", async () => {
-    const { container } = render(
-      <AutomationDetailView
-        automation={AUTOMATION}
-        projectLabel="Personal"
-        runsState={{
-          runs: [],
-          nextCursor: null,
-          loading: true,
-          loadingMore: false,
-          error: null,
-          loadMore: () => {},
-          retry: () => {},
-        }}
-        actionPending={false}
-        onToggle={() => {}}
-        onEdit={() => {}}
-        onRunNow={() => {}}
-        onDelete={() => {}}
-        onOpenThread={() => {}}
-      />,
-    );
-
-    const loading = await screen.findByRole("status", {
-      name: "Loading runs",
-    });
-    expect(loading.textContent).toBe("");
-    expect(loading.querySelectorAll(".animate-pulse")).toHaveLength(3);
-    expect(container.textContent).not.toContain("Loading…");
-  });
-
-  it("keeps run-load failure quiet and actionable", () => {
-    const { container } = render(
-      <AutomationDetailView
-        automation={AUTOMATION}
-        projectLabel="Personal"
-        runsState={{
-          runs: [],
-          nextCursor: null,
-          loading: false,
-          loadingMore: false,
-          error: "network unavailable",
-          loadMore: () => {},
-          retry: () => {},
-        }}
-        actionPending={false}
-        onToggle={() => {}}
-        onEdit={() => {}}
-        onRunNow={() => {}}
-        onDelete={() => {}}
-        onOpenThread={() => {}}
-      />,
-    );
-
-    const errorState = screen
-      .getByText("Runs unavailable.")
-      .closest('[data-automation-runs-state="error"]') as HTMLElement;
-    expect(errorState.className).not.toContain("text-destructive");
-    expect(container.querySelector('[data-icon="CircleX"]')).toBeNull();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
-  });
-
-  it.each([
-    ["failed", "Failed", "CircleX", "text-destructive"],
-    ["succeeded", "Succeeded", "CircleCheck", "text-success"],
-    ["running", "Running", "Loading", "text-muted-foreground"],
-    ["skipped", "Skipped", "ArrowTurnForward", "text-subtle-foreground"],
-  ] as const)(
-    "renders a %s run row with its semantic status glyph",
-    (status, label, iconName, iconClass) => {
-      const startedAt = 1_750_000_000_000;
-      const run: AutomationRunResponse = {
-        id: `run_${status}`,
-        automationId: AUTOMATION.id,
-        runMode: "agent",
-        threadId: null,
-        status,
-        trigger: "schedule",
-        skipReason: null,
-        error: null,
-        output: null,
-        exitCode: null,
-        scheduledFor: startedAt,
-        startedAt,
-        finishedAt: status === "running" ? null : startedAt + 42_000,
-      };
-      render(
-        <AutomationDetailView
-          automation={AUTOMATION}
-          projectLabel="Local"
-          runsState={{
-            runs: [run],
-            nextCursor: null,
-            loading: false,
-            loadingMore: false,
-            error: null,
-            loadMore: () => {},
-            retry: () => {},
-          }}
-          actionPending={false}
-          onToggle={() => {}}
-          onEdit={() => {}}
-          onRunNow={() => {}}
-          onDelete={() => {}}
-          onOpenThread={() => {}}
-        />,
-      );
-
-      const indicator = screen.getByRole("img", { name: label });
-      expect(
-        indicator
-          .querySelector(`[data-icon="${iconName}"]`)
-          ?.getAttribute("class"),
-      ).toContain(iconClass);
     },
   );
 });

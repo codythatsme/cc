@@ -24,7 +24,7 @@ function tokenTypes(html: string): string[] {
 }
 
 describe("highlightMarkdownCode", () => {
-  const shell = "# install the plugin\nbb plugin install ./plugins/monokai";
+  const shell = "# install the plugin\ncc plugin install ./plugins/monokai";
 
   it.each(["sh", "bash", "shell", "zsh", "console", "shellscript"])(
     "lexes a `#` comment in a %s fence as a comment, not a JS sign",
@@ -35,7 +35,7 @@ describe("highlightMarkdownCode", () => {
     },
   );
 
-  it.each([null, "ruby"])(
+  it.each([null, "elixir"])(
     "keeps the JavaScript lexer for a fence with language %j",
     (language) => {
       const html = highlightMarkdownCode({

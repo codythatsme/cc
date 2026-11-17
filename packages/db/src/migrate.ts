@@ -97,7 +97,6 @@ export interface MigrationWarningLogger {
 }
 
 export interface MigrateOptions {
-  deferDestructiveLegacyCleanup?: boolean;
   logger?: MigrationWarningLogger;
 }
 
@@ -161,10 +160,6 @@ const reorderedCleanupMigrationTags = [
   "0034_drop_stop_requested_at",
   "0035_warm_kingpin",
 ] as const satisfies readonly ReorderedCleanupMigrationTag[];
-const branchLocalThreadSearchMigrationCreatedAts = [
-  1781403656070, 1781403656071,
-] as const;
-const branchLocalThreadTabsMigrationCreatedAts = [1783633750817] as const;
 const pendingInteractionColumns: ExpectedColumn[] = [
   { name: "id", type: "text", notNull: true, primaryKey: true },
   { name: "thread_id", type: "text", notNull: true, primaryKey: false },
@@ -1171,92 +1166,32 @@ function skipEventLargeValuesRoundTripForInlineEvents(
   markMigrationApplied(db, restoreMigration);
 }
 
-function applyQueuedMessageGroupingSchema(db: DbConnection): void {
-  if (
-    !tableExists(db, "queued_thread_messages") ||
-    columnExists(db, "queued_thread_messages", "group_with_next")
-  ) {
-    return;
-  }
-
-  db.$client
-    .prepare(
-      "ALTER TABLE queued_thread_messages ADD COLUMN group_with_next integer DEFAULT 0 NOT NULL",
-    )
-    .run();
-}
-
-function applyInitialThreadSectionSchema(db: DbConnection): void {
-  if (!tableExists(db, "thread_folders")) {
-    db.$client
-      .prepare(
-        `
-          CREATE TABLE thread_folders (
-            id text PRIMARY KEY NOT NULL,
-            name text NOT NULL,
-            created_at integer NOT NULL,
-            updated_at integer NOT NULL
-          )
-        `,
-      )
-      .run();
-  }
-
-  if (!indexExists(db, "thread_folders", "thread_folders_name_idx")) {
-    db.$client
-      .prepare(
-        "CREATE UNIQUE INDEX thread_folders_name_idx ON thread_folders (name)",
-      )
-      .run();
-  }
-
-  if (tableExists(db, "threads") && !columnExists(db, "threads", "folder_id")) {
-    db.$client
-      .prepare(
-        "ALTER TABLE threads ADD COLUMN folder_id text REFERENCES thread_folders(id) ON DELETE SET NULL",
-      )
-      .run();
-  }
-
-  if (
-    tableExists(db, "threads") &&
-    !indexExists(db, "threads", "threads_folder_archived_deleted_idx")
-  ) {
-    db.$client
-      .prepare(
-        "CREATE INDEX threads_folder_archived_deleted_idx ON threads (folder_id, archived_at, deleted_at, id)",
-      )
-      .run();
-  }
-}
-
-function repairBranchLocalQueuedGroupingBeforeInitialThreadSections(
+function stageQueuedMessageGroups(
   db: DbConnection,
   migrationsFolder: string,
 ): void {
-  if (!tableExists(db, "__drizzle_migrations")) {
-    return;
-  }
-
-  const expectedMigrations = readExpectedAppliedMigrations(migrationsFolder);
-  const appliedCreatedAts = readAppliedMigrationCreatedAts(db);
-  const initialThreadSectionsMigration = requireExpectedAppliedMigration(
-    expectedMigrations,
-    "0046_thread_folders",
+  const sqlite = db.$client;
+  sqlite.exec(
+    "CREATE TEMP TABLE IF NOT EXISTS cc_migration_queued_message_groups (id TEXT PRIMARY KEY, group_with_next INTEGER NOT NULL)",
   );
-  const queuedGroupingMigration = requireExpectedAppliedMigration(
-    expectedMigrations,
-    "0047_sharp_martin_li",
-  );
+  sqlite.exec("DELETE FROM cc_migration_queued_message_groups");
   if (
-    appliedCreatedAts.has(initialThreadSectionsMigration.createdAt) ||
-    !appliedCreatedAts.has(queuedGroupingMigration.createdAt)
+    !tableExists(db, "__drizzle_migrations") ||
+    !tableExists(db, "queued_thread_messages") ||
+    !columnExists(db, "queued_thread_messages", "group_with_next")
   ) {
     return;
   }
-
-  applyInitialThreadSectionSchema(db);
-  markMigrationApplied(db, initialThreadSectionsMigration);
+  const migration = requireExpectedAppliedMigration(
+    readExpectedAppliedMigrations(migrationsFolder),
+    "0143_queued_message_state",
+  );
+  if (readAppliedMigrationCreatedAts(db).has(migration.createdAt)) {
+    return;
+  }
+  sqlite.exec(
+    "INSERT INTO cc_migration_queued_message_groups (id, group_with_next) SELECT id, group_with_next FROM queued_thread_messages",
+  );
 }
 
 const STAGED_CONNECT_MACHINE_ID_COLUMN = "_cc_connect_machine_id_pending";
@@ -1369,76 +1304,6 @@ function seedKeepAwakePluginConfiguration(db: DbConnection): void {
   `);
 }
 
-function repairBranchLocalThreadSearchMigrations(db: DbConnection): void {
-  if (!tableExists(db, "__drizzle_migrations")) {
-    return;
-  }
-
-  const appliedCreatedAts = readAppliedMigrationCreatedAts(db);
-  const hasBranchLocalThreadSearchMigration =
-    branchLocalThreadSearchMigrationCreatedAts.some((createdAt) =>
-      appliedCreatedAts.has(createdAt),
-    );
-  const hasCanonicalThreadSearchMigration =
-    appliedCreatedAts.has(1781660000001);
-  const hasPreCanonicalThreadSearchSchema =
-    tableExists(db, "thread_search_segments") &&
-    !hasCanonicalThreadSearchMigration;
-  if (
-    !hasBranchLocalThreadSearchMigration &&
-    !hasPreCanonicalThreadSearchSchema
-  ) {
-    return;
-  }
-
-  if (!hasCanonicalThreadSearchMigration) {
-    db.$client.exec(`
-      DROP TRIGGER IF EXISTS thread_search_segments_after_text_update;
-      DROP TRIGGER IF EXISTS thread_search_segments_after_delete;
-      DROP TRIGGER IF EXISTS thread_search_segments_after_insert;
-      DROP TABLE IF EXISTS thread_search_segments_fts;
-      DROP TABLE IF EXISTS thread_search_segments;
-    `);
-  }
-  db.$client
-    .prepare<[number, number]>(
-      `
-        DELETE FROM __drizzle_migrations
-        WHERE created_at IN (?, ?)
-      `,
-    )
-    .run(...branchLocalThreadSearchMigrationCreatedAts);
-}
-
-function repairBranchLocalThreadTabsBeforePendingInteractionsMigration(
-  db: DbConnection,
-  migrationsFolder: string,
-): void {
-  if (
-    !tableExists(db, "__drizzle_migrations") ||
-    !tableExists(db, "pending_interactions")
-  ) {
-    return;
-  }
-
-  const expectedMigrations = readExpectedAppliedMigrations(migrationsFolder);
-  const appliedCreatedAts = readAppliedMigrationCreatedAts(db);
-  const pendingInteractionsMigration = requireExpectedAppliedMigration(
-    expectedMigrations,
-    "0059_stale_power_pack",
-  );
-  if (
-    appliedCreatedAts.has(pendingInteractionsMigration.createdAt) ||
-    !branchLocalThreadTabsMigrationCreatedAts.some((createdAt) =>
-      appliedCreatedAts.has(createdAt),
-    )
-  ) {
-    return;
-  }
-
-  applyMigrationStatements(db, pendingInteractionsMigration);
-}
-
 function warnAboutFutureAppliedMigrations(
   db: DbConnection,
   options: MigrateOptions,
@@ -1548,6 +1413,20 @@ export function migrate(db: DbConnection, options: MigrateOptions = {}): void {
   const migrationsFolder = resolveMigrationsFolder();
   const sqlite = db.$client;
 
+  const existingInstallation =
+    tableExists(db, "__drizzle_migrations") &&
+    db.$client.prepare("SELECT 1 FROM __drizzle_migrations LIMIT 1").get() !==
+      undefined;
+  sqlite.exec(
+    "CREATE TEMP TABLE IF NOT EXISTS cc_migration_existing_installation (existing INTEGER NOT NULL)",
+  );
+  sqlite.exec("DELETE FROM cc_migration_existing_installation");
+  sqlite
+    .prepare(
+      "INSERT INTO cc_migration_existing_installation (existing) VALUES (?)",
+    )
+    .run(existingInstallation ? 1 : 0);
+
   sqlite.exec(
     "CREATE TEMP TABLE IF NOT EXISTS cc_migration_local_host (id TEXT PRIMARY KEY)",
   );
@@ -1565,19 +1444,9 @@ export function migrate(db: DbConnection, options: MigrateOptions = {}): void {
   sqlite.pragma("foreign_keys = OFF");
   try {
     assertNoDuplicatePendingInteractionProviderRequests(db);
-    if (options.deferDestructiveLegacyCleanup === true) {
-      applyDeferredDestructiveLegacyCleanup(db, migrationsFolder);
-    }
-    repairBranchLocalThreadSearchMigrations(db);
-    repairBranchLocalThreadTabsBeforePendingInteractionsMigration(
-      db,
-      migrationsFolder,
-    );
+    applyDeferredDestructiveLegacyCleanup(db, migrationsFolder);
     skipEventLargeValuesRoundTripForInlineEvents(db, migrationsFolder);
-    repairBranchLocalQueuedGroupingBeforeInitialThreadSections(
-      db,
-      migrationsFolder,
-    );
+    stageQueuedMessageGroups(db, migrationsFolder);
     const stagedConnectMachineId = stageExistingConnectMachineIdColumn(
       db,
       migrationsFolder,
@@ -1592,7 +1461,6 @@ export function migrate(db: DbConnection, options: MigrateOptions = {}): void {
         restoreStagedThreadStorageDeletedAtColumn(db);
     }
     applyReorderedCleanupMigrations(db, migrationsFolder);
-    applyQueuedMessageGroupingSchema(db);
     seedKeepAwakePluginConfiguration(db);
   } finally {
     sqlite.pragma("foreign_keys = ON");

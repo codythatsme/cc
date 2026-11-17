@@ -8,14 +8,16 @@
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "@codythatsme/plugin-sdk": [
-        "../../packages/plugin-sdk/bundled-types/cc-plugin-sdk.d.ts"
+      "@/components/ui/icon": [
+        "../../packages/plugin-registry/flavors/components/ui/icon.tsx"
       ],
-      "@codythatsme/plugin-sdk/app": [
-        "../../packages/plugin-sdk/bundled-types/cc-plugin-sdk-app.d.ts"
-      ]
+      "@/components/ui/question-form-host": [
+        "../../packages/plugin-registry/flavors/components/ui/question-form-host.tsx"
+      ],
+      "@/*": ["../../packages/shared-ui/src/*"]
     },
-    "types": ["node"]
+    "types": ["node"],
+    "jsx": "react-jsx"
   },
-  "include": ["server.ts", "src", "vitest.config.ts"]
+  "include": ["server.ts", "app.tsx", "src", "vitest.config.ts"]
 }

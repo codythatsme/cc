@@ -1,7 +1,10 @@
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
-import mimeTypes from "mime-types";
+import {
+  getRelativeHostPathSegments,
+  normalizeHostPath,
+  splitHostPathRoot,
+} from "@cc/domain";
 import {
   publicApiRoutes,
   typedRoutes,
@@ -10,7 +13,7 @@ import {
 import { COMMAND_TIMEOUT_MS } from "../constants.js";
 import { ApiError } from "../errors.js";
 import { browserRequestProblem } from "../browser-request-guard.js";
-import type { AppDeps, LoggedWorkSessionDeps } from "../types.js";
+import type { AppDeps } from "../types.js";
 import type { HostDaemonRpcCommand } from "@cc/host-daemon-contract";
 import {
   callHostOnlineRpcForWork,
@@ -18,16 +21,25 @@ import {
 } from "../services/hosts/online-rpc.js";
 import {
   createDaemonFileContentResponse,
-  type DaemonFileReadResult,
   requireDaemonFileContentResult,
   remapDaemonFileRouteError,
-  serveDaemonFileContent,
 } from "../services/hosts/daemon-file-response.js";
+import { serveDaemonFileStream } from "../services/hosts/daemon-file-stream.js";
+import { joinHostPathSegments } from "../services/lib/host-path.js";
+import { createRawFileHeaders } from "../services/hosts/raw-file-headers.js";
 import {
   assertUsableHostId,
   requirePrimaryHostId,
 } from "../services/hosts/primary-host.js";
-import { requirePublicThreadEnvironment } from "../services/lib/entity-lookup.js";
+import {
+  requirePublicProject,
+  requireReadyEnvironment,
+} from "../services/lib/entity-lookup.js";
+import { resolveProjectWorkspaceTarget } from "../services/projects/project-workspace.js";
+import {
+  requireThreadEnvironmentHostId,
+  requireThreadStorageTarget,
+} from "../services/threads/thread-storage.js";
 import {
   DEFAULT_PATH_LIST_EXCLUDE_NAMES,
   WORKSPACE_PATH_LIST_INCLUDE_HIDDEN,
@@ -35,13 +47,8 @@ import {
 
 const HOST_FILE_LIST_LIMIT_DEFAULT = 1000;
 
-const HTML_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
-const HTML_PREVIEW_CONTENT_TYPE = "text/html; charset=utf-8";
-const HTML_PREVIEW_CSP = "sandbox allow-scripts";
-const NO_STORE_CACHE_CONTROL = "no-store";
-const NOSNIFF_CONTENT_TYPE_OPTIONS = "nosniff";
-const HTML_MIME_TYPE = "text/html";
 const FILE_PREVIEW_TTL_MS = 10 * 60 * 1000;
+const REVISION_REF_PATTERN = /^(?:HEAD|[0-9a-f]{4,40})$/iu;
 
 interface FilePreviewLease {
   hostId: string;
@@ -49,118 +56,89 @@ interface FilePreviewLease {
   expiresAtMs: number;
 }
 
-function normalizeMimeType(value: string | null | undefined): string | null {
-  const normalizedValue = value?.split(";")[0]?.trim().toLowerCase();
-  return normalizedValue && normalizedValue.length > 0 ? normalizedValue : null;
+interface FileRoot {
+  hostId: string;
+  rootPath: string;
+  ref: string | null;
 }
 
-function isAbsoluteHostPath(value: string): boolean {
-  return path.posix.isAbsolute(value) || path.win32.isAbsolute(value);
-}
-
-function normalizeHostPath(value: string): string {
-  return path.win32.isAbsolute(value) && !path.posix.isAbsolute(value)
-    ? path.win32.normalize(value)
-    : path.posix.normalize(value);
-}
-
-function joinHostPath(rootPath: string, segments: string[]): string {
-  return path.win32.isAbsolute(rootPath) && !path.posix.isAbsolute(rootPath)
-    ? path.win32.join(rootPath, ...segments)
-    : path.posix.join(rootPath, ...segments);
-}
-
-function isHtmlMimeType(value: string | null | undefined): boolean {
-  return normalizeMimeType(value) === HTML_MIME_TYPE;
-}
-
-function createRawFilesystemPathInvalidError(): ApiError {
-  return new ApiError(400, "invalid_path", "Invalid file path", false);
-}
-
-function createRawFilesystemPathUnsupportedError(): ApiError {
-  return new ApiError(
-    415,
-    "unsupported_media_type",
-    "HTML preview only supports text/html files",
-    false,
-  );
-}
-
-function parseRawFilesystemPath(rawPath: string): string {
-  if (rawPath.includes("\0") || !path.isAbsolute(rawPath)) {
-    throw createRawFilesystemPathInvalidError();
+function requireAbsoluteHostRoot(rootPath: string): string {
+  const normalizedRootPath = normalizeHostPath(rootPath);
+  if (normalizedRootPath === null) {
+    throw new ApiError(400, "invalid_path", "rootPath must be absolute", false);
   }
-  return path.resolve(rawPath);
+  return normalizedRootPath;
 }
 
-function assertHtmlPreviewPath(filePath: string): void {
-  if (!isHtmlMimeType(mimeTypes.lookup(filePath) || null)) {
-    throw createRawFilesystemPathUnsupportedError();
+function parseRelativeFileSegments(rawPath: string): string[] {
+  const segments = getRelativeHostPathSegments(rawPath.replace(/\\/g, "/"));
+  if (segments === null) {
+    throw new ApiError(400, "invalid_path", "Invalid file path", false);
   }
+  return segments;
 }
 
-function assertRawFilesystemHtmlPreviewResult(
-  result: DaemonFileReadResult,
-): void {
-  if (!isHtmlMimeType(result.mimeType) || result.contentEncoding !== "utf8") {
-    throw createRawFilesystemPathUnsupportedError();
-  }
+function parseAbsoluteHostFile(rawPath: string): {
+  rootPath: string;
+  segments: string[];
+} {
+  const filePath = rawPath.replace(/\\/g, "/");
+  const { root, relativePath } = splitHostPathRoot(filePath) ?? {
+    root: "/",
+    relativePath: filePath,
+  };
+  return { rootPath: root, segments: parseRelativeFileSegments(relativePath) };
+}
 
-  if (result.sizeBytes > HTML_PREVIEW_MAX_BYTES) {
-    throw new ApiError(
-      413,
-      "file_too_large",
-      "HTML preview exceeds the 5 MB limit",
-      false,
+function parseRevisionRef(ref: string): string {
+  if (!REVISION_REF_PATTERN.test(ref)) {
+    throw new ApiError(400, "invalid_ref", "Invalid revision", false);
+  }
+  return ref;
+}
+
+async function serveRootedFile(
+  deps: AppDeps,
+  request: Request,
+  root: FileRoot,
+  segments: string[],
+): Promise<Response> {
+  const filePath = joinHostPathSegments(root.rootPath, ...segments);
+  if (root.ref === null) {
+    return serveDaemonFileStream(
+      deps,
+      { hostId: root.hostId, path: filePath, rootPath: root.rootPath },
+      request,
+      createRawFileHeaders,
     );
   }
-}
-
-function createRawFilesystemHtmlPreviewResponse(
-  result: DaemonFileReadResult,
-): Response {
-  assertRawFilesystemHtmlPreviewResult(result);
-  return createDaemonFileContentResponse(result, {
-    headers: {
-      "cache-control": NO_STORE_CACHE_CONTROL,
-      "content-security-policy": HTML_PREVIEW_CSP,
-      "content-type": HTML_PREVIEW_CONTENT_TYPE,
-      "x-content-type-options": NOSNIFF_CONTENT_TYPE_OPTIONS,
-    },
-  });
-}
-
-async function serveRawFilesystemHtmlFile(
-  deps: LoggedWorkSessionDeps,
-  threadId: string,
-  rawPath: string,
-): Promise<Response> {
-  const filePath = parseRawFilesystemPath(rawPath);
-  assertHtmlPreviewPath(filePath);
-  const { environment } = requirePublicThreadEnvironment(deps.db, threadId);
-  return serveDaemonFileContent(
-    deps,
-    {
-      hostId: environment.hostId,
+  const result = await callHostRetryableOnlineRpc(deps, {
+    hostId: root.hostId,
+    timeoutMs: COMMAND_TIMEOUT_MS,
+    command: {
+      type: "host.read_file",
+      followRootSymlink: false,
       path: filePath,
+      rootPath: root.rootPath,
+      ref: root.ref,
     },
-    createRawFilesystemHtmlPreviewResponse,
-  );
+  }).catch(remapDaemonFileRouteError);
+  const content = requireDaemonFileContentResult(result);
+  return createDaemonFileContentResponse(content, {
+    headers: createRawFileHeaders(content),
+    ifNoneMatch: request.headers.get("if-none-match") ?? undefined,
+  });
 }
 
 export function registerFileRoutes(app: Hono, deps: AppDeps): void {
   const { get, post } = typedRoutes<PublicApiSchema>(app, {
     onValidationError: (msg) => new ApiError(400, "invalid_request", msg),
   });
-  const routes = publicApiRoutes.threads;
-
-  get(routes.rawFile, async (context, query) =>
-    serveRawFilesystemHtmlFile(deps, context.req.param("id"), query.path),
-  );
-
   const fileRoutes = publicApiRoutes.files;
   const previewRoutes = publicApiRoutes.filePreviews;
+  const threadRoutes = publicApiRoutes.threads;
+  const environmentRoutes = publicApiRoutes.environments;
+  const projectRoutes = publicApiRoutes.projects;
   const previewLeases = new Map<string, FilePreviewLease>();
 
   const resolveHostId = (hostId: string | undefined): string => {
@@ -198,28 +176,15 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     });
   }
 
-  const runHostFileMutation = async <T>(
-    hostId: string,
-    run: () => Promise<T>,
-  ): Promise<T> => {
-    try {
-      return await run();
-    } finally {
-      deps.workspaceReadCaches.invalidateHost(hostId);
-    }
-  };
-
   const runHostFileMutationCommand = <TCommand extends HostDaemonRpcCommand>(
     hostId: string,
     command: TCommand,
   ) =>
-    runHostFileMutation(hostId, () =>
-      callHostOnlineRpcForWork(deps, {
-        hostId,
-        timeoutMs: COMMAND_TIMEOUT_MS,
-        command,
-      }),
-    );
+    callHostOnlineRpcForWork(deps, {
+      hostId,
+      timeoutMs: COMMAND_TIMEOUT_MS,
+      command,
+    });
 
   const withHostFileRoute = async <T>(
     hostIdInput: string | undefined,
@@ -240,10 +205,12 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
         timeoutMs: COMMAND_TIMEOUT_MS,
         command: {
           type: "host.read_file",
+          followRootSymlink: false,
           path: payload.path,
           ...(payload.rootPath !== undefined
             ? { rootPath: payload.rootPath }
             : {}),
+          ...(payload.ref !== undefined ? { ref: payload.ref } : {}),
         },
       });
       return context.json(requireDaemonFileContentResult(result));
@@ -274,9 +241,11 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     withHostFileRoute(payload.hostId, async (hostId) => {
       const result = await callHostRetryableOnlineRpc(deps, {
         hostId,
+        signal: context.req.raw.signal,
         timeoutMs: COMMAND_TIMEOUT_MS,
         command: {
           type: "host.list_files",
+          followRootSymlink: false,
           path: payload.path,
           limit: payload.limit ?? HOST_FILE_LIST_LIMIT_DEFAULT,
           includeHidden:
@@ -296,6 +265,7 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
     withHostFileRoute(payload.hostId, async (hostId) => {
       const result = await callHostRetryableOnlineRpc(deps, {
         hostId,
+        signal: context.req.raw.signal,
         timeoutMs: COMMAND_TIMEOUT_MS,
         command: {
           type: "host.list_paths",
@@ -360,25 +330,14 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
 
   post(fileRoutes.createPreview, (context, payload) => {
     const hostId = resolveHostId(payload.hostId);
-    if (!isAbsoluteHostPath(payload.rootPath)) {
-      throw new ApiError(
-        400,
-        "invalid_path",
-        "rootPath must be absolute",
-        false,
-      );
-    }
+    const rootPath = requireAbsoluteHostRoot(payload.rootPath);
     const now = Date.now();
     for (const [id, lease] of previewLeases) {
       if (lease.expiresAtMs <= now) previewLeases.delete(id);
     }
     const id = randomUUID();
     const expiresAtMs = now + (payload.ttlMs ?? FILE_PREVIEW_TTL_MS);
-    previewLeases.set(id, {
-      hostId,
-      rootPath: normalizeHostPath(payload.rootPath),
-      expiresAtMs,
-    });
+    previewLeases.set(id, { hostId, rootPath, expiresAtMs });
     return context.json({
       baseUrl: `/api/v1/file-previews/${encodeURIComponent(id)}`,
       expiresAtMs,
@@ -392,41 +351,117 @@ export function registerFileRoutes(app: Hono, deps: AppDeps): void {
       previewLeases.delete(id);
       throw new ApiError(404, "not_found", "File preview expired", false);
     }
-    const rawPath = context.req.param("filePath").replace(/\\/g, "/");
-    const segments = rawPath.split("/");
-    if (
-      rawPath.startsWith("/") ||
-      segments.some(
-        (segment) => segment === "" || segment === "." || segment === "..",
-      )
-    ) {
-      throw new ApiError(400, "invalid_path", "Invalid preview path", false);
-    }
-    const isHtmlPath = isHtmlMimeType(mimeTypes.lookup(rawPath) || null);
-    return serveDaemonFileContent(
+    return serveRootedFile(
       deps,
-      {
-        hostId: lease.hostId,
-        ...(!isHtmlPath
-          ? { ifNoneMatch: context.req.header("if-none-match") }
-          : {}),
-        path: joinHostPath(lease.rootPath, segments),
-        rootPath: lease.rootPath,
-      },
-      (result) => {
-        const headers = new Headers({ "x-content-type-options": "nosniff" });
-        const isHtml = isHtmlMimeType(result.mimeType);
-        if (isHtml) {
-          assertRawFilesystemHtmlPreviewResult(result);
-          headers.set("cache-control", "no-store");
-          headers.set("content-security-policy", HTML_PREVIEW_CSP);
-          headers.set("content-type", HTML_PREVIEW_CONTENT_TYPE);
-        }
-        return createDaemonFileContentResponse(result, {
-          headers,
-          ifNoneMatch: isHtml ? undefined : context.req.header("if-none-match"),
-        });
-      },
+      context.req.raw,
+      { hostId: lease.hostId, rootPath: lease.rootPath, ref: null },
+      parseRelativeFileSegments(context.req.param("filePath")),
     );
   });
+
+  get(threadRoutes.storageFile, async (context) => {
+    const target = await requireThreadStorageTarget(
+      deps,
+      context.req.param("id"),
+    );
+    return serveRootedFile(
+      deps,
+      context.req.raw,
+      { hostId: target.hostId, rootPath: target.storagePath, ref: null },
+      parseRelativeFileSegments(context.req.param("filePath")),
+    );
+  });
+
+  get(threadRoutes.hostFile, async (context) => {
+    const hostId = requireThreadEnvironmentHostId(
+      deps,
+      context.req.param("id"),
+    );
+    const file = parseAbsoluteHostFile(context.req.param("filePath"));
+    return serveRootedFile(
+      deps,
+      context.req.raw,
+      { hostId, rootPath: file.rootPath, ref: null },
+      file.segments,
+    );
+  });
+
+  get(publicApiRoutes.hosts.file, async (context) => {
+    const hostId = context.req.param("id");
+    assertUsableHostId(deps, { hostId });
+    const file = parseAbsoluteHostFile(context.req.param("filePath"));
+    return serveRootedFile(
+      deps,
+      context.req.raw,
+      { hostId, rootPath: file.rootPath, ref: null },
+      file.segments,
+    );
+  });
+
+  get(environmentRoutes.file, async (context) => {
+    const environment = requireReadyEnvironment(
+      deps.db,
+      context.req.param("id"),
+    );
+    return serveRootedFile(
+      deps,
+      context.req.raw,
+      { hostId: environment.hostId, rootPath: environment.path, ref: null },
+      parseRelativeFileSegments(context.req.param("filePath")),
+    );
+  });
+
+  get(environmentRoutes.revisionFile, async (context) => {
+    const environment = requireReadyEnvironment(
+      deps.db,
+      context.req.param("id"),
+    );
+    return serveRootedFile(
+      deps,
+      context.req.raw,
+      {
+        hostId: environment.hostId,
+        rootPath: environment.path,
+        ref: parseRevisionRef(context.req.param("ref")),
+      },
+      parseRelativeFileSegments(context.req.param("filePath")),
+    );
+  });
+
+  const serveProjectFile = (
+    request: Request,
+    projectId: string,
+    hostId: string | undefined,
+    filePath: string,
+  ): Promise<Response> => {
+    requirePublicProject(deps.db, projectId);
+    const target = resolveProjectWorkspaceTarget(deps, {
+      projectId,
+      ...(hostId !== undefined ? { hostId } : {}),
+    });
+    return serveRootedFile(
+      deps,
+      request,
+      { hostId: target.hostId, rootPath: target.path, ref: null },
+      parseRelativeFileSegments(filePath),
+    );
+  };
+
+  get(projectRoutes.file, async (context) =>
+    serveProjectFile(
+      context.req.raw,
+      context.req.param("id"),
+      undefined,
+      context.req.param("filePath"),
+    ),
+  );
+
+  get(projectRoutes.hostFile, async (context) =>
+    serveProjectFile(
+      context.req.raw,
+      context.req.param("id"),
+      context.req.param("hostId"),
+      context.req.param("filePath"),
+    ),
+  );
 }

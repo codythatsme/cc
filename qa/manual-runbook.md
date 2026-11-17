@@ -313,11 +313,6 @@ cc thread wait "$PROTOCOL_CHILD_ID" --status idle --timeout 240
 cc thread show "$PROTOCOL_PARENT_ID" --json | jq '.thread | {id, parentThreadId, providerId, status}'
 cc thread show "$PROTOCOL_CHILD_ID" --json | jq '.thread | {id, parentThreadId, providerId, status}'
 cc thread output "$PROTOCOL_CHILD_ID"
-if cc manager list; then
-  echo "expected cc manager list to fail"
-  exit 1
-fi
-cc manager list 2>&1 | rg "Managers were replaced by parent threads|cc thread"
 printf 'thread protocol smoke started at UTC minute: %s\n' "$THREAD_PROTOCOL_STARTED_AT"
 rg -n "invalid-message|1008|host_unavailable|command_result_type_mismatch|Ignoring host RPC response" \
   "$SERVER_LOG_DIR" "$DAEMON_LOG_DIR" || true
@@ -327,7 +322,6 @@ Expected result:
 
 - the parent and child threads reach `idle`
 - the child thread reports the parent thread ID
-- `cc manager list` exits non-zero with a parent-thread replacement message
 - server and daemon logs have no matching protocol disconnect or host-RPC
   mismatch entries at or after `$THREAD_PROTOCOL_STARTED_AT`
 
@@ -345,16 +339,17 @@ WORKTREE_THREAD_ID=$(cc thread spawn \
 
 cc thread wait "$WORKTREE_THREAD_ID" --status idle --timeout 120
 WORKTREE_ENV_ID=$(curl -fsS "$CC_SERVER_URL/api/v1/threads/$WORKTREE_THREAD_ID" | jq -r '.environmentId')
+WORKTREE_BASE_BRANCH=$(cc environment show "$WORKTREE_ENV_ID" --json | jq -er '.mergeBaseBranch // .baseBranch // .defaultBranch')
 
 cc thread show "$WORKTREE_THREAD_ID"
 cc thread output "$WORKTREE_THREAD_ID"
-cc thread show "$WORKTREE_THREAD_ID" --work-status
-cc thread show "$WORKTREE_THREAD_ID" --git-diff --diff-target uncommitted
-cc thread show "$WORKTREE_THREAD_ID" --git-diff --diff-target branch_committed
-cc thread show "$WORKTREE_THREAD_ID" --git-diff --diff-target all
+cc git status "$WORKTREE_ENV_ID" --merge-base-branch "$WORKTREE_BASE_BRANCH"
+cc git diff "$WORKTREE_ENV_ID" --target uncommitted
+cc git diff "$WORKTREE_ENV_ID" --target branch_committed --merge-base-branch "$WORKTREE_BASE_BRANCH"
+cc git diff "$WORKTREE_ENV_ID" --target all --merge-base-branch "$WORKTREE_BASE_BRANCH"
 curl -fsS "$CC_SERVER_URL/api/v1/environments/$WORKTREE_ENV_ID" | jq
-curl -fsS "$CC_SERVER_URL/api/v1/environments/$WORKTREE_ENV_ID/status" | jq
-curl -fsS "$CC_SERVER_URL/api/v1/environments/$WORKTREE_ENV_ID/diff/branches" | jq
+cc git status "$WORKTREE_ENV_ID" --json | jq
+cc git branches "$WORKTREE_ENV_ID" --json | jq
 ```
 
 Verify Codex-backed helper inference for environment commit. This catches
@@ -375,7 +370,8 @@ MERGE_BASE_BRANCH=$(curl -fsS "$CC_SERVER_URL/api/v1/environments/$WORKTREE_ENV_
 
 cc environment update "$WORKTREE_ENV_ID" --merge-base-branch "$MERGE_BASE_BRANCH"
 cc environment show "$WORKTREE_ENV_ID" --json | jq -e --arg branch "$MERGE_BASE_BRANCH" '.mergeBaseBranch == $branch'
-cc thread show "$WORKTREE_THREAD_ID" --work-status --git-diff --diff-target all
+cc git status "$WORKTREE_ENV_ID" --merge-base-branch "$MERGE_BASE_BRANCH"
+cc git diff "$WORKTREE_ENV_ID" --target all --merge-base-branch "$MERGE_BASE_BRANCH"
 
 cc environment update "$WORKTREE_ENV_ID" --clear-merge-base-branch
 cc environment show "$WORKTREE_ENV_ID" --json | jq -e '.mergeBaseBranch == null'
@@ -416,7 +412,7 @@ cc thread wait "$DIRTY_ARCHIVE_THREAD_ID" --status idle --timeout 120
 DIRTY_ARCHIVE_ENV_ID=$(curl -fsS "$CC_SERVER_URL/api/v1/threads/$DIRTY_ARCHIVE_THREAD_ID" | jq -r '.environmentId')
 DIRTY_ARCHIVE_ENV_PATH=$(curl -fsS "$CC_SERVER_URL/api/v1/environments/$DIRTY_ARCHIVE_ENV_ID" | jq -er '.path')
 printf 'dirty archive safety\n' > "$DIRTY_ARCHIVE_ENV_PATH/dirty-archive.txt"
-cc thread show "$DIRTY_ARCHIVE_THREAD_ID" --work-status
+cc git status "$DIRTY_ARCHIVE_ENV_ID"
 
 cc thread archive "$DIRTY_ARCHIVE_THREAD_ID"
 
@@ -786,7 +782,7 @@ cc thread wait "$PROVIDER_WORKTREE_THREAD_ID" --status idle --timeout 120
 PROVIDER_WORKTREE_ENV_ID=$(curl -fsS "$CC_SERVER_URL/api/v1/threads/$PROVIDER_WORKTREE_THREAD_ID" | jq -r '.environmentId')
 
 cc thread output "$PROVIDER_WORKTREE_THREAD_ID"
-curl -fsS "$CC_SERVER_URL/api/v1/environments/$PROVIDER_WORKTREE_ENV_ID/status" | jq
+cc git status "$PROVIDER_WORKTREE_ENV_ID" --json | jq
 ```
 
 Run a pending-interaction pass with permission-restricted turns:

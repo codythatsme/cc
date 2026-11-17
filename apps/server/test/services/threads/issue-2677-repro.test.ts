@@ -5,9 +5,13 @@ import {
   groupHostDaemonEvents,
   type HostDaemonEventEnvelope,
 } from "@cc/host-daemon-contract";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { queueChildThreadTurnNotificationBestEffort } from "../../../src/services/threads/child-thread-notifications.js";
 import { sendThreadMessage } from "../../../src/services/threads/thread-send.js";
+import {
+  withChildThreadNotificationClock,
+  flushChildThreadNotifications,
+} from "../../helpers/child-thread-notification-clock.js";
 import {
   internalAuthHeaders,
   reportQueuedCommandError,
@@ -21,10 +25,7 @@ import {
   seedThread,
   seedThreadRuntimeState,
 } from "../../helpers/seed.js";
-import {
-  withTestHarness,
-  type TestAppHarness,
-} from "../../helpers/test-app.js";
+import type { TestAppHarness } from "../../helpers/test-app.js";
 
 interface FamilyFixture {
   child: ReturnType<typeof seedThread>;
@@ -112,9 +113,10 @@ function parentSystemMessageKinds(
 
 describe("child outcome reconciliation", () => {
   it("does not report a failed outcome after a later accepted turn becomes active", async () => {
-    await withTestHarness(async (harness) => {
+    await withChildThreadNotificationClock(async (harness) => {
       const fixture = seedFamily(harness, "late-acceptance");
       await sendThreadMessage(harness.deps, {
+        originPluginId: null,
         environment: fixture.environment,
         payload: {
           input: textInput("continue"),
@@ -171,7 +173,7 @@ describe("child outcome reconciliation", () => {
       expect(response.status).toBe(200);
       expect(getThread(harness.db, fixture.child.id)?.status).toBe("active");
 
-      await new Promise((resolve) => setTimeout(resolve, 2_100));
+      await flushChildThreadNotifications(harness);
 
       expect(getThread(harness.db, fixture.child.id)?.status).toBe("active");
       expect(parentSystemMessageKinds(harness, fixture.parent.id)).toEqual([]);
@@ -179,17 +181,24 @@ describe("child outcome reconciliation", () => {
   });
 
   it("keeps one outcome when the same child is queued twice", async () => {
-    await withTestHarness(async (harness) => {
+    await withChildThreadNotificationClock(async (harness) => {
       const fixture = seedFamily(harness, "duplicate");
       for (let index = 0; index < 2; index += 1) {
         await queueChildThreadTurnNotificationBestEffort(harness.deps, {
           childThread: fixture.child,
           parentThreadId: fixture.parent.id,
           turnStatus: "failed",
+          turnId: null,
         });
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 2_100));
+      await flushChildThreadNotifications(harness);
+      await vi.waitFor(() => {
+        expect(parentSystemMessageKinds(harness, fixture.parent.id)).toEqual([
+          "child-failed",
+        ]);
+      });
+      await flushChildThreadNotifications(harness);
 
       expect(parentSystemMessageKinds(harness, fixture.parent.id)).toEqual([
         "child-failed",

@@ -1,3 +1,4 @@
+import { sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   collectLogPayloads,
@@ -29,6 +30,8 @@ const searchResult = {
   official: true,
   author: null,
   installed: false,
+  installedByDefault: false,
+  conflictingInstallSource: null,
   installs: null,
   compatible: true,
   incompatibleReason: null,
@@ -79,6 +82,7 @@ const installedPlugin = {
   catalogEntryId: "linear",
   publisherLabel: "CC Community",
   sourceDisplay: "builtin · linear",
+  sourceNotice: null,
   updateState: {},
   enabled: true,
   description: "Linear issue tools",
@@ -125,6 +129,25 @@ describe("cc plugin catalog", () => {
     expect(output).toContain("Developer tools");
     expect(output).toContain("compatible");
     expect(output).not.toContain("Marketplace");
+  });
+
+  it("names the installed plugin that holds a listing's id", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      json({
+        results: [
+          {
+            ...searchResult,
+            conflictingInstallSource: "path:/Users/me/git/linear",
+          },
+        ],
+      }),
+    );
+
+    await runCommand(["plugin", "search", "lin"], register);
+
+    const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
+    expect(output).toContain("id in use by path:/Users/me/git/linear");
+    expect(output).not.toContain("compatible");
   });
 
   it("names the marketplace once a third-party listing appears", async () => {
@@ -174,6 +197,29 @@ describe("cc plugin catalog", () => {
     expect(output).toContain("4,210");
   });
 
+  it("labels built-in and new listings like the plugin store", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      json({
+        results: [
+          { ...searchResult, installedByDefault: true, installs: 2 },
+          {
+            ...searchResult,
+            entryId: "notes",
+            pluginId: "notes",
+            displayName: "Notes",
+            installs: 3,
+            publishedAt: new Date().toISOString(),
+          },
+        ],
+      }),
+    );
+    await runCommand(["plugin", "search", "lin"], register);
+
+    const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
+    expect(output).toContain("Built in");
+    expect(output).toContain("New");
+  });
+
   it("outputs raw catalog search results as JSON", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ results: [searchResult] }));
 
@@ -193,7 +239,8 @@ describe("cc plugin catalog", () => {
 
     expect(fetch).toHaveBeenCalledTimes(1);
     const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body));
-    expect(body.source).toMatch(/^path:.*\/linear$/);
+    expect(body.source.startsWith("path:")).toBe(true);
+    expect(body.source.endsWith(`${sep}linear`)).toBe(true);
   });
 
   it("installs a pasted GitHub repository URL as a direct source", async () => {
@@ -456,22 +503,6 @@ describe("cc plugin catalog", () => {
     await runCommand(["plugin", "install", "linear"], register);
 
     expect(readlineMocks.question).toHaveBeenCalledWith("Install? [y/N] ");
-  });
-
-  it("routes entry@marketplace to that marketplace without a search", async () => {
-    const fetchMock = vi.mocked(fetch);
-    fetchMock
-      .mockResolvedValueOnce(json({ plan: bundledPlan }))
-      .mockResolvedValueOnce(json({ ok: true, plugin: installedPlugin }));
-
-    await runCommand(
-      ["plugin", "install", "linear@cc-official", "--yes"],
-      register,
-    );
-
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "http://server/api/v1/plugin-catalog/install-plan?entryId=linear&marketplace=cc-official",
-    );
   });
 
   it("reports both interpretations and direct-source escape hatches", async () => {

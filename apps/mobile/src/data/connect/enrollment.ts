@@ -33,7 +33,7 @@ export function describeEnrollmentError(error: unknown): EnrollmentFailure {
           code: "invalid_code",
           title: "Code not recognized",
           message:
-            "Check the pairing code and the cc connect address. Codes come from cc Settings → Remote access or `cc connect machine-code`.",
+            "Check the pairing code and the cc connect address. Codes come from cc Settings → Mobile or `cc connect machine-code`.",
         };
       case "expired":
         return {
@@ -54,7 +54,7 @@ export function describeEnrollmentError(error: unknown): EnrollmentFailure {
           code: "machine_limit",
           title: "Device limit reached",
           message:
-            "This account already has the maximum number of paired devices (20). Revoke one you no longer use in the cc.example.invalid dashboard under Machines, then pair again.",
+            "This account already has the maximum number of paired devices. Revoke one you no longer use in the cc.example.invalid dashboard, then pair again.",
         };
       case "network":
         return {
@@ -103,11 +103,16 @@ export interface RedeemedEnrollment {
 }
 
 export async function redeemEnrollment(
-  args: { apexUrl: string; code: string; label?: string },
+  args: { apexUrl: string; code: string; deviceName: string; label?: string },
   fetchImpl: typeof fetch = globalThis.fetch,
 ): Promise<RedeemedEnrollment> {
   const credential = await redeemMachineCredential(
-    { apexUrl: args.apexUrl, code: args.code },
+    {
+      apexUrl: args.apexUrl,
+      code: args.code,
+      deviceName: args.deviceName,
+      kind: "mobile",
+    },
     fetchImpl,
   );
   const label = (args.label?.trim() || credential.handle).slice(

@@ -1,6 +1,9 @@
+import { createCoreComposerActions } from "@/lib/plugin-composer-handle";
+import { requestComposerFocus } from "@/lib/composer-focus-requests";
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -101,14 +104,21 @@ export function ShowcaseHeroCarousel({
     return () => document.removeEventListener("visibilitychange", update);
   }, []);
 
+  const composerActions = useMemo(
+    () =>
+      createCoreComposerActions({
+        ...promptDraft,
+        focus: () => requestComposerFocus(promptDraft.storageKey),
+      }),
+    [promptDraft],
+  );
   const composingRef = useRef(false);
   const setSeedAndNotify = useCallback(
     (seed: string | null, options?: { replaceDraft?: boolean }) => {
       if (seed !== null && options?.replaceDraft === true) {
-        promptDraft.setDraft({
+        composerActions.replace({
           text: seed,
           mentions: [],
-          attachments: promptDraft.getCurrent().attachments,
         });
       }
       const willCompose = seed !== null;
@@ -119,27 +129,24 @@ export function ShowcaseHeroCarousel({
       setComposerSeed(seed);
       if (seed !== null) setComposerKey((current) => current + 1);
     },
-    [onComposingChange, promptDraft],
+    [onComposingChange, composerActions],
   );
 
   const handledRequestNonce = useRef<number | null>(null);
-  useEffect(() => {
-    if (composerDisabled) return;
-    if (
-      openRequest === null ||
-      openRequest.nonce === handledRequestNonce.current
-    ) {
+  const applyOpenRequest = useEffectEvent((request: typeof openRequest) => {
+    if (request === null || request.nonce === handledRequestNonce.current) {
       return;
     }
-    handledRequestNonce.current = openRequest.nonce;
-    // oxlint-disable-next-line react/set-state-in-effect
+    handledRequestNonce.current = request.nonce;
     setSeedAndNotify(
-      openRequest.close === true
-        ? null
-        : (openRequest.seed ?? composer.promptPrefix),
-      { replaceDraft: !openRequest.close && openRequest.seed !== undefined },
+      request.close === true ? null : (request.seed ?? composer.promptPrefix),
+      { replaceDraft: !request.close && request.seed !== undefined },
     );
-  }, [composer.promptPrefix, composerDisabled, openRequest, setSeedAndNotify]);
+  });
+  useEffect(() => {
+    if (composerDisabled) return;
+    applyOpenRequest(openRequest);
+  }, [composerDisabled, openRequest]);
 
   useEffect(() => {
     if (paused) return;
@@ -301,7 +308,7 @@ export function ShowcaseHeroCarousel({
                     executionInputSources: request.executionInputSources,
                     environment: request.environment,
                   });
-                  navigate(
+                  void navigate(
                     getThreadRoutePath({
                       projectId: thread.projectId ?? request.projectId,
                       threadId: thread.id,

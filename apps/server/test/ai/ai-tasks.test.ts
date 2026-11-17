@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createAiServiceRegistry } from "../../src/services/ai/ai-service-registry.js";
 import {
   isAiTaskAvailable,
+  runAiTask,
   runTextAiTask,
 } from "../../src/services/ai/ai-tasks.js";
 import { registerFakeAiService } from "../helpers/ai-services.js";
@@ -11,33 +12,6 @@ import { withTestHarness } from "../helpers/test-app.js";
 const PROMPT = "Write a title for: fix the flaky login test";
 
 describe("AI task routing", () => {
-  it("walks the builtin Automatic chain in order and takes the first answer", async () => {
-    await withTestHarness({}, async (harness) => {
-      const cloud = registerFakeAiService(harness.deps.aiServices, {
-        id: "cc",
-        pluginId: "cc-ai",
-        builtin: true,
-        complete: async () => "Cloud title",
-      });
-      const codex = registerFakeAiService(harness.deps.aiServices, {
-        id: "codex",
-        pluginId: "provider-codex",
-        builtin: true,
-        complete: async () => "Codex title",
-      });
-
-      const outcome = await runTextAiTask(harness.deps, {
-        task: "thread-title",
-        label: "test",
-        prompt: PROMPT,
-      });
-
-      expect(outcome).toMatchObject({ ok: true, value: "Codex title" });
-      expect(codex.completeCalls.map((call) => call.prompt)).toEqual([PROMPT]);
-      expect(cloud.completeCalls).toEqual([]);
-    });
-  });
-
   it("moves to the next Automatic service when one rejects or is not ready", async () => {
     await withTestHarness({}, async (harness) => {
       const codex = registerFakeAiService(harness.deps.aiServices, {
@@ -67,8 +41,8 @@ describe("AI task routing", () => {
       expect(codex.completeCalls).toEqual([]);
       expect(failed).toMatchObject({
         ok: false,
-        reason: "failed",
-        message: "Fake AI: upstream down",
+        reason: "unavailable",
+        message: "Fake AI: Sign in to Codex",
       });
     });
   });
@@ -168,29 +142,68 @@ describe("AI task routing", () => {
     });
   });
 
-  it("never sends Automatic traffic to a third-party plugin", async () => {
-    await withTestHarness({}, async (harness) => {
-      const impostor = registerFakeAiService(harness.deps.aiServices, {
-        id: "codex",
-        pluginId: "provider-codex",
-        builtin: false,
+  it.each(["thread-title", "commit-message", "voice"] as const)(
+    "falls back by plugin and service id for %s regardless of registration order",
+    async (task) => {
+      await withTestHarness({}, async (harness) => {
+        const calls: string[] = [];
+        const registrations = [
+          { pluginId: "z-plugin", id: "helper", ready: true, reply: "Unused" },
+          {
+            pluginId: "a-plugin",
+            id: "z-service",
+            ready: true,
+            reply: "Third-party reply",
+          },
+          { pluginId: "a-plugin", id: "a-service", ready: true, reply: null },
+          { pluginId: "0-plugin", id: "helper", ready: false, reply: "Unused" },
+          { pluginId: "cc-ai", id: "cc", ready: true, reply: null },
+        ];
+        for (const registration of registrations) {
+          const answer = async () => {
+            calls.push(`${registration.pluginId}/${registration.id}`);
+            if (registration.reply === null) throw new Error("upstream down");
+            return registration.reply;
+          };
+          registerFakeAiService(harness.deps.aiServices, {
+            ...registration,
+            builtin: registration.pluginId === "cc-ai",
+            complete: answer,
+            transcribe: answer,
+            status: async () =>
+              registration.ready
+                ? { ready: true }
+                : { ready: false, message: "Sign in" },
+          });
+        }
+        const incompatible = registerFakeAiService(harness.deps.aiServices, {
+          pluginId: "00-plugin",
+          complete: task === "voice" ? async () => "Unused" : null,
+          transcribe: task === "voice" ? null : async () => "Unused",
+        });
+        const outcome = await runAiTask(harness.deps, {
+          task,
+          label: "test",
+          call: (service, signal) =>
+            task === "voice"
+              ? service.transcribe!(new File(["audio"], "voice.webm"), {
+                  signal,
+                  hint: null,
+                })
+              : service.complete!(PROMPT, { signal }),
+          accept: (value) => value,
+        });
+        expect(outcome).toMatchObject({ ok: true, value: "Third-party reply" });
+        expect(calls).toEqual([
+          "cc-ai/cc",
+          "a-plugin/a-service",
+          "a-plugin/z-service",
+        ]);
+        expect(incompatible.completeCalls).toEqual([]);
+        expect(incompatible.transcribeCalls).toEqual([]);
       });
-      const other = registerFakeAiService(harness.deps.aiServices, {
-        id: "my-openrouter",
-        pluginId: "my-openrouter",
-      });
-
-      const outcome = await runTextAiTask(harness.deps, {
-        task: "thread-title",
-        label: "test",
-        prompt: PROMPT,
-      });
-
-      expect(outcome).toMatchObject({ ok: false, reason: "unavailable" });
-      expect(impostor.completeCalls).toEqual([]);
-      expect(other.completeCalls).toEqual([]);
-    });
-  });
+    },
+  );
 
   it("uses only an explicitly selected service and never falls through", async () => {
     await withTestHarness({}, async (harness) => {
@@ -201,14 +214,14 @@ describe("AI task routing", () => {
       });
       const mine = registerFakeAiService(harness.deps.aiServices, {
         id: "my-openrouter",
-        pluginId: "my-openrouter",
+        pluginId: "z-openrouter",
         complete: async () => {
           throw new Error("bad key");
         },
       });
       setAiServiceSelection(harness.deps.db, "commit-message", {
         mode: "service",
-        pluginId: "my-openrouter",
+        pluginId: "z-openrouter",
         serviceId: "my-openrouter",
       });
 

@@ -1,3 +1,4 @@
+export const CC_DESKTOP_FOCUS_WINDOW_CHANNEL = "cc-desktop:focus-window";
 export const CC_DESKTOP_OPEN_NEW_TAB_CHANNEL = "cc-desktop:open-new-tab";
 export const CC_DESKTOP_APP_COMMAND_CHANNEL = "cc-desktop:app-command";
 export const CC_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL =
@@ -15,5 +16,16 @@ export const CC_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL =
 export const CLOSE_WINDOW_REQUEST_TIMEOUT_MS = 1000;
 export const CC_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL =
   "cc-desktop:set-split-navigation-enabled";
+export const CC_DESKTOP_WRITE_CLIPBOARD_CHANNEL = "cc-desktop:write-clipboard";
 export const CC_DESKTOP_OPEN_WINDOW_FIND_CHANNEL =
   "cc-desktop:open-window-find";
+export const CC_DESKTOP_RELOAD_WINDOW_CHANNEL = "cc-desktop:reload-window";
+
+export const CC_DESKTOP_GET_SERVER_CHOICES_CHANNEL =
+  "cc-desktop:get-server-choices";
+export const CC_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL =
+  "cc-desktop:server-choices-changed";
+export const CC_DESKTOP_SELECT_SERVER_CHANNEL = "cc-desktop:select-server";
+
+export const CC_DESKTOP_SET_ATTENTION_THREADS_CHANNEL =
+  "cc-desktop:set-attention-threads";

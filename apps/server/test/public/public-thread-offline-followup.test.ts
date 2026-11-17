@@ -1,4 +1,4 @@
-import { listEvents, listQueuedThreadMessages } from "@cc/db";
+import { listQueuedThreadMessages } from "@cc/db";
 import { queuedMessageWaitingOnSchema } from "@cc/domain";
 import { sendMessageResponseSchema } from "@cc/server-contract";
 import { describe, expect, it } from "vitest";
@@ -23,6 +23,7 @@ import {
   seedTurnStarted,
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
+import { listEvents } from "@cc/db/testing";
 
 describe("offline host follow-ups", () => {
   it("queues a follow-up for a host whose socket just dropped", async () => {

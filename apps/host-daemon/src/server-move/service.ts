@@ -1,7 +1,11 @@
+import {
+  hostToolchain,
+  sanitizeInheritedChildProcessEnv,
+} from "@cc/process-utils";
 import { timingSafeEqual } from "node:crypto";
 import { mkdir, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
-import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { readCcAppRuntimeFile } from "@cc/config/app-runtime-file";
 import { resolveCodexHome } from "@cc/config/codex-home";
@@ -13,7 +17,6 @@ import type {
   HostPlatform,
   ServerMoveProgressMessage,
 } from "@cc/host-daemon-contract";
-import { sanitizeInheritedChildProcessEnv } from "@cc/process-utils";
 import {
   archiveExistingServerData,
   discardImportBackups,
@@ -160,6 +163,7 @@ export interface ServerMoveServiceOptions {
   serverHeaders: Record<string, string>;
   hostDaemonPort: number | null;
   autoUpdate: boolean;
+  supervised: boolean;
   env: NodeJS.ProcessEnv;
   platform: HostPlatform;
   uid: number;
@@ -328,7 +332,6 @@ export class ServerMoveService {
     const [
       serverEntry,
       ccAppVersion,
-      serviceDefinition,
       dataDirHasDatabase,
       oldServerCopyPending,
       importBackupPresent,
@@ -343,7 +346,6 @@ export class ServerMoveService {
         env: this.options.env,
         packageRoot: resolvePackagedCcAppRoot(this.options.daemonEntryPath),
       }),
-      this.findServiceDefinition(),
       this.dataDirHasDatabase(),
       this.oldServerCopyPending(),
       pathExists(join(dataDir, SERVER_IMPORT_BACKUP_DIR_NAME)),
@@ -371,7 +373,6 @@ export class ServerMoveService {
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || null,
       ccAppVersion,
       serverEntryAvailable: serverEntry !== null,
-      serviceManager: serviceDefinition?.manager ?? "none",
       existingServerData:
         standaloneDatabaseSize === null
           ? null
@@ -1094,14 +1095,10 @@ export class ServerMoveService {
     const sanitized = sanitizeInheritedChildProcessEnv({
       env: this.options.env,
     });
-    const executableDirectory = dirname(process.execPath);
     const npmPrefix = this.options.env.CC_APP_NPM_PREFIX;
     return {
       ...sanitized,
-      PATH:
-        sanitized.PATH === undefined
-          ? executableDirectory
-          : `${executableDirectory}${delimiter}${sanitized.PATH}`,
+      PATH: hostToolchain.environment(sanitized).PATH,
       CC_DATA_DIR: this.options.dataDir,
       ...(npmPrefix === undefined ? {} : { CC_APP_NPM_PREFIX: npmPrefix }),
       ...(forcesNoServiceManager(this.options.env)
@@ -1623,6 +1620,7 @@ export class ServerMoveService {
       launcherEntry,
       "host-daemon",
       ...(this.options.autoUpdate ? ["--auto-update"] : []),
+      ...(this.options.supervised ? ["--supervise"] : []),
       ...(this.options.hostDaemonPort === null
         ? []
         : ["--host-daemon-port", String(this.options.hostDaemonPort)]),

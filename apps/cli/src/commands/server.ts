@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { createWriteStream, existsSync } from "node:fs";
-import { rename, rm, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { open, rename, rm, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Command } from "commander";
@@ -137,11 +137,20 @@ async function writeExportFile(args: {
       await reader.cancel().catch(() => undefined);
     }
   }
+  const file = await open(tempPath, "wx", 0o600).catch(async (error) => {
+    await args.body.cancel().catch(() => undefined);
+    throw error;
+  });
   try {
-    await pipeline(
-      chunks,
-      createWriteStream(tempPath, { flags: "wx", mode: 0o600 }),
+    const destination = file.createWriteStream();
+    const closed = new Promise<void>((resolve) =>
+      destination.once("close", resolve),
     );
+    try {
+      await pipeline(chunks, destination);
+    } finally {
+      await closed;
+    }
     if (hash.digest("hex") !== args.expectedSha256) {
       throw new Error(
         `The downloaded export does not match the SHA-256 digest the server sent, so ${outPath} was not written. Try the export again.`,
@@ -149,6 +158,7 @@ async function writeExportFile(args: {
     }
     await rename(tempPath, outPath);
   } catch (error) {
+    await file.close();
     await rm(tempPath, { force: true });
     throw error;
   }
@@ -545,7 +555,7 @@ export function registerServerCommands(
   server
     .command("allow-connect")
     .description(
-      "Let cc connect start from an imported server copy (does not call a server)",
+      "Let cc account and cc connect start from an imported server copy (does not call a server)",
     )
     .option(
       "--data-dir <dir>",
@@ -563,12 +573,12 @@ export function registerServerCommands(
           return;
         }
         console.error(
-          "Stop the original cc server first. Two servers holding the same cc connect credential take each other's tunnel.",
+          "Stop the original cc server first. Two servers holding the same cc account credential take each other's tunnel and spend the same hosted quota.",
         );
         if (
           !opts.yes &&
           !(await confirmDestructiveAction(
-            `Let cc connect start from the imported cc server in ${dataDir}?`,
+            `Let cc account and cc connect start from the imported cc server in ${dataDir}?`,
           ))
         ) {
           return;
@@ -576,7 +586,7 @@ export function registerServerCommands(
         const connectHoldRemoved = await removeServerConnectHoldFile(dataDir);
         if (outputJson(opts, { dataDir, connectHoldRemoved })) return;
         console.log(
-          `Removed the cc connect hold from ${dataDir}. cc connect starts the next time this server starts; restart cc if it's already running.`,
+          `Removed the cc connect hold from ${dataDir}. cc account and cc connect start the next time this server starts; restart cc if it's already running.`,
         );
       }),
     );

@@ -11,18 +11,106 @@ host: `opencode`, `omp`, `grok`, and `hermes` appear as `acp-opencode`, `acp-omp
 `cc provider list` and `cc provider models <provider-id>` using its environment
 or machine selector.
 
+Agents in the official ACP registry can be added without writing JSON.
+`cc acp registry [--refresh] [--json]` lists them with a status: `available`,
+`added`, `update available`, `built in` (cc already ships it), or
+`manual install` (the agent ships only as a downloadable binary).
+`cc acp add <agent-id>` adds the agent as provider `acp-<agent-id>`, or moves an
+added agent to the registry's current version while keeping the fields edited
+by hand. `cc acp remove <agent-id>` removes it. The plugin's settings page shows
+the same list. An added agent is an entry in the `Custom agents` setting that
+runs `npx -y <package>` or `uvx <package>` on the thread's host, so the host
+needs Node.js or uv. The list is cached for six hours; when the registry cannot
+be reached the saved copy is shown with the reason.
+
+To hide a detected ACP agent, use `cc provider disable acp-opencode`, or Disable
+on Settings → Providers. Restore it with `cc provider enable acp-opencode`.
+This leaves other ACP agents and the host CLI intact. Disabled agents skip
+background capability probing. `cc provider list --all` includes disabled agents.
+
 Cursor project skills come from `.cursor/skills`, which can link to
 `.agents/skills`. CC lists these linked skills as read-only under `cursor-project`.
 
-ACP agents may reject unlisted model IDs. OpenCode requires models in its own
-configuration; CC discovers them there. OpenCode agents are session modes, not
-models selectable through CC's model field. Grok Build advertises models and
-`thought_level` options over ACP, so the picker follows the connected agent
-(including `xhigh` on grok-4.6).
+ACP agents report their own models and may reject unlisted model IDs.
+For `acp-opencode` the list mirrors the OpenCode catalog, so add a model to
+the OpenCode config rather than cc's `customModels`:
 
-OpenCode ACP supports the core `cc thread compact` command; Cursor ACP does not
-expose compatible compaction. Check the actual agent's capabilities before
-attempting provider-specific recovery.
+```sh
+cc provider models acp-opencode --environment "$CC_ENVIRONMENT_ID"
+cc thread spawn --provider acp-opencode --model <provider/model>
+```
+
+OpenCode agents are session modes, not models selectable through CC's model
+field. OpenCode reports its primary agents as the `mode` session option. CC
+asks OpenCode for its models and modes in the directory the thread will run
+in: the project's checkout for a new thread, the environment's directory
+otherwise. Custom agents from the OpenCode config directory and from the
+project's `.opencode/` directory therefore appear in the mode menu:
+
+```sh
+cc provider models acp-opencode --project "$CC_PROJECT_ID"
+cc thread spawn --provider acp-opencode --option mode=<agent>
+```
+
+A new agent file shows up once the stored list is ten minutes old and is read
+again. The same holds for a custom agent with `dialect: "opencode"`; every
+other ACP agent is asked once per machine.
+
+cc lists only the agents OpenCode itself loads, and OpenCode does not read
+agent files from other folders such as `.agents/agents/`. To use such a folder,
+set `OPENCODE_CONFIG_DIR` as a machine variable or in a custom agent's `env`; a
+relative value is resolved in each workspace, so `.agents` lists every
+project's own `.agents/agents/*.md`:
+
+```sh
+printf '.agents' | cc machine env set OPENCODE_CONFIG_DIR
+```
+
+Every file in that folder must be a valid OpenCode agent file; OpenCode refuses
+to start on one it cannot parse, such as `tools` written as a comma-separated
+list.
+
+Grok Build advertises models and `thought_level` options over ACP, so the
+picker follows the connected agent (including `xhigh` on grok-4.6).
+
+CC launches OpenCode sessions with `OPENCODE_CLIENT=acp` and
+`OPENCODE_ENABLE_QUESTION_TOOL=false`, overriding inherited and custom launch
+values. Native questions have no ACP interaction handler in CC; agents use the
+ask-user-question plugin’s `AskUserQuestion` tool instead. This also applies to
+custom agents with `dialect: "opencode"` and does not change OpenCode config files.
+
+CC also sets `OPENCODE_PERMISSION` from the thread's permission mode, which
+OpenCode merges over the `permission` keys of its own config. In `accept-edits`
+OpenCode edits files without asking and asks before shell commands, web fetches
+and paths outside the workspace; CC shows those requests as approvals. In `full`
+all four are allowed. Changing a thread's permission mode restarts the OpenCode
+session with the new policy; the conversation is restored.
+
+OpenCode and Grok ACP support the core `cc thread compact` command; Cursor ACP
+does not expose compatible compaction. Check the actual agent's capabilities
+before attempting provider-specific recovery.
+
+Listing models reads only the reasoning choices the agent reports for its
+current model; it never switches the agent's model. Selecting an unprobed model
+starts a separate discovery session that switches to only that model, with a
+five-second timeout, then sets the session's starting model and other changed
+options, such as the reasoning level and Fast, back before closing it, including
+after a failed or timed-out probe. This matters for agents that save every model
+change as their default. Results are cached by model. While
+loading, or after failure or an unrecognized response, CC shows no reasoning
+selector. Sending never waits for discovery: when a model's catalog entry does
+not list the thread's reasoning level, CC leaves reasoning out of the request and
+the agent keeps its own setting. CLI and SDK reasoning preferences stay stored.
+Failed probes have a 30-second server retry cooldown; a probe the agent answers
+without levels is not repeated until the catalog is refreshed. Discovered levels
+survive later catalog refreshes. In `cc provider models
+<provider-id> --json`, `reasoningDiscovery: "unknown"` means CC has not
+discovered the model's levels yet; `"known"` with an empty
+`supportedReasoningEfforts` means the model has no selectable levels, not that
+it cannot reason. Use `cc provider models <provider-id> --selected-model <model-id>
+--json` (SDK: `providers.models({ providerId, selectedModel })`) to request
+the same discovery without the picker. Refresh the catalog after changing the
+agent's default model. This does not require omp's proposed `_meta.thoughtLevels` extension.
 
 OpenCode Go subscription usage is available in Provider usage when the selected
 machine has OpenCode installed and a Go subscription. Sign in to Go in OpenCode
@@ -32,14 +120,48 @@ on that machine, then refresh its OpenCode tab. Verify with
 CC reports Go's five-hour, weekly, and monthly usage and reset times, not local
 session token totals or other OpenCode providers' subscriptions.
 
-The collector checks `OPENCODE_API_KEY`, then the active official Console account
-and organization in `$XDG_DATA_HOME/opencode/opencode.db`, then
-`OPENCODE_AUTH_CONTENT` or `$XDG_DATA_HOME/opencode/auth.json`.
-The default data directory is `~/.local/share/opencode`. Account storage is read
-only; expired Console sessions must be refreshed by OpenCode. API-key login
+The collector checks `OPENCODE_API_KEY` first. For an OpenCode 2 database at
+`$XDG_DATA_HOME/opencode/opencode.db`, it then reads the `credential` table API
+key or official Console OAuth credential that OpenCode selects for each
+integration (`opencode-go` before `opencode`). Otherwise it reads the active
+official Console account and organization in that database, then
+`OPENCODE_AUTH_CONTENT` or `$XDG_DATA_HOME/opencode/auth.json`. OpenCode 2
+imports `auth.json` once when it upgrades an OpenCode 1 database and never reads
+`auth.json`, `OPENCODE_AUTH_CONTENT`, or the OpenCode 1 Console account, so the
+collector reads them only when there is no OpenCode 2 database.
+The default data directory is `~/.local/share/opencode`. Database storage is read
+only; expired Console sessions must be refreshed by OpenCode. V2 OAuth requires
+the device login method and account/organization metadata for the official
+Console server. API-key login
 prefers the `opencode-go` credential and accepts the shared `opencode` credential
 when Go is subscribed. Custom launch `env` values take precedence over the host
 environment. A custom OpenCode wrapper must declare
 `dialect: "opencode"` and `providerUsage: true` to expose its usage.
 Missing credentials, rejected keys, and collection errors remain unavailable
 states rather than zero usage. Never print API keys when diagnosing setup.
+
+## Custom ACP agents
+
+Register another ACP agent in the ACP providers plugin's `customAgents`
+setting, a JSON array:
+`cc plugin config provider-acp set customAgents '[...]'`. Agents from the
+official ACP registry are added to the same setting by `cc acp add <agent-id>`.
+The plugin re-registers its providers as soon as the setting changes; no
+restart is needed.
+
+- Required: `id` (lowercase letters, digits, and dashes; permanent),
+  `displayName`, and `command`. The provider id is `acp-<id>`. `cursor` is
+  reserved; an entry with id `opencode`, `omp`, `grok`, or `hermes-agent`
+  replaces the shipped agent.
+- Launch: `args`, `env`, and `cwd`.
+- `modelCli` for CLI model listing and selection, `reasoningCli` for
+  launch-time reasoning flags, `nativeReasoning` for ACP
+  `session/set_config_option` reasoning, and `permissionCli` for
+  permission-mode launch flags.
+- `dialect` (`cursor`, `opencode`, `omp`, or `grok`) selects the vendor side
+  channels cc reads.
+- `nativeSkillRoots` adds native skills to the composer: a `user` list resolved
+  from the target host's home directory and a `project` list resolved from the
+  workspace, each a relative path without dot segments.
+- `supportsManualCompaction` (default `false`) shows `/compact` only for agents
+  that accept an explicit compaction request.

@@ -5,7 +5,9 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
+  type KeyboardEvent,
   type RefObject,
   type ReactNode,
 } from "react";
@@ -14,6 +16,7 @@ import type {
   CcDesktopBrowserControl,
   CcDesktopBrowserFindInPageRequest,
   CcDesktopBrowserState,
+  CcDesktopBrowserTarget,
   CcDesktopBrowserViewportBounds,
   CcDesktopBrowserViewBounds,
 } from "@cc/desktop-contract";
@@ -27,6 +30,7 @@ import {
 } from "@cc/shared-ui/coarse-pointer-sizing";
 import { Icon } from "@cc/shared-ui/icon";
 import { getCcDesktopInfo, getDesktopBrowserApi } from "@/lib/cc-desktop";
+import { observeSharedResize } from "@cc/shared-ui/lib/shared-resize-observer";
 import { cn } from "@cc/shared-ui/lib/utils";
 import {
   getBrowserUrlSecurity,
@@ -43,9 +47,11 @@ import {
   BrowserFindBar,
   type BrowserFindMatches,
 } from "./BrowserFindBar";
+import { BrowserAddressInput } from "./BrowserAddressInput";
 import { BrowserNewTabScreen } from "./BrowserNewTabScreen";
 import {
   registerBrowserView,
+  takeBrowserViewRecreation,
   type BrowserViewVisibilityCoordinator,
 } from "./browserViewVisibilityCoordinator";
 import { SECONDARY_PANEL_TOP_CHROME_BACKGROUND_CLASS } from "./panelChromeClasses";
@@ -54,12 +60,17 @@ import {
   useAppCommandHandler,
   useAppCommandShortcut,
 } from "@/components/commands/AppCommandProvider";
-import type { AppShortcutPresentation } from "@/lib/app-keybindings";
+import { isMacKeyboardPlatform } from "@cc/domain";
+import {
+  browserPlatform,
+  type AppShortcutPresentation,
+} from "@/lib/app-keybindings";
 import { isLocalOnlyUrl } from "@/lib/loopback-hostname";
 import { PluginBrowserToolbarActions } from "@/components/plugin/PluginBrowserToolbarActions";
 
 interface BrowserTabContentProps {
   tabId: string;
+  desktopTarget?: CcDesktopBrowserTarget;
   existingOnly?: true;
   initialUrl: string;
   addressFocusRequest: BrowserAddressFocusRequest | null;
@@ -71,6 +82,7 @@ interface BrowserTabContentProps {
   environmentId: string | null;
   threadId: string;
   onUpdate: (args: UpdateBrowserTabArgs) => void;
+  onOpenInNewTab: ((url: string) => void) | null;
 }
 
 export interface BrowserAddressFocusRequest {
@@ -87,6 +99,7 @@ interface BrowserChromeProps {
   onAddressChange: (value: string) => void;
   onAddressFocus: () => void;
   onAddressBlur: () => void;
+  onAddressKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onBack: () => void;
   onForward: () => void;
@@ -114,6 +127,51 @@ interface BrowserViewAttachIdentity {
   environmentId: string | null;
   tabId: string;
   threadId: string;
+}
+
+interface BrowserViewAttachStore {
+  subscribe: (listener: () => void) => () => void;
+  get: () => BrowserViewAttachIdentity | null;
+  set: (identity: BrowserViewAttachIdentity) => void;
+}
+
+interface BrowserControlState {
+  tabId: string;
+  threadId: string;
+  control: CcDesktopBrowserControl | null;
+}
+
+interface AddressFocusApplication {
+  request: BrowserAddressFocusRequest;
+  currentUrl: string;
+  tabId: string;
+  isPointerCoarse: boolean;
+}
+
+interface SeenBrowserState {
+  state: CcDesktopBrowserState | null;
+}
+
+function createBrowserViewAttachStore(): BrowserViewAttachStore {
+  let identity: BrowserViewAttachIdentity | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    get() {
+      return identity;
+    },
+    set(next) {
+      identity = next;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+  };
 }
 
 interface BrowserPageLoadErrorProps {
@@ -155,6 +213,10 @@ function browserViewBoundsFromElement(
   });
 }
 
+function isPanelLayoutTransition(propertyName: string): boolean {
+  return propertyName === "flex-grow" || propertyName === "flex-basis";
+}
+
 function browserViewBoundsEqual(args: BrowserViewBoundsEqualArgs): boolean {
   return (
     args.a.x === args.b.x &&
@@ -186,6 +248,7 @@ function BrowserChrome({
   onAddressChange,
   onAddressFocus,
   onAddressBlur,
+  onAddressKeyDown,
   onSubmit,
   onBack,
   onForward,
@@ -200,8 +263,6 @@ function BrowserChrome({
   const addressValue = isEditing ? addressDraft : currentUrl;
   return (
     <div
-      data-testid="browser-tab-nav-bar"
-      data-state="expanded"
       role="region"
       aria-label="Browser navigation"
       tabIndex={-1}
@@ -211,7 +272,6 @@ function BrowserChrome({
       )}
     >
       <div
-        data-testid="browser-tab-nav-controls"
         className={cn(
           "absolute inset-x-0 top-0 flex h-11 translate-y-0 items-center gap-1 py-1.5 pl-2 pr-4 opacity-100 max-md:pointer-coarse:h-[52px]",
         )}
@@ -264,22 +324,19 @@ function BrowserChrome({
                 aria-hidden
               />
             )}
-            <input
+            <BrowserAddressInput
               ref={addressInputRef}
-              type="text"
               value={addressValue}
               onChange={(event) => onAddressChange(event.target.value)}
               onFocus={onAddressFocus}
               onBlur={onAddressBlur}
-              placeholder="Enter a URL"
+              onKeyDown={onAddressKeyDown}
               aria-label={
                 locationShortcut
                   ? `Address and search bar (${locationShortcut.label})`
                   : "Address and search bar"
               }
               aria-keyshortcuts={locationShortcut?.ariaKeyshortcuts}
-              autoComplete="off"
-              spellCheck={false}
               className={cn(
                 "min-w-0 flex-1 bg-transparent font-mono text-foreground outline-none placeholder:font-sans placeholder:text-muted-foreground",
                 COARSE_POINTER_TEXT_SM_CLASS,
@@ -383,6 +440,7 @@ function BrowserPageLoadError({
 
 export function BrowserTabContent({
   tabId,
+  desktopTarget,
   existingOnly,
   initialUrl,
   addressFocusRequest,
@@ -394,6 +452,7 @@ export function BrowserTabContent({
   environmentId,
   threadId,
   onUpdate,
+  onOpenInNewTab,
 }: BrowserTabContentProps) {
   const locationShortcut = useAppCommandShortcut("browser.focusLocation");
   const reloadShortcut = useAppCommandShortcut("browser.reload");
@@ -414,18 +473,26 @@ export function BrowserTabContent({
   } = useBrowserHistory(threadId);
 
   const [state, setState] = useState<CcDesktopBrowserState | null>(null);
-  const [control, setControl] = useState<CcDesktopBrowserControl | null>(null);
+  const [controlState, setControlState] = useState<BrowserControlState>({
+    tabId,
+    threadId,
+    control: null,
+  });
+  let control = controlState.control;
+  if (controlState.tabId !== tabId || controlState.threadId !== threadId) {
+    control = null;
+    setControlState({ tabId, threadId, control: null });
+  }
   useEffect(() => {
     let current = true;
     let receivedEvent = false;
-    setControl(null);
-    const accept = (next: {
-      tabId: string;
-      threadId: string;
-      control: CcDesktopBrowserControl | null;
-    }) => {
+    const accept = (next: BrowserControlState) => {
       if (current && next.tabId === tabId && next.threadId === threadId)
-        setControl(next.control);
+        setControlState({
+          tabId: next.tabId,
+          threadId: next.threadId,
+          control: next.control,
+        });
     };
     const unsubscribe = desktopBrowser?.onControl?.((next) => {
       if (next.tabId !== tabId || next.threadId !== threadId) return;
@@ -446,9 +513,13 @@ export function BrowserTabContent({
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
   const [addressDraft, setAddressDraft] = useState(initialUrl);
   const [isEditing, setIsEditing] = useState(false);
+  const [pageFocusRequest, setPageFocusRequest] = useState(0);
+  const handledPageFocusRequestRef = useRef(0);
   const [isFindOpen, setIsFindOpen] = useState(false);
   const isFindOpenRef = useRef(false);
-  isFindOpenRef.current = isFindOpen;
+  useLayoutEffect(() => {
+    isFindOpenRef.current = isFindOpen;
+  });
   const [findQuery, setFindQuery] = useState("");
   const [findMatches, setFindMatches] = useState<BrowserFindMatches | null>(
     null,
@@ -459,11 +530,18 @@ export function BrowserTabContent({
 
   const onUpdateRef = useRef(onUpdate);
   const recordVisitRef = useRef(recordVisit);
-  onUpdateRef.current = onUpdate;
-  recordVisitRef.current = recordVisit;
+  useLayoutEffect(() => {
+    onUpdateRef.current = onUpdate;
+    recordVisitRef.current = recordVisit;
+  });
   const initialUrlRef = useRef(initialUrl);
-  const [attachedBrowserViewIdentity, setAttachedBrowserViewIdentity] =
-    useState<BrowserViewAttachIdentity | null>(null);
+  const existingOnlyRef = useRef(existingOnly);
+  const desktopTargetRef = useRef(desktopTarget);
+  const [browserViewAttachStore] = useState(createBrowserViewAttachStore);
+  const attachedBrowserViewIdentity = useSyncExternalStore(
+    browserViewAttachStore.subscribe,
+    browserViewAttachStore.get,
+  );
   const isBrowserViewAttached =
     attachedBrowserViewIdentity !== null &&
     attachedBrowserViewIdentity.environmentId === environmentId &&
@@ -539,21 +617,26 @@ export function BrowserTabContent({
     const initialBounds = syncInitialBounds();
     const mountUrl = initialUrlRef.current;
     registerBrowserView({ environmentId, tabId, threadId });
+    const target = desktopTargetRef.current;
+    const attachExistingOnly =
+      existingOnlyRef.current === true &&
+      (target === undefined || !takeBrowserViewRecreation(tabId, target));
     desktopBrowser.attach({
       tabId,
       threadId,
-      ...(existingOnly === true ? { existingOnly } : {}),
+      ...(attachExistingOnly ? { existingOnly: true } : {}),
       url: mountUrl,
       bounds: initialBounds,
       visible: false,
     });
-    setAttachedBrowserViewIdentity({ environmentId, tabId, threadId });
+    browserViewAttachStore.set({ environmentId, tabId, threadId });
 
-    let lastSeenState: CcDesktopBrowserState | null = null;
+    const seen: SeenBrowserState = { state: null };
     const unsubscribe = desktopBrowser.onState((nextState) => {
       if (nextState.tabId !== tabId) {
         return;
       }
+      const lastSeenState = seen.state;
       if (
         lastSeenState !== null &&
         (lastSeenState.url !== nextState.url ||
@@ -561,7 +644,7 @@ export function BrowserTabContent({
       ) {
         setFindMatches(null);
       }
-      lastSeenState = nextState;
+      seen.state = nextState;
       setState(nextState);
       setCurrentUrl(nextState.url);
       onUpdateRef.current({
@@ -604,13 +687,13 @@ export function BrowserTabContent({
       visibilityCoordinator?.release(tabId);
     };
   }, [
+    browserViewAttachStore,
     desktopBrowser,
     environmentId,
     syncInitialBounds,
     visibilityCoordinator,
     tabId,
     threadId,
-    existingOnly,
   ]);
 
   useEffect(() => {
@@ -618,13 +701,10 @@ export function BrowserTabContent({
     if (element === null || desktopBrowser === null) {
       return;
     }
-    const observer = new ResizeObserver(() => {
-      syncBoundsIfChanged();
+    return observeSharedResize(element, {
+      read: () => undefined,
+      write: syncBoundsIfChanged,
     });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-    };
   }, [desktopBrowser, syncBoundsIfChanged]);
 
   useEffect(() => {
@@ -632,11 +712,27 @@ export function BrowserTabContent({
       return;
     }
 
+    const syncAfterPanelLayoutTransition = (event: TransitionEvent) => {
+      if (isPanelLayoutTransition(event.propertyName)) {
+        syncBoundsIfChanged();
+      }
+    };
+
     window.addEventListener(
       BROWSER_VIEW_BOUNDS_SYNC_EVENT,
       syncBoundsIfChanged,
     );
     window.addEventListener("resize", syncBoundsIfChanged);
+    document.addEventListener(
+      "transitionend",
+      syncAfterPanelLayoutTransition,
+      true,
+    );
+    document.addEventListener(
+      "transitioncancel",
+      syncAfterPanelLayoutTransition,
+      true,
+    );
 
     return () => {
       window.removeEventListener(
@@ -644,6 +740,16 @@ export function BrowserTabContent({
         syncBoundsIfChanged,
       );
       window.removeEventListener("resize", syncBoundsIfChanged);
+      document.removeEventListener(
+        "transitionend",
+        syncAfterPanelLayoutTransition,
+        true,
+      );
+      document.removeEventListener(
+        "transitioncancel",
+        syncAfterPanelLayoutTransition,
+        true,
+      );
     };
   }, [desktopBrowser, syncBoundsIfChanged]);
 
@@ -669,6 +775,31 @@ export function BrowserTabContent({
     visibilityCoordinator.hide(tabId);
   }, [visibilityCoordinator, tabId, isViewVisible, syncBounds]);
 
+  useLayoutEffect(() => {
+    if (pageFocusRequest === handledPageFocusRequestRef.current) return;
+    if (
+      !canShowNativeBrowserView ||
+      !canHandleBrowserCommands ||
+      hasPageLoadError ||
+      isBrowserDimmingModalOpen
+    ) {
+      handledPageFocusRequestRef.current = pageFocusRequest;
+      return;
+    }
+    if (!isViewVisible) return;
+    handledPageFocusRequestRef.current = pageFocusRequest;
+    desktopBrowser?.focus?.(tabId);
+  }, [
+    pageFocusRequest,
+    canShowNativeBrowserView,
+    canHandleBrowserCommands,
+    hasPageLoadError,
+    isBrowserDimmingModalOpen,
+    isViewVisible,
+    desktopBrowser,
+    tabId,
+  ]);
+
   useEffect(() => {
     if (desktopBrowser?.onFocus === undefined || onNativeFocus === undefined) {
       return;
@@ -677,6 +808,28 @@ export function BrowserTabContent({
       if (focusedTabId === tabId) onNativeFocus();
     });
   }, [desktopBrowser, onNativeFocus, tabId]);
+
+  const [appliedAddressFocus, setAppliedAddressFocus] =
+    useState<AddressFocusApplication | null>(null);
+  if (
+    addressFocusRequest !== null &&
+    addressFocusRequest.tabId === tabId &&
+    !isPointerCoarse &&
+    (appliedAddressFocus === null ||
+      appliedAddressFocus.request !== addressFocusRequest ||
+      appliedAddressFocus.currentUrl !== currentUrl ||
+      appliedAddressFocus.tabId !== tabId ||
+      appliedAddressFocus.isPointerCoarse !== isPointerCoarse)
+  ) {
+    setAppliedAddressFocus({
+      request: addressFocusRequest,
+      currentUrl,
+      tabId,
+      isPointerCoarse,
+    });
+    setAddressDraft(currentUrl);
+    setIsEditing(true);
+  }
 
   useEffect(() => {
     if (addressFocusRequest === null) {
@@ -690,8 +843,6 @@ export function BrowserTabContent({
       return;
     }
 
-    setAddressDraft(currentUrl);
-    setIsEditing(true);
     addressInputRef.current?.focus({ preventScroll: true });
     const frame = requestAnimationFrame(() => {
       addressInputRef.current?.focus({ preventScroll: true });
@@ -714,7 +865,9 @@ export function BrowserTabContent({
       }
       setCurrentUrl(url);
       setIsEditing(false);
+      addressInputRef.current?.blur();
       desktopBrowser?.navigate({ tabId, url });
+      setPageFocusRequest((request) => request + 1);
     },
     [desktopBrowser, tabId],
   );
@@ -725,6 +878,43 @@ export function BrowserTabContent({
       navigateToInput(addressDraft);
     },
     [addressDraft, navigateToInput],
+  );
+
+  const handleAddressKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.nativeEvent.isComposing) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        setAddressDraft(currentUrl);
+        const input = event.currentTarget;
+        window.requestAnimationFrame(() => {
+          if (document.activeElement === input) input.select();
+        });
+        return;
+      }
+      if (
+        onOpenInNewTab === null ||
+        event.key !== "Enter" ||
+        event.shiftKey ||
+        event.ctrlKey
+      ) {
+        return;
+      }
+      const isMac = isMacKeyboardPlatform(browserPlatform());
+      const opensNewTab = isMac
+        ? event.metaKey && !event.altKey
+        : event.altKey && !event.metaKey;
+      if (!opensNewTab) return;
+      event.preventDefault();
+      const url = resolveBrowserAddressInput(addressDraft);
+      if (url === null) return;
+      setAddressDraft(currentUrl);
+      setIsEditing(false);
+      addressInputRef.current?.blur();
+      onOpenInNewTab(url);
+    },
+    [addressDraft, currentUrl, onOpenInNewTab],
   );
 
   const handleAddressFocus = useCallback(() => {
@@ -820,12 +1010,18 @@ export function BrowserTabContent({
 
   useAppCommandHandler("browser.find", handleOpenFind, 100);
 
+  const [forcedFindCloseCount, setForcedFindCloseCount] = useState(0);
+  const handledForcedFindCloseCountRef = useRef(0);
+  if (isFindOpen && !canFindInPage) {
+    setIsFindOpen(false);
+    setFindMatches(null);
+    setForcedFindCloseCount((count) => count + 1);
+  }
   useEffect(() => {
-    if (isFindOpen && !canFindInPage) {
-      setIsFindOpen(false);
-      clearFind();
-    }
-  }, [canFindInPage, clearFind, isFindOpen]);
+    if (forcedFindCloseCount === handledForcedFindCloseCountRef.current) return;
+    handledForcedFindCloseCountRef.current = forcedFindCloseCount;
+    desktopBrowser?.stopFindInPage?.({ tabId, action: "clearSelection" });
+  }, [desktopBrowser, forcedFindCloseCount, tabId]);
   useAppCommandHandler(
     "browser.reload",
     () => {
@@ -857,6 +1053,7 @@ export function BrowserTabContent({
         onAddressChange={setAddressDraft}
         onAddressFocus={handleAddressFocus}
         onAddressBlur={() => setIsEditing(false)}
+        onAddressKeyDown={handleAddressKeyDown}
         onSubmit={handleAddressSubmit}
         onBack={() => {
           desktopBrowser.goBack(tabId);

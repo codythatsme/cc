@@ -1,17 +1,14 @@
+import { experimental_PluginRpcCallError } from "../rpc-contract.js";
+import {
+  rpcInvalidationTags,
+  rpcResponseTags,
+  type ContractTagDeclarations,
+} from "../internal/rpc-tags.js";
+import { deepFreezePluginMetadata, validatePluginMetadata } from "@cc/domain";
 import {
   environmentCompositionSchema,
   validateServerAccessProviderDeclaration,
   type NormalizedPluginEnvironmentComposition,
-} from "../internal/host-policy.js";
-import type { MachineBootstrapApi } from "../machine-bootstrap.js";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import Database from "better-sqlite3";
-import { CronExpressionParser } from "cron-parser";
-import { Hono } from "hono";
-import { deepFreezePluginMetadata, validatePluginMetadata } from "@cc/domain";
-import {
   adoptHttpRouteResponse,
   aiServiceAlreadyRegisteredMessage,
   pluginHookAlreadyRegisteredMessage,
@@ -32,11 +29,13 @@ import {
   normalizePluginAgentConfiguration,
   normalizeRealtimePayload,
   normalizeRpcJsonResult,
+  readPluginRpcRefusal,
   normalizeRpcRegistration,
   publishRpcMethod,
   normalizeWebSocketRouteRegistration,
   pluginCliCollisionWarning,
   providerAlreadyRegisteredMessage,
+  providerDeclarationIconRefusal,
   providerIconRefusalMessage,
   providerWithoutBridgeMessage,
   registerSettingDescriptors,
@@ -52,6 +51,13 @@ import {
   validateSettingsUpdate,
   type NormalizedPluginProviderDeclaration,
 } from "../internal/host-policy.js";
+import type { MachineBootstrapApi } from "../machine-bootstrap.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Database from "better-sqlite3";
+import { CronExpressionParser } from "cron-parser";
+import { Hono } from "hono";
 import type {
   CcPluginApi,
   PluginAgentConfiguration,
@@ -77,6 +83,8 @@ import type {
   PluginHttpHandler,
   PluginHosts,
   PluginSharedPortTunnelIdentity,
+  InternalDoNotUsePluginHostNextTunnelStatus,
+  InternalDoNotUsePluginNextTunnelConfig,
   PluginInteractionRequest,
   PluginInteractionResult,
   PluginKvStorage,
@@ -110,6 +118,8 @@ import type {
   PluginThreadEventPayloads,
   PluginUi,
   PluginRpcError,
+  ExperimentalPluginRpcCaller,
+  ExperimentalPluginRpcHandlerContext,
   StandardSchemaV1,
   JsonValue,
 } from "@codythatsme/plugin-sdk";
@@ -253,6 +263,7 @@ export interface ExperimentalFakeHostRpcCall {
   input: unknown;
   hostId: string;
   signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 /** Everything the plugin registered, exposed raw for assertions. */
@@ -320,11 +331,29 @@ export interface FakePluginRegistrations {
   aiServiceRegistrations: PluginAiServiceDeclaration[];
 }
 
+/** One handle opened through `cc.server.internal_DO_NOT_USE_openTunnelIngress`. */
+export interface InternalDoNotUseFakeTunnelIngress {
+  readonly audience: string;
+  readonly baseUrl: string;
+  /** True once the plugin closed the handle or the host disposed it. */
+  readonly closed: boolean;
+}
+
 /** Read-only state for assertions after a plugin registers or handles work. */
 export interface FakePluginInspectionState {
   readonly pluginId: string;
   /** Every `cc.log` line, in order. */
   readonly logEntries: FakeLogEntry[];
+  /**
+   * Call `listener` on every `cc.rpc.experimental_invalidate` and
+   * `experimental_invalidateAll`; returns the unsubscribe function.
+   */
+  experimental_onRpcInvalidation(listener: () => void): () => void;
+  /**
+   * The tags of every `cc.rpc.experimental_invalidate`, in order; `null`
+   * records an `experimental_invalidateAll`.
+   */
+  readonly experimental_rpcInvalidations: (readonly string[] | null)[];
   /** Every `cc.realtime.publish`, payload normalized like the wire. */
   readonly realtimeSignals: FakeRealtimeSignal[];
   /** Every `cc.status.needsConfiguration` message, in order. */
@@ -338,10 +367,21 @@ export interface FakePluginInspectionState {
   /** Recorded `cc.sdk` calls + stub control. */
   readonly sdk: FakeSdkHarness;
   readonly registrations: FakePluginRegistrations;
+  /** Every `cc.server.internal_DO_NOT_USE_openTunnelIngress` handle, in order. */
+  readonly internal_DO_NOT_USE_tunnelIngresses: readonly InternalDoNotUseFakeTunnelIngress[];
   readonly sharedPortDeclarations: Array<{
     hostId: string;
     ports: number[];
   }>;
+  /** The last `cc.hosts.internal_DO_NOT_USE_setNextTunnels` config, or null. */
+  readonly internal_DO_NOT_USE_nextTunnelConfig: InternalDoNotUsePluginNextTunnelConfig | null;
+  /**
+   * Replace what `cc.hosts.internal_DO_NOT_USE_nextTunnelStatuses` returns and call
+   * every `internal_DO_NOT_USE_onNextTunnelStatusChange` listener.
+   */
+  internal_DO_NOT_USE_setNextTunnelStatuses(
+    statuses: readonly InternalDoNotUsePluginHostNextTunnelStatus[],
+  ): void;
   /** Calls made through cc.hosts.experimental_client, after input validation. */
   readonly experimental_hostRpcCalls: readonly ExperimentalFakeHostRpcCall[];
   readonly pendingInteractions: readonly (PluginInteractionRequest & {
@@ -371,9 +411,31 @@ export interface FakePluginBehaviorDrivers {
   /**
    * Invoke a registered rpc method with host semantics: input/output schemas,
    * strict JSON result normalization, and structured failure codes. Rejects
-   * with the same message/code/issues the frontend client surfaces.
+   * with the same message/code/issues the frontend client surfaces. The
+   * handler sees `options.experimental_caller` as its caller, `{ kind:
+   * "client" }` by default; pass `{ kind: "plugin", pluginId }` to act as
+   * another plugin calling through `cc.sdk.plugins.callRpc`. The handler's
+   * `experimental_signal` aborts when `options.signal` aborts or the fake
+   * host is disposed.
    */
-  callRpc(method: string, input?: unknown): Promise<unknown>;
+  callRpc(
+    method: string,
+    input?: unknown,
+    options?: {
+      experimental_caller?: ExperimentalPluginRpcCaller;
+      signal?: AbortSignal;
+    },
+  ): Promise<unknown>;
+  /**
+   * Start a client watch of one read, as the first client of a watched read
+   * does: runs the method's `experimental_whileWatched` producer. The returned
+   * function ends the watch and aborts the producer's signal; disposing the
+   * plugin aborts every watch still running.
+   */
+  experimental_watchRpc(
+    method: string,
+    read: { input: JsonValue } | { key: string },
+  ): () => void;
   /**
    * Invoke the plugin's CLI command with host semantics: the result's
    * exitCode must be a number, stdout/stderr default to "", and a throwing
@@ -588,10 +650,14 @@ function jsonRoundTrip(value: unknown, what: string): unknown {
 }
 
 interface FakeRpcRecord {
+  declarations: ContractTagDeclarations<unknown, unknown>;
   publication: ReturnType<typeof publishRpcMethod>;
   inputSchema: StandardSchemaV1;
   outputSchema: StandardSchemaV1;
-  handler: (input: never) => unknown;
+  handler: (
+    input: never,
+    context: ExperimentalPluginRpcHandlerContext,
+  ) => unknown;
 }
 
 type FakeHostWorkerExitSubscription = (event: {
@@ -608,10 +674,7 @@ interface FakeHostSignalSubscription {
 }
 
 function throwRpcError(error: PluginRpcError): never {
-  const thrown = new Error(error.message);
-  Reflect.set(thrown, "code", error.code);
-  if (error.issues !== undefined) Reflect.set(thrown, "issues", error.issues);
-  throw thrown;
+  throw new experimental_PluginRpcCallError(error);
 }
 
 interface FakePluginPersistentState {
@@ -619,6 +682,8 @@ interface FakePluginPersistentState {
   storageRoot: string;
   storedSettings: Map<string, PluginSettingValue>;
 }
+
+const FAKE_TUNNEL_INGRESS_FIRST_PORT = 41_000;
 
 const fakeHostDisposers = new WeakMap<
   FakePluginHarness,
@@ -719,6 +784,8 @@ function createFakePluginHostInternal(
       assertLive();
       if (!databaseHandle?.open) {
         databaseHandle = new Database(join(storageRoot, "data.db"));
+        databaseHandle.pragma("auto_vacuum = INCREMENTAL");
+        databaseHandle.pragma("journal_mode = WAL");
         databaseHandle.pragma("busy_timeout = 5000");
       }
       return databaseHandle;
@@ -841,7 +908,30 @@ function createFakePluginHostInternal(
 
   // --- rpc ---
   const rpcHandlers = new Map<string, FakeRpcRecord>();
+  const rpcInvalidations: (readonly string[] | null)[] = [];
+  const invalidationListeners = new Set<() => void>();
+  const watchProducers = new Map<
+    string,
+    Parameters<PluginRpc["experimental_whileWatched"]>[1]
+  >();
+  const activeWatches = new Set<AbortController>();
   const rpc: PluginRpc = {
+    experimental_whileWatched(method, handler) {
+      assertLive();
+      if (!rpcHandlers.has(method))
+        throw new Error(`Unknown RPC method: ${method}`);
+      watchProducers.set(method, handler);
+    },
+    experimental_invalidate(tags) {
+      assertLive();
+      for (const listener of invalidationListeners) listener();
+      rpcInvalidations.push(rpcInvalidationTags.parse(tags));
+    },
+    experimental_invalidateAll() {
+      assertLive();
+      for (const listener of invalidationListeners) listener();
+      rpcInvalidations.push(null);
+    },
     register(contract, handlers, registrationOptions) {
       assertLive();
       for (const [name, record] of normalizeRpcRegistration(
@@ -946,12 +1036,13 @@ function createFakePluginHostInternal(
     // The same refusals production makes at the register call, in its
     // order: the icon against the manifest's declared icons, then the
     // bridge the declaration runs on, then the id.
-    const iconProblem =
-      normalized.icon === undefined
-        ? null
-        : undeclaredIconProblem(pluginId, declaredIconNames, normalized.icon);
-    if (iconProblem !== null) {
-      throw new Error(providerIconRefusalMessage(normalized.id, iconProblem));
+    const iconRefusal = providerDeclarationIconRefusal(
+      pluginId,
+      declaredIconNames,
+      normalized,
+    );
+    if (iconRefusal !== null) {
+      throw new Error(iconRefusal);
     }
     if (options.experimental_hostEntry === false) {
       throw new Error(providerWithoutBridgeMessage(normalized.id));
@@ -1102,7 +1193,39 @@ function createFakePluginHostInternal(
       assertLive();
       return dataDir;
     },
+    async internal_DO_NOT_USE_openTunnelIngress(ingressOptions) {
+      assertLive();
+      const audience: unknown = ingressOptions?.audience;
+      if (typeof audience !== "string" || audience.length === 0) {
+        throw new Error(
+          "cc.server.internal_DO_NOT_USE_openTunnelIngress needs a non-empty audience",
+        );
+      }
+      const shared = tunnelIngresses.find(
+        (entry) => entry.audience === audience && !entry.closed,
+      );
+      const entry = {
+        audience,
+        baseUrl:
+          shared?.baseUrl ??
+          `http://127.0.0.1:${FAKE_TUNNEL_INGRESS_FIRST_PORT + tunnelIngresses.length}`,
+        closed: false,
+      };
+      tunnelIngresses.push(entry);
+      const close = async (): Promise<void> => {
+        entry.closed = true;
+        const index = disposeHooks.indexOf(close);
+        if (index !== -1) disposeHooks.splice(index, 1);
+      };
+      disposeHooks.push(close);
+      return { baseUrl: entry.baseUrl, close };
+    },
   };
+  const tunnelIngresses: Array<{
+    audience: string;
+    baseUrl: string;
+    closed: boolean;
+  }> = [];
 
   // --- sdk ---
   const { sdk, harness: sdkHarness } = createFakeSdk({
@@ -1115,8 +1238,11 @@ function createFakePluginHostInternal(
     [E in PluginThreadEventName]: Array<PluginThreadEventHandler<E>>;
   } = {
     "experimental_thread.events": [],
+    "experimental_thread.parentChanged": [],
+    "experimental_thread.read": [],
     "experimental_terminal.input": [],
     "experimental_host.deleted": [],
+    "experimental_environment.removed": [],
     "thread.created": [],
     "thread.active": [],
     "thread.idle": [],
@@ -1205,6 +1331,9 @@ function createFakePluginHostInternal(
 
   const sharedPortDeclarations: FakePluginHarness["sharedPortDeclarations"] =
     [];
+  let nextTunnelConfig: InternalDoNotUsePluginNextTunnelConfig | null = null;
+  let nextTunnelStatuses: InternalDoNotUsePluginHostNextTunnelStatus[] = [];
+  const nextTunnelListeners = new Set<() => void>();
   const hostRpcCalls: ExperimentalFakeHostRpcCall[] = [];
   const hostWorkerExitSubscriptions: FakeHostWorkerExitSubscription[] = [];
   const hostSignalSubscriptions: FakeHostSignalSubscription[] = [];
@@ -1248,6 +1377,9 @@ function createFakePluginHostInternal(
             ...(callOptions.signal === undefined
               ? {}
               : { signal: callOptions.signal }),
+            ...(callOptions.timeoutMs === undefined
+              ? {}
+              : { timeoutMs: callOptions.timeoutMs }),
           };
           hostRpcCalls.push(call);
           if (options.experimental_callHostRpc === undefined) {
@@ -1349,9 +1481,29 @@ function createFakePluginHostInternal(
         sharedPortDeclarations[existingIndex] = replacement;
       }
     },
+    internal_DO_NOT_USE_setNextTunnels(config) {
+      assertLive();
+      nextTunnelConfig =
+        config === null
+          ? null
+          : { domain: config.domain, server: { ...config.server } };
+    },
+    internal_DO_NOT_USE_nextTunnelStatuses() {
+      assertLive();
+      return structuredClone(nextTunnelStatuses);
+    },
+    internal_DO_NOT_USE_onNextTunnelStatusChange(listener) {
+      assertLive();
+      nextTunnelListeners.add(listener);
+      return () => {
+        nextTunnelListeners.delete(listener);
+      };
+    },
   };
   disposeHooks.push(() => {
     sharedPortDeclarations.length = 0;
+    nextTunnelConfig = null;
+    nextTunnelListeners.clear();
   });
 
   const events: PluginEvents = {
@@ -1485,6 +1637,9 @@ function createFakePluginHostInternal(
   };
 
   const cc: CcPluginApi = {
+    internal_DO_NOT_USE_recordPluginUse() {
+      assertLive();
+    },
     pluginId,
     log,
     settings,
@@ -1537,9 +1692,11 @@ function createFakePluginHostInternal(
     },
   };
 
+  const hostLifetime = new AbortController();
   async function disposeHost(cleanupStorage: boolean): Promise<void> {
     if (disposed) return;
     disposed = true;
+    hostLifetime.abort();
     for (const [id, pending] of pendingInteractions) {
       clearTimeout(pending.timer);
       pendingInteractions.delete(id);
@@ -1551,6 +1708,8 @@ function createFakePluginHostInternal(
     // Host order (§3): services first, then hooks LIFO (isolated), then
     // vended database handles, then handle invalidation.
     for (const controller of serviceControllers) controller.abort();
+    for (const controller of activeWatches) controller.abort();
+    activeWatches.clear();
     for (const hook of [...disposeHooks].reverse()) {
       try {
         await hook();
@@ -1585,12 +1744,27 @@ function createFakePluginHostInternal(
     },
     pluginId,
     logEntries,
+    experimental_onRpcInvalidation(listener) {
+      invalidationListeners.add(listener);
+      return () => {
+        invalidationListeners.delete(listener);
+      };
+    },
+    experimental_rpcInvalidations: rpcInvalidations,
     realtimeSignals,
     needsConfigurationMessages,
     get recheckCount() {
       return requestedDrains;
     },
+    internal_DO_NOT_USE_tunnelIngresses: tunnelIngresses,
     sharedPortDeclarations,
+    get internal_DO_NOT_USE_nextTunnelConfig() {
+      return nextTunnelConfig;
+    },
+    internal_DO_NOT_USE_setNextTunnelStatuses(statuses) {
+      nextTunnelStatuses = structuredClone([...statuses]);
+      for (const listener of [...nextTunnelListeners]) listener();
+    },
     experimental_hostRpcCalls: hostRpcCalls,
     sdk: sdkHarness,
     registrations: {
@@ -1621,8 +1795,14 @@ function createFakePluginHostInternal(
         return {
           "experimental_thread.events":
             threadEventHandlers["experimental_thread.events"].length,
+          "experimental_thread.parentChanged":
+            threadEventHandlers["experimental_thread.parentChanged"].length,
+          "experimental_thread.read":
+            threadEventHandlers["experimental_thread.read"].length,
           "experimental_terminal.input":
             threadEventHandlers["experimental_terminal.input"].length,
+          "experimental_environment.removed":
+            threadEventHandlers["experimental_environment.removed"].length,
           "experimental_host.deleted":
             threadEventHandlers["experimental_host.deleted"].length,
           "thread.created": threadEventHandlers["thread.created"].length,
@@ -1760,7 +1940,21 @@ function createFakePluginHostInternal(
       await setSettingsValues(values);
     },
 
-    async callRpc(method, input) {
+    experimental_watchRpc(method, read) {
+      const producer = watchProducers.get(method);
+      if (producer === undefined) {
+        throw new Error(`rpc method "${method}" has no watch producer`);
+      }
+      const controller = new AbortController();
+      activeWatches.add(controller);
+      void producer(read, controller.signal);
+      return () => {
+        activeWatches.delete(controller);
+        controller.abort();
+      };
+    },
+
+    async callRpc(method, input, options = {}) {
       const record = rpcHandlers.get(method);
       if (!record) {
         return throwRpcError({
@@ -1780,8 +1974,18 @@ function createFakePluginHostInternal(
       );
       let result: unknown;
       try {
-        result = await record.handler(validatedInput as never);
+        result = await record.handler(validatedInput as never, {
+          experimental_caller: options.experimental_caller ?? {
+            kind: "client",
+          },
+          experimental_signal:
+            options.signal === undefined
+              ? hostLifetime.signal
+              : AbortSignal.any([options.signal, hostLifetime.signal]),
+        });
       } catch (error) {
+        const refusal = readPluginRpcRefusal(error);
+        if (refusal !== null) return throwRpcError(refusal);
         return throwRpcError({
           code: "handler_error",
           message: errorMessage(error),
@@ -1793,7 +1997,14 @@ function createFakePluginHostInternal(
         "output",
         throwRpcError,
       );
-      return normalizeRpcJsonResult(validatedOutput, throwRpcError);
+      const jsonResult = normalizeRpcJsonResult(validatedOutput, throwRpcError);
+      const { invalidated } = rpcResponseTags(
+        record.declarations,
+        validatedInput,
+        validatedOutput,
+      );
+      if (invalidated.length > 0) rpc.experimental_invalidate(invalidated);
+      return jsonResult;
     },
 
     async runCli(argv, ctx = {}) {

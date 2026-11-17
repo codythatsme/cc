@@ -1,4 +1,12 @@
+import { appQueryClient } from "./lib/app-query-client";
+import { environmentProvidersQueryOptions } from "./hooks/queries/environment-provider-queries";
+import { machineProvidersQueryOptions } from "./hooks/queries/machine-provider-queries";
+import { PluginUpdateJobsHost } from "./components/plugin/PluginUpdateJobsHost";
+import { LazyThreadDetailView } from "./views/thread-detail/LazyThreadDetailView";
+import { LazyRootComposeView } from "./views/LazyRootComposeView";
+import { useRouteState } from "./hooks/useRouteState";
 import { lazy, Suspense, useEffect } from "react";
+import { parseMessageLink } from "@cc/client-core";
 import {
   matchPath,
   Navigate,
@@ -16,10 +24,12 @@ import { AppNavigationUrlHost } from "./lib/url-open-routing";
 import { NativeShellReporter } from "./lib/native-shell";
 import { UiPreferencesSync } from "@/lib/ui-preferences/UiPreferencesSync";
 import { AppFileExternalNavigationHost } from "./components/plugin/AppFileExternalNavigationHost";
+import { pluginDetailKeyFromRoute } from "./components/plugin/plugin-detail-key";
 import { useAppTheme } from "./hooks/useAppTheme";
 import { useFaviconColorSync } from "./lib/favicon-color-preference";
 import { useDesktopThemeSync } from "./hooks/useDesktopThemeSync";
 import { usePluginFrontendBoot } from "./hooks/usePluginFrontendBoot";
+import { useCodeRendererPreloads } from "./hooks/useCodeRendererPreloads";
 import { markRouteContentPainted } from "./lib/route-content-paint";
 import { useRememberPluginNavPanelChrome } from "@/lib/plugin-nav-panel-chrome";
 import { useWebSocket } from "./hooks/useWebSocket";
@@ -55,6 +65,7 @@ import {
   TOOLS_REGISTRY_SKILL_DETAIL_ROUTE_PATH,
   TOOLS_REGISTRY_SKILLS_ROUTE_PATH,
   TOOLS_ROUTE_PATH,
+  APP_ROOT_ROUTE_PATH,
   TOOLS_SKILL_DETAIL_ROUTE_PATH,
   TOOLS_SKILLS_ROUTE_PATH,
   getAutomationDetailRoutePath,
@@ -69,8 +80,16 @@ import { WindowFindHost } from "./components/layout/WindowFindHost";
 import { DesktopZoomIndicator } from "./components/layout/DesktopZoomIndicator";
 import { ProviderCliInstallLogDialogHost } from "./components/provider-cli/provider-cli-install";
 import { ServerMoveOverlay } from "./components/machines/ServerMoveOverlay";
+import { OnboardingGate } from "./components/onboarding/OnboardingGate";
 import { AppUpdateHost } from "./components/app-update/AppUpdateHost";
+import { PluginInstallJobsHost } from "./components/plugin/PluginInstallJobsHost";
 import { RouteLoadingSkeleton } from "./components/ui/route-loading-skeleton";
+import { ThreadTimelineLoadingSkeleton } from "./components/thread/timeline/ThreadTimelineLoadingSkeleton";
+import {
+  startSplitPreloading,
+  trackCriticalLoad,
+  whenCriticalLoadsSettled,
+} from "./lib/split-prefetch";
 
 const SettingsView = lazy(() =>
   import("./views/SettingsView").then((m) => ({
@@ -97,7 +116,9 @@ const MachineSettingsView = lazy(() =>
     default: m.MachineSettingsView,
   })),
 );
-const splitWorkspaceRouteModule = import("./views/SplitWorkspaceRoute");
+const splitWorkspaceRouteModule = trackCriticalLoad(
+  import("./views/SplitWorkspaceRoute"),
+);
 splitWorkspaceRouteModule.catch(() => {});
 const SplitWorkspaceRoute = lazy(() => splitWorkspaceRouteModule);
 
@@ -124,7 +145,7 @@ function LegacyProjectSettingsRedirect() {
   );
 }
 
-export function LegacyAutomationDetailRedirect() {
+function LegacyAutomationDetailRedirect() {
   const location = useLocation();
   const { projectId, automationId } = useParams<{
     projectId?: string;
@@ -146,7 +167,7 @@ export function LegacyAutomationDetailRedirect() {
   );
 }
 
-export function LegacyAutomationCollectionRedirect() {
+function LegacyAutomationCollectionRedirect() {
   const location = useLocation();
   const browse =
     location.pathname.endsWith("/browse") ||
@@ -227,6 +248,9 @@ export function HashNavigationScroll() {
   const location = useLocation();
 
   useEffect(() => {
+    if (parseMessageLink(`${location.pathname}${location.hash}`) !== null) {
+      return;
+    }
     const targetId = hashTargetId(location.hash);
     if (targetId === null) return;
 
@@ -259,12 +283,23 @@ export function HashNavigationScroll() {
     observer.observe(document.body, { childList: true, subtree: true });
     timeoutId = window.setTimeout(stopWaiting, HASH_NAVIGATION_WAIT_MS);
     return stopWaiting;
-  }, [location.hash, location.key]);
+  }, [location.hash, location.key, location.pathname]);
 
   return null;
 }
 
 export function AppRoutes() {
+  const { isThreadView } = useRouteState();
+  const isRootComposeView = useLocation().pathname === APP_ROOT_ROUTE_PATH;
+  useEffect(() => {
+    if (isThreadView) void trackCriticalLoad(LazyThreadDetailView.preload());
+  }, [isThreadView]);
+  useEffect(() => {
+    if (!isRootComposeView) return;
+    void appQueryClient.prefetchQuery(environmentProvidersQueryOptions({}));
+    void appQueryClient.prefetchQuery(machineProvidersQueryOptions());
+    void trackCriticalLoad(LazyRootComposeView.preload());
+  }, [isRootComposeView]);
   return (
     <AppLayout>
       <Suspense fallback={null}>
@@ -274,7 +309,7 @@ export function AppRoutes() {
             element={
               <Navigate
                 to={getPluginConfigurationRoutePath({
-                  pluginId: "provider-usage",
+                  pluginId: "cc--provider-usage",
                 })}
                 replace
               />
@@ -393,7 +428,14 @@ export function AppRoutes() {
             path="*"
             element={
               <Suspense
-                fallback={<RouteLoadingSkeleton isBoundedPane={false} />}
+                fallback={
+                  <RouteLoadingSkeleton
+                    isBoundedPane={false}
+                    variant={isRootComposeView ? "root-compose" : "default"}
+                  >
+                    {isThreadView ? <ThreadTimelineLoadingSkeleton /> : null}
+                  </RouteLoadingSkeleton>
+                }
               >
                 <SplitWorkspaceRoute />
               </Suspense>
@@ -408,14 +450,24 @@ export function AppRoutes() {
 
 function RouteContentPaintSignal() {
   useEffect(() => {
-    markRouteContentPainted();
+    void whenCriticalLoadsSettled().then(markRouteContentPainted);
+    startSplitPreloading();
   }, []);
   return null;
 }
 
 function PluginsRoute() {
   const { pluginId } = useParams<{ pluginId?: string }>();
-  return <PluginsView pluginId={pluginId} />;
+  const { search } = useLocation();
+  return (
+    <PluginsView
+      detailKey={
+        pluginId === undefined
+          ? undefined
+          : pluginDetailKeyFromRoute(pluginId, search)
+      }
+    />
+  );
 }
 
 export function App() {
@@ -424,6 +476,7 @@ export function App() {
   useAppTheme();
   useFaviconColorSync();
   usePluginFrontendBoot();
+  useCodeRendererPreloads();
   useRememberPluginNavPanelChrome();
 
   return (
@@ -441,13 +494,22 @@ export function App() {
                   path={AUTH_CALLBACK_ROUTE_PATH}
                   element={<AuthCallbackView />}
                 />
-                <Route path="*" element={<AppRoutes />} />
+                <Route
+                  path="*"
+                  element={
+                    <OnboardingGate>
+                      <AppRoutes />
+                    </OnboardingGate>
+                  }
+                />
               </Routes>
               <WindowFindHost />
               <DesktopZoomIndicator />
               <ProviderCliInstallLogDialogHost />
               <ServerMoveOverlay />
               <AppUpdateHost />
+              <PluginInstallJobsHost />
+              <PluginUpdateJobsHost />
             </AppFileExternalNavigationHost>
           </AppNavigationUrlHost>
         </RouteNavigationProvider>

@@ -1,16 +1,24 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useAtomValue } from "jotai";
 import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import type {
   PluginSidebarSplitLayout,
   PluginSidebarSplitPane,
   PluginSidebarThreadSplit,
+  PluginSidebarThreadSplitOptions,
 } from "@codythatsme/plugin-sdk";
 import { usePaneContentSplitIndicator } from "@/components/sidebar/paneContentSplitIndicator";
 import { useThreadRowSplitDrag } from "@/components/sidebar/useThreadRowSplitDrag";
-import { useThreadTitleDisplayText } from "@/components/thread/ThreadTitleMentions";
+import {
+  resolveThreadTitleDisplayText,
+  useThreadTitleMentionResourcesGetter,
+} from "@/components/thread/ThreadTitleMentions";
 import { getThreadDisplayTitle } from "./thread-title";
-import { useSidebarThreadEntry } from "./plugin-sidebar-hooks";
+import {
+  useSidebarThreadEntriesStore,
+  useSidebarThreadEntry,
+} from "./sidebar-thread-entries";
+import type { DroppedThreadMention } from "./thread-mention-drop";
 import {
   computePaneRects,
   countPanes,
@@ -18,7 +26,7 @@ import {
   type PaneContent,
   type SplitLayout,
 } from "./split-layout";
-import { splitLayoutAtom } from "./split-layout/atoms";
+import { multiPaneSplitLayoutAtom } from "./split-layout/atoms";
 
 export function toPluginSidebarSplitLayout(
   layout: SplitLayout | null,
@@ -45,7 +53,7 @@ export function toPluginSidebarSplitLayout(
 
 export function useSidebarSplitLayout(): PluginSidebarSplitLayout | null {
   const isCompact = useIsCompactViewport();
-  const layout = useAtomValue(splitLayoutAtom);
+  const layout = useAtomValue(multiPaneSplitLayoutAtom);
   return useMemo(
     () => (isCompact ? null : toPluginSidebarSplitLayout(layout)),
     [isCompact, layout],
@@ -60,16 +68,40 @@ const NO_SPLIT: PluginSidebarThreadSplit = {
 
 export function useSidebarThreadSplit(
   threadId: string,
+  options?: PluginSidebarThreadSplitOptions,
 ): PluginSidebarThreadSplit {
+  const entries = useSidebarThreadEntriesStore();
   const entry = useSidebarThreadEntry(threadId);
   const projectId = entry?.projectId ?? "";
-  const title = useThreadTitleDisplayText(
-    entry ? getThreadDisplayTitle(entry) : "",
+  const getTitleResources = useThreadTitleMentionResourcesGetter();
+  const getTitle = useCallback(
+    () =>
+      entry === null
+        ? ""
+        : resolveThreadTitleDisplayText(
+            getThreadDisplayTitle(entry),
+            getTitleResources(),
+          ),
+    [entry, getTitleResources],
   );
+  const dragThreadIds = options?.dragThreadIds;
+  const getMentionThreads = useMemo(() => {
+    if (dragThreadIds === undefined || dragThreadIds.length < 2) {
+      return undefined;
+    }
+    return (): readonly DroppedThreadMention[] =>
+      dragThreadIds.flatMap((id) => {
+        const dragged = entries.get(id);
+        return dragged === null
+          ? []
+          : [{ threadId: id, label: getThreadDisplayTitle(dragged) }];
+      });
+  }, [dragThreadIds, entries]);
   const { onPointerDown } = useThreadRowSplitDrag({
     projectId,
     threadId,
-    title,
+    getTitle,
+    getMentionThreads,
   });
   const content = useMemo<PaneContent>(
     () => ({ kind: "thread", projectId, threadId }),

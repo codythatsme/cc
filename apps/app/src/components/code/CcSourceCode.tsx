@@ -9,16 +9,20 @@ import {
   useRef,
   useState,
 } from "react";
-import { File as PierreFile, VirtualizerContext } from "@pierre/diffs/react";
-import type { FileOptions } from "@pierre/diffs/react";
+import {
+  File as PierreFile,
+  VirtualizerContext,
+  type FileOptions,
+} from "@pierre/diffs/react";
 import {
   Virtualizer as PierreVirtualizer,
   type FileContents as PierreFileContents,
   type SelectedLineRange,
   type VirtualFileMetrics,
 } from "@pierre/diffs";
+import type { WorkerPoolManager } from "@pierre/diffs/worker";
 import { Button } from "@cc/shared-ui/button";
-import { getDiffShadowRoots } from "@/components/git-diff/git-diff-patch-text";
+import { getDiffShadowRoots } from "@cc/shared-ui/git-diff/patch-text";
 import { usePierreLineSelectionActions } from "@/components/git-diff/PierreLineSelectionActions.js";
 import { usePreferredTheme } from "@/hooks/useTheme";
 import { useResolvedCodeThemePair } from "@/lib/code-theme";
@@ -248,7 +252,7 @@ function CcSourceCode({
   const lastWorkerPoolStatsKeyRef = useRef<string | null>(null);
   const [workerPoolStats, setWorkerPoolStats] =
     useState<SourceCodeWorkerPoolStats | null>(null);
-  const [, rerenderAfterWorkerPoolChange] = useState(0);
+  const [workerPoolVersion, setWorkerPoolVersion] = useState(0);
   const fileIdentity = fileCacheKey;
   const truncation = useMemo(() => truncateSourceCode(content), [content]);
   const [fullFileRequestedFor, setFullFileRequestedFor] = useState<
@@ -352,11 +356,11 @@ function CcSourceCode({
     return () => window.cancelAnimationFrame(frame);
   }, [renderedFileMountKey]);
 
+  if (!workerPool && workerPoolStats !== null) {
+    setWorkerPoolStats(null);
+  }
   useEffect(() => {
-    if (!workerPool) {
-      setWorkerPoolStats(null);
-      return;
-    }
+    if (!workerPool) return;
 
     lastWorkerPoolStatsKeyRef.current = null;
     return workerPool.subscribeToStatChanges((stats) => {
@@ -373,7 +377,7 @@ function CcSourceCode({
         return;
       }
       lastWorkerPoolStatsKeyRef.current = statsKey;
-      rerenderAfterWorkerPoolChange((version) => version + 1);
+      setWorkerPoolVersion((version) => version + 1);
     });
   }, [file.contents, file.name, workerPool]);
 
@@ -381,10 +385,25 @@ function CcSourceCode({
     workerPool !== undefined &&
     workerPoolStats?.managerState !== "initialized" &&
     workerPoolStats?.workersFailed !== true;
-  const workerHighlightCacheState =
-    workerPool?.getFileResultCache(renderedFile) !== undefined
-      ? "highlighted"
-      : "plain";
+  const [workerPoolRender, setWorkerPoolRender] = useState(() =>
+    readWorkerPoolRender(renderedFile, workerPool, workerPoolVersion, null),
+  );
+  if (
+    workerPoolRender.file !== renderedFile ||
+    workerPoolRender.workerPool !== workerPool ||
+    workerPoolRender.version !== workerPoolVersion
+  ) {
+    setWorkerPoolRender(
+      readWorkerPoolRender(
+        renderedFile,
+        workerPool,
+        workerPoolVersion,
+        workerPoolRender,
+      ),
+    );
+  }
+  const workerHighlightCacheState = workerPoolRender.highlightCacheState;
+  const pierreFile = workerPoolRender.pierreFile;
 
   useEffect(() => {
     const cleanupContainer = containerRef.current;
@@ -452,7 +471,7 @@ function CcSourceCode({
           <PierreFile
             key={renderedFileMountKey}
             disableWorkerPool={workerPoolStats?.workersFailed === true}
-            file={renderedFile}
+            file={pierreFile}
             metrics={SOURCE_VIRTUAL_FILE_METRICS}
             options={options}
             selectedLines={selectedLines}
@@ -468,6 +487,32 @@ function CcSourceCode({
       {lineSelectionActions.menu}
     </div>
   );
+}
+
+interface WorkerPoolRender {
+  file: PierreFileContents;
+  workerPool: WorkerPoolManager | undefined;
+  version: number;
+  pierreFile: PierreFileContents;
+  highlightCacheState: "highlighted" | "plain";
+}
+
+function readWorkerPoolRender(
+  file: PierreFileContents,
+  workerPool: WorkerPoolManager | undefined,
+  version: number,
+  previous: WorkerPoolRender | null,
+): WorkerPoolRender {
+  return {
+    file,
+    workerPool,
+    version,
+    pierreFile: previous?.file === file ? { ...file } : file,
+    highlightCacheState:
+      workerPool?.getFileResultCache(file) !== undefined
+        ? "highlighted"
+        : "plain",
+  };
 }
 
 const TARGET_LINE_MAX_ATTEMPTS = 40;

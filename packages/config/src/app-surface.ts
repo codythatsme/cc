@@ -19,3 +19,6 @@ export function parseAppSurface(
 export function formatAppSurfaceValues(): string {
   return APP_SURFACE_VALUES.join(", ");
 }
+
+export const CLI_REQUEST_HEADER_NAME = "x-cc-cli";
+export const CALLER_THREAD_HEADER_NAME = "x-cc-caller-thread";

@@ -1,5 +1,11 @@
-import { Fragment, useRef, useState } from "react";
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import {
+  Fragment,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import {
   assertNever,
   durationToCompactString,
@@ -7,19 +13,19 @@ import {
   type TimelineTitle,
   type TimelineTitleAction,
   type TimelineTitleDecoration,
-  type TimelineTitleLink,
   type TimelineTitleSegment,
   type TimelineTitleSegmentAccent,
   type TimelineTitleTone,
 } from "@cc/thread-view";
 import { cn } from "@cc/shared-ui/lib/utils";
 import { Icon } from "@cc/shared-ui/icon";
-import { DiffStatsTally } from "@/components/ui/diff-stats-tally.js";
+import { DiffStatsTally } from "@cc/shared-ui/diff-stats-tally";
 import { RouteAnchor } from "@/components/ui/app-route-anchor.js";
 import { LiveDurationText } from "./LiveDurationText.js";
 import {
   ThreadTitleMentions,
   useResolveThreadTitle,
+  useThreadRoutePath,
 } from "@/components/thread/ThreadTitleMentions";
 import {
   ConversationMessageOverflowToggle,
@@ -30,14 +36,9 @@ export type TimelineTitleActionResolver = (
   action: TimelineTitleAction,
 ) => (() => void) | null;
 
-export type TimelineTitleLinkResolver = (
-  link: TimelineTitleLink,
-) => string | null;
-
 interface TimelineTitleViewProps {
   title: TimelineTitle;
   onTitleAction?: TimelineTitleActionResolver;
-  resolveSegmentLinkHref?: TimelineTitleLinkResolver;
   wrap?: boolean;
 }
 
@@ -303,7 +304,7 @@ function renderDecoration(
       return (
         <span
           key={index}
-          className="inline-flex shrink-0 items-center"
+          className="inline-flex shrink-0 items-center self-center align-middle"
           title={decoration.hint}
         >
           <Icon
@@ -322,12 +323,12 @@ function renderDecoration(
 export function TimelineTitleView({
   title,
   onTitleAction,
-  resolveSegmentLinkHref,
   wrap = false,
 }: TimelineTitleViewProps) {
   const onClick =
     title.action && onTitleAction ? onTitleAction(title.action) : null;
   const resolveTitle = useResolveThreadTitle();
+  const threadRoutePath = useThreadRoutePath();
   const plainTitle = title.segments.some((segment) => segment.link)
     ? resolveTitle(title.plain)
     : title.plain;
@@ -343,10 +344,9 @@ export function TimelineTitleView({
       title={plainTitle}
     >
       {title.segments.map((segment, index) => {
-        const linkHref =
-          segment.link && resolveSegmentLinkHref
-            ? resolveSegmentLinkHref(segment.link)
-            : null;
+        const linkHref = segment.link
+          ? threadRoutePath(segment.link.threadId, undefined, null)
+          : null;
         return (
           <Fragment key={`segment-${index}`}>
             {index > 0 ? " " : null}
@@ -374,6 +374,7 @@ export function ExpandableTimelineTitle(props: TimelineTitleViewProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const [expanded, setExpanded] = useState(false);
   const overflowing = useIsOverflowing({
+    axis: "vertical",
     elementRef: ref,
     enabled: !expanded,
     measurementKey: props.title.plain,

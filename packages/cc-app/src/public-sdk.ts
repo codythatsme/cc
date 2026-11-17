@@ -62,6 +62,7 @@ export type ThreadWaitUnreachableErrorConstructor =
 export class CCSdk implements CcSdk {
   readonly environments: CcSdk["environments"];
   readonly experimental_desktopBrowsers: CcSdk["experimental_desktopBrowsers"];
+  readonly experimental_promptHistory: CcSdk["experimental_promptHistory"];
   readonly experimental_server: CcSdk["experimental_server"];
   readonly files: CcSdk["files"];
   readonly guide: CcSdk["guide"];
@@ -82,6 +83,7 @@ export class CCSdk implements CcSdk {
     const sdk = createNodeCcSdk(options);
     this.environments = sdk.environments;
     this.experimental_desktopBrowsers = sdk.experimental_desktopBrowsers;
+    this.experimental_promptHistory = sdk.experimental_promptHistory;
     this.experimental_server = sdk.experimental_server;
     this.files = sdk.files;
     this.guide = sdk.guide;

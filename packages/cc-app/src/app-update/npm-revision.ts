@@ -1,9 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-import { z } from "zod";
+import { join } from "node:path";
 import semver from "semver";
+import { z } from "zod";
 import {
   formatAppUpdateVersionsDir,
   type NpmAppRevision,
@@ -60,22 +59,8 @@ export function formatNpmRevisionPackageRoot(
   );
 }
 
-export function resolveNpmCliPath(): string | null {
-  try {
-    const require = createRequire(import.meta.url);
-    return join(
-      dirname(require.resolve("npm/package.json")),
-      "bin",
-      "npm-cli.js",
-    );
-  } catch {
-    return null;
-  }
-}
-
 export interface InstallNpmRevisionArgs {
   dataDir: string;
-  npmCliPath: string | null;
   onLine: (line: string) => void;
   onStep: (step: string) => void;
   runner: RunCommand;
@@ -86,6 +71,7 @@ export interface InstallNpmRevisionArgs {
 export async function installNpmRevision(
   args: InstallNpmRevisionArgs,
 ): Promise<NpmAppRevision> {
+  args.signal?.throwIfAborted();
   if (semver.valid(args.version) === null) {
     throw new Error(
       `Refusing to install invalid cc-app version ${args.version}`,

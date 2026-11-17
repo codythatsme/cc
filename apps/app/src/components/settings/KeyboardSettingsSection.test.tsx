@@ -108,6 +108,19 @@ const testState = vi.hoisted(() => {
       when: { all: ["mainSurface"], none: ["modalOpen"] },
     },
     {
+      command: "app.back",
+      desktopOnly: false,
+      shortcut: {
+        key: "Escape",
+        mod: false,
+        meta: false,
+        control: false,
+        alt: false,
+        shift: false,
+      },
+      when: { all: ["mainSurface"], none: ["modalOpen"] },
+    },
+    {
       command: "question.select.1",
       desktopOnly: false,
       shortcut: {
@@ -191,6 +204,7 @@ afterEach(() => {
   removePluginSlotRegistrations("test-shortcuts");
   cleanup();
   vi.clearAllMocks();
+  testState.mutate.mockReset();
   vi.restoreAllMocks();
   testState.defaultKeybindings = testState.initialDefaultKeybindings;
   testState.isDesktop = false;
@@ -200,21 +214,213 @@ afterEach(() => {
 });
 
 describe("KeyboardSettingsSection", () => {
-  it("ranks visible label matches ahead of description matches across groups", () => {
-    render(<KeyboardSettingsSection />);
+  it.each(["Reset shortcut for Open first plugin", "Reset all"])(
+    "%s removes an explicit plugin default and restores conflict suppression",
+    (resetLabel) => {
+      vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux");
+      setPluginSlotRegistrations(
+        "test-shortcuts",
+        collectPluginAppRegistrations({
+          __ccPluginApp: true,
+          setup(app) {
+            for (const id of ["first", "second"]) {
+              app.commands.register({
+                id,
+                title: `Open ${id} plugin`,
+                defaultShortcut: { key: "i", mod: true, shift: true },
+                run() {},
+              });
+            }
+          },
+        }),
+      );
+      testState.keybindingOverrides = [
+        {
+          command: "plugin:test-shortcuts/first",
+          platform: "linux",
+          shortcut: {
+            key: "i",
+            mod: true,
+            meta: false,
+            control: false,
+            alt: false,
+            shift: true,
+          },
+        },
+      ];
+      testState.mutate.mockImplementation((overrides) => {
+        testState.keybindingOverrides = overrides;
+      });
+      const { rerender } = render(<KeyboardSettingsSection />);
+      expect(
+        screen.getByRole("button", {
+          name: "Record shortcut for Open first plugin, current shortcut Ctrl + Shift + I",
+        }),
+      ).toBeTruthy();
+      const reset = screen.getByRole("button", { name: resetLabel });
+      expect(reset.hasAttribute("disabled")).toBe(false);
+      fireEvent.click(reset);
+      expect(testState.keybindingOverrides).toEqual([]);
+      rerender(<KeyboardSettingsSection />);
+      for (const id of ["first", "second"]) {
+        expect(
+          screen.getByRole("button", {
+            name: `Record shortcut for Open ${id} plugin, current shortcut unassigned`,
+          }),
+        ).toBeTruthy();
+      }
+      expect(screen.getAllByText(/Default shortcut left unbound/)).toHaveLength(
+        2,
+      );
+    },
+  );
 
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "Search keyboard shortcuts" }),
+  it("resets a shared binding to each surface's defaults while preserving other platforms", () => {
+    const platform = vi
+      .spyOn(navigator, "platform", "get")
+      .mockReturnValue("MacIntel");
+    testState.keybindingOverrides = [
       {
-        target: { value: "  SiDeBaR  " },
+        command: "thread.new",
+        shortcut: {
+          key: "g",
+          mod: true,
+          meta: false,
+          control: false,
+          alt: false,
+          shift: false,
+        },
       },
+      { command: "thread.new", platform: "windows", shortcut: null },
+    ];
+    testState.mutate.mockImplementation((overrides) => {
+      testState.keybindingOverrides = overrides;
+    });
+    render(<KeyboardSettingsSection />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reset shortcut for New thread" }),
     );
+    const macWebShortcut = {
+      name: "Record shortcut for New thread, current shortcut ⇧ ⌘ O",
+    };
+    expect(screen.getByRole("button", macWebShortcut)).toBeTruthy();
+    cleanup();
+    render(<KeyboardSettingsSection />);
+    expect(screen.getByRole("button", macWebShortcut)).toBeTruthy();
+    cleanup();
+    testState.isDesktop = true;
+    render(<KeyboardSettingsSection />);
+    expect(
+      screen.getByRole("button", {
+        name: "Record shortcut for New thread, current shortcut ⌘ N",
+      }),
+    ).toBeTruthy();
+    cleanup();
+    platform.mockReturnValue("Linux");
+    render(<KeyboardSettingsSection />);
+    expect(
+      screen.getByRole("button", {
+        name: "Record shortcut for New thread, current shortcut Ctrl + G",
+      }),
+    ).toBeTruthy();
+    cleanup();
+    platform.mockReturnValue("Win32");
+    render(<KeyboardSettingsSection />);
+    expect(
+      screen.getByRole("button", {
+        name: "Record shortcut for New thread, current shortcut unassigned",
+      }),
+    ).toBeTruthy();
+  });
 
+  it("keeps UI edits and both reset actions on the current platform", () => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("Win32");
+    const general = {
+      command: "thread.new",
+      shortcut: {
+        key: "g",
+        mod: true,
+        meta: false,
+        control: false,
+        alt: false,
+        shift: false,
+      },
+    } as const;
+    const mac = {
+      command: "thread.new",
+      platform: "mac",
+      shortcut: null,
+    } as const;
+    const otherWindows = {
+      command: "app.back",
+      platform: "windows",
+      shortcut: null,
+    } as const;
+    const sharedRename = { ...general, command: "thread.rename" } as const;
+    testState.keybindingOverrides = [sharedRename, general, mac, otherWindows];
+    render(<KeyboardSettingsSection />);
+    const recorder = screen.getByRole("button", {
+      name: "Record shortcut for New thread, current shortcut Ctrl + G",
+    });
+    fireEvent.click(recorder);
+    fireEvent.keyDown(recorder, { key: "u", ctrlKey: true, shiftKey: true });
+    expect(testState.mutate.mock.lastCall?.[0]).toEqual([
+      sharedRename,
+      general,
+      mac,
+      otherWindows,
+      {
+        command: "thread.new",
+        platform: "windows",
+        shortcut: expect.objectContaining({ key: "u", mod: true, shift: true }),
+      },
+    ]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear shortcut for New thread" }),
+    );
+    expect(testState.mutate.mock.lastCall?.[0]).toEqual([
+      sharedRename,
+      general,
+      mac,
+      otherWindows,
+      { command: "thread.new", platform: "windows", shortcut: null },
+    ]);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reset shortcut for New thread" }),
+    );
+    expect(testState.mutate.mock.lastCall?.[0]).toEqual([
+      sharedRename,
+      mac,
+      otherWindows,
+      { ...general, platform: "linux" },
+    ]);
+    expect(
+      screen.getByRole("button", {
+        name: "Record shortcut for New thread, current shortcut Ctrl + Shift + O",
+      }),
+    ).toBeTruthy();
     expect(
       screen
-        .getAllByRole("button", { name: /^Record shortcut for / })[0]
-        ?.getAttribute("aria-label"),
-    ).toMatch(/^Record shortcut for Toggle sidebar,/);
+        .getByRole("button", { name: "Reset shortcut for New thread" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Reset all" }));
+    expect(testState.mutate.mock.lastCall?.[0]).toEqual([
+      mac,
+      { ...general, platform: "linux" },
+      { ...sharedRename, platform: "mac" },
+      { ...sharedRename, platform: "linux" },
+    ]);
+    expect(
+      screen.getByRole("button", {
+        name: "Record shortcut for Rename thread, current shortcut unassigned",
+      }),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Reset all" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
   });
 
   it("ranks exact labels, label prefixes, label substrings, IDs, and descriptions in order", () => {
@@ -239,7 +445,7 @@ describe("KeyboardSettingsSection", () => {
     fireEvent.change(
       screen.getByRole("textbox", { name: "Search keyboard shortcuts" }),
       {
-        target: { value: "sidebar" },
+        target: { value: "  SiDeBaR  " },
       },
     );
 
@@ -258,6 +464,75 @@ describe("KeyboardSettingsSection", () => {
       "Record shortcut for Previous thread",
     ]);
   });
+
+  it("finds commands by their shortcut keys and modifiers", () => {
+    render(<KeyboardSettingsSection />);
+    const search = screen.getByRole("textbox", {
+      name: "Search keyboard shortcuts",
+    });
+
+    fireEvent.change(search, { target: { value: "escape" } });
+    expect(
+      screen.getByRole("button", {
+        name: "Record shortcut for Back to app, current shortcut Escape",
+      }),
+    ).toBeDefined();
+    expect(
+      screen.queryByRole("button", {
+        name: /^Record shortcut for New thread,/,
+      }),
+    ).toBeNull();
+
+    fireEvent.change(search, { target: { value: "ctrl+shift+o" } });
+    expect(
+      screen.getByRole("button", {
+        name: "Record shortcut for New thread, current shortcut Ctrl + Shift + O",
+      }),
+    ).toBeDefined();
+
+    fireEvent.change(search, { target: { value: "ctrl+shift+u" } });
+    expect(
+      screen.getByText("No shortcuts match “ctrl+shift+u”."),
+    ).toBeDefined();
+  });
+
+  it.each([",", "[", "]", "\\", "/", "+"])(
+    "finds the literal %s key without matching unrelated modifier shortcuts",
+    (key) => {
+      testState.keybindingOverrides = [
+        {
+          command: "thread.new",
+          platform: "linux",
+          shortcut: {
+            key,
+            mod: true,
+            meta: false,
+            control: false,
+            alt: false,
+            shift: false,
+          },
+        },
+      ];
+      render(<KeyboardSettingsSection />);
+      const search = screen.getByRole("textbox", {
+        name: "Search keyboard shortcuts",
+      });
+
+      for (const query of [key, `ctrl+${key}`]) {
+        fireEvent.change(search, { target: { value: query } });
+        expect(
+          screen.getByRole("button", {
+            name: /^Record shortcut for New thread,/,
+          }),
+        ).toBeDefined();
+        expect(
+          screen.queryByRole("button", {
+            name: /^Record shortcut for Open thread 1,/,
+          }),
+        ).toBeNull();
+      }
+    },
+  );
 
   it("restores category and command order when the search is cleared", () => {
     render(<KeyboardSettingsSection />);
@@ -286,24 +561,6 @@ describe("KeyboardSettingsSection", () => {
     ).toEqual(originalHeadings);
   });
 
-  it("shows the empty state when no shortcut matches", () => {
-    render(<KeyboardSettingsSection />);
-
-    fireEvent.change(
-      screen.getByRole("textbox", { name: "Search keyboard shortcuts" }),
-      {
-        target: { value: "nonexistent-shortcut" },
-      },
-    );
-
-    expect(
-      screen.getByText("No shortcuts match “nonexistent-shortcut”."),
-    ).toBeDefined();
-    expect(
-      screen.queryAllByRole("button", { name: /^Record shortcut for / }),
-    ).toHaveLength(0);
-  });
-
   it("lists commands without defaults and persists bindings under stable plugin IDs", () => {
     setPluginSlotRegistrations(
       "test-shortcuts",
@@ -327,6 +584,7 @@ describe("KeyboardSettingsSection", () => {
     expect(testState.mutate.mock.lastCall?.[0]).toEqual([
       {
         command: "plugin:test-shortcuts/open",
+        platform: "linux",
         shortcut: expect.objectContaining({ key: "i", mod: true, shift: true }),
       },
     ]);
@@ -360,7 +618,7 @@ describe("KeyboardSettingsSection", () => {
     ).toBeTruthy();
   });
 
-  it("turns keyboard hints off while preserving the full settings contract", () => {
+  it("turns keyboard hints off", () => {
     render(<KeyboardSettingsSection />);
 
     fireEvent.click(
@@ -370,7 +628,6 @@ describe("KeyboardSettingsSection", () => {
     );
 
     expect(testState.generalMutate).toHaveBeenCalledWith({
-      ...defaultAppSettings,
       showKeyboardHints: false,
     });
   });
@@ -406,6 +663,7 @@ describe("KeyboardSettingsSection", () => {
       [
         {
           command: "thread.new",
+          platform: "linux",
           shortcut: {
             key: "u",
             mod: true,
@@ -425,7 +683,7 @@ describe("KeyboardSettingsSection", () => {
       }),
     );
     expect(testState.mutate).toHaveBeenLastCalledWith(
-      [{ command: "thread.new", shortcut: null }],
+      [{ command: "thread.new", shortcut: null, platform: "linux" }],
       expect.objectContaining({ onError: expect.any(Function) }),
     );
 
@@ -459,6 +717,7 @@ describe("KeyboardSettingsSection", () => {
       [
         {
           command: "thread.rename",
+          platform: "linux",
           shortcut: {
             key: "r",
             mod: true,
@@ -536,9 +795,10 @@ describe("KeyboardSettingsSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "Replace binding" }));
     expect(testState.mutate.mock.lastCall?.[0]).toEqual(
       expect.arrayContaining([
-        { command: "thread.new", shortcut: null },
+        { command: "thread.new", shortcut: null, platform: "linux" },
         {
           command: "thread.jump.1",
+          platform: "linux",
           shortcut: expect.objectContaining({ key: "u" }),
         },
       ]),

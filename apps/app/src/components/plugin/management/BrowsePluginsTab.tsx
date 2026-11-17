@@ -14,7 +14,6 @@ import {
   ResourceShelfAction,
   ResourceSourceShelf,
   ResourceTabDescription,
-  useResourceRouteLabel,
 } from "@cc/shared-ui/resource-list";
 import { BrowseArchetypeCards } from "@/components/plugin/browse-hero/BrowseArchetypeCards";
 import { BrowseHeroCarousel } from "@/components/plugin/browse-hero/BrowseHeroCarousel";
@@ -75,7 +74,11 @@ export function BrowsePluginsTab({
   const searchQuery = usePluginCatalogSearch(trimmedQuery, { enabled: true });
   const catalogQuery = usePluginCatalogSearch("", { enabled: true });
   const activeQuery = shelfKey === null ? searchQuery : catalogQuery;
-  const catalog = activeQuery.data ?? { entries: [], collections: [] };
+  const catalog = activeQuery.data ?? {
+    entries: [],
+    collections: [],
+    categories: [],
+  };
   const entries = useMemo(
     () => catalog.entries.filter((entry) => entry.compatible),
     [catalog.entries],
@@ -97,10 +100,10 @@ export function BrowsePluginsTab({
         : pluginBrowseShelves({
             entries,
             collections: catalog.collections,
+            categories: catalog.categories,
           }).find((shelf) => shelf.key === shelfKey),
-    [catalog.collections, entries, shelfKey],
+    [catalog.categories, catalog.collections, entries, shelfKey],
   );
-  useResourceRouteLabel(selectedShelf?.label ?? null);
   const shelfEntries = useMemo(
     () => (shelfKey === null ? entries : (selectedShelf?.entries ?? [])),
     [entries, selectedShelf, shelfKey],
@@ -109,15 +112,21 @@ export function BrowsePluginsTab({
   const sort =
     requestedSort === "most-installed" && !installsKnown ? null : requestedSort;
   const categoryOptions = useMemo(
-    () => pluginCategoryFilterOptions(shelfEntries, selectedCategories),
-    [shelfEntries, selectedCategories],
+    () =>
+      pluginCategoryFilterOptions(
+        shelfEntries,
+        selectedCategories,
+        catalog.categories,
+      ),
+    [catalog.categories, shelfEntries, selectedCategories],
   );
+  const searchEntries = searchQuery.data?.entries;
   const filteredEntries = useMemo(() => {
     const selected = new Set(selectedCategories);
     const matchingSearch =
       shelfKey !== null && trimmedQuery !== ""
         ? new Set(
-            searchQuery.data?.entries.map(
+            searchEntries?.map(
               (entry) => `${entry.marketplace}/${entry.entryId}`,
             ),
           )
@@ -128,13 +137,7 @@ export function BrowsePluginsTab({
         (matchingSearch === null ||
           matchingSearch.has(`${entry.marketplace}/${entry.entryId}`)),
     );
-  }, [
-    trimmedQuery,
-    searchQuery.data?.entries,
-    selectedCategories,
-    shelfEntries,
-    shelfKey,
-  ]);
+  }, [trimmedQuery, searchEntries, selectedCategories, shelfEntries, shelfKey]);
   const shelvesMode =
     sort === null && shelfKey === null && selectedCategories.length === 0;
   const shelves = useMemo(
@@ -145,6 +148,7 @@ export function BrowsePluginsTab({
               (entry) => entry.compatible,
             ),
             collections: catalogQuery.data?.collections ?? [],
+            categories: catalogQuery.data?.categories ?? [],
           })
         : [],
     [catalogQuery.data, shelvesMode],
@@ -348,7 +352,7 @@ function BrowseShelf({
     <ResourceSourceShelf
       label={shelf.label}
       description={shelf.description}
-      hideDescriptionOnMobile
+      hideDescriptionWhenNarrow
       leading={
         shelf.key === "collection:cc-official" ? (
           <CcLogo className="size-4" />
@@ -367,7 +371,8 @@ function BrowseShelf({
             asChild
             className={cn(
               "underline underline-offset-4",
-              shelf.entries.length <= SHELF_ENTRY_LIMIT && "sm:hidden",
+              shelf.entries.length <= SHELF_ENTRY_LIMIT &&
+                "@min-[40rem]/resource-shelf:hidden",
             )}
           >
             <Link
@@ -375,9 +380,9 @@ function BrowseShelf({
                 pathname: getPluginsRoutePath(),
                 search: shelfParams.toString(),
               }}
-              aria-label={`See all ${shelf.label}`}
+              aria-label={`View all ${shelf.label}`}
             >
-              See all
+              View all
             </Link>
           </ResourceShelfAction>
         ) : undefined
@@ -386,7 +391,7 @@ function BrowseShelf({
       <div data-plugin-shelf>
         <div
           data-plugin-shelf-grid
-          className="grid gap-2 max-sm:[&>*:nth-child(n+3)]:hidden"
+          className="grid gap-2 @max-[40rem]/resource-shelf:[&>*:nth-child(n+3)]:hidden"
         >
           {visible.map((entry) => (
             <PluginCatalogCard

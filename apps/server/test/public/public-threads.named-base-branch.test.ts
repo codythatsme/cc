@@ -1,5 +1,8 @@
-import type { JsonValue } from "@cc/domain";
-import { threadSchema, type GitSourceInspection } from "@cc/domain";
+import {
+  type JsonValue,
+  threadSchema,
+  type GitSourceInspection,
+} from "@cc/domain";
 import type { HostDaemonRpcCommand } from "@cc/host-daemon-contract";
 import { threadResponseSchema } from "@cc/server-contract";
 import { describe, expect, it, vi } from "vitest";
@@ -49,10 +52,10 @@ async function createNamedBaseBranchThread(
   harness: TestAppHarness,
   args: {
     baseBranch: string;
-    onInspectGitSource?: (
+    onInspectGitCheckout?: (
       command: Extract<
         HostDaemonRpcCommand,
-        { type: "host.inspect_git_source" }
+        { type: "host.inspect_git_checkout" }
       >,
     ) => void;
   },
@@ -64,8 +67,8 @@ async function createNamedBaseBranchThread(
     hostId: host.id,
     sessionId: session.id,
     gitSourceInspectionResult: buildCheckout("local-behind"),
-    ...(args.onInspectGitSource
-      ? { onInspectGitSource: args.onInspectGitSource }
+    ...(args.onInspectGitCheckout
+      ? { onInspectGitCheckout: args.onInspectGitCheckout }
       : {}),
   });
   const { project } = seedProjectWithSource(harness.deps, {
@@ -106,7 +109,9 @@ describe("named managed-worktree base branch", () => {
       registerTestHostRpcCapture(harness, {
         hostId: host.id,
         sessionId: session.id,
-        gitSourceInspectionResult: buildDetachedSingleBranchCheckout(),
+        gitCheckoutInspectionResult: {
+          checkout: buildDetachedSingleBranchCheckout().checkout,
+        },
       });
       const { project } = seedProjectWithSource(harness.deps, {
         hostId: host.id,
@@ -142,46 +147,32 @@ describe("named managed-worktree base branch", () => {
 
   it("checks checkout eligibility before handing the named branch to the worktree provider", async () => {
     await withTestHarness(async (harness) => {
-      const onInspectGitSource = vi.fn();
+      const onInspectGitCheckout = vi.fn();
       const inputs = await createNamedBaseBranchThread(harness, {
         baseBranch: "main",
-        onInspectGitSource,
+        onInspectGitCheckout,
       });
       expect(inputs).toEqual({ branch: { kind: "named", name: "main" } });
-      expect(onInspectGitSource).toHaveBeenCalledWith({
-        type: "host.inspect_git_source",
+      expect(onInspectGitCheckout).toHaveBeenCalledWith({
+        type: "host.inspect_git_checkout",
         path: SOURCE_PATH,
-        remoteRefresh: "background",
-      });
-    });
-  });
-
-  it("passes a named non-default branch through unchanged", async () => {
-    await withTestHarness(async (harness) => {
-      await expect(
-        createNamedBaseBranchThread(harness, {
-          baseBranch: "release/2026-05",
-        }),
-      ).resolves.toEqual({
-        branch: { kind: "named", name: "release/2026-05" },
       });
     });
   });
 
   it("does not reinterpret an origin-qualified branch", async () => {
     await withTestHarness(async (harness) => {
-      const onInspectGitSource = vi.fn();
+      const onInspectGitCheckout = vi.fn();
       const inputs = await createNamedBaseBranchThread(harness, {
         baseBranch: "origin/main",
-        onInspectGitSource,
+        onInspectGitCheckout,
       });
       expect(inputs).toEqual({
         branch: { kind: "named", name: "origin/main" },
       });
-      expect(onInspectGitSource).toHaveBeenCalledWith({
-        type: "host.inspect_git_source",
+      expect(onInspectGitCheckout).toHaveBeenCalledWith({
+        type: "host.inspect_git_checkout",
         path: SOURCE_PATH,
-        remoteRefresh: "background",
       });
     });
   });

@@ -6,6 +6,7 @@ import {
 type DesktopReleaseChannel = "latest" | "nightly";
 
 interface DesktopReleaseInfo {
+  appId: "io.github.codythatsme.cc" | "io.github.codythatsme.cc.nightly";
   applicationName: "cc" | "cc Nightly";
   channel: DesktopReleaseChannel;
   iconFileName: "icon.png" | "icon-nightly.png";
@@ -20,6 +21,7 @@ export function createDesktopReleaseInfo(
   const releaseTag = nightly ? "desktop-nightly" : "desktop-latest";
 
   return {
+    appId: nightly ? "io.github.codythatsme.cc.nightly" : "io.github.codythatsme.cc",
     applicationName: nightly ? "cc Nightly" : "cc",
     channel,
     iconFileName: nightly ? "icon-nightly.png" : "icon.png",
@@ -84,7 +86,7 @@ interface ResolveDesktopUpdateSupportArgs {
 export function resolveDesktopUpdateSupport(
   args: ResolveDesktopUpdateSupportArgs,
 ): DesktopUpdateSupport {
-  if (args.platform === "macos") {
+  if (args.platform === "macos" || args.platform === "windows") {
     return { autoUpdate: false, versionCheck: true };
   }
 

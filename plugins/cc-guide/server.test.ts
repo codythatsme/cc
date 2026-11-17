@@ -29,6 +29,7 @@ it("introduces cc without user-question guidance", async () => {
       "Reference a CC thread as `@thread:thr_abc123`",
     );
     expect(introduction).toContain("Do not construct thread URLs manually");
+    expect(introduction).toContain("`cc voice transcribe <path>`");
     expect(introduction).not.toContain(
       "Ask the user a blocking question only when",
     );

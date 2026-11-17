@@ -145,7 +145,10 @@ export async function preparePluginRuntime(args: {
       hostProvidedZod: true,
     });
     if (manifest.cc.app !== undefined)
-      await buildPluginApp(buildRoot, args.ccVersion, args.toolchain);
+      await buildPluginApp(buildRoot, args.ccVersion, args.toolchain, {
+        minify: true,
+        hostProvidedZod: true,
+      });
     if (manifest.cc.host !== undefined)
       await buildPluginHost(buildRoot, args.ccVersion, args.toolchain);
     await runStageAssets(buildRoot);

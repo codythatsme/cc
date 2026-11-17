@@ -14,6 +14,7 @@ import {
   resolveLocalHostDaemonProbePorts,
   type LocalHostDaemonAccessState,
 } from "./local-host-daemon-access";
+import { setStreamTraceEnabled } from "./stream-trace";
 import { wsManager } from "./ws";
 
 const unavailableSystemConfig: SystemConfigResponse = {
@@ -27,17 +28,28 @@ const unavailableSystemConfig: SystemConfigResponse = {
   keybindings: [],
   defaultKeybindings: [],
   keybindingOverrides: [],
+  performanceDiagnosticsAvailable: false,
   experiments: {
-    changelogPreview: false,
-    legacyJitiPluginLoader: false,
-    mobileApp: false,
+    agentCpuPriority: false,
+    compactExpiredCache: false,
+    dismissReadNotifications: false,
     serverMove: false,
-    sidebarProgressiveDisclosure: false,
+    performanceDiagnostics: false,
+    pluginUpdates: false,
+    resumeThreadsAfterRestart: false,
+    skipFocusedThreadNotifications: false,
+    threadContextCard: false,
+    threadRowMetadata: false,
+    updateWhenIdle: false,
+    walCheckpointWorker: false,
   },
   appearance: defaultAppTheme,
   customThemes: [],
   pluginThemes: [],
-  featureFlags: { placeholder: false, timelineWindowEventBudget: 1_500 },
+  featureFlags: {
+    placeholder: false,
+    timelineWindowEventBudget: 1_500,
+  },
   hostDaemonPort: null,
   localHelperPorts: [],
   serverUrl: "",
@@ -83,6 +95,10 @@ async function loadSystemConfig(): Promise<SystemConfigResponse> {
   try {
     const config = await appQueryClient.fetchQuery(systemConfigQueryOptions());
     markSystemConfigLoadSucceeded();
+    setStreamTraceEnabled(
+      config.performanceDiagnosticsAvailable &&
+        config.experiments.performanceDiagnostics,
+    );
     return config;
   } catch {
     markSystemConfigLoadFailed();

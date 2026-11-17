@@ -101,6 +101,7 @@ function commandRow(): TimelineCommandWorkRow {
     callId: "call-1",
     command: "pnpm exec turbo run test --filter=@cc/app",
     cwd: null,
+    description: null,
     source: null,
     output: "",
     exitCode: 0,
@@ -452,53 +453,6 @@ describe("buildTimelineRowTitle", () => {
     ]);
   });
 
-  it("keeps elapsed duration visible on interrupted command rows", () => {
-    const title = buildTimelineRowTitle(
-      {
-        ...commandRow(),
-        status: "interrupted",
-        exitCode: null,
-        completedAt: 3_001,
-      },
-      DEFAULT_OPTIONS,
-    );
-
-    expect(title.plain).toBe(
-      "Ran pnpm exec turbo run test --filter=@cc/app (3s, interrupted)",
-    );
-    expect(title.decorations).toEqual([
-      {
-        kind: "status",
-        status: "interrupted",
-        durationMs: 3_000,
-        emphasis: false,
-      },
-    ]);
-  });
-
-  it("keeps elapsed duration visible on interrupted tool rows", () => {
-    const title = buildTimelineRowTitle(
-      {
-        ...toolRow(),
-        status: "interrupted",
-        completedAt: 3_001,
-      },
-      DEFAULT_OPTIONS,
-    );
-
-    expect(title.plain).toBe(
-      "Ran tool LookupTool { query: select:TodoWrite } (3s, interrupted)",
-    );
-    expect(title.decorations).toEqual([
-      {
-        kind: "status",
-        status: "interrupted",
-        durationMs: 3_000,
-        emphasis: false,
-      },
-    ]);
-  });
-
   it("titles a generic tool row from its name and arguments, not from a label table", () => {
     expect(
       buildTimelineRowTitle(
@@ -651,28 +605,18 @@ describe("buildTimelineRowTitle", () => {
     },
   );
 
-  it.each([
-    {
-      expectedPlain:
-        "Permission grant interrupted: Bash (Thread stopped by user request)",
-      lifecycle: "interrupted",
-    },
-  ] satisfies Array<{
-    expectedPlain: string;
-    lifecycle: Extract<PermissionGrantApprovalLifecycle, "interrupted">;
-  }>)(
-    "renders permission grant $lifecycle status reason",
-    ({ expectedPlain, lifecycle }) => {
-      const statusReason = "Thread stopped by user request";
-      const title = buildTimelineRowTitle(
-        permissionGrantApprovalRow({ lifecycle, statusReason }),
-        DEFAULT_OPTIONS,
-      );
+  it("renders permission grant interrupted status reason", () => {
+    const statusReason = "Thread stopped by user request";
+    const title = buildTimelineRowTitle(
+      permissionGrantApprovalRow({ lifecycle: "interrupted", statusReason }),
+      DEFAULT_OPTIONS,
+    );
 
-      expect(title.plain).toBe(expectedPlain);
-      expect(title.segments.map((s) => s.text)).toContain(`(${statusReason})`);
-    },
-  );
+    expect(title.plain).toBe(
+      "Permission grant interrupted: Bash (Thread stopped by user request)",
+    );
+    expect(title.segments.map((s) => s.text)).toContain(`(${statusReason})`);
+  });
 
   it("uses a permissions fallback for grant requests without a tool name", () => {
     const title = buildTimelineRowTitle(
@@ -1084,6 +1028,21 @@ describe("buildTimelineRowTitle", () => {
     });
   });
 
+  it("opens files outside the workspace as local files instead of diffs", () => {
+    const outsideRow: TimelineFileChangeWorkRow = {
+      ...editedFileRow(),
+      change: {
+        ...editedFileRow().change,
+        path: "/Users/me/.cc/thread-storage/thr_1/notes.md",
+      },
+    };
+
+    expect(buildTimelineRowTitle(outsideRow, DEFAULT_OPTIONS).action).toEqual({
+      kind: "open-local-file",
+      path: "/Users/me/.cc/thread-storage/thr_1/notes.md",
+    });
+  });
+
   it("does not declare an action on non-file-change titles", () => {
     const commandRow = {
       ...baseRow("cmd-1"),
@@ -1092,6 +1051,7 @@ describe("buildTimelineRowTitle", () => {
       status: "completed" as const,
       callId: "cmd-call-1",
       command: "ls",
+      description: null,
       cwd: null,
       source: null,
       output: "",
@@ -1121,6 +1081,41 @@ describe("buildTimelineRowTitle", () => {
       { kind: "duration", startedAt: 1, completedAt: 45_001, em: false },
     ]);
   });
+
+  it.each([
+    {
+      status: "pending" as const,
+      output: "",
+      expectedPlain: "Running skill code-review",
+    },
+    {
+      status: "completed" as const,
+      output: 'Skill "code-review" completed (forked execution).',
+      expectedPlain: "Ran skill code-review (45s)",
+    },
+  ])(
+    "titles a $status tool call promoted to a delegation by its presentation title",
+    ({ status, output, expectedPlain }) => {
+      const row = {
+        ...delegationRow(),
+        status,
+        completedAt: status === "pending" ? null : 45_001,
+        toolName: "Skill",
+        subagentType: null,
+        description: null,
+        output,
+        presentation: {
+          label: { pending: "Running skill", completed: "Ran skill" },
+          icon: { glyph: "Zap" },
+          title: "code-review",
+        },
+      } satisfies TimelineViewDelegationWorkRow;
+
+      const title = buildTimelineRowTitle(row, DEFAULT_OPTIONS);
+
+      expect(title.plain).toBe(expectedPlain);
+    },
+  );
 
   it.each([
     {
@@ -1306,6 +1301,25 @@ describe("buildTimelineRowTitle", () => {
   });
 
   it.each([
+    {
+      row: {
+        ...commandRow(),
+        status: "interrupted",
+        exitCode: null,
+        completedAt: 3_001,
+      } satisfies TimelineCommandWorkRow,
+      expectedPlain:
+        "Ran pnpm exec turbo run test --filter=@cc/app (3s, interrupted)",
+    },
+    {
+      row: {
+        ...toolRow(),
+        status: "interrupted",
+        completedAt: 3_001,
+      } satisfies TimelineToolWorkRow,
+      expectedPlain:
+        "Ran tool LookupTool { query: select:TodoWrite } (3s, interrupted)",
+    },
     {
       row: {
         ...webSearchRow(),
@@ -1526,31 +1540,6 @@ describe("buildTimelineRowTitle", () => {
     expect(title.segments.some((s) => s.shimmer)).toBe(true);
   });
 
-  it("uses active wording for tool-only bundle summaries", () => {
-    const row = {
-      ...workSummaryRow(
-        [
-          {
-            ...toolRow(),
-            toolName: "UnknownTool",
-            toolArgs: null,
-            status: "pending",
-          },
-        ],
-        "bundle-summary",
-      ),
-      status: "pending",
-    } satisfies TimelineWorkSummaryRow;
-    const title = buildTimelineRowTitle(row, {
-      summaryStyle: "bundle",
-      workStyle: "default",
-      isActiveLatestBundle: true,
-    });
-
-    expect(title.plain).toBe("Running 1 tool");
-    expect(title.segments.some((s) => s.shimmer)).toBe(true);
-  });
-
   it("builds compact exploration intent titles with read de-duping", () => {
     const row = {
       ...commandRow(),
@@ -1705,6 +1694,70 @@ describe("buildTimelineRowTitle", () => {
     }
   });
 
+  it("titles a described command with only its description outside approval states", () => {
+    const presentation = {
+      label: { pending: "Running command", completed: "Ran command" },
+      icon: { glyph: "Terminal" },
+      title: "pnpm exec turbo run test --filter=@cc/app",
+    };
+    const describedRow = (
+      overrides: Partial<TimelineCommandWorkRow>,
+    ): TimelineCommandWorkRow => ({
+      ...commandRow(),
+      startedAt: 100,
+      description: "Run the app tests",
+      presentation,
+      ...overrides,
+    });
+
+    const cases: [Partial<TimelineCommandWorkRow>, string][] = [
+      [{}, "Run the app tests (2s)"],
+      [
+        { status: "pending", completedAt: null, exitCode: null },
+        "Run the app tests",
+      ],
+      [{ status: "error", exitCode: 127 }, "Run the app tests (2s, error)"],
+      [
+        { status: "interrupted", exitCode: null },
+        "Run the app tests (2s, interrupted)",
+      ],
+      [
+        {
+          status: "pending",
+          approvalStatus: "waiting_for_approval",
+          completedAt: null,
+          exitCode: null,
+        },
+        "Waiting for approval to run pnpm exec turbo run test --filter=@cc/app",
+      ],
+      [
+        { status: "interrupted", approvalStatus: "denied", exitCode: null },
+        "Permission denied: pnpm exec turbo run test --filter=@cc/app (2s)",
+      ],
+      [
+        { description: null },
+        "Ran pnpm exec turbo run test --filter=@cc/app (2s)",
+      ],
+      [
+        { activityIntents: [searchIntent("TODO", "src")] },
+        "Searched for TODO in src",
+      ],
+    ];
+    for (const [overrides, expected] of cases) {
+      expect(
+        buildTimelineRowTitle(describedRow(overrides), DEFAULT_OPTIONS).plain,
+      ).toBe(expected);
+    }
+    expect(
+      buildTimelineRowTitle(
+        describedRow({ status: "pending", completedAt: null, exitCode: null }),
+        DEFAULT_OPTIONS,
+      ).segments,
+    ).toEqual([
+      expect.objectContaining({ text: "Run the app tests", shimmer: true }),
+    ]);
+  });
+
   it("appends an (interrupted) decoration to compact exploration intents on interrupted rows", () => {
     const row = {
       ...commandRow(),
@@ -1756,6 +1809,7 @@ const branchQuestion = {
   shortLabel: "Branch",
   multiSelect: false,
   allowFreeText: true,
+  required: true,
   options: [
     { value: "main", label: "main" },
     { value: "release", label: "release/1.0" },
@@ -1768,6 +1822,7 @@ const testsQuestion = {
   shortLabel: "Tests",
   multiSelect: false,
   allowFreeText: true,
+  required: true,
   options: [
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },

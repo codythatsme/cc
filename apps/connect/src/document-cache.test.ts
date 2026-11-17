@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
+import { workerNodeBuiltinsPlugin } from "@cc/connect-db-pg/testing";
 import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decodeFrame, encodeFrame, type Frame } from "@cc/tunnel-contract";
@@ -35,6 +36,7 @@ async function bundleFixture(): Promise<string> {
     format: "esm",
     target: "esnext",
     conditions: ["workerd", "worker", "browser"],
+    plugins: [workerNodeBuiltinsPlugin],
     write: false,
   });
   return result.outputFiles[0].text;
@@ -91,6 +93,9 @@ function serveShellOverTunnel(ws: ClientWebSocket): void {
   });
 }
 
+const TRANSPORTS = ["object-held", "worker-held"] as const;
+let transport: (typeof TRANSPORTS)[number] = "object-held";
+
 async function get(
   path: string,
   headers: Record<string, string> = {},
@@ -102,7 +107,11 @@ async function get(
   body: string;
 }> {
   const res = await mf.dispatchFetch(`https://relay.test${path}`, {
-    headers: { "accept-encoding": "gzip", ...headers },
+    headers: {
+      "accept-encoding": "gzip",
+      "x-fixture-transport": transport,
+      ...headers,
+    },
   });
   return {
     status: res.status,
@@ -138,7 +147,6 @@ beforeAll(async () => {
     compatibilityDate: "2026-06-11",
     compatibilityFlags: ["nodejs_compat"],
     durableObjects: { TUNNEL_DO: "TunnelDO" },
-    d1Databases: { DB: "fixture-db" },
     bindings: {
       BASE_DOMAIN: "relay.test",
       BETTER_AUTH_SECRET: "fixture-secret",
@@ -161,18 +169,26 @@ afterAll(async () => {
   await mf?.dispose();
 });
 
-describe("revalidated shell cache", () => {
+describe.each(TRANSPORTS)("revalidated shell cache (%s response)", (name) => {
+  const t1 = `/${name}/threads/t1`;
+  const t2 = `/${name}/threads/t2`;
+  const legacyT1 = `/legacy/${name}/threads/t1`;
+
+  beforeAll(() => {
+    transport = name;
+  });
+
   it("serves repeats from caches.default with only a 304 on the tunnel, and ships a new build on the next navigation", async () => {
     currentBuild = BUILD_A;
-    const cold = await get("/threads/t1");
+    const cold = await get(t1);
     expect(cold.status).toBe(200);
     expect(cold.body).toBe(BUILD_A.html);
     expect(cold.cacheMarker).toBe("miss");
     expect(cold.cacheControl).toBe("no-cache");
     expect(originLog.at(-1)).toEqual({ ifNoneMatch: null, sentBody: true });
-    expect(await waitForShellCached("/threads/t1")).toMatch(/^max-age=\d+$/u);
+    expect(await waitForShellCached(t1)).toMatch(/^max-age=\d+$/u);
 
-    const repeat = await get("/threads/t1");
+    const repeat = await get(t1);
     expect(repeat.status).toBe(200);
     expect(repeat.body).toBe(BUILD_A.html);
     expect(repeat.cacheMarker).toBe("revalidated");
@@ -183,7 +199,7 @@ describe("revalidated shell cache", () => {
     });
 
     currentBuild = BUILD_B;
-    const upgraded = await get("/threads/t1");
+    const upgraded = await get(t1);
     expect(upgraded.status).toBe(200);
     expect(upgraded.body).toBe(BUILD_B.html);
     expect(upgraded.etag).toBe(BUILD_B.etag);
@@ -193,9 +209,9 @@ describe("revalidated shell cache", () => {
       ifNoneMatch: BUILD_A.etag,
       sentBody: true,
     });
-    await waitForShellCached("/threads/t1");
+    await waitForShellCached(t1);
 
-    const settled = await get("/threads/t1");
+    const settled = await get(t1);
     expect(settled.body).toBe(BUILD_B.html);
     expect(settled.cacheMarker).toBe("revalidated");
     expect(settled.cacheControl).toBe("no-cache");
@@ -207,7 +223,7 @@ describe("revalidated shell cache", () => {
 
   it("relays the origin's 304 when the visitor presents a current validator", async () => {
     currentBuild = BUILD_B;
-    const cold = await get("/threads/t2", { "if-none-match": BUILD_B.etag });
+    const cold = await get(t2, { "if-none-match": BUILD_B.etag });
     expect(cold.status).toBe(304);
     expect(cold.body).toBe("");
     expect(originLog.at(-1)).toEqual({
@@ -215,10 +231,10 @@ describe("revalidated shell cache", () => {
       sentBody: false,
     });
 
-    const miss = await get("/threads/t2");
+    const miss = await get(t2);
     expect(miss.cacheMarker).toBe("miss");
-    await waitForShellCached("/threads/t2");
-    const res = await get("/threads/t2", { "if-none-match": BUILD_B.etag });
+    await waitForShellCached(t2);
+    const res = await get(t2, { "if-none-match": BUILD_B.etag });
     expect(res.status).toBe(304);
     expect(res.body).toBe("");
     expect(res.cacheMarker).toBe("revalidated");
@@ -231,7 +247,7 @@ describe("revalidated shell cache", () => {
 
   it("proxies a no-cache document without a validator uncached (a server from before the contract)", async () => {
     for (let i = 0; i < 2; i += 1) {
-      const res = await get("/legacy/threads/t1");
+      const res = await get(legacyT1);
       expect(res.status).toBe(200);
       expect(res.body).toBe(currentBuild.html);
       expect(res.cacheMarker).toBeNull();

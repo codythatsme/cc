@@ -20,6 +20,10 @@ import {
   type MountedMessageDirective,
 } from "./markdown-message-directives.js";
 import {
+  remarkCodeFenceRenderers,
+  type CodeFenceRendererRegistry,
+} from "./markdown-code-fence-renderers.js";
+import {
   BARE_FENCE_PATTERN,
   TRAILING_CLOSE_PATTERN,
 } from "./markdown-math-fences.js";
@@ -37,6 +41,7 @@ import {
 type MarkdownPluginList = NonNullable<ReactMarkdownOptions["remarkPlugins"]>;
 
 export interface MarkdownPieceRenderConfig {
+  codeFenceRendererRegistry: CodeFenceRendererRegistry | null;
   components: Components;
   messageDirectiveRegistry: MessageDirectiveRegistry | null;
   rehypePlugins: MarkdownPluginList;
@@ -54,11 +59,6 @@ interface MarkdownPieceSummary {
 interface ResolvedMarkdownPieces {
   children: readonly ReactNode[];
   mounts: readonly MountedMessageDirective[];
-}
-
-interface MarkdownElementProps {
-  children?: ReactNode;
-  node?: object;
 }
 
 interface MarkdownPieceEntry {
@@ -369,6 +369,12 @@ function parseMarkdownPiece({
       },
     ]);
   }
+  if (config.codeFenceRendererRegistry !== null) {
+    remarkPlugins.push([
+      remarkCodeFenceRenderers,
+      { registry: config.codeFenceRendererRegistry, sourceOffset },
+    ]);
+  }
   remarkPlugins.push(() => (tree: Root) => {
     visit(tree, "image", (node) => {
       if (node.position?.start.offset === undefined) return;
@@ -497,50 +503,19 @@ function resolveIncrementalMarkdownPieceEntries(
   return entries;
 }
 
-function refreshMarkdownElementTree(child: ReactNode): ReactNode {
-  if (Array.isArray(child)) {
-    return child.map(refreshMarkdownElementTree);
-  }
-  if (!isValidElement<MarkdownElementProps>(child)) {
-    return child;
-  }
-  const { children, node } = child.props;
-  const props = node === undefined ? undefined : { node: { ...node } };
-  if (children === undefined) {
-    return cloneElement(child, props);
-  }
-  if (Array.isArray(children)) {
-    return cloneElement(
-      child,
-      props,
-      ...children.map(refreshMarkdownElementTree),
-    );
-  }
-  return cloneElement(child, props, refreshMarkdownElementTree(children));
-}
-
 function buildResolvedMarkdownPieces(
   entries: readonly MarkdownPieceEntry[],
-  previousEntries: readonly MarkdownPieceEntry[],
 ): ResolvedMarkdownPieces {
-  const reusedEntries = new Set(previousEntries);
   const children: ReactNode[] = [];
   const mounts: MountedMessageDirective[] = [];
   for (const entry of entries) {
-    const reused = reusedEntries.has(entry);
     if (entry.children.length > 0) {
       if (children.length > 0) {
         children.push("\n");
       }
-      for (const child of entry.children) {
-        children.push(reused ? refreshMarkdownElementTree(child) : child);
-      }
+      children.push(...entry.children);
     }
-    for (const mount of entry.mounts) {
-      mounts.push(
-        reused ? { ...mount, attributes: { ...mount.attributes } } : mount,
-      );
-    }
+    mounts.push(...entry.mounts);
   }
   return {
     children,
@@ -596,7 +571,7 @@ export function resolveMarkdownPieces(
   } else {
     cache.latchedWholeDocumentPrefix = null;
   }
-  const result = buildResolvedMarkdownPieces(entries, previousEntries);
+  const result = buildResolvedMarkdownPieces(entries);
   cache.entries = entries;
   cache.resolved = { body, result };
   return result;

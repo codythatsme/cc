@@ -42,7 +42,7 @@ export const MARKETPLACE_V2_FIXTURE: MarketplaceV2Manifest = {
       publishedAt: "2026-07-14T09:30:00Z",
       updatedAt: "2026-08-24T16:45:00+02:00",
       tags: ["prompts", "templates"],
-      author: { name: "CC Labs", github: "get-cc" },
+      author: { name: "CC Labs", github: "codythatsme" },
       source: {
         npm: {
           package: "@codythatsme/plugin-prompt-library",

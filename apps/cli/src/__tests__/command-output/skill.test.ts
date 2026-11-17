@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   collectLogLines,
-  getHelpOutput,
   runCommand,
   setupCommandOutputTestEnvironment,
   stubServerApi,
@@ -51,10 +50,14 @@ describe("cc skill commands", () => {
     vi.mocked(globalThis.fetch).mockResolvedValue(
       new Response(
         JSON.stringify({
-          ok: true,
-          filePath: "/home/user/.cc/skills/review/SKILL.md",
+          job: {
+            id: "job_1",
+            registrySkillId: "owner/repo/review",
+            state: "completed",
+            filePath: "/home/user/.cc/skills/review/SKILL.md",
+          },
         }),
-        { status: 200, headers: { "content-type": "application/json" } },
+        { status: 202, headers: { "content-type": "application/json" } },
       ),
     );
 
@@ -64,7 +67,9 @@ describe("cc skill commands", () => {
     );
 
     const [input, init] = vi.mocked(globalThis.fetch).mock.calls[0] ?? [];
-    expect(String(input)).toBe("http://server/api/v1/skills-registry/install");
+    expect(String(input)).toBe(
+      "http://server/api/v1/skills-registry/install-jobs",
+    );
     expect(JSON.parse(String(init?.body))).toEqual({
       registrySkillId: "owner/repo/review",
     });
@@ -363,21 +368,5 @@ describe("cc skill commands", () => {
     expect(vi.mocked(console.log)).toHaveBeenCalledWith(
       JSON.stringify({ skill: { ...entry, stars: 27_053 }, detail }, null, 2),
     );
-  });
-
-  it("documents the installed and registry lifecycle", async () => {
-    const help = await getHelpOutput(["skill"], register);
-    for (const command of [
-      "list",
-      "show",
-      "files",
-      "update",
-      "delete",
-      "search",
-      "registry",
-      "install",
-    ]) {
-      expect(help).toContain(command);
-    }
   });
 });

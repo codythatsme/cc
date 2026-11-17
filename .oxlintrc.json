@@ -57,6 +57,19 @@
       }
     },
     {
+      "files": ["apps/app/**/*.{ts,tsx}", "packages/shared-ui/**/*.{ts,tsx}"],
+      "plugins": ["react"],
+      "rules": {
+        "react/preserve-manual-memoization": "error",
+        "react/incompatible-library": "error",
+        "react/immutability": "error",
+        "react/refs": "error",
+        "react/set-state-in-effect": "error",
+        "react/purity": "error",
+        "react/unsupported-syntax": "error"
+      }
+    },
+    {
       "files": ["apps/**/*.{ts,tsx}", "packages/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
@@ -77,6 +90,57 @@
           }
         ],
         "cc/no-blocking-child-process-call": "error"
+      }
+    },
+    {
+      "files": [
+        "packages/agent-runtime/src/**/*.ts",
+        "packages/provider-bridge-acp/src/bridge/agent-connection.ts",
+        "packages/config/src/verified-process-stop.ts",
+        "packages/host-workspace/src/git-host.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "node:child_process",
+                "allowTypeImports": true,
+                "message": "Use @cc/process-utils managed processes or buffered commands so launch and termination share one owner."
+              },
+              {
+                "name": "child_process",
+                "allowTypeImports": true,
+                "message": "Use @cc/process-utils managed processes or buffered commands so launch and termination share one owner."
+              },
+              {
+                "name": "cross-spawn",
+                "allowTypeImports": true,
+                "message": "Use @cc/process-utils managed processes or buffered commands so launch and termination share one owner."
+              },
+              {
+                "name": "@cc/process-utils",
+                "importNames": [
+                  "spawnPortableProcess",
+                  "spawnPortablePipedProcess",
+                  "spawnPortableOutputProcess",
+                  "supportsProcessGroups",
+                  "killProcessGroup",
+                  "stopProcessGroupLeaderFirst"
+                ],
+                "message": "Use spawnManagedProcess for owned subprocesses; it owns process-group setup and awaited termination."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/process-utils/src/host-toolchain.ts"],
+      "rules": {
+        "no-restricted-imports": "off",
+        "cc/no-blocking-child-process-call": "off"
       }
     },
     {
@@ -172,6 +236,29 @@
       "files": ["plugins/**/*.{ts,tsx,mts,cts,js,mjs,cjs}"],
       "rules": {
         "cc/forkable-plugin-imports": "error"
+      }
+    },
+    {
+      "files": [
+        "apps/**/*.{ts,tsx}",
+        "packages/**/*.{ts,tsx}",
+        "plugins/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "cc/no-raw-resize-observer": "error"
+      }
+    },
+    {
+      "files": [
+        "packages/shared-ui/src/lib/shared-resize-observer.ts",
+        "apps/app/src/components/ui/scroll-position-keeper.ts",
+        "apps/web/src/landing/hero-window-stage.tsx",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.stories.tsx"
+      ],
+      "rules": {
+        "cc/no-raw-resize-observer": "off"
       }
     }
   ]

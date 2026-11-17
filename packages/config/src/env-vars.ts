@@ -7,6 +7,16 @@ import {
   appUpdateModeSchema,
   type AppUpdateMode,
 } from "./app-update.js";
+import {
+  APP_INSTALL_KIND_ENV_NAME,
+  APP_SOURCE_COMMIT_ENV_NAME,
+  APP_SOURCE_ORIGIN_ENV_NAME,
+  appInstallKindSchema,
+  appSourceOriginSchema,
+  type AppInstallKind,
+  type AppSourceOrigin,
+} from "./app-install.js";
+import { CLI_LAUNCHER_ENV_NAME } from "./cli-command.js";
 import { defineEnvVar, type EnvVarParseArgs } from "./env.js";
 import {
   APP_SURFACE_ENV_NAME,
@@ -59,6 +69,41 @@ function parseAppUpdateModeEnvValue(args: EnvVarParseArgs): AppUpdateMode {
   }
   throw new Error(
     `${args.name} must be one of ${appUpdateModeSchema.options.join(", ")}`,
+  );
+}
+
+function parseAppInstallKindEnvValue(args: EnvVarParseArgs): AppInstallKind {
+  const parsed = appInstallKindSchema.safeParse(args.value);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  throw new Error(
+    `${args.name} must be one of ${appInstallKindSchema.options.join(", ")}`,
+  );
+}
+
+function parseAppSourceOriginEnvValue(args: EnvVarParseArgs): AppSourceOrigin {
+  const parsed = appSourceOriginSchema.safeParse(args.value);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  throw new Error(
+    `${args.name} must be one of ${appSourceOriginSchema.options.join(", ")}`,
+  );
+}
+
+const setupGuideVariantSchema = z.enum(["control", "new"]);
+export type SetupGuideVariant = z.infer<typeof setupGuideVariantSchema>;
+
+function parseSetupGuideVariantEnvValue(
+  args: EnvVarParseArgs,
+): SetupGuideVariant {
+  const parsed = setupGuideVariantSchema.safeParse(args.value.trim());
+  if (parsed.success) {
+    return parsed.data;
+  }
+  throw new Error(
+    `${args.name} must be one of ${setupGuideVariantSchema.options.join(", ")}`,
   );
 }
 
@@ -189,6 +234,34 @@ export const CC_APP_UPDATE_MODE_ENV = defineEnvVar<AppUpdateMode>({
   parse: parseAppUpdateModeEnvValue,
 });
 
+export const CC_CLI_LAUNCHER_ENV = defineEnvVar<string>({
+  description:
+    "Internal path the cc-app launcher hands its server child: the cc command launcher it wrote in the data directory for this install. The server offers to put the cc command on PATH only when it is set.",
+  name: CLI_LAUNCHER_ENV_NAME,
+  parse: parseNonEmptyStringEnvValue,
+});
+
+export const CC_APP_INSTALL_KIND_ENV = defineEnvVar<AppInstallKind>({
+  description:
+    "Internal marker the cc-app launcher hands its server child to describe how it was installed: desktop for the desktop app, npm for package installs, source for pnpm start checkouts. Absent when the server runs without the launcher.",
+  name: APP_INSTALL_KIND_ENV_NAME,
+  parse: parseAppInstallKindEnvValue,
+});
+
+export const CC_APP_SOURCE_ORIGIN_ENV = defineEnvVar<AppSourceOrigin>({
+  description:
+    "Internal marker the cc-app launcher hands its server child for source checkouts: official when the origin remote is github.com/codythatsme/cc or github.com/ymichael/cc, fork for any other origin, none without one.",
+  name: APP_SOURCE_ORIGIN_ENV_NAME,
+  parse: parseAppSourceOriginEnvValue,
+});
+
+export const CC_APP_SOURCE_COMMIT_ENV = defineEnvVar<string>({
+  description:
+    "Internal marker the cc-app launcher hands its server child with the HEAD commit of an official source checkout. Never set for forks.",
+  name: APP_SOURCE_COMMIT_ENV_NAME,
+  parse: parseNonEmptyStringEnvValue,
+});
+
 export const CC_APP_SURFACE_ENV = defineEnvVar<AppSurface>({
   description:
     "Internal launcher marker identifying the application surface. Set by cc-app and desktop launchers.",
@@ -198,7 +271,7 @@ export const CC_APP_SURFACE_ENV = defineEnvVar<AppSurface>({
 
 export const CC_APP_URL_ENV = defineEnvVar<string>({
   description:
-    "Human-facing app/server base URL used for generated links and allowed browser origins. Does not control which host or port the server binds to.",
+    "Human-facing app/server base URL used for generated links, allowed browser origins, and the allowed DNS hostname for incoming requests. Does not control which host or port the server binds to.",
   name: "CC_APP_URL",
   parse: parseOptionalUrlEnvValue,
 });
@@ -215,6 +288,41 @@ export const CC_MARKETPLACE_URL_ENV = defineEnvVar<string>({
     "Optional manifest URL of the cc-community plugin marketplace. Empty by default; no remote catalog is contacted unless configured.",
   name: "CC_MARKETPLACE_URL",
   parse: parseOptionalUrlEnvValue,
+});
+
+export const CC_CONNECT_GATE_KEYS_URL_ENV = defineEnvVar<string>({
+  description:
+    "URL of the cc connect next gate public key set the server's tunnel ingress verifies gate assertions with. Point it at a local file server to test the ingress.",
+  name: "CC_CONNECT_GATE_KEYS_URL",
+  parse: parseRequiredUrlEnvValue,
+});
+
+export const CC_PERF_DIAGNOSTICS_ENV = defineEnvVar<boolean>({
+  description:
+    "Permit server performance diagnostics when the performanceDiagnostics experiment is on. Requires restart.",
+  name: "CC_PERF_DIAGNOSTICS",
+  parse: parseBooleanEnvValue,
+});
+
+export const CC_QUERY_PLAN_AUDIT_ENV = defineEnvVar<boolean>({
+  description:
+    "Log a warning when the server runs a SQLite query whose plan walks a large table or uses a weaker index than one that exists. pnpm dev and pnpm start:worktree set it; the performanceDiagnostics experiment also turns it on. Requires restart.",
+  name: "CC_QUERY_PLAN_AUDIT",
+  parse: parseBooleanEnvValue,
+});
+
+export const CC_SKIP_ONBOARDING_ENV = defineEnvVar<boolean>({
+  description:
+    "Mark first-run setup as completed at server startup so the setup screen is skipped. Settings can still replay it.",
+  name: "CC_SKIP_ONBOARDING",
+  parse: parseBooleanEnvValue,
+});
+
+export const CC_SETUP_GUIDE_VARIANT_ENV = defineEnvVar<SetupGuideVariant>({
+  description:
+    "Forces the first-run setup guide variant (control or new) for QA.",
+  name: "CC_SETUP_GUIDE_VARIANT",
+  parse: parseSetupGuideVariantEnvValue,
 });
 
 export const CC_FF_PLACEHOLDER_ENV = defineEnvVar<boolean>({
@@ -302,17 +410,17 @@ export const CC_HOST_DAEMON_AUTO_UPDATE_ENV = defineEnvVar<boolean>({
   parse: parseBooleanEnvValue,
 });
 
+export const CC_HOST_DAEMON_SUPERVISED_ENV = defineEnvVar<boolean>({
+  description:
+    "Set by cc-app host-daemon --supervise so a daemon that relaunches itself after a server move keeps its launcher restarting it",
+  name: "CC_HOST_DAEMON_SUPERVISED",
+  parse: parseBooleanEnvValue,
+});
+
 export const CC_HOST_ID_ENV = defineEnvVar<string | undefined>({
   description:
     "Preferred host ID to persist for the daemon instead of generating one locally",
   name: "CC_HOST_ID",
-  parse: parseOptionalTrimmedStringEnvValue,
-});
-
-export const CC_HOST_NAME_ENV = defineEnvVar<string | undefined>({
-  description:
-    "Preferred host name to report instead of detecting the local hostname",
-  name: "CC_HOST_NAME",
   parse: parseOptionalTrimmedStringEnvValue,
 });
 
@@ -323,6 +431,8 @@ export const DEFAULT_CC_SERVER_BIND_HOST: ServerBindHost = CC_LOOPBACK_HOST;
 export const DEFAULT_CC_EXTERNAL_URL = "";
 export const DEFAULT_CC_DEV_APP_HOST = "";
 export const DEFAULT_CC_MARKETPLACE_URL = "";
+export const DEFAULT_CC_CONNECT_GATE_KEYS_URL =
+  "https://cc.example.invalid/.well-known/cc-connect-gate-keys.json";
 export const DEFAULT_CC_FF_PLACEHOLDER = defaultFeatureFlags.placeholder;
 export const DEFAULT_CC_FF_TIMELINE_WINDOW_EVENT_BUDGET =
   defaultFeatureFlags.timelineWindowEventBudget;

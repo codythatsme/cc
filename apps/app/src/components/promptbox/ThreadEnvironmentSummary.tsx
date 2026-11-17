@@ -1,11 +1,19 @@
 import { memo } from "react";
-import { OptionDisplay } from "@cc/shared-ui/option-display";
+import { Button } from "@cc/shared-ui/button";
+import {
+  OPTION_BASE_CLASS_NAME,
+  OPTION_INTERACTIVE_CLASS_NAME,
+  OPTION_MUTED_CLASS_NAME,
+  OptionDisplay,
+} from "@cc/shared-ui/option-display";
 import { copyToClipboardWithToast } from "@/lib/clipboard";
 import { Icon, type IconName } from "@cc/shared-ui/icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@cc/shared-ui/tooltip";
 import { cn } from "@cc/shared-ui/lib/utils";
 import { CHROME_SUBTLE_ICON_BUTTON_FOREGROUND_CLASS } from "@cc/shared-ui/chrome-style-tokens";
-import type { WorkspaceCheckoutDisplay } from "@/lib/workspace-checkout-display";
+import type {
+  WorkspaceCheckoutDisplay,
+} from "@cc/shared-ui/lib/workspace-checkout-display";
 import {
   MachineLabel,
   type MachineLabelHost,
@@ -15,6 +23,35 @@ import type { MachineProviderPresentation } from "@/components/plugin/MachinePro
 const CHECKOUT_CHIP_BASE_CLASS_NAME =
   "flex min-w-0 flex-1 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground";
 const CHECKOUT_CHIP_BUTTON_CLASS_NAME = `${CHECKOUT_CHIP_BASE_CLASS_NAME} cursor-pointer transition-colors hover:bg-state-hover hover:text-foreground`;
+
+export function ThreadDetailsButton({
+  icon,
+  label,
+  onOpenDetails,
+}: {
+  icon: IconName;
+  label: string;
+  onOpenDetails: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      aria-label={`Thread details: ${label}`}
+      onClick={onOpenDetails}
+      className={cn(
+        OPTION_BASE_CLASS_NAME,
+        OPTION_INTERACTIVE_CLASS_NAME,
+        OPTION_MUTED_CLASS_NAME,
+        "h-6 max-md:pointer-coarse:h-11 max-md:pointer-coarse:px-2",
+      )}
+    >
+      <Icon name={icon} className="size-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{label}</span>
+    </Button>
+  );
+}
 
 interface ThreadEnvironmentSummaryProps {
   projectName?: string;

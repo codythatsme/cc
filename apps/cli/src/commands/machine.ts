@@ -35,6 +35,10 @@ interface MachineMutationCommandOptions extends MachineListCommandOptions {
   yes?: boolean;
 }
 
+interface MachineRemoveCommandOptions extends MachineMutationCommandOptions {
+  force?: boolean;
+}
+
 interface MachineProviderInstallOptions extends MachineListCommandOptions {
   action?: "install" | "update";
 }
@@ -285,7 +289,10 @@ export function registerMachineCommands(
                 signal: controller.signal,
               });
             if (enrollmentCommand !== null) {
+              console.error("On macOS or Linux, run:");
               console.error(enrollmentCommand.command);
+              console.error("On Windows, run in PowerShell:");
+              console.error(enrollmentCommand.windowsCommand);
               console.error(
                 enrollmentExpiryNotice(enrollmentCommand.expiresAt),
               );
@@ -449,10 +456,14 @@ export function registerMachineCommands(
   machine
     .command("remove <id-or-name>")
     .description("Revoke and remove an execution machine")
+    .option(
+      "--force",
+      "Finish removing a disconnected machine whose environment cleanup failed, leaving its files on disk",
+    )
     .option("--yes", "Skip the confirmation prompt")
     .option("--json", "Print machine-readable JSON output")
     .action(
-      action(async (target: string, opts: MachineMutationCommandOptions) => {
+      action(async (target: string, opts: MachineRemoveCommandOptions) => {
         const sdk = createCliCcSdk(getUrl());
         const hostId = await resolveMachineHostId({
           serverUrl: getUrl(),
@@ -460,10 +471,17 @@ export function registerMachineCommands(
         });
         if (
           !opts.yes &&
-          !(await confirmDestructiveAction(`Remove machine ${hostId}?`))
+          !(await confirmDestructiveAction(
+            opts.force
+              ? `Remove machine ${hostId} without cleaning up its environments? Files left on its disk are not deleted.`
+              : `Remove machine ${hostId}?`,
+          ))
         )
           return;
-        const result = await sdk.hosts.delete({ hostId });
+        const result = await sdk.hosts.delete({
+          hostId,
+          force: opts.force,
+        });
         if (outputJson(opts, result)) return;
         console.log(`Machine ${hostId} removed`);
       }),
@@ -586,7 +604,10 @@ export function registerMachineCommands(
           serverUrl: getUrl(),
           target,
         });
-        const result = await sdk.hosts.providerCliStatus({ hostId });
+        const result = await sdk.hosts.providerCliStatus({
+          hostId,
+          refresh: true,
+        });
         if (outputJson(opts, result)) return;
         console.log(JSON.stringify(result, null, 2));
       }),

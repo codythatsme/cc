@@ -10,5 +10,8 @@ export function getDesktopVersion(version: string | undefined): string {
 export function resolveCcDesktopPlatform(
   platform: NodeJS.Platform,
 ): CcDesktopInfo["platform"] {
-  return platform === "darwin" ? "macos" : "linux";
+  if (platform === "darwin") {
+    return "macos";
+  }
+  return platform === "win32" ? "windows" : "linux";
 }

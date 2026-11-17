@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +8,6 @@ import type { ThreadEvent } from "@cc/domain";
 import { createAgentRuntime } from "./runtime.js";
 import {
   createScriptedEchoLaunch,
-  createScriptedEchoRequestRecord,
   fullRuntimeOptions,
   waitForRuntimeState,
   waitForThreadAgentMessageText,
@@ -52,7 +52,12 @@ describe("codex process topology", () => {
 
   afterEach(async () => {
     await Promise.all(runtimes.splice(0).map((runtime) => runtime.shutdown()));
-    rmSync(workspaceDir, { recursive: true, force: true });
+    await rm(workspaceDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100,
+    });
   });
 
   function createCodexTopologyRuntime(
@@ -73,7 +78,6 @@ describe("codex process topology", () => {
     );
     const events: ThreadEvent[] = [];
     const bridgeExits: { expected: boolean }[] = [];
-    const record = createScriptedEchoRequestRecord();
     const launch = (digest: string): AgentRuntimeBridgeLaunch =>
       createScriptedEchoLaunch({
         pluginId: "provider-codex",
@@ -84,7 +88,6 @@ describe("codex process topology", () => {
       createAgentRuntime({
         workspacePath: workspaceDir,
         env: {
-          ...record.env,
           CC_CODEX_BRIDGE_APP_SERVER_COMMAND: process.execPath,
           CC_CODEX_BRIDGE_APP_SERVER_ARGS: JSON.stringify([
             fakeAppServerPath,
@@ -321,7 +324,7 @@ describe("codex process topology", () => {
     expect(topology.bridgeExits).toEqual([{ expected: true }]);
   }, 30_000);
 
-  it("releases the thread on the bridge when a construction times out on the runtime's side", async () => {
+  it("reaps the stalled app-server child when the runtime times out thread construction", async () => {
     const realSetTimeout = setTimeout;
     const sleepReal = (ms: number): Promise<void> =>
       new Promise((resolve) => {

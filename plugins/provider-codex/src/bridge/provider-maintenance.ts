@@ -84,6 +84,7 @@ function codexUpdateCommand(): {
 
 export async function getCodexProviderInstallationStatus(
   requirement?: "thread_rewind",
+  checkUpdates = true,
 ): Promise<ProviderInstallationStatus> {
   const minimumSupportedVersion =
     minimumSupportedVersionForRequirement(requirement);
@@ -91,8 +92,10 @@ export async function getCodexProviderInstallationStatus(
     await Promise.all([
       resolveExecutablePath("codex"),
       commandOutput("codex", ["--version"]),
-      npmLatestVersion(CODEX_NPM_PACKAGE),
-      probeNpmGlobalPackage(CODEX_NPM_PACKAGE),
+      checkUpdates ? npmLatestVersion(CODEX_NPM_PACKAGE) : null,
+      checkUpdates
+        ? probeNpmGlobalPackage(CODEX_NPM_PACKAGE)
+        : { npmBin: null, npmGlobalPackageVersion: null },
     ]);
   const installed = resolvedExecutable !== null || versionOutput !== null;
   const currentVersion = versionFrom(versionOutput);
@@ -179,6 +182,7 @@ function healthResult(
     | "unknown",
   args: {
     accountEmail?: string | null;
+    setupGuidePlanLabel?: string | null;
     installedVersion?: string | null;
     statusMessage?: string | null;
   } = {},
@@ -190,11 +194,13 @@ function healthResult(
       statusMessage: args.statusMessage ?? null,
       accountEmail: args.accountEmail ?? null,
       planLabel: null,
+      internal_DO_NOT_USE_setupGuidePlanLabel: args.setupGuidePlanLabel ?? null,
       installedVersion: args.installedVersion ?? null,
       minimumSupportedVersion: CODEX_MINIMUM_SUPPORTED_VERSION,
       canInstall: true,
       canUpdate: status !== "not_installed",
-      loginCommand: "codex login",
+      loginCommand: "codex login --device-auth",
+      localLoginCommand: "codex login",
     },
   };
 }
@@ -218,12 +224,15 @@ export async function getCodexProviderHealth(): Promise<ProviderHealthResult> {
     if (credentials.type === "chatgpt" && credentials.expired) {
       return healthResult("expired", {
         accountEmail: credentials.accountEmail,
+        setupGuidePlanLabel: planLabel(credentials.planType),
         installedVersion: version,
       });
     }
     return healthResult("ready", {
       accountEmail:
         credentials.type === "chatgpt" ? credentials.accountEmail : null,
+      setupGuidePlanLabel:
+        credentials.type === "chatgpt" ? planLabel(credentials.planType) : null,
       installedVersion: version,
     });
   } catch (error) {

@@ -5,4 +5,5 @@ export {
   isBareCcRealtimeWs,
   TunnelSession,
   type StreamOriginResult,
+  type TunnelSessionSnapshot,
 } from "./session.js";

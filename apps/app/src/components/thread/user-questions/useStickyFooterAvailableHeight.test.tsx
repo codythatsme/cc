@@ -8,6 +8,7 @@ import {
   SCROLL_FOOTER_ATTRIBUTE,
   useStickyFooterAvailableHeight,
 } from "./useStickyFooterAvailableHeight";
+import { createInertScrollPositionKeeper } from "@/test/scroll-position-keeper";
 
 afterEach(() => {
   cleanup();
@@ -43,10 +44,11 @@ function stubResizeObserver(): Array<() => void> {
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      constructor(callback: () => void) {
-        observers.push(callback);
+      constructor(callback: (entries: ResizeObserverEntry[]) => void) {
+        observers.push(() => callback([]));
       }
       observe() {}
+      unobserve() {}
       disconnect() {}
     },
   );
@@ -59,8 +61,8 @@ function scrollBodyContext(scrollElement: HTMLElement) {
     isAtBottom: true,
     scrollToBottom: () => {},
     scrollElementIntoView: () => {},
-    scrollElementIntoViewClampedToMaxScroll: () => {},
-    captureScrollAnchor: () => {},
+    positionKeeper: createInertScrollPositionKeeper(),
+    holdContentPosition: () => {},
   };
 }
 

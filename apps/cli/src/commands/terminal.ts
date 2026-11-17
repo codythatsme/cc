@@ -1,7 +1,12 @@
 import { Buffer } from "node:buffer";
 import { Command, Option } from "commander";
 import { TERMINAL_DATA_MAX_BYTES } from "@cc/domain";
-import type { TerminalCreateScope, TerminalListScope } from "@cc/sdk";
+import {
+  CcHttpError,
+  type CcSdk,
+  type TerminalCreateScope,
+  type TerminalListScope,
+} from "@cc/sdk";
 import { createNodeWebsocketFactory } from "@cc/sdk/node-websocket";
 import {
   terminalServerMessageSchema,
@@ -14,10 +19,22 @@ import { durationHelp, parseDurationMs } from "../duration.js";
 import { columnWidths, printBorderlessTable } from "../table.js";
 import { outputJson } from "./helpers.js";
 import { resolveMachineHostId, resolveMachineTargetOption } from "./machine.js";
+import {
+  DEFAULT_TERMINAL_WAIT_MAX_OUTPUT_BYTES,
+  describeTerminalExit,
+  observeTerminal,
+  parseMaxOutputBytes,
+  parseTerminalOutputCondition,
+  reportTerminalObservation,
+  terminalPlainText,
+  type TerminalObservePlan,
+} from "./terminal-wait.js";
 
-const DEFAULT_COLS = 80;
-const DEFAULT_ROWS = 24;
-const TERMINAL_WAIT_TIMEOUT_EXIT_CODE = 124;
+const DEFAULT_COLS = 200;
+const DEFAULT_ROWS = 50;
+const WAIT_POLL_DELAYS_MS = [100, 200, 400, 800, 1000] as const;
+const RUN_USAGE_EXAMPLE =
+  "For example: cc terminal run --machine <id-or-name> --cwd /path/to/repo -- pnpm test";
 
 interface TerminalJsonOptions {
   json?: boolean;
@@ -39,7 +56,19 @@ interface TerminalStartOptions
   attach?: boolean;
   command?: string;
   cols?: string;
+  id?: string;
   rows?: string;
+  title?: string;
+}
+
+interface TerminalRunOptions extends TerminalJsonOptions, TerminalScopeOptions {
+  cols?: string;
+  contains?: string;
+  id?: string;
+  maxOutputBytes: string;
+  regex?: string;
+  rows?: string;
+  timeout: string;
   title?: string;
 }
 
@@ -60,22 +89,28 @@ interface TerminalOutputOptions extends TerminalJsonOptions {
   tailBytes?: string;
 }
 
+interface TerminalReadOptions extends TerminalOutputOptions {
+  plain?: boolean;
+}
+
 interface TerminalWaitOptions extends TerminalOutputOptions {
   contains?: string;
   exit?: boolean;
   fromStart?: boolean;
+  maxOutputBytes: string;
   pollInterval?: string;
   regex?: string;
-  timeout?: string;
+  timeout: string;
 }
 
 interface TerminalCloseOptions extends TerminalJsonOptions {
   ifClean?: boolean;
 }
 
-interface TerminalStartResolution {
-  command: string | null;
-}
+type TerminalStartResolution =
+  | { mode: "shell" }
+  | { mode: "command"; command: string }
+  | { mode: "argv"; argv: string[] };
 
 export function registerTerminalCommands(
   program: Command,
@@ -110,11 +145,18 @@ export function registerTerminalCommands(
       .description("Create a terminal session in exactly one scope")
       .option("--title <title>", "Terminal title")
       .option(
+        "--id <terminal-id>",
+        "Create the terminal with this ID (term_ plus 10 characters); fails if the ID exists",
+      )
+      .option(
         "--command <command>",
         "Command to run instead of an interactive shell",
       )
-      .option("--cols <n>", "Initial terminal columns")
-      .option("--rows <n>", "Initial terminal rows")
+      .option(
+        "--cols <n>",
+        `Initial terminal columns (default: ${DEFAULT_COLS})`,
+      )
+      .option("--rows <n>", `Initial terminal rows (default: ${DEFAULT_ROWS})`)
       .option("--attach", "Attach after creating")
       .option("--json", "Print machine-readable JSON output"),
   ).action(
@@ -126,13 +168,11 @@ export function registerTerminalCommands(
       });
       const session = await sdk.terminals.create({
         cols: parsePositiveInteger(opts.cols, DEFAULT_COLS, "--cols"),
+        id: opts.id,
         rows: parsePositiveInteger(opts.rows, DEFAULT_ROWS, "--rows"),
         scope: await resolveTerminalCreateScope(opts, getUrl()),
         title: opts.title,
-        start:
-          resolvedStart.command === null
-            ? { mode: "shell" }
-            : { mode: "command", command: resolvedStart.command },
+        start: resolvedStart,
       });
       if (outputJson(opts, session)) return;
       console.log(`Created terminal ${session.id} (${session.title})`);
@@ -142,6 +182,77 @@ export function registerTerminalCommands(
           terminalId: session.id,
         });
       }
+    }),
+  );
+
+  addTerminalScopeOptions(
+    terminal
+      .command("run [command...]")
+      .description(
+        "Run a command in a new terminal and return its output and exit code",
+      )
+      .option(
+        "--contains <text>",
+        "Return once the output contains this text instead of waiting for exit",
+      )
+      .option(
+        "--regex <pattern>",
+        "Return once the output matches this regular expression instead of waiting for exit",
+      )
+      .option(
+        "--timeout <duration>",
+        `Stop waiting after ${durationHelp("s")}; the command keeps running`,
+        "30s",
+      )
+      .option(
+        "--max-output-bytes <n>",
+        "Return at most the last N bytes of output",
+        DEFAULT_TERMINAL_WAIT_MAX_OUTPUT_BYTES,
+      )
+      .option(
+        "--id <terminal-id>",
+        "Run in a terminal with this ID (term_ plus 10 characters); a retry with the same ID fails instead of running twice",
+      )
+      .option("--title <title>", "Terminal title (default: the command)")
+      .option(
+        "--cols <n>",
+        `Initial terminal columns (default: ${DEFAULT_COLS})`,
+      )
+      .option("--rows <n>", `Initial terminal rows (default: ${DEFAULT_ROWS})`)
+      .option("--json", "Print machine-readable JSON output"),
+  ).action(
+    action(async (commandParts: string[], opts: TerminalRunOptions) => {
+      if (commandParts.length === 0) {
+        throw new CliUsageError({
+          code: "missing_required",
+          hint: RUN_USAGE_EXAMPLE,
+          message: "Provide the command to run after --",
+        });
+      }
+      const plan: TerminalObservePlan = {
+        condition: parseTerminalOutputCondition(opts),
+        maxOutputBytes: parseMaxOutputBytes(opts.maxOutputBytes),
+        outputBounds: {},
+        pollDelaysMs: WAIT_POLL_DELAYS_MS,
+        sinceSeq: 0,
+        timeoutMs: parseTimeout(opts.timeout),
+      };
+      const cols = parsePositiveInteger(opts.cols, DEFAULT_COLS, "--cols");
+      const rows = parsePositiveInteger(opts.rows, DEFAULT_ROWS, "--rows");
+      const sdk = createCliCcSdk(getUrl());
+      const session = await createRunTerminal({
+        argv: commandParts,
+        cols,
+        id: opts.id,
+        rows,
+        scope: await resolveTerminalCreateScope(opts, getUrl()),
+        sdk,
+        title: opts.title,
+      });
+      reportTerminalObservation({
+        json: opts.json === true,
+        report: await observeTerminal({ plan, sdk, terminalId: session.id }),
+      });
     }),
   );
 
@@ -184,7 +295,7 @@ export function registerTerminalCommands(
     .description("Send input to a terminal session")
     .option("--text <text>", "Text to send")
     .option("--stdin", "Read bytes from stdin")
-    .option("--enter", "Append a newline")
+    .option("--enter", "Press Enter after the text")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalSendOptions) => {
@@ -233,16 +344,39 @@ export function registerTerminalCommands(
     .option("--since-seq <n>", "Only output chunks from this sequence")
     .option("--tail-bytes <n>", "Bound output to the latest N bytes")
     .option("--limit-chunks <n>", "Bound output to the latest N chunks")
+    .option(
+      "--plain",
+      "Print plain text, with colors and progress redraws removed",
+    )
     .option("--json", "Print machine-readable JSON output")
     .action(
-      action(async (terminalId: string, opts: TerminalOutputOptions) => {
+      action(async (terminalId: string, opts: TerminalReadOptions) => {
+        if (opts.plain === true && opts.json === true) {
+          throw new CliUsageError({
+            code: "invalid_value",
+            hint: "--json returns the raw chunks; use terminal wait --json for plain output.",
+            message: "Provide only one of --plain or --json",
+          });
+        }
         const sdk = createCliCcSdk(getUrl());
         const output = await sdk.terminals.output({
           terminalId,
           ...terminalOutputQuery(opts),
         });
         if (outputJson(opts, output)) return;
-        writeOutputChunks(output.chunks);
+        if (opts.plain === true) {
+          process.stdout.write(
+            terminalPlainText(
+              Buffer.concat(
+                output.chunks.map((chunk) =>
+                  Buffer.from(chunk.dataBase64, "base64"),
+                ),
+              ).toString("utf8"),
+            ),
+          );
+        } else {
+          writeOutputChunks(output.chunks);
+        }
         if (output.status === "exited") {
           console.error(describeTerminalExit(terminalId, output.exitCode));
         }
@@ -251,36 +385,48 @@ export function registerTerminalCommands(
 
   terminal
     .command("wait <terminalId>")
-    .description("Wait for terminal output or exit")
-    .option("--contains <text>", "Wait until output contains text")
+    .description(
+      "Wait for a terminal to exit or print text, then return its output and exit code",
+    )
+    .option(
+      "--contains <text>",
+      "Return once new output contains text, ignoring terminal escapes",
+    )
     .option(
       "--regex <pattern>",
-      "Wait until output matches a regular expression",
+      "Return once new output matches a regular expression, ignoring terminal escapes",
     )
-    .option("--exit", "Wait until the terminal exits")
-    .option("--from-start", "Include existing scrollback from sequence 0")
-    .option("--timeout <duration>", `Timeout as ${durationHelp("s")}`, "30s")
+    .option("--exit", "Wait until the terminal exits (the default)")
+    .option(
+      "--since-seq <n>",
+      "Start from this output sequence (default: the current end for --contains or --regex, 0 otherwise)",
+    )
+    .option("--from-start", "Start from sequence 0")
+    .option(
+      "--timeout <duration>",
+      `Stop waiting after ${durationHelp("s")}; the terminal keeps running`,
+      "30s",
+    )
     .option(
       "--poll-interval <duration>",
-      `Polling interval as ${durationHelp("ms")}`,
-      "500ms",
+      `Polling interval as ${durationHelp("ms")} (default: starts at 100ms and backs off to 1s)`,
+    )
+    .option(
+      "--max-output-bytes <n>",
+      "Return at most the last N bytes of output",
+      DEFAULT_TERMINAL_WAIT_MAX_OUTPUT_BYTES,
     )
     .option("--tail-bytes <n>", "Bound each output poll to N bytes")
     .option("--limit-chunks <n>", "Bound each output poll to N chunks")
     .option("--json", "Print machine-readable JSON output")
     .action(
       action(async (terminalId: string, opts: TerminalWaitOptions) => {
-        const result = await waitForTerminal({
-          baseUrl: getUrl(),
-          opts,
-          terminalId,
+        const sdk = createCliCcSdk(getUrl());
+        const plan = await resolveTerminalWaitPlan({ opts, sdk, terminalId });
+        reportTerminalObservation({
+          json: opts.json === true,
+          report: await observeTerminal({ plan, sdk, terminalId }),
         });
-        if (outputJson(opts, result)) return;
-        console.log(
-          result.matched === "exit"
-            ? describeTerminalExit(terminalId, result.exitCode)
-            : `Terminal ${terminalId} matched ${result.matched}`,
-        );
       }),
     );
 
@@ -443,20 +589,12 @@ function resolveTerminalStart(args: {
     if (command.length === 0) {
       throw new Error("--command must not be empty");
     }
-    return { command };
+    return { mode: "command", command };
   }
   if (args.commandParts.length > 0) {
-    return {
-      command: args.commandParts.map(shellQuoteArg).join(" "),
-    };
+    return { mode: "argv", argv: [...args.commandParts] };
   }
-  return { command: null };
-}
-
-function shellQuoteArg(value: string): string {
-  if (value.length === 0) return "''";
-  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(value)) return value;
-  return `'${value.replaceAll("'", `'"'"'`)}'`;
+  return { mode: "shell" };
 }
 
 function parsePositiveInteger(
@@ -496,7 +634,7 @@ export async function resolveSendData(
           stdin.on("end", () => resolve(Buffer.concat(chunks)));
         });
   return opts.enter
-    ? Buffer.concat([baseData, Buffer.from("\n", "utf8")])
+    ? Buffer.concat([baseData, Buffer.from("\r", "utf8")])
     : baseData;
 }
 
@@ -505,6 +643,14 @@ function terminalOutputQuery(opts: TerminalOutputOptions) {
     ...(opts.sinceSeq !== undefined
       ? { sinceSeq: parseNonNegativeInteger(opts.sinceSeq, "--since-seq") }
       : {}),
+    ...terminalOutputBounds(opts),
+  };
+}
+
+function terminalOutputBounds(
+  opts: Pick<TerminalOutputOptions, "limitChunks" | "tailBytes">,
+) {
+  return {
     ...(opts.tailBytes !== undefined
       ? {
           tailBytes: parseRequiredPositiveInteger(
@@ -680,148 +826,113 @@ function sendTerminalInput(socket: { send(data: string): void }, data: Buffer) {
   }
 }
 
-const TERMINAL_WAIT_MATCH_WINDOW_CHARS = 256 * 1024;
-const TERMINAL_WAIT_EXIT_TAIL_CHARS = 2000;
-
-interface TerminalWaitResult {
-  exitCode: number | null;
-  matched: string;
-  nextSeq: number;
-  terminalId: string;
-}
-
-function describeTerminalExit(
-  terminalId: string,
-  exitCode: number | null,
-): string {
-  return exitCode === null
-    ? `Terminal ${terminalId} exited`
-    : `Terminal ${terminalId} exited with code ${exitCode}`;
-}
-
-function decodeChunks(chunks: readonly { dataBase64: string }[]): string {
-  return chunks
-    .map((chunk) => Buffer.from(chunk.dataBase64, "base64").toString("utf8"))
-    .join("");
-}
-
-async function waitForTerminal(args: {
-  baseUrl: string;
-  opts: TerminalWaitOptions;
-  terminalId: string;
-}): Promise<TerminalWaitResult> {
-  const hasContains = args.opts.contains !== undefined;
-  const hasRegex = args.opts.regex !== undefined;
-  const hasExit = args.opts.exit === true;
-  if ([hasContains, hasRegex, hasExit].filter(Boolean).length !== 1) {
-    throw new CliUsageError({
-      code: "missing_required",
-      hint: `For example: cc terminal wait ${args.terminalId} --exit, or --contains "ready".`,
-      message: "Provide exactly one of --contains, --regex, or --exit",
-    });
-  }
-  const sdk = createCliCcSdk(args.baseUrl);
-  const timeoutMs = parseDurationMs({
+function parseTimeout(value: string): number {
+  return parseDurationMs({
     allowZero: false,
     defaultUnit: "s",
     label: "--timeout",
-    value: args.opts.timeout ?? "30s",
+    value,
   });
-  const pollIntervalMs = parseDurationMs({
-    allowZero: false,
-    defaultUnit: "ms",
-    label: "--poll-interval",
-    value: args.opts.pollInterval ?? "500ms",
-  });
-  const deadline = Date.now() + timeoutMs;
-  let nextSeq = args.opts.fromStart ? 0 : undefined;
-  const regex =
-    args.opts.regex === undefined ? null : new RegExp(args.opts.regex, "u");
+}
 
-  if (!hasExit && nextSeq === undefined) {
-    const currentOutput = await sdk.terminals.output({
-      terminalId: args.terminalId,
-      limitChunks: 1,
-      tailBytes: 1,
+async function createRunTerminal(args: {
+  argv: string[];
+  cols: number;
+  id: string | undefined;
+  rows: number;
+  scope: TerminalCreateScope;
+  sdk: CcSdk;
+  title: string | undefined;
+}): Promise<TerminalSession> {
+  try {
+    return await args.sdk.terminals.create({
+      cols: args.cols,
+      id: args.id,
+      rows: args.rows,
+      scope: args.scope,
+      start: { mode: "argv", argv: args.argv },
+      title: args.title,
     });
-    if (currentOutput.status === "exited") {
-      throw new CliExitError(
-        `${describeTerminalExit(args.terminalId, currentOutput.exitCode)} before this wait started, so no new output will arrive.`,
-        TERMINAL_WAIT_TIMEOUT_EXIT_CODE,
-        {
-          code: "terminal_exited",
-          hint: `Match its existing output with --from-start, or read it with \`cc terminal output ${args.terminalId}\`.`,
-        },
-      );
-    }
-    nextSeq = currentOutput.nextSeq;
-  }
-
-  let seen = "";
-  while (Date.now() <= deadline) {
-    if (hasExit) {
-      const session = await sdk.terminals.get({ terminalId: args.terminalId });
-      if (session.status === "exited") {
-        return {
-          exitCode: session.exitCode,
-          matched: "exit",
-          nextSeq: nextSeq ?? 0,
-          terminalId: args.terminalId,
-        };
-      }
-      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-      continue;
-    }
-
-    const output = await sdk.terminals.output({
-      terminalId: args.terminalId,
-      ...terminalOutputQuery(args.opts),
-      ...(nextSeq !== undefined ? { sinceSeq: nextSeq } : {}),
-    });
-    nextSeq = output.nextSeq;
-    const searched = `${seen}${decodeChunks(output.chunks)}`;
-    seen = searched.slice(-TERMINAL_WAIT_MATCH_WINDOW_CHARS);
+  } catch (error) {
     if (
-      args.opts.contains !== undefined &&
-      searched.includes(args.opts.contains)
+      args.id !== undefined &&
+      error instanceof CcHttpError &&
+      error.code === "terminal_id_conflict"
     ) {
-      return {
-        exitCode: output.exitCode,
-        matched: args.opts.contains,
-        nextSeq,
-        terminalId: args.terminalId,
-      };
-    }
-    if (regex && regex.test(searched)) {
-      return {
-        exitCode: output.exitCode,
-        matched: args.opts.regex ?? "",
-        nextSeq,
-        terminalId: args.terminalId,
-      };
-    }
-    if (output.status === "exited") {
-      const tail = seen.slice(-TERMINAL_WAIT_EXIT_TAIL_CHARS).trimEnd();
       throw new CliExitError(
-        `${describeTerminalExit(args.terminalId, output.exitCode)} before the requested output matched`,
-        TERMINAL_WAIT_TIMEOUT_EXIT_CODE,
+        `Terminal ${args.id} already exists, so the command was not run again.`,
+        1,
         {
-          code: "terminal_exited",
-          hint:
-            tail.length === 0
-              ? `It printed nothing after this wait started. Read everything with \`cc terminal output ${args.terminalId}\`.`
-              : `Last output:\n${tail}`,
+          code: "terminal_id_conflict",
+          hint: `Observe the earlier run with \`cc terminal wait ${args.id}\`.`,
         },
       );
     }
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    throw error;
   }
-  throw new CliExitError(
-    `Timed out waiting for terminal ${args.terminalId}`,
-    TERMINAL_WAIT_TIMEOUT_EXIT_CODE,
-    {
-      code: "timeout",
-      hint: `Read what it has printed so far with \`cc terminal output ${args.terminalId} --tail-bytes 4000\`.`,
-    },
-  );
+}
+
+async function resolveTerminalWaitPlan(args: {
+  opts: TerminalWaitOptions;
+  sdk: CcSdk;
+  terminalId: string;
+}): Promise<TerminalObservePlan> {
+  const { opts } = args;
+  const condition = parseTerminalOutputCondition(opts);
+  if (opts.exit === true && condition !== null) {
+    throw new CliUsageError({
+      code: "invalid_value",
+      hint: `For example: cc terminal wait ${args.terminalId}, or --contains "ready".`,
+      message: "Provide only one of --contains, --regex, or --exit",
+    });
+  }
+  if (opts.sinceSeq !== undefined && opts.fromStart === true) {
+    throw new CliUsageError({
+      code: "invalid_value",
+      hint: null,
+      message: "Provide only one of --since-seq or --from-start",
+    });
+  }
+  const plan = {
+    condition,
+    maxOutputBytes: parseMaxOutputBytes(opts.maxOutputBytes),
+    outputBounds: terminalOutputBounds(opts),
+    pollDelaysMs:
+      opts.pollInterval === undefined
+        ? WAIT_POLL_DELAYS_MS
+        : ([
+            parseDurationMs({
+              allowZero: false,
+              defaultUnit: "ms",
+              label: "--poll-interval",
+              value: opts.pollInterval,
+            }),
+          ] as const),
+    timeoutMs: parseTimeout(opts.timeout),
+  };
+  if (opts.sinceSeq !== undefined) {
+    return {
+      ...plan,
+      sinceSeq: parseNonNegativeInteger(opts.sinceSeq, "--since-seq"),
+    };
+  }
+  if (condition === null || opts.fromStart === true) {
+    return { ...plan, sinceSeq: 0 };
+  }
+  const currentOutput = await args.sdk.terminals.output({
+    terminalId: args.terminalId,
+    limitChunks: 1,
+    tailBytes: 1,
+  });
+  if (currentOutput.status === "exited") {
+    throw new CliExitError(
+      `${describeTerminalExit(args.terminalId, currentOutput.exitCode)} before this wait started, so no new output will arrive.`,
+      1,
+      {
+        code: "terminal_exited",
+        hint: `Match its existing output with --from-start, or read it with \`cc terminal output ${args.terminalId}\`.`,
+      },
+    );
+  }
+  return { ...plan, sinceSeq: currentOutput.nextSeq };
 }

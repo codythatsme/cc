@@ -1,0 +1,58 @@
+const PLUGIN_ID = "provider-acp";
+
+export const REGISTRY_ICON_AGENT_IDS: readonly string[] = [
+  "agoragentic-acp",
+  "amp-acp",
+  "antigravity-acp",
+  "auggie",
+  "autohand",
+  "bob",
+  "claude-acp",
+  "cline",
+  "codebuddy-code",
+  "codex-acp",
+  "cortex-code",
+  "corust-agent",
+  "crow-cli",
+  "cursor",
+  "deepagents",
+  "devin",
+  "dimcode",
+  "dirac",
+  "factory-droid",
+  "fast-agent",
+  "gemini",
+  "github-copilot-cli",
+  "glm-acp-agent",
+  "goose",
+  "grok-build",
+  "harn",
+  "junie",
+  "kilo",
+  "kimchi",
+  "kimi",
+  "kimi-code",
+  "kiro",
+  "minimax-code",
+  "minion-code",
+  "mistral-vibe",
+  "muse-code",
+  "nova",
+  "opencode",
+  "opencode-v2",
+  "pi-acp",
+  "poolside",
+  "qoder",
+  "qwen-code",
+  "sigit",
+  "stakpak",
+  "vtcode",
+];
+
+const registryIconAgentIds = new Set(REGISTRY_ICON_AGENT_IDS);
+
+export function registryAgentIcon(agentId: string): string | undefined {
+  return registryIconAgentIds.has(agentId)
+    ? `${PLUGIN_ID}/registry-${agentId}`
+    : undefined;
+}

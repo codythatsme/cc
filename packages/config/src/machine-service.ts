@@ -2,6 +2,7 @@ import { readdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 export const MACHINE_INSTALLER_ENV_NAME = "CC_MACHINE_INSTALLER";
+export const HOST_DAEMON_RESTART_EXIT_CODE = 75;
 
 const LAUNCHD_SERVICE_PREFIX = "io.github.codythatsme.cc.host-daemon.";
 const LAUNCHD_SERVICE_SUFFIX = ".plist";

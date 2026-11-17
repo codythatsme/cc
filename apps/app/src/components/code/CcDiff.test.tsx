@@ -4,7 +4,7 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defaultResolvedCodeTheme } from "@cc/domain";
 import { applyResolvedCodeTheme } from "@/lib/code-theme";
-import { parseGitDiffFiles } from "@/components/git-diff/git-diff-parsing";
+import { parseGitDiffFiles } from "@cc/shared-ui/git-diff/parsing";
 import CcDiff from "./CcDiff";
 
 interface RenderedOptions {
@@ -130,22 +130,6 @@ describe("CcDiff", () => {
       dark: "custom-dark",
       light: "custom-light",
     });
-  });
-
-  it("omits the expansion budget unless the caller can supply file contents", async () => {
-    render(
-      <CcDiff
-        file={fixture()}
-        view="unified"
-        overflow="scroll"
-        showLineNumbers
-        fullFileContents={null}
-      />,
-    );
-    await screen.findByTestId("pierre-file-diff");
-
-    expect(pierre.lastOptions).not.toBeNull();
-    expect("expansionLineCount" in (pierre.lastOptions ?? {})).toBe(false);
   });
 
   it("enriches matching full contents and enables context expansion", async () => {

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { TasksEditor } from "../../editor/tasks-editor.js";
-import { useCcNavigate } from "@codythatsme/plugin-sdk/app";
+import { experimental_saveFile, useCcNavigate } from "@codythatsme/plugin-sdk/app";
 import {
   useMentionItems,
   useTasksQuery,
@@ -50,27 +50,50 @@ interface FeedEntry {
   attachments: Attachment[];
 }
 
+export function activityFeedEntries(
+  comments: readonly DisplayComment[],
+  attachments: readonly Attachment[],
+): FeedEntry[] {
+  const attachmentsByCommentId = new Map<string, Attachment[]>();
+  for (const attachment of attachments) {
+    if (attachment.commentId === null) continue;
+    const entries = attachmentsByCommentId.get(attachment.commentId);
+    if (entries === undefined) {
+      attachmentsByCommentId.set(attachment.commentId, [attachment]);
+    } else {
+      entries.push(attachment);
+    }
+  }
+  return comments.map((comment) => ({
+    comment,
+    attachments: attachmentsByCommentId.get(comment.id) ?? [],
+  }));
+}
+
+const selectComments = (result: { comments: DisplayComment[] }) =>
+  result.comments;
+const selectAttachments = (result: { attachments: Attachment[] }) =>
+  result.attachments;
+
 function useActivityFeed(taskId: string) {
-  return useTasksQuery<FeedEntry[]>(
-    async (rpc) => {
-      const { comments } = await rpc.call("listComments", { taskId });
-      const attachments = await Promise.all(
-        comments.map((comment) =>
-          comment.kind === "system"
-            ? Promise.resolve<Attachment[]>([])
-            : rpc
-                .call("listAttachments", { commentId: comment.id })
-                .then((result) => result.attachments),
-        ),
-      );
-      return comments.map((comment, index) => ({
-        comment,
-        attachments: attachments[index] ?? [],
-      }));
-    },
-    ["comments:changed", "tasks:changed"],
-    [taskId],
+  const comments = useTasksQuery("listComments", { taskId }, selectComments);
+  const attachments = useTasksQuery(
+    "listAttachments",
+    { commentsOfTaskId: taskId },
+    selectAttachments,
   );
+  const data = useMemo(
+    () =>
+      comments.data === undefined || attachments.data === undefined
+        ? undefined
+        : activityFeedEntries(comments.data, attachments.data),
+    [comments.data, attachments.data],
+  );
+  return {
+    data,
+    error: comments.error ?? attachments.error,
+    isLoading: comments.isLoading || attachments.isLoading,
+  };
 }
 
 type AgentNotificationTarget =
@@ -113,6 +136,13 @@ function FileAttachmentCard({ attachment }: { attachment: Attachment }) {
     <a
       href={attachmentDownloadUrl(attachment.id)}
       download={attachment.fileName}
+      onClick={(event) => {
+        event.preventDefault();
+        void experimental_saveFile({
+          url: attachmentDownloadUrl(attachment.id),
+          fileName: attachment.fileName,
+        });
+      }}
       title={`${attachment.fileName} · ${formatFileSize(attachment.sizeBytes)}`}
       className="inline-flex min-w-0 max-w-60 items-center gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs shadow-2xs hover:border-input hover:bg-state-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
     >

@@ -1,4 +1,8 @@
-import { execFile } from "node:child_process";
+import {
+  execHostFile,
+  hostToolchain,
+  omitNpmScriptPolicyEnv,
+} from "@cc/process-utils";
 import { createHash } from "node:crypto";
 import {
   chmod,
@@ -6,6 +10,7 @@ import {
   cp,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   rename,
   rm,
@@ -14,12 +19,9 @@ import {
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import { HOST_DAEMON_PROTOCOL_VERSION } from "@cc/host-daemon-contract";
-import { resolveBundledNpmCli } from "@cc/plugin-build";
-import { omitNpmScriptPolicyEnv } from "@cc/process-utils";
 
-const execFileAsync = promisify(execFile);
+const execFileAsync = execHostFile;
 const HOST_DEPENDENCIES = [
   "@parcel/watcher",
   "fs-native-extensions",
@@ -31,6 +33,7 @@ const HOST_DEPENDENCIES = [
 ] as const;
 const HOST_DAEMON_FILES = [
   "cc",
+  "cc.cmd",
   "cc-parcel-watcher-child.mjs",
   "cc-plugin-host-worker.mjs",
   "cc-provider-bridge-worker.mjs",
@@ -72,7 +75,7 @@ export async function defaultCommandRunner(
   args: readonly string[],
   cwd: string,
 ): Promise<string> {
-  const npmCliPath = command === "npm" ? resolveBundledNpmCli() : null;
+  const npmCliPath = command === "npm" ? hostToolchain.bundledNpmCli() : null;
   const result = await execFileAsync(
     npmCliPath === null ? command : process.execPath,
     npmCliPath === null ? [...args] : [npmCliPath, ...args],
@@ -173,7 +176,7 @@ function hostPackageJson(packageJson: CcAppPackageJson): object {
     version: packageJson.version,
     description: "cc enrolled host runtime",
     type: "module",
-    os: packageJson.os,
+    os: [...new Set([...packageJson.os, "win32"])],
     bin: {
       cc: "dist/cc.js",
       "cc-app": "dist/cc-app.js",
@@ -183,6 +186,15 @@ function hostPackageJson(packageJson: CcAppPackageJson): object {
     engines: packageJson.engines,
     dependencies,
   };
+}
+
+async function makeDirectoriesOwnerWritable(directory: string): Promise<void> {
+  await chmod(directory, (await stat(directory)).mode | 0o700);
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      await makeDirectoriesOwnerWritable(join(directory, entry.name));
+    }
+  }
 }
 
 async function materializePackagedHostPackage(
@@ -220,6 +232,8 @@ async function materializePackagedHostPackage(
     join(hostDaemonTarget, "cc-chunks"),
     { recursive: true },
   );
+  await makeDirectoriesOwnerWritable(join(hostDaemonTarget, "plugin-sdk"));
+  await makeDirectoriesOwnerWritable(join(hostDaemonTarget, "cc-chunks"));
   try {
     await copyFile(
       join(packageRoot, "README.md"),
@@ -268,7 +282,7 @@ export function createCcAppArtifactService(
       const repoRoot = resolve(packageRoot, "../..");
       await commandRunner(
         "pnpm",
-        ["exec", "turbo", "run", "build:host", "--filter=cc-app"],
+        ["exec", "turbo", "run", "build:host", "--filter=cc-app", "--only"],
         repoRoot,
       );
       hostPackageRoot = join(packageRoot, "host-package");

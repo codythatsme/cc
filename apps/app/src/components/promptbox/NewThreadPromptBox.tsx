@@ -8,18 +8,21 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import type { Host, ProjectSource, PromptTextMention } from "@cc/domain";
+import type { Host, ProjectSource } from "@cc/domain";
 import type {
   SystemEnvironmentProvider,
   SystemMachineProvider,
 } from "@cc/server-contract";
 import type { ComposerView } from "@codythatsme/plugin-sdk";
+import type { ComposerSubmitExtras } from "@codythatsme/plugin-sdk/internal/composer-handle";
 import type { ComposerTextEffectSource } from "@/lib/composer-text-effects";
 import { ComposerBannersSlot } from "@/components/plugin/PluginComposerBanners";
 import { PROMPT_STACK_TRACK_CLASS } from "@/components/promptbox/banner/PromptStackCard";
 import {
+  composerScopeIdentity,
+  type ComposerDraftStore,
   type PluginComposerHost,
-  usePluginComposerViewModel,
+  usePluginComposerStaticViewModel,
 } from "@/components/plugin/plugin-composer-host";
 import {
   ComposerExtensionHost,
@@ -32,17 +35,16 @@ import {
 } from "@/components/promptbox/ExecutionControls";
 import {
   DEFAULT_COMPOSER_SCOPE,
-  PromptBoxInternal,
+  ComposerBox,
   type AttachmentsConfig,
   type HistoryConfig,
   type MentionMenuPlacement,
   type PromptBoxAction,
   type PromptBoxHandle,
   type TypeaheadConfig,
-} from "@/components/promptbox/PromptBoxInternal";
+} from "@/components/promptbox/ComposerBox";
 import { usePromptModePermissionDisplay } from "@/components/promptbox/usePromptModePermissionDisplay";
 import { usePromptVoice } from "@/components/promptbox/usePromptVoice";
-import { useOptionalPaneContext } from "@/views/thread-detail/PaneContext";
 import {
   EnvironmentPickerUI,
   type EnvironmentPickerMachines,
@@ -112,19 +114,17 @@ export interface NewThreadModeConfig {
   environment: NewThreadEnvironmentConfig;
   worktree: NewThreadWorktreeConfig;
   permission: ExecutionPermissionConfig;
+  sessionOptionsControl?: ReactNode;
   environmentProviderInputsSlot?: ReactNode;
   machineProviderInputsSlot?: ReactNode;
   banner?: ReactNode;
-  header?: ReactNode;
 }
 
 interface NewThreadPromptBoxUIProps {
   id?: string;
 
-  value: string;
-  mentionRanges: readonly PromptTextMention[];
-  onChange: (value: string, mentionRanges: PromptTextMention[]) => void;
-  onSubmit: () => void;
+  draft: ComposerDraftStore;
+  onSubmit: (extras?: ComposerSubmitExtras) => void | Promise<void>;
   focusRequest?: string;
   isSubmitting: boolean;
   disabled: boolean;
@@ -154,9 +154,7 @@ function getNewThreadPromptPlaceholder(isProjectless: boolean): string {
 
 export const NewThreadPromptBoxUI = memo(function NewThreadPromptBoxUI({
   id,
-  value,
-  mentionRanges,
-  onChange,
+  draft,
   onSubmit,
   focusRequest,
   isSubmitting,
@@ -180,28 +178,29 @@ export const NewThreadPromptBoxUI = memo(function NewThreadPromptBoxUI({
     if (focusRequest === undefined) return;
     promptBoxRef.current?.focusEnd();
   }, [focusRequest]);
-  const isFocusedPane = useOptionalPaneContext()?.isFocused ?? true;
   const focusDefault = useCallback(() => {
     promptBoxRef.current?.focusEnd();
     return promptBoxRef.current !== null;
   }, []);
-  const voice = usePromptVoice(promptBoxRef, pluginComposerHost ?? undefined);
-  const attachmentCount = attachments.items?.length ?? 0;
+  const voice = usePromptVoice(
+    promptBoxRef,
+    pluginComposerHost
+      ? { ...pluginComposerHost, submit: () => onSubmit() }
+      : undefined,
+    pluginComposerHost ? composerScopeIdentity(pluginComposerHost.scope) : null,
+  );
   const [composerLayout, setComposerLayout] =
     useState<ComposerView["layout"]>("expanded");
-  const composerView = usePluginComposerViewModel({
+  const composerView = usePluginComposerStaticViewModel({
     scope: pluginComposerHost?.scope ?? DEFAULT_COMPOSER_SCOPE,
     layout: composerLayout,
-    text: value,
-    attachmentCount,
     isRunning: false,
     isSubmitting,
   });
   const controller = useComposerExtensionController({
     host: pluginComposerHost ?? null,
     view: composerView,
-    isFocused: isFocusedPane,
-    isPrimary: true,
+    draft,
     focusDefault,
   });
 
@@ -211,9 +210,7 @@ export const NewThreadPromptBoxUI = memo(function NewThreadPromptBoxUI({
       defaultRenderer={
         <DefaultNewThreadComposer
           id={id}
-          value={value}
-          mentionRanges={mentionRanges}
-          onChange={onChange}
+          draft={draft}
           onSubmit={onSubmit}
           promptBoxRef={promptBoxRef}
           isSubmitting={isSubmitting}
@@ -232,6 +229,7 @@ export const NewThreadPromptBoxUI = memo(function NewThreadPromptBoxUI({
           execution={execution}
           voice={voice}
           onComposerLayoutChange={setComposerLayout}
+          onFocusCommand={controller.focus}
         />
       }
     />
@@ -245,13 +243,12 @@ interface DefaultNewThreadComposerProps extends Omit<
   promptBoxRef: RefObject<PromptBoxHandle | null>;
   voice: ReturnType<typeof usePromptVoice>;
   onComposerLayoutChange: (layout: ComposerView["layout"]) => void;
+  onFocusCommand: () => void;
 }
 
 const DefaultNewThreadComposer = memo(function DefaultNewThreadComposer({
   id,
-  value,
-  mentionRanges,
-  onChange,
+  draft,
   onSubmit,
   promptBoxRef,
   isSubmitting,
@@ -270,6 +267,7 @@ const DefaultNewThreadComposer = memo(function DefaultNewThreadComposer({
   execution,
   voice,
   onComposerLayoutChange,
+  onFocusCommand,
 }: DefaultNewThreadComposerProps) {
   const isProjectlessPrompt = project?.value === null;
   const placeholder =
@@ -277,8 +275,7 @@ const DefaultNewThreadComposer = memo(function DefaultNewThreadComposer({
   const { permissionDisplayOverride, permissionPickerDisabledByPlanMode } =
     usePromptModePermissionDisplay({
       execution,
-      value,
-      mentionRanges,
+      draft,
       activePromptMode: null,
     });
   const submitTitle = isSubmitting
@@ -295,18 +292,16 @@ const DefaultNewThreadComposer = memo(function DefaultNewThreadComposer({
       className="w-full"
     >
       <div
-        className={`mb-2 grid gap-2 empty:hidden ${PROMPT_STACK_TRACK_CLASS}`}
+        className={`mb-2 hidden gap-2 has-[>:not(:empty)]:grid ${PROMPT_STACK_TRACK_CLASS}`}
       >
         <ComposerBannersSlot ownerPlacement="before">
           {modeConfig.banner}
         </ComposerBannersSlot>
       </div>
-      <PromptBoxInternal
+      <ComposerBox
         id={id}
         promptBoxRef={promptBoxRef}
-        value={value}
-        mentionRanges={mentionRanges}
-        onChange={onChange}
+        draft={draft}
         onSubmit={onSubmit}
         textEffects={textEffects}
         onComposerLayoutChange={onComposerLayoutChange}
@@ -323,13 +318,16 @@ const DefaultNewThreadComposer = memo(function DefaultNewThreadComposer({
           title: submitTitle,
         }}
         autoFocus={autoFocus}
-        editorLayout="root-compose"
+        onFocusCommand={onFocusCommand}
+        surface="new-thread"
         minHeight={NEW_THREAD_PROMPT_BOX_MIN_HEIGHT}
         placeholder={placeholder}
-        header={modeConfig.header}
-        footerStart={<ExecutionControls {...execution} />}
+        executionControls={<ExecutionControls {...execution} />}
       />
-      <div className="mt-1 flex select-none items-center justify-between gap-2 px-3.5">
+      <div
+        data-new-thread-footer=""
+        className="mt-1 flex select-none items-center justify-between gap-2 px-3.5 max-md:mt-0 max-md:gap-1 max-md:px-1"
+      >
         <div className="flex min-w-0 flex-1 items-center gap-1">
           {project ? (
             <ProjectSelector
@@ -355,6 +353,7 @@ const DefaultNewThreadComposer = memo(function DefaultNewThreadComposer({
           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {modeConfig.sessionOptionsControl}
           <PermissionModePicker
             value={modeConfig.permission.value}
             options={modeConfig.permission.options}
@@ -466,16 +465,17 @@ export function ProjectlessMachineSlot({
 }: ProjectlessMachineSlotProps) {
   const machines = environment.machines ?? null;
   const selectedProviderHostId = environment.selectedProviderHostId ?? null;
+  const machineHosts = machines?.hosts;
   const availableHosts = useMemo(() => {
-    const selectable = selectHosts(machines?.hosts, "persistent");
-    const selected = machines?.hosts.find(
+    const selectable = selectHosts(machineHosts, "persistent");
+    const selected = machineHosts?.find(
       (candidate) => candidate.id === selectedProviderHostId,
     );
     return selected === undefined ||
       selectable.some((candidate) => candidate.id === selected.id)
       ? selectable
       : [...selectable, selected];
-  }, [machines?.hosts, selectedProviderHostId]);
+  }, [machineHosts, selectedProviderHostId]);
   const parsedEnvironment = useMemo(
     () => parseEnvironmentValue(environment.value),
     [environment.value],

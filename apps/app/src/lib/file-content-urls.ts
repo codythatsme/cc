@@ -1,8 +1,40 @@
-import type { EnvironmentDiffFileQuery } from "@cc/server-contract";
+import { isAbsoluteHostPath, isWindowsUncHostPath } from "@cc/domain";
+import {
+  getEnvironmentFilePreviewSourceRef,
+  type EnvironmentFilePreviewSource,
+} from "@cc/client-core";
 import { apiClient, toRelativeUrl } from "./api-server";
 
 function encodePathSegments(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function encodeHostFilePath(absolutePath: string): string {
+  const root = isWindowsUncHostPath(absolutePath) ? "\\\\" : "";
+  return encodePathSegments(
+    absolutePath.replace(/\\/gu, "/").replace(/^\/+/u, root),
+  );
+}
+
+interface PathClassificationArgs {
+  path: string;
+}
+
+const URL_SCHEME_PATTERN = /^[a-zA-Z][a-zA-Z0-9+.-]*:/u;
+
+export function isAbsoluteLocalPath({ path }: PathClassificationArgs): boolean {
+  return isAbsoluteHostPath(path);
+}
+
+export function isProjectAttachmentPath({
+  path,
+}: PathClassificationArgs): boolean {
+  return (
+    path.length > 0 &&
+    !path.startsWith("\\") &&
+    !isAbsoluteLocalPath({ path }) &&
+    !URL_SCHEME_PATTERN.test(path)
+  );
 }
 
 export function buildProjectAttachmentContentUrl(
@@ -20,25 +52,45 @@ export function buildProjectAttachmentContentUrl(
 export function buildProjectFileContentUrl(
   projectId: string,
   path: string,
-  routing: { environmentId?: string; hostId?: string } = {},
+  routing: { environmentId: string | null; hostId: string | null },
 ): string {
+  if (routing.environmentId !== null) {
+    return buildEnvironmentFileContentUrl(
+      routing.environmentId,
+      { kind: "working-tree" },
+      path,
+    );
+  }
+  const filePath = encodePathSegments(path);
   return toRelativeUrl(
-    apiClient.projects[":id"].files.content.$url({
-      param: { id: projectId },
-      query: { path, ...routing },
-    }),
+    routing.hostId === null
+      ? apiClient.projects[":id"].files[":filePath{.+}"].$url({
+          param: { id: projectId, filePath },
+        })
+      : apiClient.projects[":id"].hosts[":hostId"].files[":filePath{.+}"].$url({
+          param: { id: projectId, hostId: routing.hostId, filePath },
+        }),
   );
 }
 
-export function buildThreadStorageContentUrl(
-  threadId: string,
+export function buildEnvironmentFileContentUrl(
+  environmentId: string,
+  source: EnvironmentFilePreviewSource,
   path: string,
 ): string {
+  const filePath = encodePathSegments(path);
+  const ref = getEnvironmentFilePreviewSourceRef(source);
+  if (ref === null) {
+    return toRelativeUrl(
+      apiClient.environments[":id"].files[":filePath{.+}"].$url({
+        param: { id: environmentId, filePath },
+      }),
+    );
+  }
   return toRelativeUrl(
-    apiClient.threads[":id"]["thread-storage"].content.$url({
-      param: { id: threadId },
-      query: { path },
-    }),
+    apiClient.environments[":id"].revisions[":ref"].files[":filePath{.+}"].$url(
+      { param: { id: environmentId, ref, filePath } },
+    ),
   );
 }
 
@@ -55,62 +107,22 @@ export function buildThreadStorageRawContentUrl(
 
 export function buildThreadHostFileContentUrl(
   threadId: string,
-  path: string,
+  absolutePath: string,
 ): string {
   return toRelativeUrl(
-    apiClient.threads[":id"]["host-files"].content.$url({
-      param: { id: threadId },
-      query: { path },
+    apiClient.threads[":id"]["host-files"][":filePath{.+}"].$url({
+      param: { id: threadId, filePath: encodeHostFilePath(absolutePath) },
     }),
   );
 }
 
-export function buildRawFilesystemHtmlContentUrl(
-  threadId: string,
-  path: string,
+export function buildHostFileContentUrl(
+  hostId: string,
+  absolutePath: string,
 ): string {
   return toRelativeUrl(
-    apiClient.threads[":id"].files.raw.$url({
-      param: { id: threadId },
-      query: { path },
+    apiClient.hosts[":id"].files[":filePath{.+}"].$url({
+      param: { id: hostId, filePath: encodeHostFilePath(absolutePath) },
     }),
   );
-}
-
-export function buildThreadWorktreeRawContentUrl(
-  threadId: string,
-  path: string,
-): string {
-  return toRelativeUrl(
-    apiClient.threads[":id"].worktree.files[":filePath{.+}"].$url({
-      param: { id: threadId, filePath: encodePathSegments(path) },
-    }),
-  );
-}
-
-export function buildEnvironmentDiffFileContentUrl(
-  environmentId: string,
-  query: EnvironmentDiffFileQuery,
-): string {
-  return toRelativeUrl(
-    apiClient.environments[":id"].diff.file.$url({
-      param: { id: environmentId },
-      query,
-    }),
-  );
-}
-
-export function getFilePreviewLeaseBaseUrl(url: string): string | null {
-  return (
-    /^((?:https?:\/\/[^/?#]+)?\/api\/v1\/file-previews\/[^/?#]+)(?:\/|$)/u.exec(
-      url,
-    )?.[1] ?? null
-  );
-}
-
-export function buildFilePreviewLeaseContentUrl(
-  baseUrl: string,
-  path: string,
-): string {
-  return `${baseUrl.replace(/\/+$/u, "")}/${encodePathSegments(path)}`;
 }

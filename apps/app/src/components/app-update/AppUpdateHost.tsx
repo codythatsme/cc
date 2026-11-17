@@ -21,6 +21,7 @@ import { appToast } from "@/components/ui/app-toast";
 import { CopyButton } from "@/components/ui/copy-button";
 import { useAcknowledgeAppUpdate } from "@/hooks/mutations/app-update-mutations";
 import { useAppUpdateStatus } from "@/hooks/queries/app-update-queries";
+import { getMutationErrorMessage } from "@/lib/mutation-errors";
 import {
   closeAppUpdateResultDetails,
   getAppUpdateResultDetailsSnapshot,
@@ -104,7 +105,7 @@ export function AppUpdateHost({
         <AppUpdateRestartingOverlay
           key={restart.startedAt}
           patienceMs={restartPatienceMs}
-          targetVersion={restart.targetVersion}
+          targetRevision={restart.targetRevision}
           onDismiss={() => setDismissedRestart(restart.startedAt)}
         />
       )}
@@ -118,8 +119,10 @@ export function AppUpdateHost({
             {
               onError: (error) => {
                 appToast.error("Couldn't dismiss the update result", {
-                  description:
-                    error instanceof Error ? error.message : String(error),
+                  description: getMutationErrorMessage({
+                    error,
+                    fallbackMessage: "Try again.",
+                  }),
                 });
               },
               onSuccess: closeAppUpdateResultDetails,
@@ -134,11 +137,11 @@ export function AppUpdateHost({
 export function AppUpdateRestartingOverlay({
   onDismiss,
   patienceMs,
-  targetVersion,
+  targetRevision,
 }: {
   onDismiss: () => void;
   patienceMs: number;
-  targetVersion: string;
+  targetRevision: string;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -172,7 +175,7 @@ export function AppUpdateRestartingOverlay({
               id={titleId}
               className="text-base leading-tight font-semibold tracking-tight text-foreground"
             >
-              Updating cc to {targetVersion}
+              Updating cc to {targetRevision}
             </h2>
             <p id={descriptionId} className="text-sm text-muted-foreground">
               {overdue

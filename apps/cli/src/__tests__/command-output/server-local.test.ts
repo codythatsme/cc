@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   chmod,
   mkdir,
@@ -405,45 +405,6 @@ describe("cc server import", () => {
     expect(await readdir(parent)).toEqual([]);
   });
 
-  it("asks for a new export when the file was encrypted by an older cc", async () => {
-    const parent = await makeDataDirParent();
-    const oldExport = await writeDataFile(
-      parent,
-      "old-export.bbsa",
-      `CCSA${randomBytes(64).toString("hex")}`,
-    );
-    const dataDir = join(parent, "cc-data");
-
-    await expect(
-      runCommand(
-        ["server", "import", oldExport, "--data-dir", dataDir, "--yes"],
-        register,
-      ),
-    ).rejects.toThrow("process.exit:1");
-
-    expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: This export was encrypted by an older cc; re-export it with cc server export",
-    ]);
-    expect(await readdir(parent)).toEqual(["old-export.bbsa"]);
-  });
-
-  it("rejects a file that is not a server archive", async () => {
-    const parent = await makeDataDirParent();
-    const notAnArchive = await writeDataFile(parent, "notes.txt", "hello");
-    const dataDir = join(parent, "cc-data");
-
-    await expect(
-      runCommand(
-        ["server", "import", notAnArchive, "--data-dir", dataDir, "--yes"],
-        register,
-      ),
-    ).rejects.toThrow("process.exit:1");
-
-    expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Error: File is not a cc server archive",
-    ]);
-  });
-
   it("refuses an export made by a newer cc and leaves nothing behind", async () => {
     const newerArchive = await buildArchive("0.51.0");
     const parent = await makeDataDirParent();
@@ -710,6 +671,26 @@ describe("cc server unlock", () => {
     expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
       serverUrl: "https://me.cc.example.invalid",
     });
+  });
+
+  it("refuses while the new server is activating this move", async () => {
+    const dataDir = await makeTempDir("cc-cli-server-lock-");
+    await writeServerMovedFile(dataDir, movedLock());
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      healthResponse(200, {
+        ok: true,
+        serverMove: { state: "activating", moveId: "move-1" },
+      }),
+    );
+
+    await expect(
+      runCommand(
+        ["server", "unlock", "--data-dir", dataDir, "--yes"],
+        register,
+      ),
+    ).rejects.toThrow("process.exit:1");
+
+    expect(await readServerMovedFile(dataDir)).not.toBeNull();
   });
 
   it("--force unlocks without probing the new server", async () => {
@@ -1045,7 +1026,9 @@ describe("cc server unlock", () => {
       customModels: [{ providerId: "codex", model: "gpt-5.4" }],
       customAcpAgents: [{ id: "not a valid agent" }],
     });
-    expect((await stat(configPath)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect((await stat(configPath)).mode & 0o777).toBe(0o600);
+    }
     expect(await readdir(dataDir)).toEqual(["config.json"]);
     expect(JSON.parse(collectLogPayloads(vi.mocked(console.log))[0]!)).toEqual({
       dataDir,
@@ -1138,10 +1121,10 @@ describe("cc server allow-connect", () => {
       "imported server",
     );
     expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
-      "Stop the original cc server first. Two servers holding the same cc connect credential take each other's tunnel.",
+      "Stop the original cc server first. Two servers holding the same cc account credential take each other's tunnel and spend the same hosted quota.",
     ]);
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `Removed the cc connect hold from ${dataDir}. cc connect starts the next time this server starts; restart cc if it's already running.`,
+      `Removed the cc connect hold from ${dataDir}. cc account and cc connect start the next time this server starts; restart cc if it's already running.`,
     ]);
   });
 

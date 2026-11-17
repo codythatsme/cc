@@ -94,6 +94,29 @@ describe("probeCcServer", () => {
     });
   });
 
+  it("probes under the server URL's path prefix", async () => {
+    const fetchImpl = vi
+      .fn<ServerProbeFetch>()
+      .mockResolvedValueOnce(Response.json({ ok: true }))
+      .mockResolvedValueOnce(
+        Response.json({
+          hostDaemonPort: 4_242,
+          voiceTranscriptionEnabled: false,
+        }),
+      );
+
+    await probeCcServer({
+      fetchImpl,
+      serverUrl: "https://proxy.example/cc/",
+      timeoutMs: 1_000,
+    });
+
+    expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual([
+      "https://proxy.example/cc/health",
+      "https://proxy.example/cc/api/v1/system/config",
+    ]);
+  });
+
   it("rejects a health-only service as incompatible", async () => {
     const testServer = await startTestServer({
       handler(request, response) {

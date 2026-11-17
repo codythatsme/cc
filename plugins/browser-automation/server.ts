@@ -1,5 +1,5 @@
+import { experimental_resolveHostPath as resolveHostPath } from "@codythatsme/plugin-sdk";
 import { randomUUID } from "node:crypto";
-import { posix, win32 } from "node:path";
 import type {
   CcPluginApi,
   PluginCliContext,
@@ -31,7 +31,7 @@ const desktopSchema = z
     leaseId: z.string(),
     tabId: z.string(),
     owned: z.boolean(),
-    profileId: z.string().nullable(),
+    leasedTabIds: z.array(z.string()),
   })
   .strict();
 const recordSchema = z
@@ -43,9 +43,15 @@ const recordSchema = z
   })
   .strict();
 type RecordEntry = z.infer<typeof recordSchema>;
-const ttlMs = 30 * 60_000;
-const idleTimeoutMs = 5 * 60_000;
+type DesktopTarget = z.infer<typeof desktopSchema>;
+const idleTimeoutMs = 30 * 60_000;
+const maxLifetimeMs = 8 * 60 * 60_000;
+const hardDeadline = (session: Session) =>
+  session.backend === "desktop"
+    ? Math.min(session.expiresAt, session.createdAt + maxLifetimeMs)
+    : session.createdAt + maxLifetimeMs;
 const previewWaitMs = 5_000;
+const runCallGraceMs = 10_000;
 const keyFor = (threadId: string, sessionId: string) =>
   `sessions/${encodeURIComponent(threadId)}/${sessionId}`;
 
@@ -55,7 +61,11 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
   const active = new Map<string, RecordEntry>();
   const busy = new Map<string, number>();
   const pending = new Set<Promise<void>>();
-  const cleanup = new Map<string, Promise<Session>>();
+  const cleanup = new Map<
+    string,
+    { state: "stopped" | "closed"; work: Promise<Session> }
+  >();
+  const opening = new Map<string, AbortController>();
   const subscriptions = new Map<string, { dispose(): void }>();
   const lifecycle = new AbortController();
   const threadLifecycles = new Map<string, AbortController>();
@@ -64,6 +74,18 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
       keyFor(record.session.threadId, record.session.id),
       record,
     );
+  function trackLeasedTabs(
+    target: DesktopTarget,
+    tabs: Array<{ tabId: string; control: { leaseId: string } | null }>,
+  ) {
+    const added = tabs.filter(
+      (tab) =>
+        tab.control?.leaseId === target.leaseId &&
+        !target.leasedTabIds.includes(tab.tabId),
+    );
+    target.leasedTabIds.push(...added.map((tab) => tab.tabId));
+    return added.length > 0;
+  }
   async function owned(threadId: string, sessionId: string) {
     const record = recordSchema.parse(
       await cc.storage.kv.get(keyFor(threadId, sessionId)),
@@ -72,30 +94,70 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
       throw new Error("Session does not belong to this thread");
     return active.get(sessionId) ?? record;
   }
-  async function finish(record: RecordEntry, state: "stopped" | "closed") {
+  async function releaseDesktop(
+    target: DesktopTarget,
+    state: "stopped" | "closed",
+  ): Promise<PromiseSettledResult<unknown>[]> {
+    const scope = {
+      hostId: target.hostId,
+      instanceId: target.instanceId,
+      generation: target.generation,
+      threadId: target.threadId,
+    };
+    await desktop.listTabs(scope).then(
+      ({ tabs }) => trackLeasedTabs(target, tabs),
+      () => {},
+    );
+    const results: PromiseSettledResult<unknown>[] = await Promise.allSettled([
+      desktop.releaseControl({ ...scope, leaseId: target.leaseId }),
+    ]);
+    const createdTabIds = new Set(target.leasedTabIds);
+    if (target.owned) createdTabIds.add(target.tabId);
+    else createdTabIds.delete(target.tabId);
+    if (state === "closed" && createdTabIds.size > 0)
+      results.push(
+        ...(await desktop.listTabs(scope).then(
+          ({ tabs }) =>
+            Promise.allSettled(
+              tabs
+                .filter((tab) => createdTabIds.has(tab.tabId))
+                .map((tab) => desktop.closeTab({ ...scope, tabId: tab.tabId })),
+            ),
+          (reason: unknown) => [{ status: "rejected" as const, reason }],
+        )),
+      );
+    return results;
+  }
+  async function finish(
+    record: RecordEntry,
+    requested: "stopped" | "closed",
+  ): Promise<Session> {
     const existing = cleanup.get(record.session.id);
     if (existing) {
-      await existing;
-      return finish(record, state);
+      if (existing.state === "closed" || existing.state === requested)
+        return existing.work;
+      await existing.work.catch(() => {});
+      return finish(record, requested);
     }
     const previous = recordSchema.safeParse(
       await cc.storage.kv.get(
         keyFor(record.session.threadId, record.session.id),
       ),
     );
-    const concurrent = cleanup.get(record.session.id);
-    if (concurrent) {
-      await concurrent;
-      return finish(record, state);
-    }
+    if (cleanup.has(record.session.id)) return finish(record, requested);
+    const closed =
+      record.session.state === "closed" ||
+      (previous.success && previous.data.session.state === "closed");
     if (
       previous.success &&
       previous.data.session.state === "closed" &&
       !previous.data.cleanupPending
     )
       return previous.data.session;
+    const state = closed ? "closed" : requested;
     const work = (async () => {
       const { session } = record;
+      opening.get(session.id)?.abort();
       if (state === "closed") active.delete(session.id);
       else active.set(session.id, record);
       subscriptions.get(session.id)?.dispose();
@@ -103,70 +165,63 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
       session.state = state;
       record.cleanupPending = true;
       await save(record);
-      const target = record.desktop;
-      const scope = target
-        ? {
-            hostId: target.hostId,
-            instanceId: target.instanceId,
-            generation: target.generation,
-            threadId: target.threadId,
-          }
-        : null;
-      const results = await Promise.allSettled([
-        host.call(
-          "close",
-          { sessionId: session.id },
-          { hostId: session.hostId, signal: AbortSignal.timeout(10_000) },
-        ),
-        ...(target && scope
-          ? [desktop.releaseControl({ ...scope, leaseId: target.leaseId })]
-          : []),
-      ]);
-      if (state === "closed" && target?.owned && scope) {
-        const tabs = await desktop.listTabs(scope);
-        const ownedTabs = tabs.tabs.filter(
-          (tab) =>
-            tab.tabId === target.tabId ||
-            (target.profileId !== null &&
-              tab.profile.kind === "automation" &&
-              tab.profile.id === target.profileId),
-        );
-        results.push(
-          ...(await Promise.allSettled(
-            ownedTabs.map((tab) =>
-              desktop.closeTab({ ...scope, tabId: tab.tabId }),
+      const results = (
+        await Promise.all([
+          Promise.allSettled([
+            host.call(
+              "close",
+              { sessionId: session.id },
+              { hostId: session.hostId, signal: AbortSignal.timeout(10_000) },
             ),
-          )),
+          ]),
+          record.desktop ? releaseDesktop(record.desktop, state) : [],
+        ])
+      ).flat();
+      const failures = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      record.cleanupPending = failures.length > 0;
+      await save(record);
+      if (failures.length > 0) {
+        const reasons = failures
+          .map((reason) =>
+            reason instanceof Error ? reason.message : String(reason),
+          )
+          .join("; ");
+        cc.log.warn(
+          `Browser Automation cleanup on host ${session.hostId} failed: ${reasons}`,
+        );
+        throw new Error(
+          `Browser session ${state}, but cleanup on host ${session.hostId} failed: ${reasons}. Run close to retry.`,
         );
       }
-      record.cleanupPending = results.some(
-        (result) => result.status === "rejected",
-      );
-      await save(record);
-      if (record.cleanupPending)
-        cc.log.warn(
-          `Browser Automation cleanup on host ${session.hostId} incomplete; host expiry and lease revocation remain active.`,
-        );
       return session;
     })();
-    cleanup.set(record.session.id, work);
+    cleanup.set(record.session.id, { state, work });
     try {
       return await work;
     } finally {
       cleanup.delete(record.session.id);
     }
   }
+  const unfinished: RecordEntry[] = [];
   for (const key of await cc.storage.kv.list("sessions/")) {
     const parsed = recordSchema.safeParse(await cc.storage.kv.get(key));
     if (!parsed.success) continue;
     if (parsed.data.session.state === "closed" && !parsed.data.cleanupPending)
       continue;
-    await finish(parsed.data, "closed").catch(() =>
-      cc.log.warn(
-        "Browser Automation restart cleanup will need the owning desktop to reconnect",
-      ),
-    );
+    unfinished.push(parsed.data);
   }
+  cc.background.service("restart-cleanup", {
+    async start() {
+      for (const record of unfinished.splice(0))
+        await finish(record, "closed").catch(() =>
+          cc.log.warn(
+            "Browser Automation restart cleanup will need the owning desktop to reconnect",
+          ),
+        );
+    },
+  });
   async function open(
     input: z.output<typeof rpcContract.open.input>,
     signal: AbortSignal,
@@ -191,7 +246,7 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
       backend: input.selection.backend,
       state: "ready",
       createdAt: now,
-      expiresAt: now + ttlMs,
+      expiresAt: now + idleTimeoutMs,
     };
     const record: RecordEntry = {
       session,
@@ -199,6 +254,9 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
       lastUsed: now,
       cleanupPending: false,
     };
+    const retirement = new AbortController();
+    opening.set(session.id, retirement);
+    signal = AbortSignal.any([signal, retirement.signal]);
     let connectionUrl: string | undefined;
     let created: {
       hostId: string;
@@ -227,7 +285,6 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
           threadId: input.threadId,
         };
         let tabId = selection.tabId;
-        let profileId: string | null = null;
         if (!tabId) {
           const result = await desktop.createTab({
             ...scope,
@@ -235,25 +292,20 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
             presentation: "hidden",
           });
           tabId = result.tab.tabId;
-          profileId =
-            result.tab.profile.kind === "automation"
-              ? result.tab.profile.id
-              : null;
           created = { ...scope, tabId };
         }
         const lease = await desktop.acquireControl({
           ...scope,
           tabIds: [tabId],
           controllerLabel: "Browser Automation",
-          ttlMs,
-          allowPersonal: selection.tabId !== undefined,
+          ttlMs: idleTimeoutMs,
         });
         record.desktop = {
           ...scope,
           leaseId: lease.leaseId,
           tabId,
           owned: selection.tabId === undefined,
-          profileId,
+          leasedTabIds: [],
         };
         const connection = await desktop.openConnection({
           ...scope,
@@ -288,7 +340,7 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
         {
           sessionId: session.id,
           ...(connectionUrl === undefined ? {} : { connectionUrl }),
-          expiresAt: session.expiresAt,
+          expiresAt: hardDeadline(session),
           idleTimeoutMs,
         },
         { hostId: session.hostId, signal },
@@ -304,6 +356,8 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
             generation: target.generation,
             threadId: target.threadId,
             onChange(result) {
+              if (trackLeasedTabs(target, result.tabs))
+                void save(record).catch(() => {});
               if (
                 !result.tabs.some(
                   (tab) => tab.control?.leaseId === target.leaseId,
@@ -323,6 +377,22 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
       if (created && !record.desktop)
         await desktop.closeTab(created).catch(() => {});
       throw error;
+    } finally {
+      opening.delete(session.id);
+    }
+  }
+  async function touch(record: RecordEntry) {
+    record.lastUsed = Date.now();
+    record.session.expiresAt = Math.min(
+      record.lastUsed + idleTimeoutMs,
+      hardDeadline(record.session),
+    );
+    try {
+      await save(record);
+    } catch (error) {
+      cc.log.warn(
+        `Browser Automation could not persist session activity: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
   async function run(
@@ -332,11 +402,13 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
     const record = await owned(input.threadId, input.sessionId);
     if (
       record.session.state !== "ready" ||
-      Date.now() >= record.session.expiresAt
+      Date.now() >= hardDeadline(record.session) ||
+      (!busy.get(input.sessionId) && Date.now() >= record.session.expiresAt)
     )
       throw new Error("Session stopped or expired; open a new session");
     busy.set(input.sessionId, (busy.get(input.sessionId) ?? 0) + 1);
     try {
+      await touch(record);
       const result = await host.call(
         "run",
         {
@@ -344,22 +416,24 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
           script: input.script,
           timeoutMs: input.timeoutMs,
         },
-        { hostId: record.session.hostId, signal },
+        {
+          hostId: record.session.hostId,
+          signal,
+          timeoutMs: input.timeoutMs + runCallGraceMs,
+        },
       );
-      if (result.exitCode === 124) await finish(record, "stopped");
+      if (result.exitCode === 124)
+        await finish(record, "stopped").catch(() => {});
       return result;
     } catch (error) {
-      await finish(record, "stopped");
+      await finish(record, "stopped").catch(() => {});
       throw error;
     } finally {
       const remaining = (busy.get(input.sessionId) ?? 1) - 1;
       if (remaining > 0) busy.set(input.sessionId, remaining);
       else busy.delete(input.sessionId);
       const current = active.get(input.sessionId);
-      if (current) {
-        current.lastUsed = Date.now();
-        await save(current);
-      }
+      if (current?.session.state === "ready") await touch(current);
     }
   }
   async function preview(
@@ -483,20 +557,13 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
       if (request.scriptFile) {
         if (!request.scriptHost)
           throw new Error("Script file requires an explicit source host");
-        const pathApi =
-          context.cwd && win32.isAbsolute(context.cwd) ? win32 : posix;
-        const path =
-          win32.isAbsolute(request.scriptFile) ||
-          posix.isAbsolute(request.scriptFile)
-            ? request.scriptFile
-            : pathApi.resolve(context.cwd ?? ".", request.scriptFile);
-        if (
-          !context.cwd &&
-          !posix.isAbsolute(request.scriptFile) &&
-          !win32.isAbsolute(request.scriptFile)
-        )
+        const path = resolveHostPath({
+          rootPath: context.cwd ?? "",
+          path: request.scriptFile,
+        });
+        if (path === null)
           throw new Error(
-            "Relative script files require the invoking CLI working directory",
+            "Invalid script file path; relative paths require the invoking CLI working directory",
           );
         const file = await cc.sdk.files.read({
           hostId: request.scriptHost,
@@ -580,7 +647,7 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
   const timer = setInterval(() => {
     for (const record of active.values()) {
       if (
-        Date.now() < record.session.expiresAt &&
+        Date.now() < hardDeadline(record.session) &&
         (busy.get(record.session.id) ||
           Date.now() - record.lastUsed < idleTimeoutMs)
       )
@@ -595,7 +662,7 @@ export default async function browserAutomationPlugin(cc: CcPluginApi) {
   }, 1000);
   timer.unref();
   host.experimental_onWorkerExit(async ({ hostId }) => {
-    await Promise.all(
+    await Promise.allSettled(
       [...active.values()]
         .filter((record) => record.session.hostId === hostId)
         .map((record) => finish(record, "closed")),

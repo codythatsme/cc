@@ -3,7 +3,6 @@ import type {
   CcRealtime as RootCcRealtime,
   CcSdk as RootCcSdk,
   CcRealtimeConnectionEvent as RootRealtimeConnection,
-  EnvironmentStatusResult as RootEnvironmentStatus,
   FileReadResult as RootFileRead,
   GuideRenderResult as RootGuideRender,
   HostGetResult as RootHostGet,
@@ -32,7 +31,6 @@ import type {
   CcSdk as BrowserCcSdk,
   BrowserCcSdk as BrowserRuntimeCcSdk,
   CcRealtimeConnectionEvent as BrowserRealtimeConnection,
-  EnvironmentStatusResult as BrowserEnvironmentStatus,
   FileReadResult as BrowserFileRead,
   GuideRenderResult as BrowserGuideRender,
   HostGetResult as BrowserHostGet,
@@ -55,11 +53,11 @@ import type {
   ThemeSetInput as BrowserThemeSetInput,
   ThreadSectionListResult as BrowserThreadSectionList,
   ThreadSpawnResult as BrowserThreadSpawn,
+  createBrowserCcSdk,
 } from "@cc/sdk/browser";
 import type {
   CcSdk as CoreCcSdk,
   CcRealtimeConnectionEvent as CoreRealtimeConnection,
-  EnvironmentStatusResult as CoreEnvironmentStatus,
   FileReadResult as CoreFileRead,
   GuideRenderResult as CoreGuideRender,
   HostGetResult as CoreHostGet,
@@ -86,7 +84,6 @@ import type {
 import type {
   CcSdk as NodeCcSdk,
   CcRealtimeConnectionEvent as NodeRealtimeConnection,
-  EnvironmentStatusResult as NodeEnvironmentStatus,
   FileReadResult as NodeFileRead,
   GuideRenderResult as NodeGuideRender,
   HostGetResult as NodeHostGet,
@@ -110,10 +107,8 @@ import type {
   ThreadSectionListResult as NodeThreadSectionList,
   ThreadSpawnResult as NodeThreadSpawn,
 } from "@cc/sdk/node";
-import type { createBrowserCcSdk } from "@cc/sdk/browser";
 
 interface RootSurface {
-  environmentStatus: RootEnvironmentStatus;
   fileRead: RootFileRead;
   guideRender: RootGuideRender;
   hostGet: RootHostGet;
@@ -140,7 +135,6 @@ interface RootSurface {
 }
 
 interface BrowserSurface {
-  environmentStatus: BrowserEnvironmentStatus;
   fileRead: BrowserFileRead;
   guideRender: BrowserGuideRender;
   hostGet: BrowserHostGet;
@@ -167,7 +161,6 @@ interface BrowserSurface {
 }
 
 interface CoreSurface {
-  environmentStatus: CoreEnvironmentStatus;
   fileRead: CoreFileRead;
   guideRender: CoreGuideRender;
   hostGet: CoreHostGet;
@@ -194,7 +187,6 @@ interface CoreSurface {
 }
 
 interface NodeSurface {
-  environmentStatus: NodeEnvironmentStatus;
   fileRead: NodeFileRead;
   guideRender: NodeGuideRender;
   hostGet: NodeHostGet;
@@ -222,6 +214,7 @@ interface NodeSurface {
 
 type ExpectedCcSdkKey =
   | "experimental_desktopBrowsers"
+  | "experimental_promptHistory"
   | "experimental_server"
   | "environments"
   | "files"
@@ -242,23 +235,14 @@ type ExpectedCcSdkKey =
 type ExpectedRealtimeKey = "subscribe";
 
 type ExpectedEnvironmentsKey =
+  | "experimental_cleanup"
   | "archiveThreads"
   | "commit"
   | "delete"
   | "list"
   | "listProviders"
-  | "diff"
-  | "diffBranches"
-  | "diffFile"
-  | "diffFiles"
-  | "diffPatch"
   | "get"
-  | "markPullRequestDraft"
-  | "markPullRequestReady"
-  | "mergePullRequest"
   | "paths"
-  | "pullRequest"
-  | "status"
   | "update";
 
 type ExpectedFilesKey =
@@ -282,8 +266,11 @@ type ExpectedHostsKey =
   | "delete"
   | "experimental_deleteOldServerCopy"
   | "directory"
+  | "experimental_discoverRepos"
   | "get"
   | "installProviderCli"
+  | "experimental_startProviderCliInstall"
+  | "experimental_providerCliInstallJobs"
   | "list"
   | "experimental_listProviders"
   | "pathsExist"
@@ -300,7 +287,10 @@ type ExpectedPluginsKey =
   | "experimental_discoverRpc"
   | "experimental_getSafeMode"
   | "experimental_setSafeMode"
+  | "experimental_pruneCache"
   | "applyUpdate"
+  | "experimental_startUpdate"
+  | "experimental_updateJobs"
   | "callRpc"
   | "catalog"
   | "checkUpdates"
@@ -309,17 +299,28 @@ type ExpectedPluginsKey =
   | "getSettings"
   | "getSource"
   | "install"
+  | "installJobs"
   | "list"
   | "listUpdateResults"
   | "marketplaces"
   | "reload"
   | "remove"
+  | "startInstall"
   | "token"
   | "updateSettings";
 
-type ExpectedPluginCatalogKey = "install" | "installPlan" | "search" | "status";
+type ExpectedPluginCatalogKey =
+  | "install"
+  | "installPlan"
+  | "search"
+  | "startInstall"
+  | "status";
 
 type ExpectedPluginMarketplacesKey = "add" | "list" | "refresh" | "remove";
+
+type ExpectedPluginInstallJobsKey = "cancel" | "get" | "list";
+
+type ExpectedExperimentalPromptHistoryKey = "list";
 
 type ExpectedProjectsKey =
   | "machineEnvironment"
@@ -346,12 +347,14 @@ type ExpectedProjectsKey =
 type ExpectedProjectSourcesKey = "add" | "delete" | "update";
 type ExpectedProjectAttachmentsKey = "copy" | "read" | "upload";
 
-type ExpectedProvidersKey = "list" | "models";
+type ExpectedProvidersKey = "catalog" | "list" | "models" | "setEnabled";
 
 type ExpectedStatusKey = "get";
 
 type ExpectedSystemKey =
   | "acknowledgeAppUpdate"
+  | "mobileAppDownloads"
+  | "mobileAppReleases"
   | "appUpdate"
   | "applyAppUpdate"
   | "setMachineEnvironmentVariable"
@@ -364,6 +367,12 @@ type ExpectedSystemKey =
   | "config"
   | "executionOptions"
   | "installCliSkills"
+  | "experimental_cancelScheduledAppUpdate"
+  | "experimental_setAppUpdateAuto"
+  | "experimental_cliCommand"
+  | "experimental_installCliCommand"
+  | "experimental_removeCliCommand"
+  | "experimental_scheduleAppUpdate"
   | "reloadConfig"
   | "setAiServiceSelection"
   | "testAiService"
@@ -383,6 +392,12 @@ type ExpectedThemeKey = "catalog" | "get" | "resolve" | "set";
 type ExpectedThreadSectionsKey = "create" | "delete" | "list" | "update";
 
 type ExpectedThreadsKey =
+  | "experimental_listAncestors"
+  | "experimental_listDescendants"
+  | "experimental_listCascade"
+  | "experimental_listPluginMetadata"
+  | "experimental_headState"
+  | "experimental_regenerateTitle"
   | "getPluginMetadata"
   | "updatePluginMetadata"
   | "context"
@@ -406,6 +421,7 @@ type ExpectedThreadsKey =
   | "listRunning"
   | "markRead"
   | "markUnread"
+  | "message"
   | "open"
   | "output"
   | "paneAction"
@@ -448,6 +464,8 @@ type ExpectedThreadInteractionsKey =
 type ExpectedThreadQueuedMessagesKey =
   | "create"
   | "delete"
+  | "experimental_holdForEdit"
+  | "experimental_releaseEditHold"
   | "list"
   | "reorder"
   | "send"
@@ -558,6 +576,9 @@ describe("SDK public type entrypoints", () => {
       keyof RootCcSdk["plugins"]["marketplaces"]
     >().toEqualTypeOf<ExpectedPluginMarketplacesKey>();
     expectTypeOf<
+      keyof RootCcSdk["plugins"]["installJobs"]
+    >().toEqualTypeOf<ExpectedPluginInstallJobsKey>();
+    expectTypeOf<
       keyof RootCcSdk["projects"]
     >().toEqualTypeOf<ExpectedProjectsKey>();
     expectTypeOf<
@@ -566,6 +587,9 @@ describe("SDK public type entrypoints", () => {
     expectTypeOf<
       keyof RootCcSdk["projects"]["sources"]
     >().toEqualTypeOf<ExpectedProjectSourcesKey>();
+    expectTypeOf<
+      keyof RootCcSdk["experimental_promptHistory"]
+    >().toEqualTypeOf<ExpectedExperimentalPromptHistoryKey>();
     expectTypeOf<
       keyof RootCcSdk["providers"]
     >().toEqualTypeOf<ExpectedProvidersKey>();

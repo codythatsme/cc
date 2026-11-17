@@ -4,6 +4,31 @@ type ReleaseMeta = {
 };
 
 export const RELEASE_META: Record<string, ReleaseMeta> = {
+  "0.49.0": {
+    date: "November 6, 2026",
+    headline: "A more reliable cc",
+  },
+  "0.48.0": {
+    date: "October 28, 2026",
+    headline: "Faster loading, lighter live updates, and a long list of fixes",
+  },
+  "0.47.0": {
+    date: "October 23, 2026",
+    headline:
+      "Customizable navigation, new and improved ACP support, and diff review",
+  },
+  "0.46.1": {
+    date: "October 15, 2026",
+    headline: "MCP server, cc CLI install, and Settings search",
+  },
+  "0.46.0": {
+    date: "October 9, 2026",
+    headline: "Navigation rail, reusable prompts, and notification controls",
+  },
+  "0.45.0": {
+    date: "October 2, 2026",
+    headline: "Native Windows support, service tiers, and faster conversations",
+  },
   "0.44.1": {
     date: "October 1, 2026",
     headline: "The Soft Carbon identity",

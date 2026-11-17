@@ -25,7 +25,7 @@ const VIEW: SystemAiServicesResponse = {
       displayName: "Codex",
       pluginId: "provider-codex",
       tasks: ["thread-title", "commit-message", "voice"],
-      automaticRank: 0,
+      automaticRank: 2,
       status: { ready: false, message: "Run `codex login` to sign in" },
     },
     {
@@ -33,7 +33,7 @@ const VIEW: SystemAiServicesResponse = {
       displayName: "cc cloud",
       pluginId: "cc-ai",
       tasks: ["thread-title", "commit-message"],
-      automaticRank: 1,
+      automaticRank: 0,
       status: { ready: true },
     },
     {
@@ -41,7 +41,7 @@ const VIEW: SystemAiServicesResponse = {
       displayName: "OpenRouter",
       pluginId: "my-openrouter",
       tasks: ["thread-title", "commit-message"],
-      automaticRank: null,
+      automaticRank: 1,
       status: { ready: true },
     },
   ],
@@ -53,15 +53,8 @@ interface RecordedRequest {
   body: string;
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
-
 const TEST_SUCCESS = (): Response =>
-  jsonResponse({
+  Response.json({
     ok: true,
     pluginId: "cc-ai",
     serviceId: "cc",
@@ -86,7 +79,7 @@ function stubFetch(
       requests.push({ url, method: request.method, body: text });
       if (url === "/api/v1/system/ai-services/selection") {
         const body = JSON.parse(text);
-        return jsonResponse({
+        return Response.json({
           ...VIEW,
           selections: { ...VIEW.selections, [body.task]: body.selection },
         });
@@ -94,7 +87,7 @@ function stubFetch(
       if (url === "/api/v1/system/ai-services/test") {
         return testResponse();
       }
-      return jsonResponse(VIEW);
+      return Response.json(VIEW);
     }),
   );
   return requests;
@@ -107,7 +100,7 @@ afterEach(() => {
 });
 
 describe("AiServicesSettingsSection", () => {
-  it("resolves Automatic to the first ready service cc ships", () => {
+  it("resolves Automatic to the first ready compatible service", () => {
     expect(automaticServiceFor(VIEW, "thread-title")?.id).toBe("cc");
     expect(automaticServiceFor(VIEW, "voice")).toBeNull();
   });
@@ -174,7 +167,7 @@ describe("AiServicesSettingsSection", () => {
 
   it("shows why a test failed when the service could not answer", async () => {
     stubFetch(() =>
-      jsonResponse({
+      Response.json({
         ok: false,
         message: "Codex: Run `codex login` to sign in",
         durationMs: 3,
@@ -195,9 +188,9 @@ describe("AiServicesSettingsSection", () => {
 
   it("shows the error when the test request itself fails", async () => {
     stubFetch(() =>
-      jsonResponse(
+      Response.json(
         { code: "internal_error", message: "The sample prompt is empty" },
-        500,
+        { status: 500 },
       ),
     );
     const { wrapper } = createQueryClientTestHarness();

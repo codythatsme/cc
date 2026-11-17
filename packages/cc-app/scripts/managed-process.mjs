@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+
 const PROCESS_GROUP_POLL_INTERVAL_MS = 10;
 
 function delay(ms) {
@@ -12,6 +14,17 @@ function waitForProcessExit(childProcess) {
   if (hasExited(childProcess)) return Promise.resolve();
   return new Promise((resolvePromise) => {
     childProcess.once("exit", resolvePromise);
+  });
+}
+
+function stopWindowsProcessTree(pid) {
+  return new Promise((resolvePromise) => {
+    execFile(
+      "taskkill",
+      ["/pid", String(pid), "/T", "/F"],
+      { windowsHide: true },
+      () => resolvePromise(),
+    );
   });
 }
 
@@ -68,6 +81,17 @@ export function createManagedProcessStop(stopTimeoutMs) {
     }
 
     if (hasExited(processRef.childProcess)) return;
+    if (process.platform === "win32") {
+      const processClose = new Promise((resolvePromise) => {
+        processRef.childProcess.once("close", resolvePromise);
+      });
+      await stopWindowsProcessTree(processRef.childProcess.pid);
+      if (!hasExited(processRef.childProcess)) {
+        processRef.childProcess.kill("SIGKILL");
+      }
+      await processClose;
+      return;
+    }
     const processExit = waitForProcessExit(processRef.childProcess);
     processRef.childProcess.kill("SIGINT");
     const stopped = await Promise.race([

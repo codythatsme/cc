@@ -1,4 +1,12 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useSyncExternalStore } from "react";
+import {
+  hashKey,
+  partialMatchKey,
+  queryOptions,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import type {
   PermissionMode,
@@ -8,9 +16,12 @@ import type {
 import { SYSTEM_EXECUTION_OPTIONS_QUERY_KEY } from "@/hooks/queries/query-keys";
 import { permissionModeValues } from "@cc/domain";
 import type {
+  SystemCliCommandStatus,
   SystemCliSkillsStatusResponse,
   SystemExecutionOptionsResponse,
+  SystemProviderCatalogEntry,
   SystemProvidersQuery,
+  SystemProviderState,
   SystemProviderStatesResponse,
   SystemVersionResponse,
 } from "@cc/server-contract";
@@ -28,6 +39,10 @@ import {
   writeCachedProviderList,
 } from "@/lib/provider-list-cache";
 import {
+  readCachedProviderCatalog,
+  writeCachedProviderCatalog,
+} from "@/lib/provider-catalog-cache";
+import {
   useHostListRealtimeSubscription,
   useSystemRealtimeSubscription,
 } from "@/hooks/useRealtimeSubscription";
@@ -35,33 +50,42 @@ import {
   allSystemExecutionOptionsQueryKeyPrefix,
   allSystemProvidersQueryKeyPrefix,
   hostProviderCliStatusQueryKey,
+  systemCliCommandQueryKey,
+  systemSetupGuideQueryKey,
   systemCliSkillsQueryKey,
   systemAiServicesQueryKey,
   systemConfigQueryKey,
   systemExecutionOptionsQueryKey,
   systemProvidersQueryKey,
+  systemProviderCatalogQueryKey,
   systemProviderStatesQueryKey,
+  hostProviderStateQueryKey,
   systemThemeQueryKey,
   systemVersionQueryKey,
   uiPreferencesQueryKey,
 } from "./query-keys";
 import { requireEnabledQueryArg, type QueryOptions } from "./query-helpers";
+import { fetchSetupGuideAssignment } from "./setup-guide-requests";
 import {
   SERVER_SESSION_QUERY_POLICY,
   SESSION_STATIC_QUERY_POLICY,
 } from "./query-policies";
 
 interface UseSystemExecutionOptionsArgs {
+  selectedModel?: string;
   enabled?: boolean;
   environmentId?: string;
   hostId?: string;
   providerId?: string;
+  projectId?: string;
 }
 
 interface SystemExecutionOptionsQueryArgs {
+  selectedModel?: string;
   environmentId: string | null;
   hostId: string | null;
   providerId: string | null;
+  projectId: string | null;
   writeLastKnown: boolean;
 }
 
@@ -107,6 +131,7 @@ function resolveExecutionOptionsPlaceholder({
   hostId,
   providerId,
   catalogCacheKey,
+  machineCatalogCacheKey,
   providersCacheKey,
 }: {
   previousData: SystemExecutionOptionsResponse | undefined;
@@ -115,6 +140,7 @@ function resolveExecutionOptionsPlaceholder({
   hostId: string | null;
   providerId: string | null;
   catalogCacheKey: string;
+  machineCatalogCacheKey: string;
   providersCacheKey: string;
 }): SystemExecutionOptionsResponse | undefined {
   const previousProviders = isSameExecutionOptionsRoute(
@@ -124,7 +150,9 @@ function resolveExecutionOptionsPlaceholder({
   )
     ? previousData?.providers
     : undefined;
-  const cached = readCachedModelCatalog(catalogCacheKey);
+  const cached =
+    readCachedModelCatalog(catalogCacheKey) ??
+    readCachedModelCatalog(machineCatalogCacheKey);
   const remembered = readCachedProviderList(providersCacheKey);
   const providers =
     previousProviders ??
@@ -180,10 +208,10 @@ function shouldRetrySystemExecutionOptions(
   return true;
 }
 
-export function useKnownProviderModelCatalogScope(
+export function findKnownProviderModelCatalogScope(
+  queryClient: QueryClient,
   providerId: string,
 ): ProviderModelCatalogScope | undefined {
-  const queryClient = useQueryClient();
   if (providerId.length === 0) {
     return undefined;
   }
@@ -200,25 +228,61 @@ export function useKnownProviderModelCatalogScope(
       return scope;
     }
   }
+  const catalogQueryHash = hashKey(systemProviderCatalogQueryKey());
   for (const [, providers] of queryClient.getQueriesData<ProviderInfo[]>({
     queryKey: allSystemProvidersQueryKeyPrefix(),
+    predicate: (query) => query.queryHash !== catalogQueryHash,
   })) {
     const scope = scopeIn(providers);
     if (scope !== undefined) {
       return scope;
     }
   }
-  return undefined;
+  const catalog = queryClient.getQueryData<SystemProviderCatalogEntry[]>(
+    systemProviderCatalogQueryKey(),
+  );
+  return scopeIn(
+    catalog === undefined ? undefined : selectProviderDirectory(catalog),
+  );
 }
 
-export function useSystemProviders(args: UseSystemProvidersArgs = {}) {
+function subscribeToProviderCatalogQueries(
+  queryClient: QueryClient,
+  onChange: () => void,
+): () => void {
+  const executionOptionsPrefix = allSystemExecutionOptionsQueryKeyPrefix();
+  const providersPrefix = allSystemProvidersQueryKeyPrefix();
+  return queryClient.getQueryCache().subscribe((event) => {
+    const { queryKey } = event.query;
+    if (
+      partialMatchKey(queryKey, executionOptionsPrefix) ||
+      partialMatchKey(queryKey, providersPrefix)
+    ) {
+      onChange();
+    }
+  });
+}
+
+export function useKnownProviderModelCatalogScope(
+  providerId: string,
+): ProviderModelCatalogScope | undefined {
+  const queryClient = useQueryClient();
+  const subscribe = useCallback(
+    (onChange: () => void) =>
+      subscribeToProviderCatalogQueries(queryClient, onChange),
+    [queryClient],
+  );
+  return useSyncExternalStore(subscribe, () =>
+    findKnownProviderModelCatalogScope(queryClient, providerId),
+  );
+}
+
+export function systemProvidersQueryOptions(args: UseSystemProvidersArgs = {}) {
   const capability = args.capability ?? null;
   const environmentId = args.environmentId ?? null;
   const hostId = args.hostId ?? null;
-  const enabled = args.enabled ?? true;
-  useSystemRealtimeSubscription({ enabled });
   const providersCacheKey = providerListCacheKey({ environmentId, hostId });
-  return useQuery<ProviderInfo[]>({
+  return queryOptions<ProviderInfo[]>({
     queryKey: systemProvidersQueryKey({ capability, environmentId, hostId }),
     queryFn: async ({ signal }) => {
       const capabilityFilter =
@@ -241,7 +305,7 @@ export function useSystemProviders(args: UseSystemProvidersArgs = {}) {
       }
       return providers;
     },
-    enabled,
+    enabled: args.enabled ?? true,
     staleTime: 60_000,
     placeholderData: () => {
       const remembered = readCachedProviderList(providersCacheKey);
@@ -255,6 +319,28 @@ export function useSystemProviders(args: UseSystemProvidersArgs = {}) {
   });
 }
 
+export function useSystemProviders(args: UseSystemProvidersArgs = {}) {
+  useSystemRealtimeSubscription({ enabled: args.enabled ?? true });
+  return useQuery(systemProvidersQueryOptions(args));
+}
+
+export function resolveSystemProviderInfo({
+  providers,
+  providerId,
+  queryClient,
+}: {
+  providers: readonly ProviderInfo[] | undefined;
+  providerId: string | undefined;
+  queryClient: QueryClient;
+}): ProviderInfo | null {
+  return (
+    providers?.find((provider) => provider.id === providerId) ??
+    (providerId === undefined
+      ? null
+      : findCachedProviderInfo(queryClient, providerId))
+  );
+}
+
 export function useSystemProviderInfo({
   providerId,
   ...args
@@ -264,33 +350,80 @@ export function useSystemProviderInfo({
     ...args,
     enabled: (args.enabled ?? true) && providerId !== undefined,
   });
-  return (
-    providersQuery.data?.find((provider) => provider.id === providerId) ??
-    (providerId === undefined
-      ? null
-      : findCachedProviderInfo(queryClient, providerId))
-  );
+  return resolveSystemProviderInfo({
+    providers: providersQuery.data,
+    providerId,
+    queryClient,
+  });
+}
+
+async function requestOfferedProviderExecutionOptions({
+  environmentId,
+  hostId,
+  providerId,
+  projectId,
+  selectedModel,
+  signal,
+}: Omit<SystemExecutionOptionsQueryArgs, "writeLastKnown"> & {
+  signal: AbortSignal;
+}): Promise<{
+  response: SystemExecutionOptionsResponse;
+  loadedProviderId: string | null;
+}> {
+  const request = (requestedProviderId: string | null) =>
+    sdk.system.executionOptions({
+      environmentId: environmentId ?? undefined,
+      hostId: hostId ?? undefined,
+      providerId: requestedProviderId ?? undefined,
+      projectId: projectId ?? undefined,
+      selectedModel:
+        requestedProviderId === providerId ? selectedModel : undefined,
+      preferCached: true,
+      signal,
+    });
+  const response = await request(providerId);
+  const fallbackProviderId = response.providers[0]?.id;
+  if (
+    providerId === null ||
+    fallbackProviderId === undefined ||
+    response.providers.some((provider) => provider.id === providerId)
+  ) {
+    return { response, loadedProviderId: providerId };
+  }
+  return {
+    response: await request(fallbackProviderId),
+    loadedProviderId: fallbackProviderId,
+  };
 }
 
 function systemExecutionOptionsQueryOptions({
   environmentId,
   hostId,
   providerId,
+  projectId,
   writeLastKnown,
+  selectedModel,
 }: SystemExecutionOptionsQueryArgs) {
   return queryOptions<SystemExecutionOptionsResponse>({
     queryKey: systemExecutionOptionsQueryKey({
       environmentId,
       hostId,
       providerId,
+      projectId,
+      selectedModel,
     }),
     queryFn: async ({ signal }) => {
-      const response = await sdk.system.executionOptions({
-        environmentId: environmentId ?? undefined,
-        hostId: hostId ?? undefined,
-        providerId: providerId ?? undefined,
-        signal,
-      });
+      const { response, loadedProviderId } =
+        await requestOfferedProviderExecutionOptions({
+          environmentId,
+          hostId,
+          providerId,
+          projectId,
+          signal,
+          selectedModel,
+        });
+      const modelsProviderId =
+        loadedProviderId ?? response.providers[0]?.id ?? null;
       if (writeLastKnown) {
         writeCachedProviderList(
           providerListCacheKey({ environmentId, hostId }),
@@ -302,9 +435,48 @@ function systemExecutionOptionsQueryOptions({
             selectedOnlyModels: response.selectedOnlyModels,
           };
           writeCachedModelCatalog(
-            modelCatalogCacheKey({ environmentId, hostId, providerId }),
+            modelCatalogCacheKey({
+              environmentId,
+              hostId,
+              providerId: loadedProviderId,
+              projectId,
+            }),
             catalog,
           );
+          if (loadedProviderId === null && modelsProviderId !== null) {
+            writeCachedModelCatalog(
+              modelCatalogCacheKey({
+                environmentId,
+                hostId,
+                providerId: modelsProviderId,
+                projectId,
+              }),
+              catalog,
+            );
+          }
+        }
+      }
+      if (
+        writeLastKnown &&
+        response.modelLoadError?.providerId === modelsProviderId &&
+        response.models.length === 0 &&
+        response.selectedOnlyModels.length === 0 &&
+        (response.modelLoadError?.code === "failed" ||
+          response.modelLoadError?.code === "timeout")
+      ) {
+        const cached = readCachedModelCatalog(
+          modelCatalogCacheKey({
+            environmentId,
+            hostId,
+            providerId: modelsProviderId,
+            projectId,
+          }),
+        );
+        if (
+          cached !== null &&
+          (cached.models.length > 0 || cached.selectedOnlyModels.length > 0)
+        ) {
+          return { ...response, ...cached, modelLoadError: null };
         }
       }
       return response;
@@ -317,43 +489,55 @@ function systemExecutionOptionsQueryOptions({
 
 export function prefetchSystemExecutionOptions(
   queryClient: QueryClient,
-  args: { routing: SystemProvidersQuery; providerIds: readonly string[] },
+  args: { routing: SystemProvidersQuery; providerId: string },
 ): void {
-  for (const providerId of args.providerIds) {
-    void queryClient.prefetchQuery(
-      systemExecutionOptionsQueryOptions({
-        environmentId: args.routing.environmentId ?? null,
-        hostId: args.routing.hostId ?? null,
-        providerId,
-        writeLastKnown: false,
-      }),
-    );
-  }
+  void queryClient.prefetchQuery(
+    systemExecutionOptionsQueryOptions({
+      environmentId: args.routing.environmentId ?? null,
+      hostId: args.routing.hostId ?? null,
+      providerId: args.providerId,
+      projectId: null,
+      writeLastKnown: false,
+    }),
+  );
 }
 
-export function useSystemExecutionOptions(
+export function liveSystemExecutionOptionsQueryOptions(
   args: UseSystemExecutionOptionsArgs = {},
+) {
+  return executionOptionsWithPlaceholderQueryOptions(args, true);
+}
+
+function executionOptionsWithPlaceholderQueryOptions(
+  args: UseSystemExecutionOptionsArgs,
+  writeLastKnown: boolean,
 ) {
   const environmentId = args.environmentId ?? null;
   const hostId = args.hostId ?? null;
   const providerId = args.providerId ?? null;
-  const enabled = args.enabled ?? true;
-  useSystemRealtimeSubscription({ enabled });
-  useHostListRealtimeSubscription({ enabled });
+  const projectId = args.projectId ?? null;
   const providersCacheKey = providerListCacheKey({ environmentId, hostId });
-  const catalogCacheKey = modelCatalogCacheKey({
+  const machineCatalogCacheKey = modelCatalogCacheKey({
     environmentId,
     hostId,
     providerId,
   });
-  return useQuery({
+  const catalogCacheKey = modelCatalogCacheKey({
+    environmentId,
+    hostId,
+    providerId,
+    projectId,
+  });
+  return queryOptions({
     ...systemExecutionOptionsQueryOptions({
       environmentId,
       hostId,
       providerId,
-      writeLastKnown: true,
+      projectId,
+      writeLastKnown,
+      selectedModel: args.selectedModel,
     }),
-    enabled,
+    enabled: args.enabled ?? true,
     placeholderData: (previousData, previousQuery) =>
       resolveExecutionOptionsPlaceholder({
         previousData,
@@ -362,9 +546,28 @@ export function useSystemExecutionOptions(
         hostId,
         providerId,
         catalogCacheKey,
+        machineCatalogCacheKey,
         providersCacheKey,
       }),
   });
+}
+
+export function useSystemExecutionOptions(
+  args: UseSystemExecutionOptionsArgs = {},
+) {
+  const enabled = args.enabled ?? true;
+  useSystemRealtimeSubscription({ enabled });
+  useHostListRealtimeSubscription({ enabled });
+  return useQuery(liveSystemExecutionOptionsQueryOptions(args));
+}
+
+export function useProviderPreviewExecutionOptions(
+  args: UseSystemExecutionOptionsArgs,
+) {
+  const enabled = args.enabled ?? true;
+  useSystemRealtimeSubscription({ enabled });
+  useHostListRealtimeSubscription({ enabled });
+  return useQuery(executionOptionsWithPlaceholderQueryOptions(args, false));
 }
 
 export function systemConfigQueryOptions() {
@@ -438,6 +641,25 @@ export function useCliSkillsStatus(options?: QueryOptions) {
   });
 }
 
+export function useSetupGuideAssignment(options?: QueryOptions) {
+  return useQuery({
+    queryKey: systemSetupGuideQueryKey(),
+    queryFn: ({ signal }) => fetchSetupGuideAssignment(signal),
+    enabled: options?.enabled ?? true,
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
+export function useCliCommandStatus(options?: QueryOptions) {
+  return useQuery<SystemCliCommandStatus>({
+    queryKey: systemCliCommandQueryKey(),
+    queryFn: ({ signal }) => sdk.system.experimental_cliCommand({ signal }),
+    enabled: options?.enabled ?? true,
+    staleTime: 30_000,
+  });
+}
+
 export function useSystemVersion(options?: QueryOptions) {
   return useQuery<SystemVersionResponse>({
     queryKey: systemVersionQueryKey(),
@@ -452,11 +674,11 @@ interface UseHostProviderCliStatusArgs {
   enabled?: boolean;
 }
 
-export function useHostProviderCliStatus({
+export function hostProviderCliStatusQueryOptions({
   hostId,
   enabled,
 }: UseHostProviderCliStatusArgs) {
-  return useQuery<ProviderCliStatusResponse>({
+  return queryOptions<ProviderCliStatusResponse>({
     queryKey: hostProviderCliStatusQueryKey(hostId),
     queryFn: ({ signal }) =>
       sdk.hosts.providerCliStatus({
@@ -472,12 +694,16 @@ export function useHostProviderCliStatus({
   });
 }
 
-export function useSystemProviderStates(
+export function useHostProviderCliStatus(args: UseHostProviderCliStatusArgs) {
+  return useQuery(hostProviderCliStatusQueryOptions(args));
+}
+
+export function systemProviderStatesQueryOptions(
   options: UseSystemProviderStatesOptions = {},
 ) {
   const environmentId = options.environmentId ?? null;
   const hostId = options.hostId ?? null;
-  return useQuery<SystemProviderStatesResponse>({
+  return queryOptions<SystemProviderStatesResponse>({
     queryKey: systemProviderStatesQueryKey({ environmentId, hostId }),
     queryFn: ({ signal }) =>
       sdk.system.providerStates({
@@ -490,4 +716,88 @@ export function useSystemProviderStates(
       ? { staleTime: 60_000 }
       : { refetchInterval: 15_000 }),
   });
+}
+
+export function useSystemProviderStates(
+  options: UseSystemProviderStatesOptions = {},
+) {
+  return useQuery(systemProviderStatesQueryOptions(options));
+}
+
+export function useHostProviderStatesAsTheyLoad(args: {
+  hostId: string | null;
+  providerIds: readonly string[];
+  enabled: boolean;
+}): { providerId: string; state: SystemProviderState | null | undefined }[] {
+  const { hostId } = args;
+  return useQueries({
+    queries: args.providerIds.map((providerId) => ({
+      queryKey: hostProviderStateQueryKey({
+        hostId: hostId ?? "",
+        providerId,
+      }),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        sdk.system.providerStates({
+          hostId: requireEnabledQueryArg({
+            value: hostId,
+            hookName: "useHostProviderStatesAsTheyLoad",
+            argName: "hostId",
+          }),
+          providerId,
+          signal,
+        }),
+      enabled: args.enabled && hostId !== null,
+      staleTime: Infinity,
+      retry: false,
+    })),
+    combine: (results) =>
+      results.map((result, index) => ({
+        providerId: args.providerIds[index] ?? "",
+        state:
+          result.data !== undefined
+            ? (result.data.providers[0] ?? null)
+            : result.isError
+              ? null
+              : undefined,
+      })),
+  });
+}
+
+async function fetchSystemProviderCatalog(): Promise<
+  SystemProviderCatalogEntry[]
+> {
+  const catalog = await sdk.providers.catalog();
+  writeCachedProviderCatalog(catalog);
+  return catalog;
+}
+
+function systemProviderCatalogQueryOptions() {
+  return queryOptions({
+    queryKey: systemProviderCatalogQueryKey(),
+    queryFn: fetchSystemProviderCatalog,
+  });
+}
+
+export function useSystemProviderCatalog() {
+  useSystemRealtimeSubscription({ enabled: true });
+  return useQuery(systemProviderCatalogQueryOptions());
+}
+
+function selectProviderDirectory(
+  catalog: SystemProviderCatalogEntry[],
+): ProviderInfo[] {
+  return catalog.flatMap((entry) => (entry.info === null ? [] : [entry.info]));
+}
+
+export function providerDirectoryQueryOptions() {
+  return queryOptions({
+    ...systemProviderCatalogQueryOptions(),
+    placeholderData: () => readCachedProviderCatalog() ?? undefined,
+    select: selectProviderDirectory,
+  });
+}
+
+export function useProviderDirectory() {
+  useSystemRealtimeSubscription({ enabled: true });
+  return useQuery(providerDirectoryQueryOptions());
 }

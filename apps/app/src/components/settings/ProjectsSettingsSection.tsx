@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { Host } from "@cc/domain";
 import type { ProjectWithThreadsResponse } from "@cc/server-contract";
@@ -10,6 +10,7 @@ import { cn } from "@cc/shared-ui/lib/utils";
 import {
   ResourceOverflowMenu,
   ResourceRowDetailChevron,
+  targetsResourceAction,
 } from "@cc/shared-ui/resource-list";
 import { ProjectPathDialog } from "@/components/dialogs/ProjectPathDialog";
 import {
@@ -133,6 +134,7 @@ function SortableProjectRow({
     disabled: dragDisabled,
     label: project.name,
   });
+  const navigate = useNavigate();
   const detailPath = getSettingsProjectRoutePath(project.id);
   const remoteLabel =
     project.gitRemoteUrl === null
@@ -154,7 +156,11 @@ function SortableProjectRow({
       {handle}
       <div
         data-project-row
-        className="group -mx-2 flex min-w-0 flex-1 items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-state-hover focus-within:bg-state-hover"
+        className="group -mx-2 flex min-w-0 flex-1 cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-state-hover focus-within:bg-state-hover"
+        onClick={(event) => {
+          if (targetsResourceAction(event)) return;
+          void navigate(detailPath);
+        }}
       >
         <Link
           to={detailPath}
@@ -226,9 +232,11 @@ export function ProjectsSettingsSection() {
   const [optimisticOrder, setOptimisticOrder] = useState<string[] | null>(null);
 
   const serverProjects = sidebarNavigationQuery.data?.projects;
-  useEffect(() => {
+  const [orderedProjects, setOrderedProjects] = useState(serverProjects);
+  if (orderedProjects !== serverProjects) {
+    setOrderedProjects(serverProjects);
     setOptimisticOrder(null);
-  }, [serverProjects]);
+  }
   const projects = useMemo(() => {
     if (!serverProjects) return undefined;
     if (!optimisticOrder) return serverProjects;

@@ -9,7 +9,7 @@ Find out where a plugin can add to cc before you write one. The Plugin Guide is 
 
 ## How it works
 
-Open Plugin Guide from the sidebar. Click a number on the wireframe to read its card. Each card names the exact types and methods from `@codythatsme/plugin-sdk` so you can search for them in your editor.
+Open Plugin Guide from the sidebar, or read the public copy at [cc.example.invalid/plugin-guide](https://cc.example.invalid/plugin-guide) without installing cc. Click a number on the wireframe to read its card. Each card names the exact types and methods from `@codythatsme/plugin-sdk` so you can search for them in your editor.
 
 ## For agents
 

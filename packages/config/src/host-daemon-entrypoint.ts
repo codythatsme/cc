@@ -10,8 +10,8 @@ import {
   CC_CONNECT_MACHINE_CREDENTIAL_ENV,
   CC_HOST_ENROLL_KEY_ENV,
   CC_HOST_DAEMON_AUTO_UPDATE_ENV,
+  CC_HOST_DAEMON_SUPERVISED_ENV,
   CC_HOST_ID_ENV,
-  CC_HOST_NAME_ENV,
 } from "./env-vars.js";
 import { assignIfDefined } from "./objects.js";
 
@@ -21,8 +21,8 @@ export interface HostDaemonEntrypointConfig {
   CC_SERVER_HEADERS?: Record<string, string>;
   CC_HOST_ENROLL_KEY?: string;
   CC_HOST_DAEMON_AUTO_UPDATE?: boolean;
+  CC_HOST_DAEMON_SUPERVISED?: boolean;
   CC_HOST_ID?: string;
-  CC_HOST_NAME?: string;
 }
 
 type LoadHostDaemonEntrypointConfigArgs = EnvLoaderArgs;
@@ -52,6 +52,11 @@ export function loadHostDaemonEntrypointConfig(
     definition: CC_HOST_DAEMON_AUTO_UPDATE_ENV,
     env: loader.env,
   });
+  const supervised = readOptionalEnvVar({
+    context: loader.context,
+    definition: CC_HOST_DAEMON_SUPERVISED_ENV,
+    env: loader.env,
+  });
   const machineCredential = readOptionalEnvVar({
     context: loader.context,
     definition: CC_CONNECT_MACHINE_CREDENTIAL_ENV,
@@ -69,11 +74,6 @@ export function loadHostDaemonEntrypointConfig(
   const hostId = readOptionalEnvVar({
     context: loader.context,
     definition: CC_HOST_ID_ENV,
-    env: loader.env,
-  });
-  const hostName = readOptionalEnvVar({
-    context: loader.context,
-    definition: CC_HOST_NAME_ENV,
     env: loader.env,
   });
 
@@ -98,6 +98,11 @@ export function loadHostDaemonEntrypointConfig(
     value: autoUpdate,
   });
   assignIfDefined({
+    key: "CC_HOST_DAEMON_SUPERVISED",
+    target: config,
+    value: supervised,
+  });
+  assignIfDefined({
     key: "CC_HOST_ENROLL_KEY",
     target: config,
     value: enrollKey,
@@ -106,11 +111,6 @@ export function loadHostDaemonEntrypointConfig(
     key: "CC_HOST_ID",
     target: config,
     value: hostId,
-  });
-  assignIfDefined({
-    key: "CC_HOST_NAME",
-    target: config,
-    value: hostName,
   });
   return config;
 }

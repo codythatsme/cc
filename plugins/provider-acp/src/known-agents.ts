@@ -40,6 +40,7 @@ export const KNOWN_ACP_AGENTS: readonly AcpAgentDefinition[] = [
     icon: declaredIcon("cursor"),
     iconTint: { light: "#111827", dark: "#F5F5F5" },
     signInCommand: "cursor-agent login",
+    guidedSignIn: true,
     installUrl: "https://cursor.com/docs/cli/installation",
     dialect: "cursor",
     providerUsage: true,
@@ -53,7 +54,6 @@ export const KNOWN_ACP_AGENTS: readonly AcpAgentDefinition[] = [
       "claude-fable-5",
       "composer-2.5",
     ],
-    reasoningProbePriorityModelIds: ["grok-4.6", "grok-4.5"],
     fork: "none",
     launch: {
       displayName: "Cursor",
@@ -92,6 +92,7 @@ export const KNOWN_ACP_AGENTS: readonly AcpAgentDefinition[] = [
     installUrl: "https://opencode.ai/docs",
     visibility: "installed",
     dialect: "opencode",
+    modelCatalogScope: "workspace",
     providerUsage: true,
     supportsManualCompaction: true,
     fork: "tip",
@@ -153,8 +154,8 @@ export const KNOWN_ACP_AGENTS: readonly AcpAgentDefinition[] = [
     installUrl: "https://docs.x.ai/docs/grok-build",
     visibility: "installed",
     dialect: "grok",
+    supportsManualCompaction: true,
     fork: "none",
-    reasoningProbePriorityModelIds: ["grok-4.6", "grok-4.5"],
     launch: {
       displayName: "Grok Build",
       command: "grok",

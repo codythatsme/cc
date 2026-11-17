@@ -5,7 +5,7 @@
   "type": "module",
   "engines": {
     "cc": ">=0.0",
-    "ccPluginSdk": ">=0.4.3"
+    "ccPluginSdk": ">=0.6.0"
   },
   "cc": {
     "name": "Composer customization",
@@ -20,12 +20,14 @@
     "cc-plugin"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsrs --noEmit",
+    "lint:type-aware": "oxlint -c ../../../.oxlintrc.type-aware.json"
   },
   "devDependencies": {
     "@codythatsme/plugin-sdk": "workspace:*",
-    "@types/react": "^19.0.0",
-    "react": "^19.0.0",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2"
   }
 }

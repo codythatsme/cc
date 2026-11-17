@@ -9,6 +9,20 @@ cc plugin install .            # registers the directory in place (--yes to skip
 cc plugin dev                  # rebuild app/host bundles + reload on every save
 ```
 
+`cc plugin new` needs no running server. It installs the scaffold's npm
+dependencies, including `@codythatsme/plugin-sdk` pinned to this cc's exact SDK
+version, and warns when that SDK version is not on npm yet. When npm leaves a
+package out, it prints the manual `npm install --include=dev` step to run
+before `cc plugin build`.
+
+A plugin installed from `$CC_THREAD_STORAGE` or from a cc-managed workspace
+(such as a thread's worktree) keeps working after cc deletes that folder: cc
+first copies it to `<dataDir>/plugins/<id>/preserved-source` and moves the
+install there. `cc plugin install` prints a `note:` line when this applies.
+Later edits belong in that copy.
+
+## Manifest
+
 The manifest is `package.json`. This block is illustrative. The scaffold adds
 the current engine values and the entries for its generated surfaces.
 
@@ -28,49 +42,11 @@ the current engine values and the entries for its generated surfaces.
 }
 ```
 
-- `cc.server` (required) — backend entry. Path installs load it as
-  TypeScript directly (no build step); `cc plugin build` also emits a
-  `dist/server.js` + `server.js.map` + `server.meta.json`. The server bundle
-  externalizes the SDK and `better-sqlite3`; use `cc.storage.database()` for
-  plugin-owned SQLite. `cc.app` (optional) — frontend entry compiled by
-  `cc plugin build` into minified `dist/app.js` + `app.css` + `app.meta.json`
-  (`cc plugin dev` keeps them readable); path and git installs build it
-  automatically at install time. Git installs also
-  run `npm install --omit=dev --omit=optional` first (so a git plugin may use third-party
-  packages) and keep node_modules, since bundling cannot inline data files read
-  at runtime. Runtime imports that cc does not shim belong in `dependencies`.
-  Type-only imports can stay in `devDependencies`. A build-required package left in
-  `devDependencies` makes the plugin uninstallable from git, and unbuildable
-  after any install that omits dev deps — including the packaged CLI's own,
-  which runs npm under `NODE_ENV=production`. `devDependencies` is for types
-  and tooling only — including every package cc shims at runtime (sonner,
-  vaul, the portal radix families, @pierre/diffs, clsx, tailwind-merge,
-  class-variance-authority): the build never bundles them, but `tsc` still
-  resolves their declarations through node_modules, so each one you import
-  needs a `devDependencies` entry at the host's version (`cc plugin new`
-  writes all of them; `cc plugin types` repins them). Never put one in
-  `dependencies` — that bundles a second copy beside the host's.
-- `cc.host` (optional, singular) — full-trust Node 22 ESM entry bundled into
-  `dist/host.js` + source map + `host.meta.json`. Its owning server entry calls
-  it through typed host RPC. The daemon downloads it lazily, verifies its
-  digest, and reuses one worker per plugin generation. Pure JavaScript
-  dependencies are bundled; host code may use Node APIs such as
-  `child_process`, `fs`, and `fetch`.
-  Installing or updating a git plugin needs `npm` on PATH; checking for
-  updates does not, because a check reads the manifest and never builds. Path
-  installs build from dependencies you have already installed.
-- Git installs use npm, then build declared app, server, and host source. They
-  validate server metadata and host metadata when a host exists. An npm plugin
-  with `cc.app` must publish `dist/app.js` and `dist/app.meta.json`. An npm
-  plugin with `cc.host` must publish its host bundle and metadata. Users of
-  prebuilt artifacts need no npm, but managed Git and npm installs need npm on
-  `PATH`.
-- Building yourself (CI, or verifying a build without a running cc): add
-  `cc-app` to `devDependencies` and set `"build": "cc plugin build"`.
-  `cc plugin build` needs no running server, but the manifest still needs
-  `cc.server`. Depending on `cc-app@X` builds
-  against exactly that release's shim configuration. cc downloads its build
-  toolchain on first use, so cache `<dataDir>/plugins/toolchain-*` in CI.
+- `cc.server` (required) — backend entry; see backend-foundation.md.
+- `cc.app` (optional) — frontend entry; see frontend-registration.md.
+- `cc.host` (optional, singular) — full-trust Node 22 ESM entry that the
+  daemon runs on hosts. The server entry calls it through typed host RPC, and
+  provider bridges ship in it; see "cc.hosts" in backend-foundation.md.
 - `cc.skills` (optional) — relocates the auto-imported skills directories
   (default `skills/`; `[]` opts out). Every `skills/<name>/SKILL.md` is
   injected into agent threads as the plugin skills tier.
@@ -83,105 +59,151 @@ the current engine values and the entries for its generated surfaces.
   contribute.
 - `cc.name` and `cc.description` (required) — non-empty human-facing plugin
   identity. The top-level package `name` remains the package identity and
-  source of the plugin id.
+  source of the plugin id. distribution.md covers how the store uses
+  `cc.description`. To label a plugin's status, end `cc.name` (or a
+  marketplace `displayName`) with one short bracketed tag, such as
+  `Account Pooler [Experimental]` or `Memory [Early access]`. Plugin
+  cards and details show the bracketed text as a tag beside the name: gray by
+  default, and colored for reserved tags (`[Experimental]`). Write the tag in
+  sentence case (`[Early access]`, not `[Early Access]`), keep it to 24
+  characters or fewer, and use brackets, not parentheses; longer or other
+  suffixes stay part of the name. Older cc versions show the full name as text.
 - `cc.branding` (required) — declare `cc.branding.icon` as either the plugin's
   canonical CC icon name, such as `Zap`, or a plugin-relative compact SVG path
   such as `./assets/icon.svg`. A namespaced `"<pluginId>/<name>"` glyph is
-  refused here: that form is how tool presentations and provider declarations
-  name a declared icon, and the plugin's own mark points at its file directly.
-  CC validates path-shaped SVGs (well-formed XML with an `<svg>` root, no
-  doctype or processing instruction), hash-serves them, then renders them
-  as CSS masks so their shape inherits the surrounding text color; SVG
-  colors are ignored.
+  refused here; the plugin's own mark points at its file directly. CC
+  validates path-shaped SVGs (well-formed XML with an `<svg>` root, no
+  doctype or processing instruction), hash-serves them, then renders them as
+  CSS masks so their shape inherits the surrounding text color; SVG colors
+  are ignored. Named inline icons use `currentColor`; compact SVG assets
+  should contain only the intended transparent glyph shape.
   CC reuses this icon on roomy surfaces when no logo override is declared.
-  Add `logo.light` only for
-  intentionally different rich/full-size identity artwork; optional
-  `logo.dark` is preferred in dark mode. Logo paths are explicit
-  plugin-relative `.svg`, `.png`, or `.webp` files: nulls, empty strings,
-  missing/escaping files, unsupported extensions, and a dark logo without a
-  light logo fail the manifest. `cc plugin build` refuses an SVG logo that
-  carries a script vector (a `script`, `handler` or `listener` element, an
-  `on*` attribute, or a `javascript:` href). Manifest, build, and load checks
-  reject the invalid paths and SVGs described above. Every SVG CC serves
+  Add `logo.light` only for intentionally different rich/full-size identity
+  artwork; optional `logo.dark` is preferred in dark mode. CC uses a declared
+  logo where space permits, such as roomy Settings rows and cards. Logo paths
+  are explicit plugin-relative `.svg`, `.png`, or `.webp` files: nulls, empty
+  strings, missing/escaping files, unsupported extensions, and a dark logo
+  without a light logo fail the manifest. `cc plugin build` refuses an SVG
+  logo that carries a script vector (a `script`, `handler` or `listener`
+  element, an `on*` attribute, or a `javascript:` href). Every SVG CC serves
   carries `nosniff` and a `default-src 'none'` CSP. There is
-  no root logo auto-detection. Logo-only
-  manifests remain supported for compatibility, so at least an icon or light
-  logo is required. CC uses a declared logo where space permits, such as roomy
-  Settings rows and cards.
+  no root logo auto-detection. Logo-only manifests remain supported, so at
+  least an icon or light logo is required. Do not duplicate the same artwork
+  across `icon` and `logo`.
   Compact sidebar, menu, action, mention, and panel-title surfaces prefer the
   plugin-owned icon asset, then a named manifest icon, then a contribution's
   local `icon` hint, then Zap. Branding changes are picked up on
-  `cc plugin reload`. Named inline icons use `currentColor`; compact SVG assets
-  should contain only the intended transparent glyph shape. Do not duplicate
-  the same artwork across `icon` and `logo`; reserve logos for intentionally
-  different branded artwork and provide a dark variant when needed.
+  `cc plugin reload`.
 - `cc.branding.experimental_icons` (optional) — the plugin's own icon
-  vocabulary for timeline rows and provider marks: a map of declared name →
-  plugin-relative SVG, such as `{ "receipt": "./icons/receipt.svg" }`. Names
-  start with a lowercase letter or digit and then use lowercase letters,
-  digits, or `-` (≤ 48 characters, ≤ 64 entries);
-  each file is a `.svg` inside the plugin directory, at most 32 KiB, and
-  must pass a reject-only validator: no doctype or processing instruction;
-  no `script`, `handler`, `listener`, `iframe`, `foreignObject`, `image`,
-  `video`, `audio`, `a` or `style` element; no element outside the SVG
-  namespace; no `on*` attribute; no `href`/`xlink:href` that is not a
+  vocabulary for timeline rows, tool presentations, and provider marks: a map
+  of declared name → plugin-relative SVG, such as
+  `{ "receipt": "./icons/receipt.svg" }`. Names start with a lowercase letter
+  or digit and then use lowercase letters, digits, or `-` (≤ 48 characters,
+  ≤ 64 entries); each file is a `.svg` inside the plugin directory, at most
+  32 KiB, and must pass a reject-only validator: no doctype or processing
+  instruction; no `script`, `handler`, `listener`, `iframe`, `foreignObject`,
+  `image`, `video`, `audio`, `a` or `style` element; no element outside the
+  SVG namespace; no `on*` attribute; no `href`/`xlink:href` that is not a
   same-document `#` reference; no backslash (CSS escape) in any attribute
   value; no `url()`, `src()`, `image()` or `image-set()` in any attribute
   value unless it targets a same-document `#` reference; no SMIL
   `attributeName` naming an `on*` handler or an `href`; no `xml:base`. Any
   violation fails the plugin load with a message naming the icon.
   Reference an entry by its namespaced glyph `"<pluginId>/<name>"` anywhere a
-  CC icon name is accepted. CC serves each file hashed from
+  CC icon name is accepted; another plugin's id or an undeclared name is
+  refused. CC serves each file hashed from
   `/api/v1/plugins/<id>/assets/icons/<name>.svg`, lists them on the
   installed-plugin inventory as `icons`, and draws them as `currentColor`
-  masks (web) or tinted SVG views (mobile), so ship monochrome shapes. A
-  glyph naming another plugin or an undeclared name is refused at
-  registration and, for rows, at ingest (the row persists as
-  `provider/unhandled`); a `server: "cc"` tool row is checked against the
-  plugin that registered the tool, not the thread's provider plugin, so a
-  tool's declared icon survives on any provider's thread. Rows are never
-  rewritten when the map changes: a
-  row whose name is no longer declared, or whose plugin is uninstalled,
-  draws the per-kind fallback glyph.
-- `engines.cc` — optional compatibility string checked during runtime and
-  update selection against the CC app version.
-- `engines.ccPluginSdk` — optional SDK compatibility string. The scaffold uses
-  the repository SDK version. CC validates this range before use. Absent means
-  a legacy manifest. Managed (`git:`/`npm:`) installs **refuse** a plugin that needs a
-  newer SDK than the host provides, or one pinned to a different major; path
-  installs surface it as `incompatible` at load.
-  Compatible updates (`cc plugin outdated` / `cc plugin update`) only select
-  candidates that satisfy these ranges; newer incompatible releases are
-  reported as blocked rather than applied. Dev builds (cc `0.0.0`) skip
-  enforcing `engines.cc` and annotate that on check results.
-- **Manual updates:** `cc plugin outdated` checks tracking sources and
-  `cc plugin update` applies compatible candidates (reinstall of an already
-  installed managed plugin is refused). A failed activation **rolls back** to
-  the previous state snapshot and records the failure for the user. Keep
-  `engines.*` honest and ship load-safe factories so an update never strands
-  users.
-- `cc plugin build` stamps authoritative metadata into every declared
-  artifact's `dist/*.meta.json`: `sdkMajor`, `sdkVersion`,
-  `artifactFormatVersion` (currently `1`), `pluginId`, `pluginVersion`, and
-  `builtWith: { ccVersion, pluginSdkVersion }`. Managed installs reject
-  artifacts whose `pluginId`/`pluginVersion` disagree with the package
-  manifest, or whose SDK major does not match the host.
-- Default to `cc-plugin-hello` for the package name. Scoped names such as
-  `@acme/cc-plugin-hello` are also supported. The plugin id is the final
-  package-name component minus the `cc-plugin-` prefix. CC lowercases it,
-  replaces non-alphanumeric runs with `-`, and trims separators. An empty
-  result is invalid. Every bundled plugin id is reserved for its bundled
-  source. The id namespaces routes, storage, settings, and CLI commands.
+  masks (web) or tinted SVG views (mobile), so ship monochrome shapes. How a
+  persisted row's glyph is checked and what it falls back to is the
+  presentation contract in `docs/provider-plugin-api.md` §3.
+- `engines.cc` — optional compatibility range checked at load and during
+  update selection against the CC app version. Dev builds (cc `0.0.0`) skip
+  enforcing it and annotate that on check results.
+- `engines.ccPluginSdk` — optional SDK compatibility range. The scaffold uses
+  the repository SDK version. Absent means a legacy manifest. Managed
+  (`git:`/`npm:`) installs refuse a plugin that needs a newer SDK than the
+  host provides, or one pinned to a different major; path installs surface it
+  as `incompatible` at load. Updates select only candidates that satisfy both
+  ranges (see distribution.md).
+
+## Plugin id
+
+Default to `cc-plugin-hello` for the package name. Scoped names such as
+`@acme/cc-plugin-hello` are also supported. The plugin id is the final
+package-name component minus the `cc-plugin-` prefix. CC lowercases it,
+replaces non-alphanumeric runs with `-`, and trims separators. An empty result
+is invalid. Every bundled plugin id is reserved for its bundled source, and
+ids starting with `cc--` are reserved for plugins bundled with CC. The id
+namespaces routes, storage, settings, and CLI commands.
+
+## Builds, installs, and dependencies
+
+- Path installs load `cc.server` as TypeScript directly. `cc plugin build`
+  also emits `dist/server.js` + `server.js.map` + `server.meta.json`; the
+  server bundle externalizes the SDK and `better-sqlite3` (use
+  `cc.storage.database()` for plugin-owned SQLite). Builtin, official, git,
+  and npm installs whose `dist/server.js` was built for the running SDK major
+  load that bundle instead of the TypeScript source.
+- `cc plugin build` compiles `cc.app` into minified `dist/app.js`, `app.css`,
+  and `app.meta.json` (`cc plugin dev` keeps them readable) and bundles
+  `cc.host` into `dist/host.js`, its source map, and `host.meta.json`. Path
+  and git installs build automatically at install time, and a build failure
+  fails the install. A committed `dist/` is always replaced by the bundles cc
+  builds. Path installs build from dependencies you have already installed.
+- Git installs use cc's bundled npm (neither npm nor Node needs to be on
+  `PATH`; `git` does) to run
+  `npm install --omit=dev --omit=optional --ignore-scripts` (lifecycle scripts
+  never run), keep node_modules (bundling cannot inline data files read at
+  runtime), then build declared app, server, and host source and validate its
+  metadata. An npm plugin must publish `dist/app.js` + `dist/app.meta.json`
+  when it declares `cc.app`, and its host bundle and metadata when it declares
+  `cc.host`.
+- `cc plugin build` stamps every declared artifact's `dist/*.meta.json` with
+  `sdkMajor`, `sdkVersion`, `artifactFormatVersion` (currently `1`),
+  `pluginId`, `pluginVersion`, and `builtWith: { ccVersion, pluginSdkVersion }`.
+  Managed installs reject artifacts whose `pluginId`/`pluginVersion` disagree
+  with the package manifest, or whose SDK major does not match the host.
+  `app.meta.json` also lists `runtimeSlots`, the shimmed host modules the
+  bundle imports. cc downloads `@pierre/diffs` only before evaluating a bundle
+  that lists it; a bundle built without the field gets every slot.
+- Give every mount and portal your plugin id. Current `lib/portal-scope`
+  and the shared overlays set `data-cc-plugin` next to `data-cc-plugin-root`.
+  If `app.js` sets `data-cc-plugin-root` without it, as copies of
+  `lib/portal-scope` from before July 2026 do, `cc plugin build` warns, and cc
+  serves that plugin the slower stylesheet, whose utilities also match any
+  id-less root. Refresh it with
+  `npx shadcn add @cc/portal-scope`.
+- Runtime imports that cc does not shim belong in `dependencies`; validator
+  imports such as Zod are ordinary runtime dependencies that the build
+  bundles. `devDependencies` is for types and tooling only. A build-required
+  package left there makes the plugin uninstallable from git, and unbuildable
+  after any install that omits dev deps — including the packaged CLI's own,
+  which runs npm under `NODE_ENV=production`. Every package cc shims at
+  runtime (listed in frontend-hooks-and-ui.md) is the opposite: the build
+  never bundles it, but `tsc` still resolves its declarations, so each one you
+  import needs a type-only `devDependencies` entry at the host's version
+  (`cc plugin new` writes all of them; `cc plugin types` repins them). Never
+  put one in `dependencies` — that bundles a second copy beside the host's.
+  Host entries have one exception for the SDK itself; see backend-foundation.md.
+- Building yourself (CI, or verifying a build without a running cc): add
+  `cc-app` to `devDependencies` and set `"build": "cc plugin build"`.
+  `cc plugin build` needs no running server, but the manifest still needs
+  `cc.server`; only `cc plugin dev` needs a running cc, because it reloads the
+  installed plugin. Depending on `cc-app@X` builds against exactly that
+  release's shim configuration. cc downloads a pinned esbuild and Tailwind
+  toolchain on a machine's first git or path build (never for a prebuilt npm
+  install), so cache `<dataDir>/plugins/toolchain-*` in CI.
 
 Backend API imports normally stay type-only. The root runtime exports are
-`defineRpcContract`, `experimental_defineHostEntry`, and the numeric
-`PLUGIN_CLI_OUTPUT_MAX_BYTES` ceiling:
-`import { defineRpcContract, type CcPluginApi } from
-"@codythatsme/plugin-sdk"`. Validator imports such as Zod are normal plugin runtime
-dependencies (and are bundled by `cc plugin build`).
+`defineRpcContract`, `experimental_defineHostEntry`, the numeric
+`PLUGIN_CLI_OUTPUT_MAX_BYTES` ceiling, and the CLI helpers `defineCli`,
+`cliCommand`, and `PluginCliError`:
+`import { defineRpcContract, type CcPluginApi } from "@codythatsme/plugin-sdk"`.
+The scaffold tsconfig typechecks both `server.ts` and `app.tsx`.
 
-On-disk state per plugin: `<dataDir>/plugins/<id>/data.db` (its SQLite),
-`secrets/` (secret settings + HTTP token), `logs/plugin.log` (JSONL,
-rotated at 5MB). Healthy or degraded plugins receive effective setting changes
-through `onChange`. A plugin in `needs-configuration` retries automatically.
-Use `cc plugin reload <id>` only when the change or plugin requires it.
+## On-disk state
+
+Each plugin has `<dataDir>/plugins/<id>/data.db` (its SQLite), `secrets/`
+(secret settings + HTTP token), and `logs/plugin.log` (JSONL, rotated at
+5MB).

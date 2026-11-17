@@ -1,30 +1,22 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import type { PluginComposerScope } from "@codythatsme/plugin-sdk";
 import {
   resolveComposerActions,
+  resolveComposerPopups,
   resolveComposerBanners,
   resolveComposerDraftObservers,
   resolveComposerEditorEffects,
   resolveComposerPlusMenuItems,
+  resolveComposerSendMenuItems,
 } from "@/lib/plugin-slot-resolvers";
 import {
-  EMPTY_PLUGIN_SLOT_SNAPSHOT,
-  getPluginSlotSnapshot,
-  subscribePluginSlots,
+  usePluginSlotKind,
   type PluginComposerCustomizationSlot,
 } from "@/lib/plugin-slots";
 
 type ComposerScopeKind = PluginComposerScope["kind"] | null;
 
 type ComposerRegistrations = readonly PluginComposerCustomizationSlot[];
-
-function useComposerCustomizationRegistrations(): ComposerRegistrations {
-  return useSyncExternalStore(
-    subscribePluginSlots,
-    () => getPluginSlotSnapshot().composerCustomizations,
-    () => EMPTY_PLUGIN_SLOT_SNAPSHOT.composerCustomizations,
-  );
-}
 
 function useResolvedComposerSlot<T>(
   scopeKind: ComposerScopeKind,
@@ -34,7 +26,7 @@ function useResolvedComposerSlot<T>(
   ) => T,
   empty: () => T,
 ): T {
-  const registrations = useComposerCustomizationRegistrations();
+  const registrations = usePluginSlotKind("composerCustomizations");
   return useMemo(
     () => (scopeKind === null ? empty() : resolve(registrations, scopeKind)),
     [empty, registrations, resolve, scopeKind],
@@ -71,10 +63,22 @@ export function useResolvedComposerPlusMenuItems(scopeKind: ComposerScopeKind) {
   );
 }
 
+export function useResolvedComposerSendMenuItems(scopeKind: ComposerScopeKind) {
+  return useResolvedComposerSlot(
+    scopeKind,
+    resolveComposerSendMenuItems,
+    emptyList,
+  );
+}
+
 export function useResolvedComposerEditor(scopeKind: ComposerScopeKind) {
   return useResolvedComposerSlot(
     scopeKind,
     resolveComposerEditor,
     emptyComposerEditor,
   );
+}
+
+export function useResolvedComposerPopups(scopeKind: ComposerScopeKind) {
+  return useResolvedComposerSlot(scopeKind, resolveComposerPopups, emptyList);
 }

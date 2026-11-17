@@ -6,8 +6,38 @@ import { resetChatGptCloudflareCookiesForTests } from "../ai/chatgpt-fetch.js";
 import {
   __testing,
   getCodexProviderHealth,
+  getCodexProviderInstallationStatus,
   getCodexProviderUsage,
 } from "./provider-maintenance.js";
+
+async function writeFakeCli(args: {
+  binDir: string;
+  name: string;
+  output: string;
+  touchPath?: string;
+}): Promise<void> {
+  if (process.platform === "win32") {
+    const lines = [
+      "@echo off",
+      ...(args.touchPath === undefined
+        ? []
+        : [`type nul > "${args.touchPath}"`]),
+      `echo ${args.output}`,
+    ];
+    await fs.writeFile(
+      path.join(args.binDir, `${args.name}.cmd`),
+      `${lines.join("\r\n")}\r\n`,
+    );
+    return;
+  }
+  const touch =
+    args.touchPath === undefined ? "" : `touch '${args.touchPath}'\n`;
+  await fs.writeFile(
+    path.join(args.binDir, args.name),
+    `#!/bin/sh\n${touch}echo "${args.output}"\n`,
+    { mode: 0o755 },
+  );
+}
 
 function installationStatus() {
   return {
@@ -113,11 +143,17 @@ describe("Codex credential health and usage", () => {
     accountId: string;
     email: string;
     expSeconds: number;
+    planType?: string;
   }): string {
     const payload = {
       exp: args.expSeconds,
       email: args.email,
-      "https://api.openai.com/auth": { chatgpt_account_id: args.accountId },
+      "https://api.openai.com/auth": {
+        chatgpt_account_id: args.accountId,
+        ...(args.planType === undefined
+          ? {}
+          : { chatgpt_plan_type: args.planType }),
+      },
     };
     return `${base64UrlJson({ alg: "none", typ: "JWT" })}.${base64UrlJson(payload)}.sig`;
   }
@@ -142,12 +178,9 @@ describe("Codex credential health and usage", () => {
     tempDirs.push(homeDir);
     const binDir = path.join(homeDir, "bin");
     await fs.mkdir(binDir);
-    await fs.writeFile(
-      path.join(binDir, "codex"),
-      '#!/bin/sh\necho "codex-cli 0.150.0"\n',
-      { mode: 0o755 },
-    );
+    await writeFakeCli({ binDir, name: "codex", output: "codex-cli 0.150.0" });
     vi.stubEnv("HOME", homeDir);
+    vi.stubEnv("USERPROFILE", homeDir);
     vi.stubEnv("CODEX_HOME", "");
     vi.stubEnv("PATH", `${binDir}${path.delimiter}${process.env.PATH ?? ""}`);
   });
@@ -163,6 +196,41 @@ describe("Codex credential health and usage", () => {
     );
   });
 
+  it.each([
+    ["0.135.0", undefined, true],
+    ["0.140.0", undefined, false],
+    ["0.140.0", "thread_rewind", true],
+    ["0.150.0", "thread_rewind", false],
+    ["unparseable", "thread_rewind", true],
+  ] as const)(
+    "checks local compatibility without update discovery: %s / %s",
+    async (version, requirement, unsupported) => {
+      const binDir = path.join(homeDir, "bin");
+      const marker = path.join(homeDir, "npm-probed");
+      await writeFakeCli({
+        binDir,
+        name: "codex",
+        output: `codex-cli ${version}`,
+      });
+      await writeFakeCli({
+        binDir,
+        name: "npm",
+        output: "1.1.0",
+        touchPath: marker,
+      });
+
+      const status = await getCodexProviderInstallationStatus(
+        requirement,
+        false,
+      );
+
+      expect(status.installed).toBe(true);
+      expect(status.versionUnsupported).toBe(unsupported);
+      expect(status.latestVersion).toBeNull();
+      await expect(fs.stat(marker)).rejects.toMatchObject({ code: "ENOENT" });
+    },
+  );
+
   it("reports unauthenticated when auth.json is missing", async () => {
     await expect(getCodexProviderHealth()).resolves.toEqual({
       supported: true,
@@ -175,7 +243,9 @@ describe("Codex credential health and usage", () => {
         minimumSupportedVersion: "0.136.0",
         canInstall: true,
         canUpdate: true,
-        loginCommand: "codex login",
+        loginCommand: "codex login --device-auth",
+        localLoginCommand: "codex login",
+        internal_DO_NOT_USE_setupGuidePlanLabel: null,
       },
     });
     await expect(getCodexProviderUsage()).resolves.toEqual({
@@ -204,6 +274,31 @@ describe("Codex credential health and usage", () => {
       supported: true,
       usage: { status: "expired" },
     });
+  });
+
+  it("reports the ChatGPT plan for the new setup guide only, keeping main's empty plan label", async () => {
+    for (const [offsetSeconds, status] of [
+      [3600, "ready"],
+      [-60, "expired"],
+    ] as const) {
+      await writeChatGptAuth(
+        createAccessToken({
+          accountId: "account-123",
+          email: "codex@example.com",
+          expSeconds: Math.floor(Date.now() / 1000) + offsetSeconds,
+          planType: "pro",
+        }),
+      );
+
+      await expect(getCodexProviderHealth()).resolves.toMatchObject({
+        health: {
+          status,
+          accountEmail: "codex@example.com",
+          planLabel: null,
+          internal_DO_NOT_USE_setupGuidePlanLabel: "Pro",
+        },
+      });
+    }
   });
 
   it("treats API-key auth as ready with no subscription usage to report", async () => {

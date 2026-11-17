@@ -1,7 +1,6 @@
 import {
   getThread,
   isThreadQueueAutoSendPaused,
-  listEvents,
   listQueuedThreadMessages,
 } from "@cc/db";
 import { threadScope, turnScope } from "@cc/domain";
@@ -24,6 +23,7 @@ import {
   seedStoredEvent,
   seedThread,
   seedThreadFixture,
+  seedThreadIdentity,
   seedTurnStarted,
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
@@ -33,40 +33,9 @@ import {
   requestThreadStopForCurrentState,
   stopThreadForCurrentState,
 } from "../../src/services/threads/thread-lifecycle.js";
+import { listEvents } from "@cc/db/testing";
 
 describe("thread runtime stop", () => {
-  it("releases an idle runtime without changing thread state", async () => {
-    await withTestHarness(async (harness) => {
-      const { thread } = seedThreadFixture(harness, {
-        thread: { status: "idle", visibility: "hidden" },
-      });
-      const responsePromise = harness.app.request(
-        `/api/v1/threads/${thread.id}/stop`,
-        { method: "POST" },
-      );
-      const stop = await waitForQueuedCommand(
-        harness,
-        ({ command }) =>
-          command.type === "thread.stop" && command.threadId === thread.id,
-      );
-      expect(stop.command).toMatchObject({ intent: "release" });
-
-      await reportQueuedCommandSuccess(harness, stop, {
-        providerCheckpointId: null,
-      });
-
-      const response = await responsePromise;
-      expect(response.status).toBe(200);
-      await expect(readJson(response)).resolves.toEqual({ ok: true });
-      expect(getThread(harness.db, thread.id)?.status).toBe("idle");
-      expect(
-        listEvents(harness.db, { threadId: thread.id }).filter(
-          (event) => event.type === "system/thread/interrupted",
-        ),
-      ).toHaveLength(0);
-    });
-  });
-
   it("releases and dismisses a question when the runtime ends during a failed interrupt", async () => {
     await withTestHarness(async (harness) => {
       const { thread } = seedThreadFixture(harness, {
@@ -715,6 +684,7 @@ describe("thread runtime stop", () => {
             status: "pending",
             taskStatus: "running",
             skipTranscript: false,
+            foreground: false,
           },
         },
       });
@@ -800,6 +770,7 @@ describe("thread runtime stop", () => {
             status: "pending",
             taskStatus: "running",
             skipTranscript: false,
+            foreground: false,
           },
         },
       });
@@ -825,6 +796,9 @@ describe("thread runtime stop", () => {
       expect(JSON.parse(taskCompletions[0]!.data)).toMatchObject({
         item: { status: "interrupted", taskStatus: "stopped" },
       });
+      expect(JSON.parse(taskCompletions[0]!.data)).not.toHaveProperty(
+        "item.ownerStopped",
+      );
       expect(getThread(harness.db, thread.id)?.status).toBe("idle");
       expect(
         listEvents(harness.db, { threadId: thread.id }).filter(
@@ -938,31 +912,13 @@ describe("thread runtime stop", () => {
       expect(getThread(harness.db, thread.id)?.status).toBe("idle");
       expect(isThreadQueueAutoSendPaused(harness.db, thread.id)).toBe(true);
 
-      const laterQueueResponse = await harness.app.request(
-        `/api/v1/threads/${thread.id}/queued-messages`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            input: [{ type: "text", text: "Queue after the stop" }],
-            model: "gpt-5",
-            permissionMode: "full",
-            reasoningLevel: "medium",
-            serviceTier: "default",
-          }),
-        },
-      );
-      expect(
-        laterQueueResponse.status,
-        await laterQueueResponse.clone().text(),
-      ).toBe(201);
       await runQueuedMessageDispatch(harness.deps, {
         kind: "thread-ready",
         threadId: thread.id,
       });
-      const pausedMessages = listQueuedThreadMessages(harness.db, thread.id);
-      expect(pausedMessages).toHaveLength(2);
-      expect(pausedMessages[0]?.id).toBe(queuedMessage.id);
+      expect(
+        listQueuedThreadMessages(harness.db, thread.id).map((row) => row.id),
+      ).toEqual([queuedMessage.id]);
       expect(
         listQueuedThreadCommands(harness, "turn.submit", thread.id),
       ).toEqual([]);
@@ -976,9 +932,7 @@ describe("thread runtime stop", () => {
         },
       );
       expect(sendResponse.status).toBe(200);
-      expect(
-        listQueuedThreadMessages(harness.db, thread.id).map((row) => row.id),
-      ).toEqual([pausedMessages[1]!.id]);
+      expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
       expect(getThread(harness.db, thread.id)?.status).toBe("active");
       expect(
         listQueuedThreadCommands(harness, "turn.submit", thread.id),
@@ -1069,8 +1023,8 @@ describe("thread runtime stop", () => {
 
       await vi.waitFor(() => {
         expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+        expect(getThread(harness.db, thread.id)?.status).toBe("active");
       });
-      expect(getThread(harness.db, thread.id)?.status).toBe("active");
     });
   });
 
@@ -1130,9 +1084,62 @@ describe("thread runtime stop", () => {
         expect(
           listQueuedThreadMessages(harness.db, thread.id).map((row) => row.id),
         ).toEqual([heldBack!.id]);
+        expect(getThread(harness.db, thread.id)?.status).toBe("active");
       });
-      expect(getThread(harness.db, thread.id)?.status).toBe("active");
       expect(isThreadQueueAutoSendPaused(harness.db, thread.id)).toBe(true);
+    });
+  });
+
+  it("dispatches a message queued after a manual stop has landed", async () => {
+    await withTestHarness(async (harness) => {
+      const { thread } = seedThreadFixture(harness, {
+        thread: { status: "active", visibility: "hidden" },
+      });
+      seedThreadIdentity(harness, {
+        threadId: thread.id,
+        providerThreadId: "provider-stopped-thread",
+      });
+      const stopResponsePromise = harness.app.request(
+        `/api/v1/threads/${thread.id}/stop`,
+        { method: "POST" },
+      );
+      const stop = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "thread.stop" && command.threadId === thread.id,
+      );
+      await reportQueuedCommandSuccess(harness, stop, {
+        providerCheckpointId: null,
+      });
+      expect((await stopResponsePromise).status).toBe(200);
+      expect(getThread(harness.db, thread.id)?.status).toBe("idle");
+      expect(isThreadQueueAutoSendPaused(harness.db, thread.id)).toBe(true);
+
+      const queueResponse = await harness.app.request(
+        `/api/v1/threads/${thread.id}/queued-messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            input: [{ type: "text", text: "Try again" }],
+            model: "gpt-5",
+            permissionMode: "full",
+            reasoningLevel: "medium",
+            serviceTier: "default",
+          }),
+        },
+      );
+      expect(queueResponse.status, await queueResponse.clone().text()).toBe(
+        201,
+      );
+
+      await vi.waitFor(() => {
+        expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+        expect(getThread(harness.db, thread.id)?.status).toBe("active");
+      });
+      expect(
+        listQueuedThreadCommands(harness, "turn.submit", thread.id),
+      ).toHaveLength(1);
     });
   });
 
@@ -1194,8 +1201,8 @@ describe("thread runtime stop", () => {
 
       await vi.waitFor(() => {
         expect(listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+        expect(getThread(harness.db, thread.id)?.status).toBe("active");
       });
-      expect(getThread(harness.db, thread.id)?.status).toBe("active");
     });
   });
 

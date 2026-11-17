@@ -1,32 +1,36 @@
+import { markThreadPruningWork } from "../../src/data/thread-pruning-work.js";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { performance } from "node:perf_hooks";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { createConnection } from "../../src/connection.js";
-import { events, threadPruningCursors, threads } from "../../src/schema.js";
+import { events, threadPruningCursors, threadPruningWork, threads } from "../../src/schema.js";
 import { noopNotifier } from "../../src/notifier.js";
 import { upsertHost } from "../../src/data/hosts.js";
 import { createProject } from "../../src/data/projects.js";
-import { createThread } from "../../src/data/threads.js";
+import { archiveThread, createThread, unarchiveThread } from "../../src/data/threads.js";
 import {
   advanceThreadPruning,
+  findUnprunableThreadEventSequence,
   getNextThreadPruningPolicy,
+  PRUNABLE_THREAD_EVENT_TYPES,
+  THREAD_PRUNING_POLICIES,
 } from "../../src/data/thread-pruning.js";
 import type { ThreadPruningPolicy } from "../../src/data/thread-pruning.js";
 import {
   appendDaemonEventsInTransaction,
-  pruneResolvedItemDeltas,
-  pruneBackgroundTaskProgressEvents,
   getHighWaterMarks,
   deleteThreadEventSuffixInTransaction,
   getLastStoredProviderThreadId,
   getLatestStoredRateLimitsEvent,
   listThreadTurnInterruptionEventStates,
 } from "../../src/data/events.js";
+import { advanceLiveEventPruning } from "../../src/data/resolved-item-pruning.js";
 import { getThreadEventRewriteGeneration } from "../../src/data/event-rewrite-generation.js";
 import { THREAD_CONTEXT_CLEAR_OPERATION, turnScope } from "@cc/domain";
-import { createMigratedConnection } from "../helpers/migrated-connection.js";
+import { createMigratedConnection } from "../../src/testing.js";
 
 function setup() {
   const db = createMigratedConnection();
@@ -36,6 +40,7 @@ function setup() {
     source: { type: "local_path", hostId: host.id, path: "/tmp/pruning" },
   });
   const thread = createThread(db, noopNotifier, {
+    status: "idle",
     projectId: project.id,
     providerId: "codex",
   });
@@ -62,6 +67,7 @@ function seed(
       ...values,
     })
     .run();
+  markThreadPruningWork(f.db, [f.thread.id]);
 }
 function cycle(f: Fixture, policy: ThreadPruningPolicy) {
   const results = [];
@@ -85,6 +91,115 @@ function sequences(f: Fixture) {
 }
 
 describe("thread pruning", () => {
+  beforeEach(() => {
+    vi.spyOn(performance, "now").mockReturnValue(0);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("queues archive changes for every owned thread and rolls them back together", () => {
+    const f = setup();
+    try {
+      const child = createThread(f.db, noopNotifier, {
+        status: "idle",
+        projectId: f.project.id,
+        providerId: "codex",
+        lifecycleOwnerThreadId: f.thread.id,
+      });
+      const work = () => f.db.select().from(threadPruningWork).all();
+      expect(() => f.db.transaction((tx) => {
+        archiveThread(tx, noopNotifier, f.thread.id);
+        throw new Error("rollback archive");
+      })).toThrow("rollback archive");
+      expect(work()).toEqual([]);
+      expect(f.db.select().from(threads).all().every((thread) => thread.archivedAt === null)).toBe(true);
+      archiveThread(f.db, noopNotifier, f.thread.id);
+      expect(work()).toHaveLength(2);
+      expect(work()).toEqual(expect.arrayContaining([
+        { policy: "rate-limits", threadId: f.thread.id, revision: 1 },
+        { policy: "rate-limits", threadId: child.id, revision: 1 },
+      ]));
+      archiveThread(f.db, noopNotifier, f.thread.id);
+      expect(work().every((row) => row.revision === 1)).toBe(true);
+      unarchiveThread(f.db, noopNotifier, f.thread.id);
+      expect(() => f.db.transaction(() => {
+        unarchiveThread(f.db, noopNotifier, child.id);
+        throw new Error("rollback unarchive");
+      })).toThrow("rollback unarchive");
+      expect(work().find((row) => row.threadId === child.id)?.revision).toBe(1);
+      expect(f.db.select().from(threads).where(eq(threads.id, child.id)).get()?.archivedAt).not.toBeNull();
+      unarchiveThread(f.db, noopNotifier, child.id);
+      expect(work().every((row) => row.revision === 2)).toBe(true);
+    } finally {
+      f.db.$client.close();
+    }
+  });
+
+  it("advances past a thread that becomes dirty again before its next cycle", () => {
+    const f = setup();
+    try {
+      const other = createThread(f.db, noopNotifier, {
+        status: "idle",
+        projectId: f.project.id,
+        providerId: "codex",
+      });
+      const [first, second] = [f.thread, other].sort((a, b) =>
+        a.id.localeCompare(b.id),
+      );
+      if (!first || !second) throw new Error("Missing pruning fixtures");
+      seed({ ...f, thread: first }, 1);
+      seed({ ...f, thread: second }, 1);
+      expect(advanceThreadPruning(f.db, "rate-limits").threadId).toBe(first.id);
+      seed({ ...f, thread: first }, 2);
+      expect(advanceThreadPruning(f.db, "rate-limits").threadId).toBe(
+        second.id,
+      );
+    } finally {
+      f.db.$client.close();
+    }
+  });
+
+  it("requires output presence only when pruning command output deltas", () => {
+    const f = setup();
+    try {
+      let sequence = 0;
+      const retained: number[] = [];
+      for (const [itemKind, type] of [
+        ["agentMessage", "item/agentMessage/delta"],
+        ["reasoning", "item/reasoning/textDelta"],
+        ["commandExecution", "item/commandExecution/outputDelta"],
+      ] as const) {
+        for (const [data, hasOutput] of [
+          ["malformed", false],
+          ["{}", false],
+          ['{"item":{"aggregatedOutput":null}}', true],
+          ['{"item":{"aggregatedOutput":42}}', true],
+          ['{"item":{"aggregatedOutput":"done"}}', true],
+        ] as const) {
+          const itemId = `item-${sequence}`;
+          seed(f, ++sequence, { type, itemId });
+          retained.push(sequence);
+          seed(f, ++sequence, { type, itemId });
+          if (itemKind === "commandExecution" && !hasOutput)
+            retained.push(sequence);
+          seed(f, ++sequence, {
+            type: "item/completed",
+            itemKind,
+            itemId,
+            data,
+          });
+          retained.push(sequence);
+        }
+      }
+      cycle(f, "resolved-items");
+      expect(sequences(f)).toEqual(retained);
+    } finally {
+      f.db.$client.close();
+    }
+  });
+
   it("rotates scoped live policies durably and drains active usage without global idle cleanup", () => {
     let f = setup();
     try {
@@ -202,6 +317,7 @@ describe("thread pruning", () => {
       const other = {
         ...f,
         thread: createThread(f.db, noopNotifier, {
+          status: "idle",
           projectId: f.project.id,
           providerId: "codex",
         }),
@@ -211,26 +327,43 @@ describe("thread pruning", () => {
           for (let i = 1; i <= 600; i++)
             seed(fixture, i, { type: "item/agentMessage/delta" });
         });
-        pruneResolvedItemDeltas(f.db, { threadId: fixture.thread.id });
+        for (let i = 0; i < 4; i++)
+          advanceThreadPruning(f.db, { threadId: fixture.thread.id });
       }
       advanceThreadPruning(f.db, "rate-limits");
       const before = f.db.select().from(threadPruningCursors).all();
-      expect(before).toHaveLength(3);
       expect(
         before
           .filter((row) => row.policy === "deltas")
           .map((row) => row.scope)
           .sort(),
       ).toEqual([f.thread.id, other.thread.id].sort());
-      pruneResolvedItemDeltas(f.db, { threadId: f.thread.id });
+      const hasUnfinishedLiveDeltaPass = () =>
+        f.db
+          .select()
+          .from(threadPruningCursors)
+          .all()
+          .some(
+            (row) =>
+              row.policy === "deltas" &&
+              row.scope === f.thread.id &&
+              row.sequence < row.upperSequence,
+          );
+      for (let i = 0; i < 1000 && hasUnfinishedLiveDeltaPass(); i++)
+        advanceThreadPruning(f.db, { threadId: f.thread.id });
+      expect(hasUnfinishedLiveDeltaPass()).toBe(false);
       const remaining = f.db.select().from(threadPruningCursors).all();
-      expect(remaining).toEqual(
+      expect(remaining.filter((row) => row.scope !== f.thread.id)).toEqual(
         before.filter((row) => row.scope !== f.thread.id),
       );
       f.db.delete(threads).where(eq(threads.id, other.thread.id)).run();
-      expect(f.db.select().from(threadPruningCursors).all()).toEqual(
-        before.filter((row) => row.scope === ""),
-      );
+      expect(
+        f.db
+          .select()
+          .from(threadPruningCursors)
+          .all()
+          .filter((row) => row.scope !== f.thread.id),
+      ).toEqual(before.filter((row) => row.scope === ""));
     } finally {
       f.db.$client.close();
     }
@@ -295,34 +428,31 @@ describe("thread pruning", () => {
         seed(f, 252, { type: "turn/completed" });
       });
       f.db.run(
-        sql`CREATE TRIGGER fail_live_insert BEFORE INSERT ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'live insert failed'); END`,
+        sql`CREATE TRIGGER fail_live_insert BEFORE INSERT ON thread_pruning_cursors WHEN NEW.policy = 'deltas' BEGIN SELECT RAISE(ABORT, 'live insert failed'); END`,
       );
-      expect(() =>
-        pruneResolvedItemDeltas(f.db, { threadId: f.thread.id }),
-      ).toThrow("live insert failed");
+      expect(() => advanceThreadPruning(f.db, "resolved-items")).toThrow(
+        "live insert failed",
+      );
       expect(sequences(f)).toContain(126);
       expect(f.db.select().from(threadPruningCursors).all()).toEqual([]);
       f.db.run(sql`DROP TRIGGER fail_live_insert`);
-      let removed = 0;
-      for (let i = 0; i < 5; i++)
-        removed += pruneResolvedItemDeltas(f.db, { threadId: f.thread.id });
-      expect(removed).toBe(1);
+      expect(
+        cycle(f, "resolved-items").reduce((n, r) => n + r.removed, 0),
+      ).toBe(1);
       expect(sequences(f)).not.toContain(126);
       expect(sequences(f).filter((sequence) => sequence <= 125)).toHaveLength(
         125,
       );
       seed(f, 253, { type: "item/agentMessage/delta", itemId: "late" });
       seed(f, 254, { type: "item/agentMessage/delta", itemId: "late" });
-      for (let i = 0; i < 5; i++)
-        pruneResolvedItemDeltas(f.db, { threadId: f.thread.id });
+      cycle(f, "resolved-items");
       expect(sequences(f)).toContain(254);
       seed(f, 255, {
         type: "item/completed",
         itemKind: "agentMessage",
         itemId: "late",
       });
-      for (let i = 0; i < 5; i++)
-        pruneResolvedItemDeltas(f.db, { threadId: f.thread.id });
+      cycle(f, "resolved-items");
       expect(sequences(f)).toContain(253);
       expect(sequences(f)).not.toContain(254);
     } finally {
@@ -358,26 +488,33 @@ describe("thread pruning", () => {
           parentToolCallId: "target",
         });
       });
-      expect(pruneResolvedItemDeltas(f.db, { threadId: f.thread.id })).toBe(0);
+      expect(advanceThreadPruning(f.db, "resolved-items").removed).toBe(0);
       const before = f.db.select().from(threadPruningCursors).all();
-      expect(before[0]?.probeSequence).toBeGreaterThan(0);
+      expect(
+        before.find((row) => row.policy === "deltas")?.probeSequence,
+      ).toBeGreaterThan(0);
       f.db.run(
         sql`CREATE TRIGGER fail_live_cursor BEFORE UPDATE ON thread_pruning_cursors BEGIN SELECT RAISE(ABORT, 'live cursor failed'); END`,
       );
-      expect(() =>
-        pruneResolvedItemDeltas(f.db, { threadId: f.thread.id }),
-      ).toThrow("live cursor failed");
+      expect(() => advanceThreadPruning(f.db, "resolved-items")).toThrow(
+        "live cursor failed",
+      );
       expect(f.db.select().from(threadPruningCursors).all()).toEqual(before);
       f.db.run(sql`DROP TRIGGER fail_live_cursor`);
       const saved = f.db.$client.serialize();
       f.db.$client.close();
       f = { ...f, db: createConnection(saved) };
-      for (let i = 0; i < 20; i++)
-        pruneResolvedItemDeltas(f.db, { threadId: f.thread.id });
+      cycle(f, "resolved-items");
       expect(sequences(f)).toContain(1);
       expect(sequences(f)).not.toContain(2);
       f.db.delete(threads).where(eq(threads.id, f.thread.id)).run();
-      expect(f.db.select().from(threadPruningCursors).all()).toEqual([]);
+      expect(
+        f.db
+          .select()
+          .from(threadPruningCursors)
+          .all()
+          .filter((row) => row.scope !== ""),
+      ).toEqual([]);
     } finally {
       f.db.$client.close();
     }
@@ -398,8 +535,7 @@ describe("thread pruning", () => {
         });
         seed(f, 512, { type: "turn/completed" });
       });
-      for (let i = 0; i < 8; i++)
-        pruneBackgroundTaskProgressEvents(f.db, { threadId: f.thread.id });
+      cycle(f, "resolved-items");
       expect(sequences(f)).not.toContain(1);
       expect(sequences(f)).toContain(511);
       seed(f, 513, { type: "item/agentMessage/delta", itemId: "message" });
@@ -412,6 +548,77 @@ describe("thread pruning", () => {
       cycle(f, "resolved-items");
       expect(sequences(f)).toContain(513);
       expect(sequences(f)).not.toContain(514);
+    } finally {
+      f.db.$client.close();
+    }
+  }, 15_000);
+
+  it("deletes exactly the event types listed as prunable and never the rows a timeline window can start at", () => {
+    const f = setup();
+    try {
+      const seeded: { sequence: number; type: string }[] = [];
+      const add = (values: Partial<typeof events.$inferInsert>) => {
+        const sequence = seeded.length + 1;
+        seed(f, sequence, values);
+        seeded.push({ sequence, type: values.type ?? "provider/rateLimits/updated" });
+      };
+      f.db.transaction(() => {
+        for (let i = 0; i < 3; i++) add({ type: "provider/rateLimits/updated" });
+        for (const modelContextWindow of [200000, null, null])
+          add({
+            type: "thread/contextWindowUsage/updated",
+            data: JSON.stringify({ contextWindowUsage: { modelContextWindow } }),
+          });
+        for (let i = 0; i < 3; i++)
+          add({ type: "thread/tokenUsage/updated", data: "{}" });
+        for (let i = 0; i < 3; i++)
+          add({ type: "turn/diff/updated", data: '{"diff":"x"}' });
+        for (const [type, itemKind, output] of [
+          ["item/agentMessage/delta", "agentMessage", "{}"],
+          ["item/reasoning/textDelta", "reasoning", "{}"],
+          ["item/reasoning/summaryTextDelta", "reasoning", "{}"],
+          [
+            "item/commandExecution/outputDelta",
+            "commandExecution",
+            '{"aggregatedOutput":"x"}',
+          ],
+        ] as const) {
+          const itemId = `${type}-item`;
+          add({ type: "item/started", itemId, itemKind, data: "{}" });
+          for (let i = 0; i < 3; i++)
+            add({ type, itemId, data: '{"delta":"x"}' });
+          add({
+            type: "item/completed",
+            itemId,
+            itemKind,
+            data: `{"item":${output}}`,
+          });
+        }
+        for (let i = 0; i < 2; i++)
+          add({ type: "item/backgroundTask/progress", itemId: "task" });
+        add({ type: "turn/completed", data: "{}" });
+      });
+      for (const policy of THREAD_PRUNING_POLICIES) cycle(f, policy);
+
+      const remaining = new Set(sequences(f));
+      const deletedTypes = new Set(
+        seeded
+          .filter((row) => !remaining.has(row.sequence))
+          .map((row) => row.type),
+      );
+      expect([...deletedTypes].sort()).toEqual(
+        [...PRUNABLE_THREAD_EVENT_TYPES].sort(),
+      );
+      const firstDelta = seeded.find(
+        (row) => row.type === "item/agentMessage/delta",
+      )!;
+      expect(
+        findUnprunableThreadEventSequence(f.db, {
+          beforeSequence: seeded.length + 1,
+          sequenceStart: 1,
+          threadId: f.thread.id,
+        }),
+      ).toBe(firstDelta.sequence - 1);
     } finally {
       f.db.$client.close();
     }
@@ -492,6 +699,7 @@ describe("thread pruning", () => {
       const nextSurvivor = 599;
       expect(batch.removed).toBeLessThanOrEqual(64);
       writer.delete(events).where(eq(events.sequence, 600)).run();
+      markThreadPruningWork(writer, [f.thread.id]);
       cycle(f, "rate-limits");
       expect(sequences(f)).toEqual([nextSurvivor]);
       expect(
@@ -513,6 +721,7 @@ describe("thread pruning", () => {
       seed(f, 2);
       cycle(f, "rate-limits");
       const added = createThread(f.db, noopNotifier, {
+        status: "idle",
         projectId: f.project.id,
         providerId: "claude",
       });
@@ -679,11 +888,7 @@ describe("thread pruning", () => {
   it("drains more than 500 resolved deltas and preserves scope, first-delta and output guards", () => {
     const f = setup();
     try {
-      f.db
-        .update(threads)
-        .set({ archivedAt: 1 })
-        .where(eq(threads.id, f.thread.id))
-        .run();
+      archiveThread(f.db, noopNotifier, f.thread.id);
       f.db.transaction(() => {
         for (let i = 1; i <= 1200; i++)
           seed(f, i, {
@@ -698,25 +903,27 @@ describe("thread pruning", () => {
           itemKind: "commandExecution",
           data: '{"item":{"aggregatedOutput":"x"}}',
         });
-        seed(f, 1202, {
-          type: "item/commandExecution/outputDelta",
-          itemId: "cmd",
-          turnId: "other",
-          data: '{"delta":"keep"}',
-        });
-        seed(f, 1203, {
-          type: "item/commandExecution/outputDelta",
-          itemId: "cmd",
-          parentToolCallId: "nested",
-          data: '{"delta":"keep"}',
-        });
+        for (let i = 1202; i <= 1203; i++)
+          seed(f, i, {
+            type: "item/commandExecution/outputDelta",
+            itemId: "cmd",
+            turnId: "other",
+            data: '{"delta":"keep"}',
+          });
         for (let i = 1204; i <= 1205; i++)
+          seed(f, i, {
+            type: "item/commandExecution/outputDelta",
+            itemId: "cmd",
+            parentToolCallId: "nested",
+            data: '{"delta":"keep"}',
+          });
+        for (let i = 1206; i <= 1207; i++)
           seed(f, i, {
             type: "item/commandExecution/outputDelta",
             itemId: "no-output",
             data: '{"delta":"keep"}',
           });
-        seed(f, 1206, {
+        seed(f, 1208, {
           type: "item/completed",
           itemId: "no-output",
           itemKind: "commandExecution",
@@ -724,7 +931,61 @@ describe("thread pruning", () => {
         });
       });
       cycle(f, "resolved-items");
-      expect(sequences(f)).toEqual([1, 1201, 1202, 1203, 1204, 1205, 1206]);
+      expect(sequences(f)).toEqual([
+        1, 1201, 1202, 1203, 1204, 1205, 1206, 1207, 1208,
+      ]);
+    } finally {
+      f.db.$client.close();
+    }
+  });
+
+  it("preserves the first delta of each type across batches with reversed storage order", () => {
+    const f = setup();
+    try {
+      const types = [
+        "item/agentMessage/delta",
+        "item/commandExecution/outputDelta",
+        "item/reasoning/summaryTextDelta",
+        "item/reasoning/textDelta",
+      ] as const;
+      for (const [index, itemKind] of (
+        ["agentMessage", "commandExecution", "reasoning"] as const
+      ).entries()) {
+        seed(f, 13 + index, {
+          type: "item/completed",
+          itemId: "item",
+          itemKind,
+          data: '{"item":{"aggregatedOutput":"complete"}}',
+        });
+      }
+      for (let sequence = 12; sequence > 0; sequence--) {
+        seed(f, sequence, {
+          type: types[(sequence - 1) % types.length],
+          itemId: "item",
+        });
+      }
+      seed(f, 16, { type: "turn/completed" });
+      let complete = false;
+      let removed = 0;
+      for (let i = 0; i < 30; i++) {
+        const batch = f.db.transaction((tx) =>
+          advanceLiveEventPruning(tx, {
+            threadId: f.thread.id,
+            kind: "deltas",
+            limit: 5,
+            deadline: Number.POSITIVE_INFINITY,
+          }),
+        );
+        expect(batch.scanned).toBeLessThanOrEqual(5);
+        removed += batch.removed;
+        if (batch.complete) {
+          complete = true;
+          break;
+        }
+      }
+      expect(complete).toBe(true);
+      expect(removed).toBe(8);
+      expect(sequences(f)).toEqual([1, 2, 3, 4, 13, 14, 15, 16]);
     } finally {
       f.db.$client.close();
     }
@@ -735,25 +996,14 @@ describe("thread pruning", () => {
     try {
       for (let i = 1; i <= 130; i++) seed(f, i);
       seed(f, 131, { type: "turn/completed" });
-      f.db
-        .update(threads)
-        .set({ archivedAt: 1 })
-        .where(eq(threads.id, f.thread.id))
-        .run();
+      archiveThread(f.db, noopNotifier, f.thread.id);
       expect(advanceThreadPruning(f.db, "rate-limits").removed).toBe(64);
-      f.db
-        .update(threads)
-        .set({ archivedAt: null })
-        .where(eq(threads.id, f.thread.id))
-        .run();
+      unarchiveThread(f.db, noopNotifier, f.thread.id);
       cycle(f, "rate-limits");
       expect(sequences(f)).toEqual([130, 131]);
-      f.db
-        .update(threads)
-        .set({ archivedAt: 2 })
-        .where(eq(threads.id, f.thread.id))
-        .run();
+      archiveThread(f.db, noopNotifier, f.thread.id);
       f.db.delete(events).where(eq(events.sequence, 131)).run();
+      markThreadPruningWork(f.db, [f.thread.id]);
       cycle(f, "rate-limits");
       expect(sequences(f)).toEqual([130]);
       seed(f, 131, { type: "turn/completed" });
@@ -769,11 +1019,7 @@ describe("thread pruning", () => {
     (archivedAt) => {
       const f = setup();
       try {
-        f.db
-          .update(threads)
-          .set({ archivedAt })
-          .where(eq(threads.id, f.thread.id))
-          .run();
+        if (archivedAt !== null) archiveThread(f.db, noopNotifier, f.thread.id);
         for (let sequence = 1; sequence <= 6; sequence++) {
           seed(f, sequence, {
             type: "thread/contextWindowUsage/updated",
@@ -815,14 +1061,97 @@ describe("thread pruning", () => {
     },
   );
 
+  it("retains the latest context snapshot boundary through pruning between estimates", () => {
+    const f = setup();
+    try {
+      const usage = (sequence: number, values: object) =>
+        seed(f, sequence, {
+          type: "thread/contextWindowUsage/updated",
+          data: JSON.stringify({
+            contextWindowUsage: { estimated: true, ...values },
+          }),
+        });
+      usage(1, {
+        usedTokens: 128000,
+        modelContextWindow: 256000,
+        snapshot: {
+          contextWindowTokens: 256000,
+          autoCompactAtTokens: 223000,
+        },
+      });
+      usage(2, { usedTokens: 140000, modelContextWindow: 1000000 });
+      usage(3, { usedTokens: 150000, modelContextWindow: 1000000 });
+      cycle(f, "usage");
+      expect(sequences(f)).toEqual([1, 3]);
+      usage(4, { usedTokens: null, modelContextWindow: null });
+      usage(5, { usedTokens: 160000, modelContextWindow: 1000000 });
+      cycle(f, "usage");
+      expect(sequences(f)).toEqual([4, 5]);
+    } finally {
+      f.db.$client.close();
+    }
+  });
+
+  it("reports exact removed UTF-8 bytes while retaining usage keepers", () => {
+    const f = setup();
+    try {
+      const context = (modelContextWindow: number | null) =>
+        JSON.stringify({
+          contextWindowUsage: { modelContextWindow },
+          text: "é🙂",
+        });
+      const payloads = [
+        context(200000),
+        context(null),
+        context(null),
+        "",
+        "é🙂\0x",
+        "{}",
+        "malformed",
+      ];
+      for (const [index, data] of payloads.entries())
+        seed(f, index + 1, {
+          type:
+            index < 3
+              ? "thread/contextWindowUsage/updated"
+              : "thread/tokenUsage/updated",
+          data,
+        });
+      seed(f, 8, {
+        type: "turn/started",
+        turnId: "nested",
+        parentToolCallId: "tool",
+      });
+      seed(f, 9, {
+        type: "thread/tokenUsage/updated",
+        turnId: "nested",
+        data: "{}",
+      });
+      seed(f, 10, { type: "turn/completed" });
+      const results = cycle(f, "usage");
+      expect(sequences(f)).toEqual([1, 3, 7, 8, 10]);
+      expect(results.reduce((total, result) => total + result.removed, 0)).toBe(
+        5,
+      );
+      expect(
+        results.reduce((total, result) => total + result.removedBytes, 0),
+      ).toBe(
+        Buffer.byteLength(context(null)) + Buffer.byteLength("é🙂\0x") + 4,
+      );
+      expect(
+        results
+          .filter((result) => result.removed === 0)
+          .every((result) => result.removedBytes === 0),
+      ).toBe(true);
+    } finally {
+      f.db.$client.close();
+    }
+  });
+
   it("restarts usage keeper discovery after a keeper disappears during a visit", () => {
     const f = setup();
     try {
-      f.db
-        .update(threads)
-        .set({ archivedAt: 1 })
-        .where(eq(threads.id, f.thread.id))
-        .run();
+      archiveThread(f.db, noopNotifier, f.thread.id);
       f.db.transaction(() => {
         for (let i = 1; i <= 600; i++)
           seed(f, i, {
@@ -843,6 +1172,7 @@ describe("thread pruning", () => {
       advanceThreadPruning(f.db, "usage");
       advanceThreadPruning(f.db, "usage");
       f.db.delete(events).where(eq(events.sequence, 600)).run();
+      markThreadPruningWork(f.db, [f.thread.id]);
       expect(advanceThreadPruning(f.db, "usage").removed).toBe(0);
       cycle(f, "usage");
       cycle(f, "usage");
@@ -855,11 +1185,7 @@ describe("thread pruning", () => {
   it("revisits deltas whose completion arrives after their candidate window", () => {
     const f = setup();
     try {
-      f.db
-        .update(threads)
-        .set({ archivedAt: 1 })
-        .where(eq(threads.id, f.thread.id))
-        .run();
+      archiveThread(f.db, noopNotifier, f.thread.id);
       f.db.transaction(() => {
         for (let i = 1; i <= 800; i++)
           seed(f, i, {
@@ -890,11 +1216,7 @@ describe("thread pruning", () => {
   it("resumes bounded support probes through adversarial reused-item scopes", () => {
     let f = setup();
     try {
-      f.db
-        .update(threads)
-        .set({ archivedAt: 1 })
-        .where(eq(threads.id, f.thread.id))
-        .run();
+      archiveThread(f.db, noopNotifier, f.thread.id);
       seed(f, 1, {
         type: "item/agentMessage/delta",
         itemId: "reused",
@@ -945,6 +1267,59 @@ describe("thread pruning", () => {
       expect(results.reduce((sum, r) => sum + r.removed, 0)).toBe(1);
       expect(sequences(f)).toContain(1);
       expect(sequences(f)).not.toContain(2);
+    } finally {
+      f.db.$client.close();
+    }
+  });
+
+  it("enqueues every thread when a policy is new or its version changes", () => {
+    const f = setup();
+    try {
+      const other = createThread(f.db, noopNotifier, {
+        status: "idle",
+        projectId: f.project.id,
+        providerId: "codex",
+      });
+      const fixtures = [f, { ...f, thread: other }];
+      const insertUnqueuedDiffs = (from: number, through: number) => {
+        for (const fixture of fixtures)
+          for (let sequence = from; sequence <= through; sequence++)
+            fixture.db
+              .insert(events)
+              .values({
+                id: `${fixture.thread.id}-${sequence}`,
+                threadId: fixture.thread.id,
+                sequence,
+                scopeKind: "turn",
+                turnId: "turn",
+                type: "turn/diff/updated",
+                data: "{}",
+                createdAt: 1,
+              })
+              .run();
+      };
+      const others = new Set<string>([
+        "rate-limits",
+        "usage",
+        "resolved-items",
+      ]);
+      insertUnqueuedDiffs(1, 3);
+      expect(f.db.select().from(threadPruningWork).all()).toEqual([]);
+      expect(getNextThreadPruningPolicy(f.db, others)).toBe("turn-diffs");
+      cycle(f, "turn-diffs");
+      expect(fixtures.map(sequences)).toEqual([[3], [3]]);
+
+      insertUnqueuedDiffs(4, 6);
+      expect(getNextThreadPruningPolicy(f.db, others)).toBeNull();
+      f.db
+        .update(threadPruningCursors)
+        .set({ version: 0 })
+        .where(eq(threadPruningCursors.policy, "turn-diffs"))
+        .run();
+      expect(getNextThreadPruningPolicy(f.db, others)).toBe("turn-diffs");
+      cycle(f, "turn-diffs");
+      expect(fixtures.map(sequences)).toEqual([[6], [6]]);
+      expect(getNextThreadPruningPolicy(f.db, others)).toBeNull();
     } finally {
       f.db.$client.close();
     }

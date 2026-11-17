@@ -6,7 +6,10 @@ import { defaultAppTheme } from "@cc/domain";
 import { CompactViewportOverrideProvider } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { AppearanceSettingsSection } from "./SettingsView";
 
-afterEach(cleanup);
+afterEach(async () => {
+  cleanup();
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+});
 
 function CompactViewport({ children }: { children: ReactNode }) {
   return (

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import type { Thread } from "@cc/domain";
 import { Button } from "@cc/shared-ui/button";
 import {
@@ -8,28 +9,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@cc/shared-ui/dialog";
+import { formatChildThreadCount } from "@/lib/child-thread-copy";
 
 export interface ThreadArchiveDialogTarget {
-  thread: Thread;
+  threads: readonly Thread[];
   childThreadCount: number;
+  stopsRunningWork: boolean;
 }
 
-interface ThreadArchiveDialogProps {
-  target: ThreadArchiveDialogTarget | null;
+interface ThreadArchiveDialogProps<Target extends ThreadArchiveDialogTarget> {
+  target: Target | null;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onArchive: (target: ThreadArchiveDialogTarget) => void;
+  onArchive: (target: Target) => void;
 }
 
-export function ThreadArchiveDialog({
+export function ThreadArchiveDialog<Target extends ThreadArchiveDialogTarget>({
   target,
   pending,
   onOpenChange,
   onArchive,
-}: ThreadArchiveDialogProps) {
+}: ThreadArchiveDialogProps<Target>) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
   return (
     <Dialog open={target !== null} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        ref={contentRef}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          contentRef.current
+            ?.querySelector<HTMLButtonElement>('button[type="submit"]')
+            ?.focus();
+        }}
+      >
         {target ? (
           <ThreadArchiveDialogContent
             target={target}
@@ -43,36 +56,49 @@ export function ThreadArchiveDialog({
   );
 }
 
-interface ThreadArchiveDialogContentProps {
-  target: ThreadArchiveDialogTarget;
+interface ThreadArchiveDialogContentProps<
+  Target extends ThreadArchiveDialogTarget,
+> {
+  target: Target;
   pending: boolean;
   onOpenChange: (open: boolean) => void;
-  onArchive: (target: ThreadArchiveDialogTarget) => void;
+  onArchive: (target: Target) => void;
 }
 
-export function ThreadArchiveDialogContent({
+export function ThreadArchiveDialogContent<
+  Target extends ThreadArchiveDialogTarget,
+>({
   target,
   pending,
   onOpenChange,
   onArchive,
-}: ThreadArchiveDialogContentProps) {
-  const { childThreadCount } = target;
-  const archivedThreadCount = childThreadCount + 1;
-  const active =
-    target.thread.status === "starting" ||
-    target.thread.status === "active" ||
-    target.thread.status === "stopping";
-  const sentences = [
-    active ? "This will stop current work." : null,
-    `${childThreadCount} child ${childThreadCount === 1 ? "thread" : "threads"} will be archived with this thread.`,
-    "Archived threads stay available and can be unarchived.",
-  ].filter((sentence): sentence is string => sentence !== null);
+}: ThreadArchiveDialogContentProps<Target>) {
+  const { childThreadCount, threads, stopsRunningWork } = target;
+  const single = threads.length === 1;
 
   return (
-    <>
+    <form
+      className="grid gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!pending) {
+          onArchive(target);
+        }
+      }}
+    >
       <DialogHeader>
-        <DialogTitle>Archive {archivedThreadCount} threads?</DialogTitle>
-        <DialogDescription>{sentences.join(" ")}</DialogDescription>
+        <DialogTitle>
+          {single ? "Archive thread?" : `Archive ${threads.length} threads?`}
+        </DialogTitle>
+        <DialogDescription>
+          {stopsRunningWork ? "This will stop current work. " : null}
+          {single ? "Its" : "Their"}{" "}
+          <span className="font-semibold">
+            {formatChildThreadCount(childThreadCount)}
+          </span>{" "}
+          will be archived too. Archived threads stay available and can be
+          unarchived.
+        </DialogDescription>
       </DialogHeader>
       <DialogFooter>
         <Button
@@ -83,14 +109,10 @@ export function ThreadArchiveDialogContent({
         >
           Cancel
         </Button>
-        <Button
-          type="button"
-          disabled={pending}
-          onClick={() => onArchive(target)}
-        >
-          Archive {archivedThreadCount} threads
+        <Button type="submit" disabled={pending}>
+          Archive
         </Button>
       </DialogFooter>
-    </>
+    </form>
   );
 }

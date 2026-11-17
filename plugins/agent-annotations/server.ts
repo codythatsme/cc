@@ -32,6 +32,7 @@ export default async function plugin(cc: CcPluginApi) {
     async save(annotation) {
       const id = annotation.id;
       await cc.storage.kv.set(`${STORAGE_PREFIX}${id}`, annotation);
+      cc.internal_DO_NOT_USE_recordPluginUse();
       return { id };
     },
   });

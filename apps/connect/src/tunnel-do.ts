@@ -1,6 +1,11 @@
 import { and, eq, isNull } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/d1";
-import { machine, server } from "@cc/connect-db";
+import {
+  TUNNEL_STATUS_HEADER,
+  machine,
+  presenceWritesOnChange,
+  server,
+} from "@cc/connect-db";
+import { type OpenConnectDb, openConnectDb } from "@cc/connect-db-pg";
 import {
   HEARTBEAT_REQUEST,
   HEARTBEAT_RESPONSE,
@@ -8,31 +13,59 @@ import {
   TUNNEL_REPLACED_CLOSE_REASON,
   decodeFrame,
   encodeFrame,
+  peekFrame,
+  setFrameStreamId,
   type Frame,
   type HeaderPair,
 } from "@cc/tunnel-contract";
+import { requestBodyChunks } from "./request-body-chunks.js";
 import { relayedResponse } from "./response-encoding.js";
-import { TUNNEL_TARGET_HEADER } from "./protocol-headers.js";
+import { RESP_HEAD_TIMEOUT_MS } from "./response-head-timeout.js";
+import {
+  GATE_OWNER_HEADER,
+  HOP_HEADERS,
+  RELAY_CONTENT_LENGTH_HEADER,
+  RELAY_HAS_BODY_HEADER,
+  RELAY_HEADER,
+  RELAY_METHOD_HEADER,
+  TUNNEL_TARGET_HEADER,
+} from "./protocol-headers.js";
 
 export interface Env {
   TUNNEL_DO: DurableObjectNamespace;
-  DB: D1Database;
+  HYPERDRIVE: Hyperdrive;
   BASE_DOMAIN: string;
   BETTER_AUTH_SECRET: string;
+  GATE_EVENTS: AnalyticsEngineDataset;
   ACCOUNT_APP_URL?: string;
   CLOUD_DEV?: string;
   ASSETLINKS_SHA256_FINGERPRINTS?: string;
+  WORKER_HELD_RESPONSES?: string;
+  PRESENCE_WRITES?: string;
+  GATE_SECRET?: string;
+  NEXT_BASE_DOMAIN?: string;
 }
 
 const TUNNEL_TAG = "tunnel";
 const TUNNEL_OPENED_AT_KEY = "tunnelOpenedAt";
 const TUNNEL_CLOSED_AT_KEY = "tunnelClosedAt";
 const TUNNEL_LOST_AT_KEY = "tunnelLostAt";
+const TUNNEL_REPLACED_LIVE_KEY = "tunnelReplacedLive";
+const TUNNEL_VANISHED_KEY = "tunnelVanished";
 const VANISHED_TUNNEL_GRACE_MS = 5_000;
 const TUNNEL_RETURN_GRACE_MS = 15_000;
-const RESP_HEAD_TIMEOUT_MS = 30_000;
-const PRESENCE_INTERVAL_MS = 50_000;
+const PRESENCE_INTERVAL_MIN_MS = 40_000;
+const PRESENCE_INTERVAL_JITTER_MS = 20_000;
+const PRESENCE_ON_CHANGE_INTERVAL_MIN_MS = 25 * 60_000;
+const PRESENCE_ON_CHANGE_INTERVAL_JITTER_MS = 10 * 60_000;
 const CLEAN_CLOSE_CODE = 1000;
+const RELAY_FAILED_CLOSE_CODE = 1011;
+const RELAY_TAG_PREFIX = "relay:";
+const RELAY_INBOUND_FRAME_TYPES: ReadonlySet<Frame["type"]> = new Set([
+  "body-chunk",
+  "body-end",
+  "close-stream",
+]);
 
 const WS_READY_STATE_OPEN = 1;
 
@@ -40,25 +73,18 @@ export const TUNNEL_OFFLINE_HEADER = "x-cc-tunnel-offline";
 export const TUNNEL_RESTART_REASON =
   "the tunnel socket disappeared without a close; restarting this object";
 
-const HOP_HEADERS = new Set([
-  "connection",
-  "keep-alive",
-  "transfer-encoding",
-  "upgrade",
-  "expect",
-  "host",
-  "sec-websocket-key",
-  "sec-websocket-version",
-  "sec-websocket-extensions",
-  TUNNEL_TARGET_HEADER,
-]);
-
 function forwardableHeaders(headers: Headers): HeaderPair[] {
   const pairs: HeaderPair[] = [];
   headers.forEach((value, name) => {
     if (!HOP_HEADERS.has(name.toLowerCase())) pairs.push([name, value]);
   });
   return pairs;
+}
+
+interface SocketAttachment {
+  streamId?: number;
+  relay?: boolean;
+  done?: boolean;
 }
 
 function readTunnelTarget(headers: Headers): string | undefined {
@@ -71,6 +97,10 @@ export function parseClientProtocolVersion(raw: string | null): number {
   const n = Number.parseInt(raw, 10);
   if (!Number.isFinite(n) || n < 0) return 0;
   return n;
+}
+
+export function tunnelOwnerKey(kind: "machine" | "server", id: string): string {
+  return `${kind}:${id}`;
 }
 
 const PORT_SHARE_TOO_OLD =
@@ -88,6 +118,7 @@ export class TunnelDO {
   private readonly tunnelWaiters = new Set<() => void>();
   private nextStreamId: number;
   private clientProtocolVersion = 0;
+  private tunnelOwner: string | null = null;
 
   constructor(
     private readonly state: DurableObjectState,
@@ -95,9 +126,7 @@ export class TunnelDO {
   ) {
     let maxSeen = 0;
     for (const ws of this.state.getWebSockets()) {
-      const attachment = ws.deserializeAttachment() as {
-        streamId?: number;
-      } | null;
+      const attachment = ws.deserializeAttachment() as SocketAttachment | null;
       if (attachment?.streamId && attachment.streamId > maxSeen)
         maxSeen = attachment.streamId;
     }
@@ -105,7 +134,7 @@ export class TunnelDO {
     this.state.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair(HEARTBEAT_REQUEST, HEARTBEAT_RESPONSE),
     );
-    this.state.blockConcurrencyWhile(async () => {
+    void this.state.blockConcurrencyWhile(async () => {
       const stored = await this.state.storage.get<number>("protocolVersion");
       if (
         typeof stored === "number" &&
@@ -113,6 +142,13 @@ export class TunnelDO {
         stored >= 0
       ) {
         this.clientProtocolVersion = stored;
+      }
+      const serverId = await this.state.storage.get<string>("serverId");
+      const machineId = await this.state.storage.get<string>("machineId");
+      if (machineId) {
+        this.tunnelOwner = tunnelOwnerKey("machine", machineId);
+      } else if (serverId) {
+        this.tunnelOwner = tunnelOwnerKey("server", serverId);
       }
     });
   }
@@ -134,6 +170,23 @@ export class TunnelDO {
         ),
       );
     }
+    if (url.pathname === "/__control/status") {
+      const tunnel = this.tunnelSocket();
+      const heartbeatAt =
+        tunnel === null
+          ? null
+          : this.state.getWebSocketAutoResponseTimestamp(tunnel);
+      return Response.json(
+        {
+          connected: tunnel !== null,
+          lastHeartbeatAgeMs:
+            heartbeatAt === null
+              ? null
+              : Math.max(0, Date.now() - heartbeatAt.getTime()),
+        },
+        { headers: { [TUNNEL_STATUS_HEADER]: "1" } },
+      );
+    }
     if (url.pathname === "/__control/close") {
       void this.state.storage.put(TUNNEL_CLOSED_AT_KEY, Date.now());
       void this.state.storage.delete(TUNNEL_LOST_AT_KEY);
@@ -143,6 +196,7 @@ export class TunnelDO {
       void this.state.storage.delete("machineId");
       void this.state.storage.delete("protocolVersion");
       this.clientProtocolVersion = 0;
+      this.tunnelOwner = null;
       this.wakeTunnelWaiters();
       return new Response(null, { status: 204 });
     }
@@ -163,6 +217,14 @@ export class TunnelDO {
     url: URL,
     tunnel: WebSocket,
   ): Response | Promise<Response> {
+    const expectedOwner = request.headers.get(GATE_OWNER_HEADER);
+    if (
+      expectedOwner !== null &&
+      this.tunnelOwner !== null &&
+      expectedOwner !== this.tunnelOwner
+    ) {
+      return this.offlineResponse();
+    }
     const target = readTunnelTarget(request.headers);
     if (target !== undefined && this.clientProtocolVersion < 1) {
       return new Response(`cc connect: ${PORT_SHARE_TOO_OLD}\n`, {
@@ -171,6 +233,9 @@ export class TunnelDO {
       });
     }
 
+    if (request.headers.get(RELAY_HEADER) === "1") {
+      return this.openRelay(request, url, tunnel, target);
+    }
     if (request.headers.get("upgrade")?.toLowerCase() === "websocket") {
       return this.openVisitorWebSocket(request, url, tunnel, target);
     }
@@ -214,22 +279,25 @@ export class TunnelDO {
     const serverId = await this.state.storage.get<string>("serverId");
     const machineId = await this.state.storage.get<string>("machineId");
     if (!serverId && !machineId) return;
+    let opened: OpenConnectDb | null = null;
     try {
-      const db = drizzle(this.env.DB);
+      opened = openConnectDb(this.env);
+      const { db } = opened;
       if (machineId) {
         await db
           .update(machine)
           .set({ lastSeenAt: new Date() })
-          .where(and(eq(machine.id, machineId), isNull(machine.revokedAt)))
-          .run();
+          .where(and(eq(machine.id, machineId), isNull(machine.revokedAt)));
       } else if (serverId) {
         await db
           .update(server)
           .set({ lastSeenAt: new Date() })
-          .where(eq(server.id, serverId))
-          .run();
+          .where(eq(server.id, serverId));
       }
-    } catch {}
+    } catch {
+    } finally {
+      await opened?.close().catch(() => undefined);
+    }
   }
 
   private async restartIfTunnelVanished(): Promise<void> {
@@ -248,6 +316,7 @@ export class TunnelDO {
     await this.state.storage.put({
       [TUNNEL_CLOSED_AT_KEY]: now,
       [TUNNEL_LOST_AT_KEY]: now,
+      [TUNNEL_VANISHED_KEY]: true,
     });
     await this.state.storage.sync();
     this.state.abort(TUNNEL_RESTART_REASON);
@@ -282,10 +351,22 @@ export class TunnelDO {
       await this.state.storage.delete("machineId");
       await this.state.storage.delete("protocolVersion");
       this.clientProtocolVersion = 0;
+      this.tunnelOwner = null;
       return;
     }
+    await this.state.storage.setAlarm(this.nextPresenceAlarmAt());
     await this.markPresence();
-    await this.state.storage.setAlarm(Date.now() + PRESENCE_INTERVAL_MS);
+  }
+
+  private nextPresenceAlarmAt(now: number = Date.now()): number {
+    const onChange = presenceWritesOnChange(this.env);
+    const minMs = onChange
+      ? PRESENCE_ON_CHANGE_INTERVAL_MIN_MS
+      : PRESENCE_INTERVAL_MIN_MS;
+    const jitterMs = onChange
+      ? PRESENCE_ON_CHANGE_INTERVAL_JITTER_MS
+      : PRESENCE_INTERVAL_JITTER_MS;
+    return now + minMs + Math.floor(Math.random() * jitterMs);
   }
 
   private async acceptTunnel(
@@ -298,6 +379,11 @@ export class TunnelDO {
       return new Response("expected websocket", { status: 426 });
     }
     await this.restartIfTunnelVanished();
+    const now = Date.now();
+    const replacingLive = this.tunnelSocket() !== null;
+    if (!replacingLive) {
+      await this.recordTunnelGap(new URL(request.url).host, now);
+    }
     for (const existing of this.state.getWebSockets(TUNNEL_TAG)) {
       try {
         existing.close(CLEAN_CLOSE_CODE, TUNNEL_REPLACED_CLOSE_REASON);
@@ -307,22 +393,64 @@ export class TunnelDO {
     this.clientProtocolVersion = protocolVersion;
     void this.state.storage.put("protocolVersion", protocolVersion);
     if (serverId) {
+      this.tunnelOwner = tunnelOwnerKey("server", serverId);
       void this.state.storage.put("serverId", serverId);
       void this.state.storage.delete("machineId");
       void this.markPresence();
-      void this.state.storage.setAlarm(Date.now() + PRESENCE_INTERVAL_MS);
+      void this.state.storage.setAlarm(this.nextPresenceAlarmAt());
     } else if (machineId) {
+      this.tunnelOwner = tunnelOwnerKey("machine", machineId);
       void this.state.storage.put("machineId", machineId);
       void this.state.storage.delete("serverId");
       void this.markPresence();
-      void this.state.storage.setAlarm(Date.now() + PRESENCE_INTERVAL_MS);
+      void this.state.storage.setAlarm(this.nextPresenceAlarmAt());
     }
-    void this.state.storage.put(TUNNEL_OPENED_AT_KEY, Date.now());
+    void this.state.storage.put(TUNNEL_OPENED_AT_KEY, now);
+    void this.state.storage.put(TUNNEL_REPLACED_LIVE_KEY, replacingLive);
+    void this.state.storage.delete(TUNNEL_VANISHED_KEY);
     void this.state.storage.delete(TUNNEL_LOST_AT_KEY);
     const pair = new WebSocketPair();
     this.state.acceptWebSocket(pair[1], [TUNNEL_TAG]);
     setTimeout(() => this.wakeTunnelWaiters(), 0);
     return new Response(null, { status: 101, webSocket: pair[0] });
+  }
+
+  private async recordTunnelGap(host: string, now: number): Promise<void> {
+    const openedAt = await this.state.storage.get<number>(TUNNEL_OPENED_AT_KEY);
+    if (openedAt === undefined) return;
+    const closedAt = await this.state.storage.get<number>(TUNNEL_CLOSED_AT_KEY);
+    const lostAt = await this.state.storage.get<number>(TUNNEL_LOST_AT_KEY);
+    const replacedLive =
+      (await this.state.storage.get<boolean>(TUNNEL_REPLACED_LIVE_KEY)) ===
+      true;
+    const vanished =
+      (await this.state.storage.get<boolean>(TUNNEL_VANISHED_KEY)) === true;
+    const endedAt =
+      !vanished && closedAt !== undefined && closedAt >= openedAt
+        ? closedAt
+        : null;
+    const end =
+      endedAt === null
+        ? "unreported"
+        : lostAt !== undefined
+          ? "lost"
+          : "closed";
+    this.env.GATE_EVENTS.writeDataPoint({
+      indexes: [host],
+      blobs: [
+        "tunnel-gap",
+        end,
+        replacedLive ? "replaced-live" : "",
+        host,
+        "",
+        "",
+      ],
+      doubles: [
+        now - (endedAt ?? openedAt),
+        endedAt === null ? -1 : endedAt - openedAt,
+        -1,
+      ],
+    });
   }
 
   private openVisitorWebSocket(
@@ -365,6 +493,102 @@ export class TunnelDO {
       webSocket: pair[0],
       headers: responseHeaders,
     });
+  }
+
+  private openRelay(
+    request: Request,
+    url: URL,
+    tunnel: WebSocket,
+    target: string | undefined,
+  ): Response {
+    if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+      return new Response("expected websocket", { status: 426 });
+    }
+    const streamId = this.nextStreamId++;
+    const headers = forwardableHeaders(request.headers);
+    const contentLength = request.headers.get(RELAY_CONTENT_LENGTH_HEADER);
+    if (contentLength !== null) headers.push(["content-length", contentLength]);
+    const opened = this.trySend(
+      tunnel,
+      encodeFrame({
+        type: "open-http",
+        streamId,
+        method: request.headers.get(RELAY_METHOD_HEADER) ?? "GET",
+        path: url.pathname + url.search,
+        headers,
+        hasBody: request.headers.get(RELAY_HAS_BODY_HEADER) === "1",
+        ...(target !== undefined ? { target } : {}),
+      }),
+    );
+    if (!opened) return this.offlineResponse();
+
+    const pair = new WebSocketPair();
+    const attachment: SocketAttachment = { streamId, relay: true };
+    pair[1].serializeAttachment(attachment);
+    this.state.acceptWebSocket(pair[1], [`${RELAY_TAG_PREFIX}${streamId}`]);
+    return new Response(null, {
+      status: 101,
+      webSocket: pair[0],
+      headers: { [RELAY_HEADER]: "1" },
+    });
+  }
+
+  private relaySocket(streamId: number): WebSocket | null {
+    return (
+      this.state.getWebSockets(`${RELAY_TAG_PREFIX}${streamId}`)[0] ?? null
+    );
+  }
+
+  private finishRelay(relay: WebSocket, code: number, reason: string): void {
+    const attachment = relay.deserializeAttachment() as SocketAttachment;
+    relay.serializeAttachment({ ...attachment, done: true });
+    try {
+      relay.close(code, reason);
+    } catch {}
+  }
+
+  private onRelayMessage(
+    relay: WebSocket,
+    attachment: SocketAttachment,
+    message: ArrayBuffer | string,
+  ): void {
+    if (typeof message === "string" || attachment.streamId === undefined) {
+      return;
+    }
+    if (!RELAY_INBOUND_FRAME_TYPES.has(peekFrame(message).type)) {
+      this.finishRelay(relay, 1008, "unexpected relay frame");
+      return;
+    }
+    const tunnel = this.tunnelSocket();
+    if (
+      !tunnel ||
+      !this.trySend(tunnel, setFrameStreamId(message, attachment.streamId))
+    ) {
+      this.finishRelay(
+        relay,
+        RELAY_FAILED_CLOSE_CODE,
+        "tunnel disconnected mid-request",
+      );
+    }
+  }
+
+  private forwardToRelay(message: ArrayBuffer): boolean {
+    const head = peekFrame(message);
+    const isResponseFrame =
+      head.type === "resp-head" ||
+      head.type === "body-chunk" ||
+      head.type === "body-end" ||
+      head.type === "close-stream";
+    if (!isResponseFrame || this.pendingHttp.has(head.streamId)) return false;
+    const relay = this.relaySocket(head.streamId);
+    if (relay === null) return false;
+    try {
+      relay.send(message);
+    } catch {}
+    if (head.type === "body-end" || head.type === "close-stream") {
+      this.finishRelay(relay, CLEAN_CLOSE_CODE, "done");
+    }
+    return true;
   }
 
   private async proxyHttp(
@@ -425,21 +649,12 @@ export class TunnelDO {
     tunnel: WebSocket,
   ): Promise<void> {
     try {
-      const reader = body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        for (let offset = 0; offset < value.length; offset += 1024 * 1024) {
-          const sent = this.trySend(
-            tunnel,
-            encodeFrame({
-              type: "body-chunk",
-              streamId,
-              data: value.subarray(offset, offset + 1024 * 1024),
-            }),
-          );
-          if (!sent) return;
-        }
+      for await (const data of requestBodyChunks(body)) {
+        const sent = this.trySend(
+          tunnel,
+          encodeFrame({ type: "body-chunk", streamId, data }),
+        );
+        if (!sent) return;
       }
       this.trySend(tunnel, encodeFrame({ type: "body-end", streamId }));
     } catch {
@@ -459,12 +674,16 @@ export class TunnelDO {
     for (const streamId of [...this.pendingHttp.keys()]) {
       this.failHttpStream(streamId, 502, httpReason);
     }
-    for (const visitor of this.state.getWebSockets()) {
-      if (!this.state.getTags(visitor).includes(TUNNEL_TAG)) {
-        try {
-          visitor.close(1001, wsReason);
-        } catch {}
+    for (const socket of this.state.getWebSockets()) {
+      const tags = this.state.getTags(socket);
+      if (tags.includes(TUNNEL_TAG)) continue;
+      if (tags.some((tag) => tag.startsWith(RELAY_TAG_PREFIX))) {
+        this.finishRelay(socket, RELAY_FAILED_CLOSE_CODE, httpReason);
+        continue;
       }
+      try {
+        socket.close(1001, wsReason);
+      } catch {}
     }
   }
 
@@ -513,10 +732,17 @@ export class TunnelDO {
     const tags = this.state.getTags(ws);
     if (tags.includes(TUNNEL_TAG)) {
       if (typeof message === "string") return;
+      if (this.forwardToRelay(message)) return;
       this.onTunnelFrame(decodeFrame(message));
       return;
     }
-    const attachment = ws.deserializeAttachment() as { streamId: number };
+    const attachment = ws.deserializeAttachment() as SocketAttachment & {
+      streamId: number;
+    };
+    if (attachment.relay === true) {
+      this.onRelayMessage(ws, attachment, message);
+      return;
+    }
     const tunnel = this.tunnelSocket();
     if (!tunnel) {
       ws.close(1011, "tunnel disconnected");
@@ -652,13 +878,22 @@ export class TunnelDO {
       } else {
         void this.state.storage.put(TUNNEL_LOST_AT_KEY, now);
       }
+      if (presenceWritesOnChange(this.env)) void this.markPresence();
       this.abandonStreams(
         "tunnel disconnected mid-request",
         "tunnel disconnected",
       );
       return;
     }
-    const attachment = ws.deserializeAttachment() as { streamId: number };
+    const attachment = ws.deserializeAttachment() as SocketAttachment & {
+      streamId: number;
+    };
+    if (attachment.relay === true && attachment.done === true) {
+      try {
+        ws.close(safeCloseCode(code), reason);
+      } catch {}
+      return;
+    }
     const tunnel = this.tunnelSocket();
     if (tunnel) {
       this.trySend(

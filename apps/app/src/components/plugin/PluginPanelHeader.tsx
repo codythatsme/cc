@@ -1,14 +1,21 @@
+import { usePageTitleValue } from "@/components/layout/page-title";
+import { PageTitleHeader } from "@/components/layout/PageTitleHeader";
 import { Component, type ReactNode } from "react";
 import type { PluginNavPanelChrome } from "@/lib/plugin-nav-panel-chrome";
 import type { PluginNavPanelSlot } from "@/lib/plugin-slots";
 import { usePluginCss } from "@/lib/plugin-css";
-import { PluginIcon } from "./PluginIcon";
+import { PluginItemIcon } from "./PluginIcon";
 import { PluginContext } from "./plugin-context";
 import { useOptionalPaneContext } from "@/views/thread-detail/PaneContext";
 import { getPluginPagePanelStateId } from "./plugin-page-panel-state";
 
 class HeaderContentBoundary extends Component<
-  { pluginId: string; children: ReactNode },
+  {
+    pluginId: string;
+    slotName: "headerContent" | "experimental_headerTitle";
+    fallback: ReactNode;
+    children: ReactNode;
+  },
   { crashed: boolean }
 > {
   override state = { crashed: false };
@@ -19,29 +26,66 @@ class HeaderContentBoundary extends Component<
 
   override componentDidCatch(error: Error): void {
     console.warn(
-      `[plugin:${this.props.pluginId}] navPanel headerContent crashed and is hidden: ${error.message}`,
+      `[plugin:${this.props.pluginId}] navPanel ${this.props.slotName} crashed and is hidden: ${error.message}`,
     );
   }
 
   override render(): ReactNode {
-    return this.state.crashed ? null : this.props.children;
+    return this.state.crashed ? this.props.fallback : this.props.children;
   }
 }
 
 export function PluginPanelHeaderCenter({
   chrome,
+  panel,
+  subPath,
+}: {
+  chrome: Pick<PluginNavPanelChrome, "pluginId" | "icon" | "title">;
+  panel: PluginNavPanelSlot | undefined;
+  subPath: string;
+}) {
+  const HeaderTitle = panel?.experimental_headerTitle;
+  usePluginCss(HeaderTitle === undefined ? null : chrome.pluginId);
+  const defaultCenter = <DefaultPluginPanelHeaderCenter chrome={chrome} />;
+  if (panel === undefined || HeaderTitle === undefined) return defaultCenter;
+  return (
+    <HeaderContentBoundary
+      key={`${panel.pluginId}/${panel.id}/${panel.generation}`}
+      pluginId={panel.pluginId}
+      slotName="experimental_headerTitle"
+      fallback={defaultCenter}
+    >
+      <PluginContext.Provider value={panel.pluginId}>
+        <div
+          data-cc-plugin-root=""
+          data-cc-plugin={panel.pluginId}
+          className="flex min-w-0 flex-1 items-center"
+        >
+          <HeaderTitle subPath={subPath} />
+        </div>
+      </PluginContext.Provider>
+    </HeaderContentBoundary>
+  );
+}
+
+function DefaultPluginPanelHeaderCenter({
+  chrome,
 }: {
   chrome: Pick<PluginNavPanelChrome, "pluginId" | "icon" | "title">;
 }) {
+  const pageTitle = usePageTitleValue();
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2">
-      <PluginIcon
-        pluginId={chrome.pluginId}
-        icon={chrome.icon}
-        className="text-muted-foreground"
-      />
-      <p className="truncate text-sm font-semibold">{chrome.title}</p>
-    </div>
+    <PageTitleHeader
+      icon={
+        <PluginItemIcon
+          pluginId={chrome.pluginId}
+          icon={chrome.icon}
+          className="text-muted-foreground"
+        />
+      }
+      title={chrome.title}
+      value={pageTitle}
+    />
   );
 }
 
@@ -70,6 +114,8 @@ export function PluginPanelHeaderActions({
         <HeaderContentBoundary
           key={`${panel.pluginId}/${panel.id}/${panel.generation}`}
           pluginId={panel.pluginId}
+          slotName="headerContent"
+          fallback={null}
         >
           <PluginContext.Provider value={panel.pluginId}>
             <div

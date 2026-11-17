@@ -1,17 +1,28 @@
 import { fork, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { createServer as createHttpServer } from "node:http";
 import { mkdirSync, readdirSync } from "node:fs";
 import {
   copyFile,
+  cp,
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import {
+  basename,
+  dirname,
+  extname,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 import { createManagedProcessStop } from "./managed-process.mjs";
 
@@ -120,8 +131,46 @@ function waitForProcessExit(childProcess) {
   });
 }
 
+function resolveLaunch(command, args) {
+  if (
+    process.platform === "win32" &&
+    (command === "npm" || command === "npx")
+  ) {
+    return {
+      command: process.execPath,
+      args: [
+        join(
+          dirname(process.execPath),
+          "node_modules",
+          "npm",
+          "bin",
+          `${command}-cli.js`,
+        ),
+        ...args,
+      ],
+    };
+  }
+  if (
+    process.platform === "win32" &&
+    basename(dirname(command)) === ".bin" &&
+    extname(command) === ""
+  ) {
+    const commandLine = [`${command}.cmd`, ...args]
+      .map((part) => `"${part}"`)
+      .join(" ");
+    return {
+      command: process.env.ComSpec ?? "cmd.exe",
+      args: ["/d", "/s", "/c", `"${commandLine}"`],
+      windowsVerbatimArguments: true,
+    };
+  }
+  return { command, args };
+}
+
 async function runCommand({ args, command, cwd = tempRoot, env = {}, label }) {
-  const childProcess = spawn(command, args, {
+  const launch = resolveLaunch(command, args);
+  const childProcess = spawn(launch.command, launch.args, {
+    windowsVerbatimArguments: launch.windowsVerbatimArguments === true,
     cwd,
     env: {
       ...process.env,
@@ -142,7 +191,9 @@ async function runCommand({ args, command, cwd = tempRoot, env = {}, label }) {
 
 function spawnManagedProcess({ args, command, env = {}, label }) {
   const detached = process.platform !== "win32";
-  const childProcess = spawn(command, args, {
+  const launch = resolveLaunch(command, args);
+  const childProcess = spawn(launch.command, launch.args, {
+    windowsVerbatimArguments: launch.windowsVerbatimArguments === true,
     cwd: tempRoot,
     detached,
     env: {
@@ -256,7 +307,7 @@ async function retryPortCollisions(label, run) {
 }
 
 async function waitForHttp({
-  acceptResponse = () => true,
+  acceptResponse = async () => true,
   label,
   portCollisionLogPaths = [],
   processRef,
@@ -314,16 +365,28 @@ async function acceptHostDaemonStatusResponse(response, expectedServerUrl) {
   );
 }
 
+async function readHostDaemonLogs(logDir) {
+  let entries;
+  try {
+    entries = await readdir(logDir);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    return "";
+  }
+  const contents = await Promise.all(
+    entries
+      .filter((name) => /^host-daemon\.\d+\.log$/u.test(name))
+      .map((name) => readFile(join(logDir, name), "utf8")),
+  );
+  return contents.join("");
+}
+
 async function waitForHostPluginWorker({ dataDir, pluginId, processRef }) {
-  const logPath = join(dataDir, "logs", "host-daemon-stdio.log");
+  const logDir = join(dataDir, "logs");
   let daemonOutput = "";
   const deadline = Date.now() + HOST_PLUGIN_WORKER_TIMEOUT_MS;
   while (Date.now() <= deadline) {
-    try {
-      daemonOutput = await readFile(logPath, "utf8");
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
-    }
+    daemonOutput = await readHostDaemonLogs(logDir);
     if (
       daemonOutput
         .split("\n")
@@ -340,13 +403,13 @@ async function waitForHostPluginWorker({ dataDir, pluginId, processRef }) {
       processRef.childProcess.signalCode !== null
     ) {
       throw new Error(
-        `${processRef.label} exited before host plugin ${pluginId} started\n${formatProcessOutput(processRef.output)}\n${logPath}:\n${daemonOutput}`,
+        `${processRef.label} exited before host plugin ${pluginId} started\n${formatProcessOutput(processRef.output)}\n${logDir}/host-daemon.N.log:\n${daemonOutput}`,
       );
     }
     await delay(HTTP_WAIT_INTERVAL_MS);
   }
   throw new Error(
-    `Timed out waiting for host plugin ${pluginId} on ${processRef.label}\n${formatProcessOutput(processRef.output)}\n${logPath}:\n${daemonOutput}`,
+    `Timed out waiting for host plugin ${pluginId} on ${processRef.label}\n${formatProcessOutput(processRef.output)}\n${logDir}/host-daemon.N.log:\n${daemonOutput}`,
   );
 }
 
@@ -361,29 +424,93 @@ function createInstalledBinInvocation(binDir, bin, args) {
 }
 
 async function smokeNpxEntrypoint(tarballPath) {
-  // Keep one real invocation through the package's advertised npx path. Once
-  // npx dispatches the bin, the installed-package smokes below cover the same
-  // launcher without repeatedly charging npm startup to readiness budgets.
-  await timed("npx install and help", () =>
-    runCommand({
-      args: [
-        "--yes",
-        "--no-audit",
-        "--no-fund",
-        "--package",
-        tarballPath,
-        "--",
-        "cc-app",
-        "--help",
-      ],
-      command: "npx",
-      label: "cc-app npx help",
+  const archive = await readFile(tarballPath);
+  const manifest = JSON.parse(
+    await runCommand({
+      command: "tar",
+      args: ["-xOf", basename(tarballPath), "package/package.json"],
+      cwd: dirname(tarballPath),
+      label: "read packed manifest",
     }),
   );
+  if (
+    !isRecord(manifest) ||
+    manifest.name !== "cc-app" ||
+    typeof manifest.version !== "string"
+  ) {
+    throw new Error("Expected a packed cc-app manifest with a version");
+  }
+  const tag = `smoke-${randomUUID()}`;
+  const integrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
+  let registryUrl;
+  const server = createHttpServer((request, response) => {
+    if (request.url === "/cc-app.tgz") {
+      response.setHeader("content-type", "application/octet-stream");
+      response.end(archive);
+    } else if (request.url === "/cc-app") {
+      response.setHeader("content-type", "application/json");
+      response.end(
+        JSON.stringify({
+          name: manifest.name,
+          "dist-tags": { [tag]: manifest.version },
+          versions: {
+            [manifest.version]: {
+              ...manifest,
+              dist: { tarball: `${registryUrl}/cc-app.tgz`, integrity },
+            },
+          },
+        }),
+      );
+    } else {
+      response.writeHead(302, {
+        location: `https://registry.npmjs.org${request.url}`,
+      });
+      response.end();
+    }
+  });
+  await new Promise((resolvePromise, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolvePromise);
+  });
+  try {
+    registryUrl = `http://127.0.0.1:${server.address().port}`;
+    await timed("npx install and help", () =>
+      runCommand({
+        args: [
+          "--yes",
+          "--no-audit",
+          "--no-fund",
+          "--package",
+          `cc-app@${tag}`,
+          "--",
+          "cc-app",
+          "--help",
+        ],
+        command: "npx",
+        env: { npm_config_registry: registryUrl },
+        label: "cc-app npx help",
+      }),
+    );
+  } finally {
+    await new Promise((resolvePromise, reject) =>
+      server.close((error) => (error ? reject(error) : resolvePromise())),
+    );
+  }
 }
 
 async function packTarball() {
-  const chunkDir = join(packageRoot, "host-daemon", "dist", "cc-chunks");
+  const packRoot =
+    process.platform === "linux" ? join(tempRoot, "package") : packageRoot;
+  if (packRoot !== packageRoot) {
+    await cp(packageRoot, packRoot, {
+      recursive: true,
+      filter: (source) =>
+        !["node_modules", ".turbo"].includes(
+          relative(packageRoot, source).split(sep)[0],
+        ),
+    });
+  }
+  const chunkDir = join(packRoot, "host-daemon", "dist", "cc-chunks");
   const liveChunk = readdirSync(chunkDir).find((name) => name.endsWith(".js"));
   if (liveChunk === undefined) {
     throw new Error("Built cc-app has no CLI chunk to exercise");
@@ -395,7 +522,7 @@ async function packTarball() {
   await copyFile(join(chunkDir, liveChunk), staleChunk);
   try {
     const stdout = await runCommand({
-      args: ["pack", packageRoot, "--pack-destination", tempRoot, "--json"],
+      args: ["pack", packRoot, "--pack-destination", tempRoot, "--json"],
       command: "npm",
       label: "npm pack",
     });
@@ -497,6 +624,23 @@ function waitForJsonRpcResponse({ childProcess, id, label, output }) {
   });
 }
 
+function isolatedHomeEnv(name) {
+  const home = join(tempRoot, "home", name);
+  const homeEnv = {
+    HOME: home,
+    USERPROFILE: home,
+    APPDATA: join(home, "AppData", "Roaming"),
+    XDG_CONFIG_HOME: join(home, ".config"),
+    CLAUDE_CONFIG_DIR: join(home, ".claude"),
+    CODEX_HOME: join(home, ".codex"),
+    PI_CODING_AGENT_DIR: join(home, ".pi", "agent"),
+  };
+  for (const directory of Object.values(homeEnv)) {
+    mkdirSync(directory, { recursive: true });
+  }
+  return homeEnv;
+}
+
 /**
  * Bridges are never spawned directly: the runtime runs the packed bootstrap
  * and hands it the bridge module plus the plugin scope. Driving it the same
@@ -505,6 +649,7 @@ function waitForJsonRpcResponse({ childProcess, id, label, output }) {
 function spawnPackedBridge({ bridgePath, packageDir, pluginId }) {
   const dataDir = join(tempRoot, "bridge-data", pluginId);
   mkdirSync(dataDir, { recursive: true });
+  const homeEnv = isolatedHomeEnv(`bridge-${pluginId}`);
   return spawn(
     process.execPath,
     [
@@ -513,7 +658,11 @@ function spawnPackedBridge({ bridgePath, packageDir, pluginId }) {
       pluginId,
       dataDir,
     ],
-    { cwd: tempRoot, stdio: ["pipe", "pipe", "pipe"] },
+    {
+      cwd: tempRoot,
+      env: { ...process.env, ...homeEnv, ...smokeProcessEnv },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
   );
 }
 
@@ -814,7 +963,7 @@ async function smokeSdkPackage(tarballPath) {
         "--ignore-scripts=false",
         "--no-audit",
         "--no-fund",
-        tarballPath,
+        `cc-app@file:${tarballPath}`,
       ],
       command: "npm",
       cwd: sdkDir,
@@ -987,6 +1136,7 @@ async function smokeFullStackAttempt(binDir, sdkDir, attempt) {
         String(daemonPort),
       ]),
       env: {
+        ...isolatedHomeEnv(`full-stack-${attempt}`),
         CC_LOG_LEVEL: "info",
       },
       label: "cc-app full stack",
@@ -1111,6 +1261,7 @@ async function smokeDaemonJoinAttempt(binDir, attempt) {
         String(firstDaemonReservation.port),
       ]),
       env: {
+        ...isolatedHomeEnv(`join-server-${attempt}`),
         CC_LOG_LEVEL: "warn",
         CC_SERVER_LAUNCH_ID: serverLaunchId,
       },
@@ -1138,6 +1289,7 @@ async function smokeDaemonJoinAttempt(binDir, attempt) {
           String(spec.reservation.port),
         ]),
         env: {
+          ...isolatedHomeEnv(basename(spec.dataDir)),
           CC_LOG_LEVEL: "info",
           CC_SERVER_URL: staleEnvServerUrl,
         },
@@ -1207,8 +1359,19 @@ async function smokeDaemonJoin(binDir) {
 try {
   const smokeStartedAt = performance.now();
   const tarballPath = await timed("npm pack", () => packTarball());
-  await timed("npx entrypoint", () => smokeNpxEntrypoint(tarballPath));
-  const sdkDir = await timed("sdk package", () => smokeSdkPackage(tarballPath));
+  let sdkDir;
+  if (["win32", "linux", "darwin"].includes(process.platform)) {
+    const [npxResult, sdkResult] = await Promise.allSettled([
+      timed("npx entrypoint", () => smokeNpxEntrypoint(tarballPath)),
+      timed("sdk package", () => smokeSdkPackage(tarballPath)),
+    ]);
+    if (npxResult.status === "rejected") throw npxResult.reason;
+    if (sdkResult.status === "rejected") throw sdkResult.reason;
+    sdkDir = sdkResult.value;
+  } else {
+    await timed("npx entrypoint", () => smokeNpxEntrypoint(tarballPath));
+    sdkDir = await timed("sdk package", () => smokeSdkPackage(tarballPath));
+  }
   const installedBinDir = join(sdkDir, "node_modules", ".bin");
   const installedPackageDir = join(sdkDir, "node_modules", "cc-app");
   await timed("help commands", () => smokeHelpCommands(installedBinDir));
@@ -1222,11 +1385,26 @@ try {
   await timed("plugin host worker bundle", () =>
     smokePluginHostWorkerBundle(installedPackageDir),
   );
-  await timed("full stack", () => smokeFullStack(installedBinDir, sdkDir));
-  await timed("daemon join", () => smokeDaemonJoin(installedBinDir));
+  if (["linux", "darwin", "win32"].includes(process.platform)) {
+    const results = await Promise.allSettled([
+      timed("full stack", () => smokeFullStack(installedBinDir, sdkDir)),
+      timed("daemon join", () => smokeDaemonJoin(installedBinDir)),
+    ]);
+    for (const result of results) {
+      if (result.status === "rejected") throw result.reason;
+    }
+  } else {
+    await timed("full stack", () => smokeFullStack(installedBinDir, sdkDir));
+    await timed("daemon join", () => smokeDaemonJoin(installedBinDir));
+  }
   process.stdout.write(
     `cc-app tarball smoke passed in ${formatElapsed(smokeStartedAt)}\n`,
   );
 } finally {
-  await rm(tempRoot, { force: true, recursive: true });
+  await rm(tempRoot, {
+    force: true,
+    maxRetries: 20,
+    recursive: true,
+    retryDelay: 250,
+  });
 }

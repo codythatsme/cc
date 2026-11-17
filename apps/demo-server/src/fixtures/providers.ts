@@ -17,6 +17,14 @@ function provider(
     available: true,
     logoUrl: `/api/v1/system/providers/${info.id}/logo`,
     maintenance: { health: false, usage: false, installation: false },
+    ...(info.capabilities.supportsServiceTier
+      ? {
+          serviceTiers: [
+            { id: "default", label: "Default" },
+            { id: "fast", label: "Fast" },
+          ],
+        }
+      : {}),
   };
 }
 
@@ -111,6 +119,7 @@ const MODELS: readonly AvailableModel[] = [
     model: DEFAULT_MODEL,
     displayName: "GPT-5.6-Sol",
     description: "Latest frontier agentic coding model.",
+    reasoningDiscovery: "known",
     supportedReasoningEfforts: [...REASONING_EFFORTS],
     defaultReasoningEffort: "high",
     isDefault: true,
@@ -120,6 +129,7 @@ const MODELS: readonly AvailableModel[] = [
     model: "gpt-5.6-luna",
     displayName: "GPT-5.6-Luna",
     description: "Fast and affordable agentic coding model.",
+    reasoningDiscovery: "known",
     supportedReasoningEfforts: [...REASONING_EFFORTS],
     defaultReasoningEffort: "medium",
     isDefault: false,

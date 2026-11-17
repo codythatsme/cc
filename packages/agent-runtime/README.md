@@ -20,7 +20,7 @@ const runtime = createAgentRuntime({
   bridgeBundleDir: "/path/to/bundled-bridges", // optional; used when bridges are packaged outside src/dist
   onEvent: (event) => {
     // Every event has event.threadId (cc ID) and event.providerThreadId (provider's internal ID)
-    // See ProviderThreadEvent in @cc/domain for the full type
+    // See ThreadEvent in @cc/domain for the full type
   },
   onToolCall: async (req) => { /* ToolCallRequest → ToolCallResponse */ },
   onStderr: (line) => { /* provider stderr */ },
@@ -66,10 +66,6 @@ await runtime.resumeThread({
 
 await runtime.shutdown();
 ```
-
-### Event types
-
-Events from provider processes are `ProviderThreadEvent` — they carry both `threadId` (cc ID) and `providerThreadId` (provider's internal ID). Events from the server/system layer are `SystemThreadEvent` — they only have `threadId`. Both are part of the `ThreadEvent` union from `@cc/domain`.
 
 ### Fail-fast behavior
 
@@ -122,7 +118,7 @@ The root `test:integration --force` run also schedules `@cc/integration-tests#te
 
 - Bridge Zod schema rejects the request silently (check that `buildCommand` output matches what the bridge expects)
 - Provider needs credentials that aren't in the environment
-- Bridge process crashed on startup (check stderr — the runtime captures it in `proc.stderrChunks`)
+- Bridge process crashed on startup (check stderr — the runtime passes it to `onStderr` and appends its tail to the rejection)
 
 ### Building
 
@@ -146,7 +142,9 @@ Consumer (host-daemon)
        ├─ BridgeProtocolAdapter        The one adapter: builds canonical
        │   ├─ buildCommandPlan()       Provider Bridge Protocol requests,
        │   ├─ translateEvent()         assembles `thread/delta` notifications
-       │   └─ decodeToolCallRequest()  into ThreadEvents, decodes tool calls
+       │   ├─ onDeferredEvents()       into ThreadEvents (text windows that
+       │   └─ decodeToolCallRequest()  flush on a timer arrive through
+       │                               onDeferredEvents), decodes tool calls
        │                               and interactive requests
        │
        └─ Bridge Process               The plugin-delivered bridge artifact,
@@ -167,7 +165,7 @@ local path); the provider id is an opaque label here.
 
 ## Dependencies
 
-- `@cc/domain` — shared types (ThreadEvent, ProviderThreadEvent, PromptInput, ToolCallRequest, etc.)
+- `@cc/domain` — shared types (ThreadEvent, PromptInput, ToolCallRequest, etc.)
 - `@cc/provider-bridge-protocol` — the bridge wire contract, the `thread/delta` assembler, and the bridge kit
 - `@cc/process-utils` — child-process helpers
 - `zod` — schema validation at provider boundaries

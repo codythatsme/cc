@@ -1,5 +1,5 @@
 import type { Host } from "@cc/domain";
-import { searchPickerOptions } from "./picker-search";
+import { searchPickerOptions } from "@cc/shared-ui/picker-search";
 
 export const MACHINE_SEARCH_MIN_OPTIONS = 5;
 

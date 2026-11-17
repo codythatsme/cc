@@ -1,4 +1,8 @@
 import {
+  rpcInvalidationTags,
+  type ContractTagDeclarations,
+} from "@codythatsme/plugin-sdk/internal/rpc-tags";
+import {
   environmentCompositionSchema,
   validateServerAccessProviderDeclaration,
   type NormalizedPluginEnvironmentComposition,
@@ -20,6 +24,7 @@ import {
   listPluginKvKeys,
   setPluginKvValue,
   type DbConnection,
+  type WalCheckpointer,
 } from "@cc/db";
 import type { ThreadEventItemPresentation } from "@cc/domain";
 import type {
@@ -75,6 +80,7 @@ import type {
   PluginUi,
   StandardSchemaV1,
   PluginRpcContract,
+  ExperimentalPluginRpcHandlerContext,
 } from "@codythatsme/plugin-sdk";
 import {
   KV_VALUE_MAX_BYTES,
@@ -98,6 +104,7 @@ import {
   validatePluginEnvironmentProviderDeclaration,
   validatePluginMachineProviderDeclaration,
   providerAlreadyRegisteredMessage,
+  providerDeclarationIconRefusal,
   providerIconRefusalMessage,
   undeclaredIconProblem,
   validateProviderEnvContribution,
@@ -112,18 +119,25 @@ import type {
   NormalizedPluginMachineProvider,
   NormalizedPluginProviderDeclaration,
 } from "@codythatsme/plugin-sdk/internal/host-policy";
+import { createRetiredEnvironmentMembers } from "@cc/sdk";
 import type {
   CcSdk,
   ThreadForkArgs,
+  PluginThreadMetadataListArgs,
   ThreadPluginMetadataArgs,
   ThreadPluginMetadataUpdateArgs,
   ThreadSpawnArgs,
 } from "@cc/sdk";
 import { requestEnvironmentProviderRecheck } from "./plugin-environment-provider-registry.js";
 import { requestServerAccessRecheck } from "./plugin-server-access-registry.js";
+import {
+  createPluginRpcCallerSdk,
+  type PluginRpcCallerCredential,
+} from "./plugin-rpc-caller.js";
 import type { ServerLogger } from "../../types.js";
 import type { PluginInteractionResult } from "../interactions/pending-interactions.js";
 import { appendPluginLogLine } from "./plugin-log.js";
+import type { TunnelIngressLease } from "../connect-next/tunnel-ingress.js";
 import {
   readPluginSettingsValues,
   writePluginSettingsUpdate,
@@ -140,8 +154,8 @@ export type {
   PluginThreadEventPayloads,
 } from "@codythatsme/plugin-sdk";
 
-class PluginContextStaleError extends Error {
-  constructor(pluginId: string) {
+export class PluginContextStaleError extends Error {
+  constructor(readonly pluginId: string) {
     super(
       `plugin "${pluginId}" used a stale API handle — it was reloaded or disabled; ` +
         `re-entry happens via a fresh factory call`,
@@ -185,10 +199,15 @@ export interface PluginWebSocketRouteRecord {
 }
 
 export interface PluginRpcHandler {
+  whileWatched?: boolean;
+  declarations: ContractTagDeclarations<unknown, unknown>;
   publication: ReturnType<typeof publishRpcMethod>;
   inputSchema: StandardSchemaV1;
   outputSchema: StandardSchemaV1;
-  handler: (input: unknown) => unknown;
+  handler: (
+    input: unknown,
+    context: ExperimentalPluginRpcHandlerContext,
+  ) => unknown;
 }
 
 export interface PluginAgentToolRecord {
@@ -337,6 +356,10 @@ function withPluginThreadAttribution<
 function wrapSdkForPlugin(sdk: CcSdk, pluginId: string): PluginCcSdk {
   return {
     ...sdk,
+    environments: {
+      ...sdk.environments,
+      ...createRetiredEnvironmentMembers(sdk.plugins.callRpc),
+    },
     threads: {
       ...sdk.threads,
       async getPluginMetadata(
@@ -345,6 +368,16 @@ function wrapSdkForPlugin(sdk: CcSdk, pluginId: string): PluginCcSdk {
         },
       ) {
         return sdk.threads.getPluginMetadata({
+          ...args,
+          pluginId: args.pluginId ?? pluginId,
+        });
+      },
+      async experimental_listPluginMetadata(
+        args: Omit<PluginThreadMetadataListArgs, "pluginId"> & {
+          pluginId?: string;
+        },
+      ) {
+        return sdk.threads.experimental_listPluginMetadata({
           ...args,
           pluginId: args.pluginId ?? pluginId,
         });
@@ -364,6 +397,9 @@ function wrapSdkForPlugin(sdk: CcSdk, pluginId: string): PluginCcSdk {
       },
       spawn(args: ThreadSpawnArgs) {
         return sdk.threads.spawn(withPluginThreadAttribution(args, pluginId));
+      },
+      send(args) {
+        return sdk.threads.send({ ...args, originPluginId: pluginId });
       },
     },
   };
@@ -449,14 +485,28 @@ function createStagedRegistrations<
 const PLUGIN_HOST_CALL_MAX_TIMEOUT_MS = 30 * 60_000;
 
 export function createPluginApi(options: {
+  recordPluginUse: () => void;
   pluginId: string;
   logger: ServerLogger;
   db: DbConnection;
   dataDir: string;
+  walCheckpointer: Pick<WalCheckpointer, "attach" | "detach"> | null;
   getSdk: () => CcSdk | undefined;
   getMachineEnrollments: () => MachineEnrollments;
   getAppUrl: () => string | null;
   getLoopbackBaseUrl: () => string | undefined;
+  openTunnelIngress: (audience: string) => Promise<TunnelIngressLease>;
+  /**
+   * This load's rpc caller token, attached to the plugin's
+   * `cc.sdk.plugins.callRpc` requests so handlers see it as the caller.
+   * Revoked when the handle is invalidated.
+   */
+  rpcCaller: PluginRpcCallerCredential;
+  invalidateRpc: (tags: readonly string[] | null) => void;
+  whileRpcWatched?: (
+    method: string,
+    handler: Parameters<PluginRpc["experimental_whileWatched"]>[1],
+  ) => () => void;
   publishSignal: (channel: string, payload: unknown) => void;
   settingsChanged: () => void;
   reportNeedsConfiguration: (message: string) => void;
@@ -490,6 +540,9 @@ export function createPluginApi(options: {
     ports: readonly number[],
   ) => readonly number[];
   declareSharedPorts: PluginHosts["declareSharedPorts"];
+  setNextTunnels: PluginHosts["internal_DO_NOT_USE_setNextTunnels"];
+  nextTunnelStatuses: PluginHosts["internal_DO_NOT_USE_nextTunnelStatuses"];
+  onNextTunnelStatusChange: PluginHosts["internal_DO_NOT_USE_onNextTunnelStatusChange"];
   replaceDeclaredSharedPorts: (
     declarations: readonly {
       hostId: string;
@@ -518,10 +571,14 @@ export function createPluginApi(options: {
     logger,
     db,
     dataDir,
+    walCheckpointer,
     getSdk,
     getAppUrl,
     getLoopbackBaseUrl,
+    openTunnelIngress,
+    rpcCaller,
     publishSignal,
+    invalidateRpc: optionsInvalidate,
     settingsChanged,
     reportNeedsConfiguration,
     isAgentToolNameTaken,
@@ -533,6 +590,9 @@ export function createPluginApi(options: {
     ensureSharedPortTunnel,
     validateSharedPortDeclaration,
     declareSharedPorts,
+    setNextTunnels,
+    nextTunnelStatuses,
+    onNextTunnelStatusChange,
     replaceDeclaredSharedPorts,
     callPluginHost,
     registerProvider,
@@ -547,6 +607,7 @@ export function createPluginApi(options: {
   const pendingAgentToolProblems: string[] = [];
   const pendingSharedPorts = new Map<string, readonly number[]>();
   const disposeHooks: Array<() => void | Promise<void>> = [];
+  const openTunnelIngresses = new Set<() => Promise<void>>();
   const installHandlers: Array<() => void | Promise<void>> = [];
   const settingsRecord: PluginApiHandle["settings"] = {
     descriptors: {},
@@ -555,8 +616,11 @@ export function createPluginApi(options: {
   const databaseHandles: Database.Database[] = [];
   const threadEventHandlers: PluginThreadEventHandlers = {
     "experimental_thread.events": [],
+    "experimental_thread.parentChanged": [],
+    "experimental_thread.read": [],
     "experimental_terminal.input": [],
     "experimental_host.deleted": [],
+    "experimental_environment.removed": [],
     "thread.created": [],
     "thread.active": [],
     "thread.idle": [],
@@ -594,8 +658,14 @@ export function createPluginApi(options: {
   const backgroundServices: PluginBackgroundServiceRecord[] = [];
   const schedules: PluginScheduleRecord[] = [];
 
+  let staleError: PluginContextStaleError | undefined;
+  function stale(): PluginContextStaleError {
+    staleError ??= new PluginContextStaleError(pluginId);
+    return staleError;
+  }
+
   function assertLive(): void {
-    if (invalidated) throw new PluginContextStaleError(pluginId);
+    if (invalidated) throw stale();
   }
 
   const prefix = `[plugin:${pluginId}]`;
@@ -686,12 +756,15 @@ export function createPluginApi(options: {
       if (databaseHandle) {
         const index = databaseHandles.indexOf(databaseHandle);
         if (index !== -1) databaseHandles.splice(index, 1);
+        void walCheckpointer?.detach(databaseHandle);
       }
       const dir = join(dataDir, "plugins", pluginId);
       mkdirSync(dir, { recursive: true });
       const database = new Database(join(dir, "data.db"));
+      database.pragma("auto_vacuum = INCREMENTAL");
       database.pragma("journal_mode = WAL");
       database.pragma("busy_timeout = 5000");
+      walCheckpointer?.attach(database);
       databaseHandle = database;
       databaseHandles.push(database);
       return database;
@@ -797,6 +870,25 @@ export function createPluginApi(options: {
   };
 
   const rpc: PluginRpc = {
+    experimental_whileWatched(method, handler) {
+      assertLive();
+      const record = rpcHandlers.get(method);
+      if (!record) throw new Error(`Unknown RPC method: ${method}`);
+      if (record.whileWatched)
+        throw new Error(`RPC producer already registered: ${method}`);
+      if (!options.whileRpcWatched)
+        throw new Error("RPC watching is unavailable");
+      record.whileWatched = true;
+      disposeHooks.push(options.whileRpcWatched(method, handler));
+    },
+    experimental_invalidate(tags) {
+      assertLive();
+      optionsInvalidate(rpcInvalidationTags.parse(tags));
+    },
+    experimental_invalidateAll() {
+      assertLive();
+      optionsInvalidate(null);
+    },
     register(contract, handlers, options) {
       assertLive();
       for (const [name, record] of normalizeRpcRegistration(
@@ -848,12 +940,13 @@ export function createPluginApi(options: {
   const providerRegistrations = createStagedRegistrations({
     validate: (declaration: PluginProviderDeclaration) => {
       const normalized = validatePluginProviderDeclaration(declaration);
-      const problem =
-        normalized.icon === undefined
-          ? null
-          : undeclaredIconProblem(pluginId, declaredIconNames, normalized.icon);
-      if (problem !== null) {
-        throw new Error(providerIconRefusalMessage(normalized.id, problem));
+      const refusal = providerDeclarationIconRefusal(
+        pluginId,
+        declaredIconNames,
+        normalized,
+      );
+      if (refusal !== null) {
+        throw new Error(refusal);
       }
       return normalized;
     },
@@ -929,15 +1022,6 @@ export function createPluginApi(options: {
       agentTools.push(record);
     },
   };
-  Object.defineProperty(agents, "experimental_registerProvider", {
-    enumerable: false,
-    configurable: false,
-    get(): never {
-      throw new Error(
-        "cc.agents.experimental_registerProvider was removed in SDK 0.4.16; use cc.providers.register",
-      );
-    },
-  });
 
   const mentionProviders: PluginMentionProviderRecord[] = [];
   const ui: PluginUi = {
@@ -992,6 +1076,32 @@ export function createPluginApi(options: {
     get experimental_dataDir(): string {
       assertLive();
       return dataDir;
+    },
+    async internal_DO_NOT_USE_openTunnelIngress(ingressOptions) {
+      assertLive();
+      const audience: unknown = ingressOptions?.audience;
+      if (typeof audience !== "string" || audience.length === 0) {
+        throw new Error(
+          "cc.server.internal_DO_NOT_USE_openTunnelIngress needs a non-empty audience",
+        );
+      }
+      const lease = await openTunnelIngress(audience);
+      let closed = false;
+      const close = async (): Promise<void> => {
+        if (closed) return;
+        closed = true;
+        openTunnelIngresses.delete(close);
+        const index = disposeHooks.indexOf(close);
+        if (index !== -1) disposeHooks.splice(index, 1);
+        await lease.close();
+      };
+      if (invalidated) {
+        await lease.close();
+        throw stale();
+      }
+      openTunnelIngresses.add(close);
+      disposeHooks.push(close);
+      return { baseUrl: lease.baseUrl, close };
     },
   };
 
@@ -1093,6 +1203,23 @@ export function createPluginApi(options: {
           validateSharedPortDeclaration(hostId, ports),
         );
       }
+    },
+    internal_DO_NOT_USE_setNextTunnels(config) {
+      assertLive();
+      setNextTunnels(config);
+    },
+    internal_DO_NOT_USE_nextTunnelStatuses() {
+      assertLive();
+      return nextTunnelStatuses();
+    },
+    internal_DO_NOT_USE_onNextTunnelStatusChange(listener) {
+      assertLive();
+      if (typeof listener !== "function") {
+        throw new Error("next tunnel status subscription requires a listener");
+      }
+      const unsubscribe = onNextTunnelStatusChange(listener);
+      disposeHooks.push(unsubscribe);
+      return unsubscribe;
     },
   };
   const events: PluginEvents = {
@@ -1294,6 +1421,10 @@ export function createPluginApi(options: {
   };
 
   const api: CcPluginApi = {
+    internal_DO_NOT_USE_recordPluginUse() {
+      assertLive();
+      options.recordPluginUse();
+    },
     pluginId,
     log,
     settings,
@@ -1317,14 +1448,20 @@ export function createPluginApi(options: {
     experimental_aiServices,
     get sdk(): PluginCcSdk {
       assertLive();
-      const sdk = getSdk();
-      if (!sdk) {
+      const loopbackBaseUrl = getLoopbackBaseUrl();
+      if (!getSdk() || loopbackBaseUrl === undefined) {
         throw new Error(
           "cc.sdk is not available until the server is listening — " +
             "use it inside handlers, services, or timers, not at factory load time",
         );
       }
-      wrappedSdk ??= wrapSdkForPlugin(sdk, pluginId);
+      wrappedSdk ??= wrapSdkForPlugin(
+        createPluginRpcCallerSdk({
+          baseUrl: loopbackBaseUrl,
+          token: rpcCaller.token,
+        }),
+        pluginId,
+      );
       return wrappedSdk;
     },
     onDispose(hook) {
@@ -1411,6 +1548,8 @@ export function createPluginApi(options: {
     },
     invalidate() {
       invalidated = true;
+      rpcCaller.revoke();
+      for (const close of [...openTunnelIngresses]) void close();
     },
   };
 }

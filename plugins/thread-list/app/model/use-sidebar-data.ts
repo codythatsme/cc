@@ -1,10 +1,6 @@
-import { useEffect, useMemo } from "react";
-import { useAtomValue, useSetAtom } from "jotai";
+import { createContext, useContext, useMemo } from "react";
+import { useAtomValue } from "jotai";
 import { sidebarThreadLifecyclesAtom } from "../preferences/atoms.js";
-import {
-  resolveSectionName,
-  sectionNameOverridesAtom,
-} from "./section-name-overrides.js";
 import {
   experimental_useSidebarThreads,
   type PluginSidebarProject,
@@ -34,6 +30,7 @@ export interface SidebarData {
   projects: SidebarProject[];
   personalProject: SidebarProject | null;
   hostsById: ReadonlyMap<string, SidebarHost>;
+  projectNamesById: ReadonlyMap<string, string>;
 }
 
 function sameElements<T>(left: readonly T[], right: readonly T[]): boolean {
@@ -52,6 +49,17 @@ function sameHosts(
   for (const [id, host] of left) {
     const other = right.get(id);
     if (other === undefined || other.name !== host.name) return false;
+  }
+  return true;
+}
+
+function sameProjectNames(
+  left: ReadonlyMap<string, string>,
+  right: ReadonlyMap<string, string>,
+): boolean {
+  if (left.size !== right.size) return false;
+  for (const [id, name] of left) {
+    if (right.get(id) !== name) return false;
   }
   return true;
 }
@@ -122,6 +130,9 @@ export function buildSidebarData(
     previous !== null && sameElements(previous.projects, groupedProjects)
       ? previous.projects
       : groupedProjects;
+  const projectNamesById = new Map(
+    projects.map((project) => [project.id, project.name]),
+  );
   return {
     status,
     sections,
@@ -132,6 +143,11 @@ export function buildSidebarData(
       previous !== null && sameHosts(previous.hostsById, hostsById)
         ? previous.hostsById
         : hostsById,
+    projectNamesById:
+      previous !== null &&
+      sameProjectNames(previous.projectNamesById, projectNamesById)
+        ? previous.projectNamesById
+        : projectNamesById,
   };
 }
 
@@ -182,59 +198,25 @@ export function resetSidebarDataCacheForTest(): void {
   sidebarDataCache = null;
 }
 
+export const SidebarProjectNamesContext = createContext<
+  ReadonlyMap<string, string>
+>(new Map());
+
 export function useSidebarProjectName(
   projectId: string | null,
 ): string | undefined {
-  const { projects } = experimental_useSidebarThreads();
-  return projectId === null
-    ? undefined
-    : projects.find((project) => project.id === projectId)?.name;
+  const projectNamesById = useContext(SidebarProjectNamesContext);
+  return projectId === null ? undefined : projectNamesById.get(projectId);
 }
 
 export function useSidebarData() {
   const lifecycles = useAtomValue(sidebarThreadLifecyclesAtom);
-  const sectionNameOverrides = useAtomValue(sectionNameOverridesAtom);
-  const setSectionNameOverrides = useSetAtom(sectionNameOverridesAtom);
   const state = experimental_useSidebarThreads({
     experimental_lifecycles: lifecycles,
   });
-  useEffect(() => {
-    const settledIds = state.sections
-      .filter((section) => {
-        const override = sectionNameOverrides.get(section.id);
-        return override && override.previousName !== section.name;
-      })
-      .map((section) => section.id);
-    if (settledIds.length === 0) return;
-    setSectionNameOverrides((current) => {
-      const next = new Map(current);
-      for (const id of settledIds) next.delete(id);
-      return next;
-    });
-  }, [state.sections, sectionNameOverrides, setSectionNameOverrides]);
   return useMemo(
-    () => {
-      const sections = state.sections.map((section) => {
-        const name = resolveSectionName(
-          section.id,
-          section.name,
-          sectionNameOverrides,
-        );
-        return name === section.name ? section : { ...section, name };
-      });
-      return {
-        ...getSidebarData({
-          ...state,
-          sections: sections.every(
-            (section, index) => section === state.sections[index],
-          )
-            ? state.sections
-            : sections,
-        }),
-        archived: state.experimental_archived,
-      };
-    },
-    [state, sectionNameOverrides],
+    () => ({ ...getSidebarData(state), archived: state.experimental_archived }),
+    [state],
   );
 }
 

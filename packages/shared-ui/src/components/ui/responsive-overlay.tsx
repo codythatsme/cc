@@ -54,6 +54,51 @@ export function measureDrawerKeyboardOverlap({
   return overlap >= DRAWER_KEYBOARD_MIN_OVERLAP_PX ? overlap : 0;
 }
 
+function trackDrawerKeyboardInset(
+  panel: HTMLElement,
+  visualViewport: VisualViewport,
+): () => void {
+  let animationFrame: number | null = null;
+  const applyInset = () => {
+    animationFrame = null;
+    if (visualViewport.scale !== 1) {
+      resetDrawerKeyboardStyles(panel);
+      return;
+    }
+    const overlap = measureDrawerKeyboardOverlap({
+      layoutViewportHeight: panel.ownerDocument.documentElement.clientHeight,
+      visualViewportHeight: visualViewport.height,
+      visualViewportOffsetTop: visualViewport.offsetTop,
+    });
+    if (overlap === 0) {
+      panel.style.bottom = "";
+      panel.style.removeProperty(DRAWER_KEYBOARD_INSET_PROPERTY);
+      return;
+    }
+    panel.style.bottom = `${overlap}px`;
+    panel.style.setProperty(DRAWER_KEYBOARD_INSET_PROPERTY, `${overlap}px`);
+  };
+  const scheduleUpdate = () => {
+    if (animationFrame !== null) {
+      window.cancelAnimationFrame(animationFrame);
+    }
+    animationFrame = window.requestAnimationFrame(applyInset);
+  };
+
+  applyInset();
+  visualViewport.addEventListener("resize", scheduleUpdate);
+  visualViewport.addEventListener("scroll", scheduleUpdate);
+
+  return () => {
+    visualViewport.removeEventListener("resize", scheduleUpdate);
+    visualViewport.removeEventListener("scroll", scheduleUpdate);
+    if (animationFrame !== null) {
+      window.cancelAnimationFrame(animationFrame);
+    }
+    resetDrawerKeyboardStyles(panel);
+  };
+}
+
 function useDrawerKeyboardInset(
   panelRef: React.RefObject<HTMLElement | null>,
   open: boolean,
@@ -63,45 +108,7 @@ function useDrawerKeyboardInset(
     const visualViewport = window.visualViewport;
     if (panel === null || !open || !visualViewport) return;
 
-    let animationFrame: number | null = null;
-    const applyInset = () => {
-      animationFrame = null;
-      if (visualViewport.scale !== 1) {
-        resetDrawerKeyboardStyles(panel);
-        return;
-      }
-      const overlap = measureDrawerKeyboardOverlap({
-        layoutViewportHeight: panel.ownerDocument.documentElement.clientHeight,
-        visualViewportHeight: visualViewport.height,
-        visualViewportOffsetTop: visualViewport.offsetTop,
-      });
-      if (overlap === 0) {
-        panel.style.bottom = "";
-        panel.style.removeProperty(DRAWER_KEYBOARD_INSET_PROPERTY);
-        return;
-      }
-      panel.style.bottom = `${overlap}px`;
-      panel.style.setProperty(DRAWER_KEYBOARD_INSET_PROPERTY, `${overlap}px`);
-    };
-    const scheduleUpdate = () => {
-      if (animationFrame !== null) {
-        window.cancelAnimationFrame(animationFrame);
-      }
-      animationFrame = window.requestAnimationFrame(applyInset);
-    };
-
-    applyInset();
-    visualViewport.addEventListener("resize", scheduleUpdate);
-    visualViewport.addEventListener("scroll", scheduleUpdate);
-
-    return () => {
-      visualViewport.removeEventListener("resize", scheduleUpdate);
-      visualViewport.removeEventListener("scroll", scheduleUpdate);
-      if (animationFrame !== null) {
-        window.cancelAnimationFrame(animationFrame);
-      }
-      resetDrawerKeyboardStyles(panel);
-    };
+    return trackDrawerKeyboardInset(panel, visualViewport);
   }, [open, panelRef]);
 }
 
@@ -261,7 +268,17 @@ export function stripRadixContentProps<T extends Record<string, unknown>>(
   return result as Omit<T, RadixContentPropName>;
 }
 
-interface ResponsiveDrawerShellProps {
+type DrawerPointerDownOutsideEvent = CustomEvent<{
+  originalEvent: PointerEvent;
+}>;
+
+interface DrawerDismissalHandlers {
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
+  onPointerDownOutside?: (event: DrawerPointerDownOutsideEvent) => void;
+  onInteractOutside?: (event: DrawerPointerDownOutsideEvent) => void;
+}
+
+interface ResponsiveDrawerShellProps extends DrawerDismissalHandlers {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   closeOnBackdropClick?: boolean;
@@ -333,6 +350,9 @@ export function ResponsiveDrawerShell({
   describedBy,
   contentClassName,
   onContentAnimationEnd,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onInteractOutside,
   children,
 }: ResponsiveDrawerShellProps) {
   const { isContentRealized } = useResponsiveDrawerRealization({ open });
@@ -352,6 +372,9 @@ export function ResponsiveDrawerShell({
       describedBy={describedBy}
       contentClassName={contentClassName}
       onContentAnimationEnd={onContentAnimationEnd}
+      onEscapeKeyDown={onEscapeKeyDown}
+      onPointerDownOutside={onPointerDownOutside}
+      onInteractOutside={onInteractOutside}
     >
       {isContentRealized ? (
         children
@@ -366,7 +389,7 @@ export function ResponsiveDrawerShell({
   );
 }
 
-interface PersistentResponsiveDrawerShellProps {
+interface PersistentResponsiveDrawerShellProps extends DrawerDismissalHandlers {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   closeOnBackdropClick?: boolean;
@@ -394,7 +417,7 @@ const PERSISTENT_DRAWER_FOCUSABLE_SELECTOR = [
 
 type PersistentDrawerStackEntry = {
   panel: () => HTMLElement | null;
-  requestClose: () => void;
+  dismissOnEscape: (event: KeyboardEvent) => void;
 };
 
 type PersistentDrawerStack = {
@@ -402,7 +425,30 @@ type PersistentDrawerStack = {
   handleKeyDown: (event: KeyboardEvent) => void;
 };
 
-const persistentDrawerStacks = new WeakMap<Document, PersistentDrawerStack>();
+const PERSISTENT_DRAWER_STACK_KEY = Symbol.for("cc.persistent-drawer-stack.v1");
+
+function isPersistentDrawerStack(
+  value: unknown,
+): value is PersistentDrawerStack {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "entries" in value &&
+    Array.isArray(value.entries) &&
+    "handleKeyDown" in value &&
+    typeof value.handleKeyDown === "function"
+  );
+}
+
+function readPersistentDrawerStack(
+  ownerDocument: Document,
+): PersistentDrawerStack | undefined {
+  const stack: unknown = Reflect.get(
+    ownerDocument,
+    PERSISTENT_DRAWER_STACK_KEY,
+  );
+  return isPersistentDrawerStack(stack) ? stack : undefined;
+}
 
 function getDrawerFocusableElements(panel: HTMLElement): HTMLElement[] {
   return Array.from(
@@ -472,7 +518,7 @@ function registerOpenDrawer(
   ownerDocument: Document,
   entry: PersistentDrawerStackEntry,
 ): () => void {
-  let stack = persistentDrawerStacks.get(ownerDocument);
+  let stack = readPersistentDrawerStack(ownerDocument);
   if (stack === undefined) {
     const entries: PersistentDrawerStackEntry[] = [];
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -485,20 +531,20 @@ function registerOpenDrawer(
         return;
       }
       if (event.key === "Escape") {
+        topEntry.dismissOnEscape(event);
         event.preventDefault();
-        topEntry.requestClose();
       } else if (event.key === "Tab") {
         handleDrawerTab(event, panel);
       }
     };
     stack = { entries, handleKeyDown };
-    persistentDrawerStacks.set(ownerDocument, stack);
+    Reflect.set(ownerDocument, PERSISTENT_DRAWER_STACK_KEY, stack);
     ownerDocument.addEventListener("keydown", handleKeyDown);
   }
   stack.entries.push(entry);
 
   return () => {
-    const currentStack = persistentDrawerStacks.get(ownerDocument);
+    const currentStack = readPersistentDrawerStack(ownerDocument);
     if (currentStack === undefined) {
       return;
     }
@@ -508,7 +554,7 @@ function registerOpenDrawer(
     }
     if (currentStack.entries.length === 0) {
       ownerDocument.removeEventListener("keydown", currentStack.handleKeyDown);
-      persistentDrawerStacks.delete(ownerDocument);
+      Reflect.deleteProperty(ownerDocument, PERSISTENT_DRAWER_STACK_KEY);
     }
   };
 }
@@ -516,6 +562,7 @@ function registerOpenDrawer(
 interface UsePersistentOverlayFocusArgs {
   onAfterCloseAutoFocus?: () => void;
   onBeforeCloseAutoFocus?: () => void;
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
   open: boolean;
   panelRef: React.RefObject<HTMLElement | null>;
   requestClose: () => void;
@@ -524,11 +571,16 @@ interface UsePersistentOverlayFocusArgs {
 export function usePersistentOverlayFocus({
   onAfterCloseAutoFocus,
   onBeforeCloseAutoFocus,
+  onEscapeKeyDown,
   open,
   panelRef,
   requestClose,
 }: UsePersistentOverlayFocusArgs): void {
   const returnFocusRef = React.useRef<HTMLElement | null>(null);
+  const onEscapeKeyDownRef = React.useRef(onEscapeKeyDown);
+  React.useLayoutEffect(() => {
+    onEscapeKeyDownRef.current = onEscapeKeyDown;
+  }, [onEscapeKeyDown]);
 
   React.useLayoutEffect(() => {
     if (!open) return;
@@ -543,7 +595,10 @@ export function usePersistentOverlayFocus({
         : null;
     const unregister = registerOpenDrawer(ownerDocument, {
       panel: () => panelRef.current,
-      requestClose,
+      dismissOnEscape: (event) => {
+        onEscapeKeyDownRef.current?.(event);
+        if (!event.defaultPrevented) requestClose();
+      },
     });
     panel.focus({ preventScroll: true });
     return unregister;
@@ -606,10 +661,14 @@ export function PersistentResponsiveDrawerShell({
   contentClassName,
   motionDurationMs = 220,
   onContentAnimationEnd,
+  onEscapeKeyDown,
+  onPointerDownOutside,
+  onInteractOutside,
   children,
 }: PersistentResponsiveDrawerShellProps) {
   const panelRef = React.useRef<HTMLDivElement>(null);
   const backdropRef = React.useRef<HTMLDivElement>(null);
+  const backdropPointerDownRef = React.useRef<PointerEvent | null>(null);
   const dragRef = React.useRef<PersistentDrawerDrag | null>(null);
   const settledStateRef = React.useRef<boolean | null>(null);
   const labelId = React.useId();
@@ -633,10 +692,27 @@ export function PersistentResponsiveDrawerShell({
   usePersistentOverlayFocus({
     onAfterCloseAutoFocus,
     onBeforeCloseAutoFocus: prepareCloseAutoFocus,
+    onEscapeKeyDown,
     open,
     panelRef,
     requestClose,
   });
+
+  const handleBackdropClick = () => {
+    const originalEvent = backdropPointerDownRef.current;
+    backdropPointerDownRef.current = null;
+    if (!closeOnBackdropClick) return;
+    if (originalEvent !== null) {
+      const outsideEvent: DrawerPointerDownOutsideEvent = new CustomEvent(
+        "dismissableLayer.pointerDownOutside",
+        { cancelable: true, detail: { originalEvent } },
+      );
+      onPointerDownOutside?.(outsideEvent);
+      onInteractOutside?.(outsideEvent);
+      if (outsideEvent.defaultPrevented) return;
+    }
+    requestClose();
+  };
 
   useDrawerKeyboardInset(panelRef, open);
 
@@ -764,7 +840,10 @@ export function PersistentResponsiveDrawerShell({
           pointerEvents: open ? "auto" : "none",
           transition: backdropTransition,
         }}
-        onClick={closeOnBackdropClick ? requestClose : undefined}
+        onPointerDown={(event) => {
+          backdropPointerDownRef.current = event.nativeEvent;
+        }}
+        onClick={handleBackdropClick}
         onTouchMove={(event) => event.preventDefault()}
       />
       <div
@@ -783,7 +862,7 @@ export function PersistentResponsiveDrawerShell({
         role="dialog"
         tabIndex={-1}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--cc-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background outline-none",
+          "fixed inset-x-0 bottom-0 z-50 mt-24 flex max-h-[calc(92dvh-var(--cc-drawer-keyboard-inset,0px))] flex-col rounded-t-xl border bg-background pb-[var(--cc-safe-area-bottom,env(safe-area-inset-bottom))] outline-none",
           contentClassName,
         )}
         style={{

@@ -1,5 +1,10 @@
 import { memo } from "react";
-import type { PermissionMode, ReasoningLevel, ServiceTier } from "@cc/domain";
+import type {
+  PermissionMode,
+  ProviderOptionDescriptor,
+  ReasoningLevel,
+  ServiceTier,
+} from "@cc/domain";
 import type {
   SystemExecutionOptionsModelLoadError,
   SystemProvidersQuery,
@@ -12,6 +17,12 @@ import {
 import { type PickerOption } from "@/components/pickers/OptionPicker";
 import type { ModelPickerOption } from "@/components/pickers/model-picker-option";
 import type { ProviderPickerOption } from "@/components/pickers/model-brand-prefix";
+import type {
+  SessionOptionChoice,
+  SessionOptionMenuSection,
+} from "@/components/pickers/SessionOptionsMenu";
+
+const EMPTY_SERVICE_TIER_OPTIONS: readonly ProviderOptionDescriptor[] = [];
 
 interface ExecutionProviderConfig {
   options?: readonly ProviderPickerOption[];
@@ -36,12 +47,13 @@ interface ExecutionServiceTierConfig {
   onChange: (value: ServiceTier | undefined) => void;
   supported: boolean;
   supportByProvider?: Record<string, boolean>;
-  fastLabel?: string;
+  options: readonly ProviderOptionDescriptor[];
 }
 
 interface ExecutionReasoningConfig {
   value: ReasoningLevel;
   options: readonly PickerOption<ReasoningLevel>[];
+  isLoading: boolean;
   onChange: (value: ReasoningLevel) => void;
 }
 
@@ -52,11 +64,17 @@ export interface ExecutionPermissionConfig {
   supported: boolean;
 }
 
+export interface ExecutionAgentOptionsConfig {
+  sections: readonly SessionOptionMenuSection[];
+  onChange: (optionId: string, value: SessionOptionChoice) => void;
+}
+
 export interface ExecutionControlsProps {
   providerRouting?: SystemProvidersQuery;
   provider: ExecutionProviderConfig;
   model: ExecutionModelConfig;
   serviceTier?: ExecutionServiceTierConfig;
+  agentOptions?: ExecutionAgentOptionsConfig;
   reasoning: ExecutionReasoningConfig;
   handoff?: ModelReasoningPickerHandoff;
   disabled?: boolean;
@@ -67,6 +85,7 @@ export const ExecutionControls = memo(function ExecutionControls({
   providerRouting,
   model,
   serviceTier,
+  agentOptions,
   reasoning,
   handoff,
   disabled,
@@ -107,14 +126,18 @@ export const ExecutionControls = memo(function ExecutionControls({
           formatModelLabel={formatModelLabel}
           reasoningValue={reasoning.value}
           reasoningOptions={reasoning.options}
+          reasoningIsLoading={reasoning.isLoading}
           onReasoningChange={reasoning.onChange}
-          fastModeEnabled={serviceTier?.value === "fast"}
-          onFastModeChange={(enabled) =>
-            handleServiceTierChange(enabled ? "fast" : "default")
+          serviceTierValue={serviceTier?.value}
+          serviceTierOptions={
+            serviceTier?.supported
+              ? serviceTier.options
+              : EMPTY_SERVICE_TIER_OPTIONS
           }
-          showFastModeToggle={serviceTier?.supported ?? false}
+          onServiceTierChange={handleServiceTierChange}
           serviceTierSupportByProvider={serviceTier?.supportByProvider}
-          fastModeLabel={serviceTier?.fastLabel}
+          agentSections={agentOptions?.sections}
+          onAgentOptionChange={agentOptions?.onChange}
           muted
           disabled={disabled}
           handoff={handoff}

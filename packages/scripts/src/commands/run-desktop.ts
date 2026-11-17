@@ -27,8 +27,9 @@ const LOOPBACK_HOST = "127.0.0.1";
 export function resolveDesktopPackageTask(platform: NodeJS.Platform): string {
   if (platform === "darwin") return "package";
   if (platform === "linux") return "package:linux";
+  if (platform === "win32") return "package:win";
   throw new Error(
-    `[desktop] Packaging is supported on macOS and Linux, not ${platform}.`,
+    `[desktop] Packaging is supported on macOS, Linux, and Windows, not ${platform}.`,
   );
 }
 
@@ -100,11 +101,14 @@ export function toDesktopLaunchProcessEnv(args: {
     config: args.config,
   });
   delete env.CC_DEV_APP_PORT;
+  env.CC_DESKTOP_DEV_ICON = "1";
   env.CC_DESKTOP_OPEN_DEVTOOLS = args.baseEnv.CC_DESKTOP_OPEN_DEVTOOLS ?? "0";
   env.CC_DESKTOP_USER_DATA_DIR = resolveDesktopUserDataDir(
     args.baseEnv,
     args.config,
   );
+  env.CC_SKIP_ONBOARDING ??= "1";
+  env.CC_QUERY_PLAN_AUDIT ??= "1";
   env.NODE_ENV = "production";
   return env;
 }
@@ -119,7 +123,9 @@ function formatConfig(
     return `${prefix} Packaged desktop app with its installed data directory and ports`;
   }
   if (desktopUserDataDir === undefined) {
-    throw new Error("[desktop:worktree] Electron user data directory is missing");
+    throw new Error(
+      "[desktop:worktree] Electron user data directory is missing",
+    );
   }
   return [
     `${prefix} Instance ${config.instanceId}`,

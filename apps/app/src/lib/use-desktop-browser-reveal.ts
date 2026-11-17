@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CcDesktopBrowserRevealRequest } from "@cc/desktop-contract";
 import { getDesktopBrowserApi } from "./cc-desktop";
 
@@ -16,6 +16,7 @@ export function useDesktopBrowserReveal({
   const [pending, setPending] = useState<CcDesktopBrowserRevealRequest | null>(
     null,
   );
+  const activatedRef = useRef<CcDesktopBrowserRevealRequest | null>(null);
 
   useEffect(() => {
     if (!isFocused) return;
@@ -32,11 +33,12 @@ export function useDesktopBrowserReveal({
     if (
       !isFocused ||
       pending === null ||
+      pending === activatedRef.current ||
       pending.threadId !== threadId ||
       !browserTabs.some((tab) => tab.id === pending.tabId)
     )
       return;
+    activatedRef.current = pending;
     activateTab(pending.tabId);
-    setPending(null);
   }, [isFocused, threadId, pending, browserTabs, activateTab]);
 }

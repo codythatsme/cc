@@ -1,3 +1,5 @@
+import { PluginNameTag } from "@/components/plugin/management/PluginNameTag";
+import { splitPluginDisplayName } from "@cc/domain/plugin-display-name";
 import { PluginCardAuthorAvatar } from "@/components/plugin/management/PluginCard";
 import { useSyncExternalStore } from "react";
 import {
@@ -22,6 +24,7 @@ import { formatHomePathForDisplay } from "@cc/shared-ui/lib/utils";
 import { Icon } from "@cc/shared-ui/icon";
 import { useNavigate } from "react-router-dom";
 import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
+import { reviewableRangeUpgrade } from "@/components/plugin/management/plugin-status";
 import {
   PluginDetailReleaseControl,
   PluginDetailReleaseStatus,
@@ -47,12 +50,23 @@ import {
 import { pluginRuntimeStatusPresentation } from "@/components/plugin/management/plugin-status";
 import { PluginCatalogInstallControl } from "@/components/plugin/management/PluginCatalogInstallControl";
 import {
+  useCancelPluginInstallJob,
+  useCatalogEntryInstallJob,
+} from "@/hooks/queries/plugin-install-job-queries";
+import {
+  catalogEntryDetailKey,
+  catalogEntryInstallBlocker,
+} from "@/components/plugin/management/installed-plugin-catalog";
+import {
   PluginHealthBanner,
   PluginIncludes,
   PluginSchedules,
   PluginServices,
 } from "@/components/tools/PluginCapabilities";
-import { PluginBannerBar } from "@/components/tools/plugin-detail-banner";
+import {
+  PluginBannerBar,
+  PluginBannerOpenButton,
+} from "@/components/tools/plugin-detail-banner";
 import {
   usePluginSource,
   usePluginUpdateCheck,
@@ -64,7 +78,7 @@ import {
   subscribePluginFrontendDiagnostics,
   type PluginFrontendDiagnostic,
 } from "@/lib/plugin-frontend";
-import { usePluginSlots } from "@/lib/plugin-slots";
+import { usePluginSlotKind } from "@/lib/plugin-slots";
 import { useClipboardCopy } from "@/lib/clipboard";
 
 export function pluginIsLocalSource(plugin: PluginListItem): boolean {
@@ -83,10 +97,12 @@ export function pluginRemovalDescription(plugin: PluginListItem): string {
 
 function PluginLocalSource({
   path,
+  notice,
   openDisabled,
   onOpen,
 }: {
   path: string;
+  notice: string | null;
   openDisabled: boolean;
   onOpen: () => void;
 }) {
@@ -136,6 +152,15 @@ function PluginLocalSource({
           />
         </div>
       </div>
+      {notice === null ? null : (
+        <p
+          className="mt-2 flex items-start gap-1.5 text-2xs leading-snug text-subtle-foreground"
+          data-testid="plugin-source-notice"
+        >
+          <Icon name="Info" className="mt-0.5 size-3 shrink-0" aria-hidden />
+          <span className="min-w-0 break-words">{notice}</span>
+        </p>
+      )}
     </ResourceDefinitionSection>
   );
 }
@@ -157,13 +182,21 @@ export function CatalogPluginDetail({
   catalogEntries: readonly PluginCatalogSearchEntry[];
   onOpenPlugin: (pluginId: string) => void;
 }) {
-  const count = pluginInstallCountPresentation(entry.installs);
+  const presentation = pluginInstallCountPresentation(entry);
+  const count = presentation?.tone === "count" ? presentation : undefined;
+  const installBlocker = catalogEntryInstallBlocker(entry);
+  const installJob = useCatalogEntryInstallJob(entry);
+  const { mutate: cancelInstall } = useCancelPluginInstallJob();
+  const entryTitle = splitPluginDisplayName(entry.displayName);
   return (
     <ResourceDetailPage
       maxWidthClassName="max-w-5xl"
       leading={<CatalogEntryIconChip entry={entry} compact />}
       leadingClassName="size-6"
-      title={entry.displayName}
+      title={entryTitle.name}
+      titleMeta={
+        entryTitle.tag ? <PluginNameTag tag={entryTitle.tag} /> : undefined
+      }
       metadataLeading={<PluginCardAuthorAvatar entry={entry} />}
       metadata={<PluginMarketplaceByline entry={entry} />}
       actions={
@@ -171,10 +204,12 @@ export function CatalogPluginDetail({
           displayName={entry.displayName}
           installed={false}
           showLabel
-          disabled={!entry.compatible}
-          unavailableReason={entry.incompatibleReason}
+          disabled={installBlocker !== null}
+          unavailableReason={installBlocker}
           count={count}
           onInstall={() => onInstall(entry)}
+          installJob={installJob}
+          onCancelInstall={cancelInstall}
         />
       }
     >
@@ -192,16 +227,34 @@ export function CatalogPluginDetail({
 
 export function CatalogPluginDetailBanner({
   entry,
+  onOpenPlugin,
 }: {
   entry: PluginCatalogSearchEntry;
+  onOpenPlugin: (pluginId: string) => void;
 }) {
-  if (entry.incompatibleReason === null) return null;
+  if (entry.incompatibleReason !== null) {
+    return (
+      <PluginBannerBar
+        tone="warning"
+        icon="AlertTriangle"
+        title="Update cc to install this plugin"
+        detail={entry.incompatibleReason}
+      />
+    );
+  }
+  if (entry.conflictingInstallSource === null) return null;
   return (
     <PluginBannerBar
       tone="warning"
       icon="AlertTriangle"
-      title="Update cc to install this plugin"
-      detail={entry.incompatibleReason}
+      title="Another plugin uses this ID"
+      detail={`remove the installed “${entry.pluginId}” to install this one.`}
+      action={
+        <PluginBannerOpenButton
+          label="View installed plugin"
+          onClick={() => onOpenPlugin(entry.pluginId)}
+        />
+      }
     />
   );
 }
@@ -234,9 +287,13 @@ export function pluginFrontendDiagnosticRequiresFailureBanner(
 export function PluginDetailBanners({
   plugin,
   configurationPath,
+  catalogEntries,
+  onOpenPlugin,
 }: {
   plugin: PluginListItem;
   configurationPath?: string;
+  catalogEntries: readonly PluginCatalogSearchEntry[];
+  onOpenPlugin: (pluginId: string) => void;
 }) {
   const frontendDiagnostics = useSyncExternalStore(
     subscribePluginFrontendDiagnostics,
@@ -245,13 +302,35 @@ export function PluginDetailBanners({
   );
   const frontendDiagnostic = frontendDiagnostics.get(plugin.id);
   const banner = pluginHealthBannerState(plugin, frontendDiagnostic);
-  if (banner === null) return null;
+  const publishedListing = catalogEntries.find(
+    (entry) =>
+      entry.pluginId === plugin.id && entry.conflictingInstallSource !== null,
+  );
   return (
-    <PluginHealthBanner
-      plugin={banner.plugin}
-      configurationPath={configurationPath}
-      runtimeStatus={pluginRuntimeStatusPresentation(banner.plugin)}
-    />
+    <>
+      {banner === null ? null : (
+        <PluginHealthBanner
+          plugin={banner.plugin}
+          configurationPath={configurationPath}
+          runtimeStatus={pluginRuntimeStatusPresentation(banner.plugin)}
+        />
+      )}
+      {publishedListing === undefined ? null : (
+        <PluginBannerBar
+          tone="muted"
+          icon="Info"
+          title={`Also published in ${publishedListing.marketplaceDisplayName}`}
+          action={
+            <PluginBannerOpenButton
+              label="View listing"
+              onClick={() =>
+                onOpenPlugin(catalogEntryDetailKey(publishedListing))
+              }
+            />
+          }
+        />
+      )}
+    </>
   );
 }
 
@@ -285,7 +364,7 @@ export function PluginDetail({
   configurationPath?: string;
 }) {
   const navigate = useNavigate();
-  const { settingsSections } = usePluginSlots();
+  const settingsSections = usePluginSlotKind("settingsSections");
   const sourceQuery = usePluginSource(plugin?.id ?? "", {
     enabled: plugin !== null && !plugin.source.startsWith("builtin:"),
   });
@@ -326,17 +405,21 @@ export function PluginDetail({
         ? "Loading…"
         : "Install date unavailable";
   const hasReleaseControl =
-    hasUpdateManagement && plugin.updateState.availableVersion !== null;
+    hasUpdateManagement &&
+    (plugin.updateState.availableVersion !== null ||
+      reviewableRangeUpgrade(plugin) !== null);
   const hasReleaseUpdate =
     hasUpdateManagement &&
     (plugin.updateState.availableVersion !== null ||
       plugin.updateState.blockedVersion !== null ||
+      plugin.updateState.rangeUpgrade !== null ||
       plugin.updateState.lastFailure !== null);
   const hasConfiguration =
     plugin.hasSettings ||
     settingsSections.some((section) => section.pluginId === plugin.id);
 
   const pluginName = plugin.name ?? plugin.id;
+  const pluginTitle = splitPluginDisplayName(pluginName);
   const overflowItems: ResourceOverflowMenuItem[] = [
     ...(canEditSource
       ? [
@@ -370,7 +453,10 @@ export function PluginDetail({
     <ResourceDetailPage
       maxWidthClassName="max-w-5xl"
       leading={<PluginLogo plugin={plugin} className="size-4" />}
-      title={pluginName}
+      title={pluginTitle.name}
+      titleMeta={
+        pluginTitle.tag ? <PluginNameTag tag={pluginTitle.tag} /> : undefined
+      }
       metadataLeading={
         bylineEntry === undefined ? undefined : (
           <PluginCardAuthorAvatar entry={bylineEntry} />
@@ -387,13 +473,15 @@ export function PluginDetail({
             label={`${pluginName} settings`}
             tooltipLabel="Settings"
             icon="Settings"
-            onClick={() =>
-              onConfigure
-                ? onConfigure()
-                : navigate(
-                    getPluginConfigurationRoutePath({ pluginId: plugin.id }),
-                  )
-            }
+            onClick={() => {
+              if (onConfigure) {
+                onConfigure();
+                return;
+              }
+              void navigate(
+                getPluginConfigurationRoutePath({ pluginId: plugin.id }),
+              );
+            }}
           />
         ) : undefined
       }
@@ -430,6 +518,7 @@ export function PluginDetail({
         {canEditSource ? (
           <PluginLocalSource
             path={plugin.rootDir}
+            notice={plugin.sourceNotice}
             openDisabled={pending || openSourceDisabled}
             onOpen={() => onOpenSource(plugin)}
           />

@@ -1,44 +1,64 @@
 {
   "name": "cc-plugin-provider-codex",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Run cc threads with Codex.",
   "engines": {
     "cc": ">=0.0",
-    "ccPluginSdk": ">=0.5.23"
+    "ccPluginSdk": ">=0.6.86"
   },
   "cc": {
     "name": "Codex provider",
     "description": "Run cc threads with Codex.",
     "branding": {
-      "icon": "./icons/codex.svg"
+      "icon": "./icons/codex.svg",
+      "experimental_icons": {
+        "ultrafast": "./icons/ultrafast.svg"
+      }
     },
     "server": "./server.ts",
-    "host": "./src/host.ts"
+    "app": "./app.tsx",
+    "host": "./src/host.ts",
+    "experimental_providers": [
+      {
+        "kind": "agent",
+        "id": "codex",
+        "displayName": "Codex"
+      }
+    ]
   },
   "keywords": [
     "cc-plugin"
   ],
   "scripts": {
     "test": "vitest run --config vitest.config.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsrs --noEmit",
+    "lint:type-aware": "oxlint -c ../../.oxlintrc.type-aware.json",
     "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
     "prepare:bundled": "cc-plugin-build prepare-bundled"
   },
   "devDependencies": {
     "@cc/plugin-build": "workspace:*",
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.0.0",
-    "better-sqlite3": "12.10.0",
-    "cron-parser": "^5.5.0",
-    "hono": "4.11.9",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "better-sqlite3": "12.11.1",
+    "cron-parser": "^5.10.3",
+    "hono": "4.13.16",
+    "jsdom": "^29.1.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-7": "npm:typescript@^7.0.2",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.12"
   },
   "dependencies": {
+    "@cc/shared-ui": "workspace:*",
     "@codythatsme/plugin-sdk": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   }
 }

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PluginThreadPanelOpenHandler } from "@/components/plugin/plugin-thread-panel-navigation";
+import type { AppPanelController } from "@/lib/app-fixed-tab-navigation";
+import { UNAVAILABLE_APP_PANEL_CONTROLLER } from "@/lib/app-fixed-tab-navigation";
 import type { PluginCommandPaletteActionSlot } from "@/lib/plugin-slots";
 import {
   resetPluginLogoStoreForTest,
@@ -7,10 +8,16 @@ import {
 } from "@/lib/plugin-logos";
 import { buildPluginPaletteActions } from "./palette-plugin-actions";
 
+type AppCommandSlot = Extract<
+  PluginCommandPaletteActionSlot,
+  { target: "app" }
+>;
+
 function slot(
-  overrides: Partial<PluginCommandPaletteActionSlot> & { id: string },
-): PluginCommandPaletteActionSlot {
+  overrides: Partial<AppCommandSlot> & { id: string },
+): AppCommandSlot {
   return {
+    target: "app",
     defaultShortcut: null,
     pluginId: "linear",
     generation: 1,
@@ -21,14 +28,14 @@ function slot(
 }
 
 function build(
-  slots: PluginCommandPaletteActionSlot[],
-  openThreadPanel: PluginThreadPanelOpenHandler | null = null,
+  slots: AppCommandSlot[],
+  panel: AppPanelController | null = null,
 ) {
   return buildPluginPaletteActions({
     slots,
     threadId: "thr_1",
     projectId: "proj_1",
-    openThreadPanel,
+    panel,
   });
 }
 
@@ -85,36 +92,40 @@ describe("buildPluginPaletteActions", () => {
     warn.mockRestore();
   });
 
-  it("routes openPanel to the focused thread view, or declines without one", () => {
-    const openThreadPanel: PluginThreadPanelOpenHandler = vi.fn(() => true);
-    const opened: boolean[] = [];
-    build(
-      [
-        slot({
-          id: "panel",
-          run: ({ openPanel }) => {
-            opened.push(openPanel({ actionId: "issue-panel" }));
-          },
-        }),
-      ],
-      openThreadPanel,
-    )[0]?.run();
-    expect(openThreadPanel).toHaveBeenCalledWith({
-      actionId: "issue-panel",
-      pluginId: "linear",
-    });
-    expect(opened).toEqual([true]);
+  it("routes experimental_panel and the retired openPanel to the focused surface's controller, or declines without one", () => {
+    const panel: AppPanelController = {
+      ...UNAVAILABLE_APP_PANEL_CONTROLLER,
+      openTab: vi.fn(() => true),
+      toggleTab: vi.fn(() => true),
+      close: vi.fn(() => true),
+    };
+    const issueTab = {
+      id: "issue-panel",
+      context: { kind: "thread" },
+      availability: "action",
+    } as const;
+    const results: boolean[] = [];
+    const run = (
+      context: Parameters<AppCommandSlot["run"]>[0] & {
+        openPanel?: (options: { actionId: string }) => boolean;
+      },
+    ) => {
+      results.push(
+        context.experimental_panel.toggleTab({ tab: issueTab }),
+        context.experimental_panel.close(),
+        context.openPanel?.({ actionId: "issue-panel" }) ?? false,
+      );
+    };
+    build([slot({ id: "panel", run })], panel)[0]?.run();
+    const intent = {
+      tab: { ownerId: "plugin-thread:linear", tabId: "issue-panel" },
+      availability: "action",
+    };
+    expect(panel.toggleTab).toHaveBeenCalledWith(intent);
+    expect(panel.openTab).toHaveBeenCalledWith(intent);
+    expect(results).toEqual([true, true, true]);
 
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    build([
-      slot({
-        id: "panel",
-        run: ({ openPanel }) => {
-          opened.push(openPanel({ actionId: "issue-panel" }));
-        },
-      }),
-    ])[0]?.run();
-    expect(opened).toEqual([true, false]);
-    warn.mockRestore();
+    build([slot({ id: "panel", run })])[0]?.run();
+    expect(results).toEqual([true, true, true, false, false, false]);
   });
 });

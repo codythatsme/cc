@@ -10,7 +10,7 @@ import { pathExists } from "./fs.js";
 
 export type LauncherProcessOps = Pick<
   VerifiedProcessOps,
-  "isRunning" | "readCommand"
+  "isRunning" | "readIdentity"
 >;
 
 export interface LauncherMovedMode {
@@ -24,7 +24,7 @@ export async function isLiveCcAppRuntime(
   if (!processOps.isRunning(runtime.pid)) {
     return false;
   }
-  const command = await processOps.readCommand(runtime.pid);
+  const command = (await processOps.readIdentity(runtime.pid))?.command ?? null;
   return (
     command !== null &&
     ccAppRuntimeVerifyTokens(runtime.entryPath).some(

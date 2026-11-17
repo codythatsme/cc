@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { ThreadListEntry } from "@cc/domain";
 import { Button } from "@cc/shared-ui/button";
+import { ProjectSelector } from "@/components/pickers/ProjectSelector";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,7 @@ import {
   ThreadTitle,
   useResolveThreadTitle,
 } from "@/components/thread/ThreadTitleMentions";
+import { CHILD_THREAD_NOUN } from "@/lib/child-thread-copy";
 
 const ALL_PROJECTS = "all";
 const ARCHIVED_THREAD_SEARCH_LIMIT = 50;
@@ -38,7 +40,7 @@ const KIND_OPTIONS: ReadonlyArray<{
   value: ArchivedThreadsKindFilter;
 }> = [
   { label: "All threads", value: "all" },
-  { label: "Root threads", value: "root" },
+  { label: "Threads", value: "root" },
   { label: "Child threads", value: "child" },
 ];
 
@@ -136,16 +138,6 @@ export function ArchivedThreadsSettingsSection() {
     () => new Map(projects.map((project) => [project.id, project.name])),
     [projects],
   );
-  const projectOptions = useMemo(
-    () => [
-      { label: "All projects", value: ALL_PROJECTS },
-      ...projects.map((project) => ({
-        label: project.name,
-        value: project.id,
-      })),
-    ],
-    [projects],
-  );
 
   const archivedThreads = useMemo(() => {
     const threads = searchIsActive
@@ -185,9 +177,6 @@ export function ArchivedThreadsSettingsSection() {
   const selectedKindLabel =
     KIND_OPTIONS.find((option) => option.value === kind)?.label ??
     "All threads";
-  const selectedProjectLabel =
-    projectOptions.find((option) => option.value === projectId)?.label ??
-    "All projects";
   const isInitialLoading = searchIsActive
     ? threadSearch.isDebouncing ||
       (threadSearch.isLoading && threadSearch.data === undefined)
@@ -225,12 +214,14 @@ export function ArchivedThreadsSettingsSection() {
           options={KIND_OPTIONS}
           value={kind}
         />
-        <ArchiveFilterMenu
-          icon="Folder"
-          label={selectedProjectLabel}
-          onChange={setProjectId}
-          options={projectOptions}
+        <ProjectSelector
+          projects={projects}
           value={projectId}
+          onChange={(value) => setProjectId(value ?? ALL_PROJECTS)}
+          allProjectsValue={ALL_PROJECTS}
+          variant="outline"
+          modal={false}
+          className="min-w-36 justify-between gap-2 px-3 font-normal"
         />
       </div>
 
@@ -274,7 +265,14 @@ export function ArchivedThreadsSettingsSection() {
                         <ThreadTitle title={getThreadDisplayTitle(thread)} />
                         {thread.parentThreadId !== null ? (
                           <Pill variant="outline" className="shrink-0">
-                            child
+                            <span className="inline-flex items-center gap-1 align-middle">
+                              <Icon
+                                name="ChildThread"
+                                className="size-3"
+                                aria-hidden
+                              />
+                              {CHILD_THREAD_NOUN}
+                            </span>
                           </Pill>
                         ) : null}
                       </span>
@@ -312,7 +310,7 @@ export function ArchivedThreadsSettingsSection() {
           variant="ghost"
           className="h-9 w-full text-sm font-normal text-muted-foreground"
           disabled={archivedThreadsQuery.isFetchingNextPage}
-          onClick={() => archivedThreadsQuery.fetchNextPage()}
+          onClick={() => void archivedThreadsQuery.fetchNextPage()}
         >
           {archivedThreadsQuery.isFetchingNextPage ? "Loading…" : "Load more"}
         </Button>

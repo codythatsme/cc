@@ -27,11 +27,12 @@ const autoDenySessionOptions = {
 let harness: ReturnType<typeof createBridgeJsonRpcTestHarness>;
 let workspaceDir: string;
 let requestLogPath: string;
+let scriptPath: string;
 
 beforeEach(() => {
   workspaceDir = mkdtempSync(join(tmpdir(), "cc-codex-signature-ws-"));
   requestLogPath = join(workspaceDir, "requests.jsonl");
-  const scriptPath = join(workspaceDir, "script.json");
+  scriptPath = join(workspaceDir, "script.json");
   writeFileSync(scriptPath, JSON.stringify({ requestLogPath }));
   stubFakeCodexAppServer(scriptPath);
   harness = createBridgeJsonRpcTestHarness(handleLine);
@@ -79,6 +80,67 @@ it("keeps the constructed session for a turn whose options carry no envVars", as
   expect(
     harness.messages.filter((message) => message.method === "session/replaced"),
   ).toEqual([]);
+}, 30_000);
+
+it("rebuilds the session only when a turn changes or removes an env var", async () => {
+  const original = { CC_TEST_SECRET: "original", CC_TEST_REMOVED: "gone" };
+  harness.sendRequest(1, "thread/start", {
+    threadId: THREAD_ID,
+    cwd: workspaceDir,
+    instructionMode: "append",
+    options: { ...FULL_ACCESS_SESSION_OPTIONS, envVars: original },
+  });
+  const started = await harness.waitForResponse(1);
+  const { providerThreadId } = z
+    .object({ providerThreadId: z.string() })
+    .parse(started.result);
+
+  const turnEnvVars: Record<string, string>[] = [
+    { CC_TEST_REMOVED: "gone", CC_TEST_SECRET: "original" },
+    { CC_TEST_SECRET: "rotated", CC_TEST_REMOVED: "gone" },
+    { CC_TEST_SECRET: "rotated" },
+    { CC_TEST_SECRET: "rotated" },
+  ];
+  const replacementsAfterTurn: number[] = [];
+  for (const [index, envVars] of turnEnvVars.entries()) {
+    const id = index + 2;
+    harness.sendRequest(id, "turn/start", {
+      threadId: THREAD_ID,
+      providerThreadId,
+      clientRequestId: `creq_envswapxx${id}`,
+      input: [{ type: "text", text: "say hello", mentions: [] }],
+      options: { ...FULL_ACCESS_SESSION_OPTIONS, envVars },
+    });
+    expect((await harness.waitForResponse(id)).error).toBeUndefined();
+    replacementsAfterTurn.push(
+      harness.messages.filter(
+        (message) => message.method === "session/replaced",
+      ).length,
+    );
+  }
+
+  expect(replacementsAfterTurn).toEqual([0, 1, 2, 2]);
+  const resumeConfigs = recordedRequests()
+    .filter((request) => request.method === "thread/resume")
+    .map((request) =>
+      z
+        .object({ config: z.record(z.string(), z.unknown()) })
+        .parse(request.params),
+    )
+    .map(({ config }) =>
+      Object.fromEntries(
+        Object.entries(config).filter(([key]) =>
+          key.startsWith("shell_environment_policy.set.CC_TEST_"),
+        ),
+      ),
+    );
+  expect(resumeConfigs).toEqual([
+    {
+      "shell_environment_policy.set.CC_TEST_SECRET": "rotated",
+      "shell_environment_policy.set.CC_TEST_REMOVED": "gone",
+    },
+    { "shell_environment_policy.set.CC_TEST_SECRET": "rotated" },
+  ]);
 }, 30_000);
 
 it("keeps an auto-reviewed session when only escalation intent changes", async () => {
@@ -142,7 +204,11 @@ it("clears Fast for the next turn without replacing the session", async () => {
       options: { ...FULL_ACCESS_SESSION_OPTIONS, serviceTier },
     });
     expect((await harness.waitForResponse(id)).error).toBeUndefined();
-    expect(recordedRequests().at(-1)).toEqual({
+    expect(
+      recordedRequests()
+        .filter((request) => request.method === "turn/start")
+        .at(-1),
+    ).toEqual({
       method: "turn/start",
       params: expect.objectContaining({
         serviceTier: serviceTier === "default" ? null : "fast",
@@ -173,3 +239,278 @@ it.each(["start", "resume", "fork"] as const)(
   },
   30_000,
 );
+
+it.each([
+  {
+    before: FULL_ACCESS_SESSION_OPTIONS,
+    after: autoAskSessionOptions,
+    sandbox: "workspaceWrite",
+    beforeResponse: false,
+    compaction: true,
+  },
+  {
+    before: FULL_ACCESS_SESSION_OPTIONS,
+    after: autoAskSessionOptions,
+    sandbox: "workspaceWrite",
+    beforeResponse: false,
+    compaction: false,
+  },
+  {
+    before: FULL_ACCESS_SESSION_OPTIONS,
+    after: autoAskSessionOptions,
+    sandbox: "workspaceWrite",
+    beforeResponse: true,
+    compaction: false,
+  },
+  {
+    before: autoAskSessionOptions,
+    after: FULL_ACCESS_SESSION_OPTIONS,
+    sandbox: "dangerFullAccess",
+    beforeResponse: false,
+    compaction: false,
+  },
+])(
+  "applies $sandbox before steering (start response pending: $beforeResponse, initial compaction: $compaction)",
+  async ({ before, after, sandbox, beforeResponse, compaction }) => {
+    if (compaction)
+      vi.stubEnv("FAKE_CODEX_COMPACTION_MODE", "wait-for-interrupt");
+    writeFileSync(
+      scriptPath,
+      JSON.stringify({
+        requestLogPath,
+        startResponseDelayMs: beforeResponse ? 2000 : 0,
+      }),
+    );
+    harness.sendRequest(1, "thread/start", {
+      threadId: THREAD_ID,
+      cwd: workspaceDir,
+      instructionMode: "append",
+      options: before,
+    });
+    const started = await harness.waitForResponse(1);
+    const { providerThreadId } = z
+      .object({ providerThreadId: z.string() })
+      .parse(started.result);
+    harness.sendRequest(2, "turn/start", {
+      threadId: THREAD_ID,
+      providerThreadId,
+      clientRequestId: "creq_permstart2",
+      input: compaction
+        ? [
+            {
+              type: "text",
+              text: "/compact",
+              mentions: [
+                {
+                  start: 0,
+                  end: 8,
+                  resource: {
+                    kind: "command",
+                    trigger: "/",
+                    name: "compact",
+                    source: "command",
+                    origin: "builtin",
+                    label: "compact",
+                    argumentHint: null,
+                  },
+                },
+              ],
+            },
+          ]
+        : [{ type: "text", text: "/wait-for-interrupt", mentions: [] }],
+      options: before,
+    });
+    if (!beforeResponse) {
+      expect((await harness.waitForResponse(2)).error).toBeUndefined();
+    }
+    await vi.waitFor(() =>
+      expect(harness.messages).toContainEqual(
+        expect.objectContaining({
+          method: "thread/delta",
+          params: expect.objectContaining({
+            deltas: expect.arrayContaining([
+              expect.objectContaining({ kind: "turn.open" }),
+            ]),
+          }),
+        }),
+      ),
+    );
+    if (beforeResponse) {
+      expect(harness.messages.some((message) => message.id === 2)).toBe(false);
+    }
+    harness.sendRequest(3, "turn/steer", {
+      threadId: THREAD_ID,
+      providerThreadId,
+      expectedTurnId: "turn-fx-1",
+      clientRequestId: "creq_permsteer2",
+      input: [
+        {
+          type: "text",
+          text: "Continue with the new permissions",
+          mentions: [],
+        },
+      ],
+      options: after,
+    });
+    expect((await harness.waitForResponse(3)).error).toBeUndefined();
+    expect(
+      harness.messages.filter(
+        (message) => message.method === "session/replaced",
+      ),
+    ).toEqual([]);
+    const requests = recordedRequests();
+    expect(requests.filter((entry) => entry.method === "turn/steer")).toEqual(
+      [],
+    );
+    expect(
+      requests.filter((entry) => entry.method === "turn/interrupt"),
+    ).toHaveLength(1);
+    expect(
+      requests.filter((entry) => entry.method === "turn/start").at(-1)?.params,
+    ).toMatchObject({
+      threadId: providerThreadId,
+      sandboxPolicy: { type: sandbox },
+    });
+  },
+  30_000,
+);
+
+it("applies follow-up permission changes in both directions without replacing the app-server", async () => {
+  harness.sendRequest(1, "thread/start", {
+    threadId: THREAD_ID,
+    cwd: workspaceDir,
+    instructionMode: "append",
+    options: FULL_ACCESS_SESSION_OPTIONS,
+  });
+  const started = await harness.waitForResponse(1);
+  expect(started.error).toBeUndefined();
+  const { providerThreadId } = z
+    .object({ providerThreadId: z.string() })
+    .parse(started.result);
+  const cases = [
+    {
+      options: autoAskSessionOptions,
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
+      sandbox: "workspaceWrite",
+    },
+    {
+      options: FULL_ACCESS_SESSION_OPTIONS,
+      approvalPolicy: "never",
+      approvalsReviewer: "user",
+      sandbox: "dangerFullAccess",
+    },
+    {
+      options: {
+        ...autoAskSessionOptions,
+        permissionMode: "accept-edits",
+        approvalReviewer: "user",
+        permissionEscalation: "deny",
+      },
+      approvalPolicy: "never",
+      approvalsReviewer: "user",
+      sandbox: "workspaceWrite",
+    },
+  ] as const;
+  for (const [index, testCase] of cases.entries()) {
+    const id = index + 2;
+    harness.sendRequest(id, "turn/start", {
+      threadId: THREAD_ID,
+      providerThreadId,
+      clientRequestId: `creq_permtestx${id}`,
+      input: [{ type: "text", text: "say hello", mentions: [] }],
+      options: testCase.options,
+    });
+    expect((await harness.waitForResponse(id)).error).toBeUndefined();
+    expect(
+      recordedRequests()
+        .filter((request) => request.method === "turn/start")
+        .at(-1),
+    ).toMatchObject({
+      method: "turn/start",
+      params: {
+        approvalPolicy: testCase.approvalPolicy,
+        approvalsReviewer: testCase.approvalsReviewer,
+        sandboxPolicy: { type: testCase.sandbox },
+      },
+    });
+  }
+  expect(
+    harness.messages.filter((message) => message.method === "session/replaced"),
+  ).toEqual([]);
+  expect(
+    recordedRequests().filter((request) => request.method === "initialize"),
+  ).toHaveLength(1);
+}, 30_000);
+
+const subagentConfigCases = [
+  { userAgent: "cc/0.136.0 (Linux; x86_64)", modern: false },
+  { userAgent: "cc/0.144.0 (Linux; x86_64)", modern: false },
+  { userAgent: "cc/0.145.0-alpha.1 (Linux; x86_64)", modern: false },
+  { userAgent: "cc/0.145.0 (Linux; x86_64)", modern: true },
+  { userAgent: "cc/0.169.0 (Mac OS 27.2.1; arm64)", modern: true },
+  { userAgent: "unrecognized", modern: false },
+  { userAgent: "cc/0.145.00 (Linux; x86_64)", modern: false },
+  { userAgent: "unrecognized (OS 99.99.99)", modern: false },
+  { userAgent: undefined, modern: false },
+];
+
+for (const method of [
+  "thread/start",
+  "thread/resume",
+  "thread/fork",
+] as const) {
+  it.each(subagentConfigCases)(
+    `${method} selects compatible subagent configuration for $userAgent`,
+    async ({ userAgent, modern }) => {
+      writeFileSync(
+        scriptPath,
+        JSON.stringify({
+          requestLogPath,
+          initializeResult: { userAgent },
+        }),
+      );
+      harness.sendRequest(1, method, {
+        threadId: THREAD_ID,
+        cwd: workspaceDir,
+        instructionMode: "append",
+        ...(method === "thread/resume"
+          ? { providerThreadId: "existing-thread" }
+          : {}),
+        ...(method === "thread/fork"
+          ? { sourceProviderThreadId: "existing-thread" }
+          : {}),
+        options: {
+          ...FULL_ACCESS_SESSION_OPTIONS,
+          providerOptions: { providerSubagentsEnabled: false },
+        },
+      });
+      expect((await harness.waitForResponse(1)).error).toBeUndefined();
+      const request = recordedRequests().find(
+        (entry) => entry.method === method,
+      );
+      const { config } = z
+        .object({ config: z.record(z.string(), z.unknown()) })
+        .parse(request?.params);
+      expect(
+        Object.fromEntries(
+          Object.entries(config).filter(
+            ([key]) =>
+              key.startsWith("features.multi_agent") ||
+              key === "agents.enabled",
+          ),
+        ),
+      ).toEqual(
+        modern
+          ? {
+              "agents.enabled": false,
+              "features.multi_agent_v2": false,
+            }
+          : {
+              "features.multi_agent": false,
+              "features.multi_agent_v2.max_concurrent_threads_per_session": 1,
+            },
+      );
+    },
+  );
+}

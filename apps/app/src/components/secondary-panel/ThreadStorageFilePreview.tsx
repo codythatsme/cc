@@ -4,7 +4,10 @@ import {
   type FilePreviewState,
   type TextFilePreviewKind,
 } from "./FilePreview";
+import { useEffect } from "react";
+import { CcSourceCodeSplit } from "@/components/code/CcSourceCodeSplit";
 import { hashSourceContents } from "@/components/code/source-code-budget";
+import { useRequestPierreWorkerPool } from "@/lib/pierre-worker-pool-gate";
 import type { MarkdownLinkRouting } from "@/components/ui/markdown-link-routing.js";
 import { asHttpError, getHttpErrorMessage } from "@/lib/http-error";
 import { extractErrorMessage } from "@cc/core-ui";
@@ -12,9 +15,9 @@ import type {
   FilePreview,
   FilePreviewLineRange,
   TextFilePreview,
-  WorkspaceFilePreviewStatusLabel,
 } from "@cc/client-core";
 import {
+  FILE_PREVIEW_HTML_MAX_BYTES,
   isCsvFilePreview,
   isHtmlFilePreviewPath,
   isMarkdownFilePreview,
@@ -35,7 +38,7 @@ interface SecondaryPanelFilePreviewProps {
   onSelectionAddToChat?: (text: string) => void;
   onOpenInEditor?: (path: string) => void;
   onRefresh?: () => void;
-  statusLabel?: WorkspaceFilePreviewStatusLabel | null;
+  statusLabel?: string | null;
 }
 
 interface BuildTextPreviewFileArgs {
@@ -104,28 +107,26 @@ function resolveSecondaryPanelFilePreviewState({
   isLoading,
   lineRange,
 }: ResolveSecondaryPanelFilePreviewStateArgs): FilePreviewState {
-  if (error) {
-    if (asHttpError(error)?.status === 404) {
-      return { kind: "not-found" };
-    }
+  const hasCurrentPreview = filePreview?.path === activePath;
+  if (asHttpError(error)?.status === 404) {
+    return { kind: "not-found" };
+  }
+  if (error && !hasCurrentPreview) {
     const message = resolveFilePreviewErrorMessage(error);
     return message === null ? { kind: "error" } : { kind: "error", message };
   }
 
-  if (isLoading || !filePreview || filePreview.path !== activePath) {
+  if (isLoading || !filePreview || !hasCurrentPreview) {
     return { kind: "loading" };
   }
 
-  if (htmlPreviewUrl !== null && isHtmlFilePreviewPath(activePath)) {
-    if (filePreview.kind !== "text") {
-      return {
-        kind: "iframe",
-        sandbox: GENERIC_HTML_IFRAME_SANDBOX,
-        title: activePath,
-        url: htmlPreviewUrl,
-      };
-    }
-
+  if (
+    htmlPreviewUrl !== null &&
+    isHtmlFilePreviewPath(activePath) &&
+    filePreview.kind === "text" &&
+    new TextEncoder().encode(filePreview.content).byteLength <=
+      FILE_PREVIEW_HTML_MAX_BYTES
+  ) {
     return {
       kind: "html",
       file: buildTextPreviewFile({ activePath, filePreview }),
@@ -160,7 +161,13 @@ function resolveSecondaryPanelFilePreviewState({
 
   return {
     kind: "unsupported",
-    message: `Preview not available for ${filePreview.mimeType}.`,
+    file: {
+      mimeType: filePreview.mimeType,
+      name: filePreview.name ?? activePath.split("/").at(-1) ?? activePath,
+      reason: filePreview.reason,
+      sizeBytes: filePreview.sizeBytes,
+      url: filePreview.url,
+    },
   };
 }
 
@@ -179,6 +186,11 @@ export function SecondaryPanelFilePreview({
   onRefresh,
   statusLabel = null,
 }: SecondaryPanelFilePreviewProps) {
+  const requestCodeWorkers = useRequestPierreWorkerPool();
+  useEffect(() => {
+    void CcSourceCodeSplit.preload();
+    requestCodeWorkers();
+  }, [requestCodeWorkers]);
   const state = resolveSecondaryPanelFilePreviewState({
     activePath,
     error,
@@ -190,6 +202,19 @@ export function SecondaryPanelFilePreview({
   return (
     <FilePreviewSurface
       path={activePath}
+      download={
+        filePreview &&
+        state.kind !== "loading" &&
+        state.kind !== "not-found" &&
+        state.kind !== "error"
+          ? {
+              url: filePreview.url,
+              fileName:
+                (filePreview.name ?? activePath).split(/[\\/]/).at(-1) ??
+                activePath,
+            }
+          : null
+      }
       copyPath={copyPath}
       onSelectionAddToChat={onSelectionAddToChat}
       onOpenInEditor={onOpenInEditor}

@@ -1,21 +1,26 @@
 import { eq } from "drizzle-orm";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { noopNotifier } from "../../src/notifier.js";
 import type { DbNotifier } from "../../src/notifier.js";
 import {
+  recordProvisionedEnvironmentWorkspace,
+} from "../../src/data/environment-lifecycle.js";
+import {
+  bindEnvironmentPath,
+  claimEnvironmentPath,
   createEnvironment,
-  findForeignManagedEnvironmentAtHostPath,
+  findProjectEnvironmentByHostPath,
   findProviderEnvironmentContainingPath,
   listRetiredLoadedEnvironmentIdsOnHost,
   markHostEnvironmentsDestroyed,
   recordEnvironmentCurrentBranch,
-  recordProvisionedEnvironmentWorkspace,
+  reserveEnvironment,
   updateEnvironmentMetadata,
 } from "../../src/data/environments.js";
 import { environments } from "../../src/schema.js";
 import { createProject } from "../../src/data/projects.js";
 import { updateHost, upsertHost } from "../../src/data/hosts.js";
-import { createMigratedConnection } from "../helpers/migrated-connection.js";
+import { createMigratedConnection } from "../../src/testing.js";
 
 function setup() {
   const db = createMigratedConnection();
@@ -68,6 +73,9 @@ describe("environments", () => {
 
   it("marks every environment on a removed host as destroyed history", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     vi.setSystemTime(25_000);
     const { db, host, project } = setup();
     const first = createEnvironment(db, noopNotifier, {
@@ -275,13 +283,12 @@ describe("environments", () => {
       environment.id,
       {
         branchName: "feature/current",
-        defaultBranch: "trunk",
       },
     );
 
     expect(updated).toMatchObject({
       branchName: "feature/current",
-      defaultBranch: "trunk",
+      defaultBranch: "main",
       baseBranch: null,
       mergeBaseBranch: null,
     });
@@ -396,6 +403,49 @@ describe("environment path claims", () => {
     });
   }
 
+  it.each(["provisioning", "ready"] as const)(
+    "keeps a %s environment's setup state when a preparing environment binds to its path",
+    (status) => {
+      const fixture = setup();
+      const existing = seedClaim(fixture, {
+        environmentProviderId: "project-checkout",
+        path: "/tmp/shared-checkout",
+        providerOwnsPath: false,
+      });
+      fixture.db
+        .update(environments)
+        .set({ status, statusMessage: "Running setup", pendingLog: "output" })
+        .where(eq(environments.id, existing.id))
+        .run();
+      const preparing = reserveEnvironment(fixture.db, {
+        projectId: fixture.project.id,
+        hostId: fixture.host.id,
+        ownerThreadId: "thread-adopter",
+        providerOwnsPath: false,
+        status: "creating",
+        statusMessage: "Creating environment",
+      });
+      expect(
+        claimEnvironmentPath(fixture.db, preparing, "/tmp/shared-checkout"),
+      ).toBe(true);
+
+      const bound = bindEnvironmentPath(
+        fixture.db,
+        { ...preparing, claimPath: "/tmp/shared-checkout" },
+        "/tmp/shared-checkout",
+      );
+
+      expect(bound).toMatchObject({
+        id: existing.id,
+        status,
+        ownerThreadId: "thread-adopter",
+        claimPath: "/tmp/shared-checkout",
+        statusMessage:
+          status === "provisioning" ? "Running setup" : "Creating environment",
+      });
+    },
+  );
+
   it("claims a path only for a provider that owns the directory", () => {
     const fixture = setup();
     seedClaim(fixture, {
@@ -420,40 +470,115 @@ describe("environment path claims", () => {
     ).toBe(owned.id);
   });
 
-  it("refuses a foreign project only inside a directory a provider owns", () => {
+  it("matches a Windows path without regard to case", () => {
     const fixture = setup();
-    const { project: other } = createProject(fixture.db, noopNotifier, {
-      name: "other-project",
-      source: {
-        type: "local_path",
-        hostId: fixture.host.id,
-        path: "/tmp/other",
-      },
-    });
-    seedClaim(fixture, {
-      environmentProviderId: "project-checkout",
-      path: "/tmp/shared-checkout",
-      providerOwnsPath: false,
-    });
     const owned = seedClaim(fixture, {
       environmentProviderId: "git-worktree",
-      path: "/tmp/owned-worktree",
+      path: "C:\\src\\Owned",
       providerOwnsPath: true,
     });
 
     expect(
-      findForeignManagedEnvironmentAtHostPath(fixture.db, {
-        hostId: fixture.host.id,
-        path: "/tmp/shared-checkout",
-        projectId: other.id,
-      }),
+      findProviderEnvironmentContainingPath(fixture.db, "C:\\src\\owned")?.id,
+    ).toBe(owned.id);
+    expect(
+      findProviderEnvironmentContainingPath(
+        fixture.db,
+        "C:\\SRC\\owned\\packages\\app",
+      )?.id,
+    ).toBe(owned.id);
+    expect(
+      findProviderEnvironmentContainingPath(fixture.db, "C:\\src\\owned-other"),
     ).toBeNull();
     expect(
-      findForeignManagedEnvironmentAtHostPath(fixture.db, {
-        hostId: fixture.host.id,
-        path: "/tmp/owned-worktree",
-        projectId: other.id,
-      })?.id,
+      findProjectEnvironmentByHostPath(
+        fixture.db,
+        fixture.project.id,
+        fixture.host.id,
+        "C:\\SRC\\OWNED",
+      )?.id,
     ).toBe(owned.id);
+  });
+
+  it("keeps POSIX path lookups case-sensitive", () => {
+    const fixture = setup();
+    seedClaim(fixture, {
+      environmentProviderId: "git-worktree",
+      path: "/tmp/Owned",
+      providerOwnsPath: true,
+    });
+
+    expect(
+      findProjectEnvironmentByHostPath(
+        fixture.db,
+        fixture.project.id,
+        fixture.host.id,
+        "/tmp/owned",
+      ),
+    ).toBeNull();
+    expect(
+      findProviderEnvironmentContainingPath(fixture.db, "/tmp/owned/pkg"),
+    ).toBeNull();
+  });
+
+  it("matches a Windows path with non-ASCII letters without regard to case", () => {
+    const fixture = setup();
+    const owned = seedClaim(fixture, {
+      environmentProviderId: "git-worktree",
+      path: "C:\\src\\Équipe",
+      providerOwnsPath: true,
+    });
+
+    expect(
+      findProjectEnvironmentByHostPath(
+        fixture.db,
+        fixture.project.id,
+        fixture.host.id,
+        "C:\\src\\équipe",
+      )?.id,
+    ).toBe(owned.id);
+    expect(
+      findProviderEnvironmentContainingPath(
+        fixture.db,
+        "c:\\SRC\\ÉQUIPE\\packages",
+      )?.id,
+    ).toBe(owned.id);
+    expect(
+      findProviderEnvironmentContainingPath(fixture.db, "C:\\src\\equipe"),
+    ).toBeNull();
+  });
+
+  it("treats underscores and percent signs in an owned path literally", () => {
+    const fixture = setup();
+    const windowsOwned = seedClaim(fixture, {
+      environmentProviderId: "git-worktree",
+      path: "C:\\repos\\foo_bar%",
+      providerOwnsPath: true,
+    });
+    const posixOwned = seedClaim(fixture, {
+      environmentProviderId: "git-worktree",
+      path: "/repos/foo_bar%",
+      providerOwnsPath: true,
+    });
+
+    expect(
+      findProviderEnvironmentContainingPath(
+        fixture.db,
+        "C:\\repos\\fooXbarYZ\\child",
+      ),
+    ).toBeNull();
+    expect(
+      findProviderEnvironmentContainingPath(
+        fixture.db,
+        "C:\\repos\\foo_bar%\\child",
+      )?.id,
+    ).toBe(windowsOwned.id);
+    expect(
+      findProviderEnvironmentContainingPath(fixture.db, "/repos/fooXbarYZ/child"),
+    ).toBeNull();
+    expect(
+      findProviderEnvironmentContainingPath(fixture.db, "/repos/foo_bar%/child")
+        ?.id,
+    ).toBe(posixOwned.id);
   });
 });

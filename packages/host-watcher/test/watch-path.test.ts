@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import parcelWatcher from "@parcel/watcher";
+import { makeTempDir } from "@cc/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as pathExistsModule from "../src/path-exists.js";
 import { watchPathChanges as watchPathChangesImpl } from "../src/watch-path.js";
@@ -30,7 +31,6 @@ interface ImportWatchPathOptions {
 
 type Sleep = (durationMs: number) => Promise<void>;
 
-const tempDirs: string[] = [];
 const sleep: Sleep = (durationMs) =>
   new Promise((resolve) => {
     setTimeout(() => {
@@ -42,12 +42,6 @@ async function settleAsyncWatchWork(): Promise<void> {
   await Promise.resolve();
   await sleep(0);
   await Promise.resolve();
-}
-
-async function makeTempDir(prefix: string): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
-  tempDirs.push(dir);
-  return dir;
 }
 
 async function waitFor<T>(
@@ -121,11 +115,6 @@ function createEventBatch(paths: string[]): ParcelWatcherEventBatch {
 afterEach(async () => {
   await settleAsyncWatchWork();
   vi.restoreAllMocks();
-  await Promise.all(
-    tempDirs.splice(0).map(async (dir) => {
-      await fs.rm(dir, { force: true, recursive: true });
-    }),
-  );
 });
 
 describe.sequential("watchPathChanges", () => {
@@ -172,11 +161,11 @@ describe.sequential("watchPathChanges", () => {
     });
     expect(onWatchError).not.toHaveBeenCalled();
 
-    stopWatching();
+    await stopWatching();
   });
 
   it("reports a missing watched path once and retries until it appears", async () => {
-    const threadStorageRoot = path.join("/tmp", "cc-watch-path-missing");
+    const threadStorageRoot = path.join(os.tmpdir(), "cc-watch-path-missing");
     let pathExistsCallCount = 0;
     const onWatchError = vi.fn();
     const { rootPaths, watchPathChanges } =
@@ -211,12 +200,12 @@ describe.sequential("watchPathChanges", () => {
       expect(rootPaths).toEqual([threadStorageRoot]);
       expect(onWatchError).toHaveBeenCalledTimes(1);
     } finally {
-      stopWatching();
+      await stopWatching();
     }
   });
 
   it("retries path subscriptions after a startup failure", async () => {
-    const threadStorageRoot = path.join("/tmp", "cc-watch-path-retry");
+    const threadStorageRoot = path.join(os.tmpdir(), "cc-watch-path-retry");
     const onWatchError = vi.fn();
     let shouldFail = true;
     const { rootPaths, subscribeCallCount, watchPathChanges } =
@@ -249,12 +238,12 @@ describe.sequential("watchPathChanges", () => {
 
       expect(rootPaths).toEqual([threadStorageRoot, threadStorageRoot]);
     } finally {
-      stopWatching();
+      await stopWatching();
     }
   });
 
   it("does not retry or unsubscribe after Parcel inotify poll interruptions", async () => {
-    const threadStorageRoot = path.join("/tmp", "cc-watch-path-poll");
+    const threadStorageRoot = path.join(os.tmpdir(), "cc-watch-path-poll");
     const onWatchError = vi.fn();
     const { callbacks, subscribeCallCount, unsubscribe, watchPathChanges } =
       await importWatchPathWithMockedWatcher({
@@ -294,7 +283,7 @@ describe.sequential("watchPathChanges", () => {
   });
 
   it("settles disposal and cleans up a late startup subscription", async () => {
-    const threadStorageRoot = path.join("/tmp", "cc-watch-path-late");
+    const threadStorageRoot = path.join(os.tmpdir(), "cc-watch-path-late");
     const subscriptionDeferred =
       createDeferredPromise<ParcelWatcherSubscribeResult>();
     const unsubscribeDeferred = createDeferredPromise<void>();
@@ -377,7 +366,7 @@ describe.sequential("watchPathChanges", () => {
       ],
     });
 
-    stopWatching();
+    await stopWatching();
   });
 
   it("rescans children without warning when FSEvents drops events", async () => {
@@ -426,7 +415,7 @@ describe.sequential("watchPathChanges", () => {
         ],
       });
     } finally {
-      stopWatching();
+      await stopWatching();
     }
   });
 });

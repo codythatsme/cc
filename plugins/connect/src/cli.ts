@@ -6,25 +6,35 @@ import {
   type PluginCliResult,
 } from "@codythatsme/plugin-sdk";
 import {
+  deriveConnectBaseUrl,
   mobilePairingPayload,
   type MobilePairingPayload,
 } from "@cc/connect-client";
+import {
+  AccountUnavailableError,
+  type AccountClient,
+} from "cc-plugin-cc-account/src/client.js";
+import { accountErrorCode } from "cc-plugin-cc-account/src/schemas.js";
+import type { HostedConnectApi } from "./hosted.js";
 import type { ShareHostResolver } from "./hosts.js";
 import { MachineCodeError } from "./machine-code.js";
-import type { MobilePairingGate } from "./rpc.js";
+import type { RemoteAccessSwitch } from "./rpc.js";
 import { parseSharePort } from "./shares.js";
 import type { ConnectTunnel } from "./tunnel.js";
-import type { ConnectStatus } from "./types.js";
+import type { ConnectStatus, ShareListing } from "./types.js";
 
 const DESCRIPTION = [
   "Remote access through your own connect service — this cc becomes reachable at https://<handle>.cc.example.invalid.",
   "Share HTTP ports from any enrolled host (owner session only).",
   "",
-  "  1. Sign in at https://cc.example.invalid and claim a handle.",
-  "  2. Copy the connect command from the dashboard and run it here:",
-  "       cc connect --code <code> --server https://<handle>.cc.example.invalid",
+  "  1. Sign this cc in to your cc account:",
+  "       cc account login",
+  "     (or paste a dashboard code: cc connect --code <code>, which also turns",
+  "     remote access back on)",
+  "  2. Remote access starts on its own and stays up while cc is running.",
   "",
-  "The server holds the tunnel; it stays up while cc is running.",
+  "`cc connect off` turns remote access off and keeps the account signed in;",
+  "`cc connect on` turns it back on; `cc account logout` forgets the pairing.",
 ].join("\n");
 
 const HOST_OPTION = {
@@ -38,9 +48,38 @@ const JSON_OPTION = {
   description: "Emit machine-readable JSON",
 } as const;
 
+const PAIR_ERROR_TEXT: Record<string, string> = {
+  invalid_code:
+    "that code is invalid or has expired — get a new one from the cc.example.invalid dashboard",
+  expired_code:
+    "that code has expired — get a new one from the cc.example.invalid dashboard",
+  already_used:
+    "that code was already used — get a new one from the cc.example.invalid dashboard",
+  network: "couldn't reach cc.example.invalid — check the connection and try again",
+  unauthorized:
+    "cc.example.invalid rejected the new pairing — get a new code from the cc.example.invalid dashboard and try again",
+  profile_unavailable:
+    "this cc saved the pairing, but cc.example.invalid didn't return your account yet — cc keeps retrying, and remote access starts once it does (see `cc account status`)",
+  superseded:
+    "another sign-in or a sign-out replaced this one — run `cc account status` to see which account this cc uses",
+};
+
+function shareLine(share: ShareListing): string {
+  const address =
+    share.url === ""
+      ? `unavailable: ${share.unavailableReason ?? "unknown reason"}`
+      : share.nextUrl === undefined
+        ? share.url
+        : `${share.url}  ${share.nextUrl}`;
+  return `${share.hostName} (${share.hostId})  ${share.port}  ${address}`;
+}
+
 function formatStatus(status: ConnectStatus): string {
   if (!status.paired) {
-    return "Not paired\nPair from the connect service dashboard — run `cc connect` for a how-to.";
+    return "Not signed in to a cc account\nRun `cc account status` to see why, or `cc account login` to sign in; remote access starts once the account is ready.";
+  }
+  if (!status.enabled) {
+    return `${status.handle}  ${status.url}  off\nRemote access is off. Run \`cc connect on\` to turn it back on.`;
   }
   const lines = [`${status.handle}  ${status.url}  ${status.state}`];
   if (status.lastError !== null && status.state !== "connected") {
@@ -49,9 +88,7 @@ function formatStatus(status: ConnectStatus): string {
   if (status.shares.length > 0) {
     lines.push("  shares:");
     for (const share of status.shares) {
-      lines.push(
-        `    ${share.hostName} (${share.hostId})  ${share.port}  ${share.url || `unavailable: ${share.unavailableReason ?? "unknown reason"}`}`,
-      );
+      lines.push(`    ${shareLine(share)}`);
     }
   }
   return lines.join("\n");
@@ -63,9 +100,20 @@ function asJson(value: unknown): string {
 
 function notPairedError(): PluginCliError {
   return new PluginCliError(
-    "this cc is not connected to your connect service — run `cc connect` for how to pair",
+    "this cc isn't signed in to a cc account — run `cc account login`",
     { code: "not_paired" },
   );
+}
+
+function pairError(error: unknown): PluginCliError {
+  if (error instanceof AccountUnavailableError) {
+    return new PluginCliError(
+      "the cc account plugin isn't running — enable it in Settings → Plugins, then try again",
+      { code: "account_unavailable" },
+    );
+  }
+  const code = accountErrorCode(error);
+  return new PluginCliError(PAIR_ERROR_TEXT[code] ?? code, { code });
 }
 
 function machineCodeError(
@@ -100,7 +148,7 @@ function formatMachineCode(payload: MobilePairingPayload): string {
     `Expires:    ${new Date(payload.expiresAt).toISOString()} (in about ${minutes} min)`,
     "",
     "Enter the code in the cc mobile app when it asks to pair over cc connect (or",
-    "scan the QR code from Settings → Remote access → Add mobile device). The phone",
+    "scan the QR code from Settings → Mobile → Add mobile device). The phone",
     "enrolls as a connect machine on this account — it appears in the cc.example.invalid",
     "dashboard's machine list, where you can revoke it. The code works once.",
   ].join("\n");
@@ -123,36 +171,46 @@ async function attempt(
 export function registerConnectCli(args: {
   cc: Pick<CcPluginApi, "cli">;
   tunnel: ConnectTunnel;
+  account: AccountClient;
+  hosted: HostedConnectApi;
   hostResolver: ShareHostResolver;
-  mobilePairing: MobilePairingGate;
+  remoteAccess: RemoteAccessSwitch;
 }): void {
-  const { cc, tunnel, hostResolver, mobilePairing } = args;
+  const { cc, tunnel, account, hosted, hostResolver, remoteAccess } = args;
   cc.cli.register(
     defineCli({
       name: "connect",
       summary:
-        "Expose this cc at https://<handle>.cc.example.invalid (pair with --code/--server from the dashboard)",
+        "Expose this cc at https://<handle>.cc.example.invalid once it is signed in to your cc account",
       description: DESCRIPTION,
       root: cliCommand({
-        summary: "Pair this cc with a cc.example.invalid handle",
+        summary:
+          "Sign in with a dashboard code (cc account login --code) and turn remote access on",
         options: {
           code: {
             type: "string",
             placeholder: "code",
-            description: "One-time pairing code from the connect service dashboard",
+            description:
+              "One-time pairing code from your connect service dashboard; signs this cc in to your cc account",
           },
           server: {
             type: "string",
             placeholder: "url",
-            description: "Server URL the dashboard printed for the handle",
+            description:
+              "Server URL the dashboard printed, https://<handle>.cc.example.invalid or https://<handle>.cc-staging.example.invalid; only its apex origin is used",
           },
           "base-url": {
             type: "string",
             placeholder: "url",
-            description: "Connect service base URL; only for local testing",
+            description:
+              "cc.example.invalid origin: https://cc.example.invalid or https://cc-staging.example.invalid (development builds also accept http://cc.localhost:<port>)",
           },
           json: JSON_OPTION,
         },
+        constraints: [
+          { kind: "requires", option: "server", needs: ["code"] },
+          { kind: "requires", option: "base-url", needs: ["code"] },
+        ],
         run: (input) =>
           attempt(async () => {
             const code = input.options.code;
@@ -160,12 +218,24 @@ export function registerConnectCli(args: {
               return { exitCode: 0, stdout: input.help };
             }
             const server = input.options.server;
-            const baseUrl = input.options["base-url"];
-            const status = await tunnel.pair({
-              code,
-              ...(server !== undefined ? { serverUrl: server } : {}),
-              ...(baseUrl !== undefined ? { baseUrl } : {}),
-            });
+            const baseUrl =
+              input.options["base-url"] ??
+              (server === undefined ? null : deriveConnectBaseUrl(server));
+            let status: ConnectStatus;
+            try {
+              status = await tunnel.signIn(
+                async () =>
+                  (await account.redeemCode({ code: code.trim(), baseUrl }))
+                    .account,
+              );
+            } catch (error) {
+              const failure = pairError(error);
+              if (failure.code === "profile_unavailable") {
+                await remoteAccess.set(true);
+              }
+              throw failure;
+            }
+            if (!status.enabled) status = await remoteAccess.set(true);
             if (input.options.json) {
               return { exitCode: 0, stdout: asJson(status) };
             }
@@ -173,7 +243,7 @@ export function registerConnectCli(args: {
               exitCode: 0,
               stdout:
                 `Paired as ${status.handle} — reachable at ${status.url}\n` +
-                "The server holds the tunnel; it stays up while cc is running.\n",
+                "This cc is signed in to your cc account (see `cc account status`); the server holds the tunnel while cc is running.\n",
             };
           }),
       }),
@@ -193,16 +263,35 @@ export function registerConnectCli(args: {
             }),
         }),
         off: cliCommand({
-          summary: "Disconnect and forget the pairing",
+          summary: "Turn remote access off and stay signed in",
           description:
-            "Re-pairing needs a new code from the connect service dashboard.",
+            "Closes the tunnel until `cc connect on`. This cc stays signed in to your cc account; `cc account logout` forgets the pairing.",
           options: { json: JSON_OPTION },
           run: (input) =>
             attempt(async () => {
-              const status = await tunnel.disconnect();
+              const status = await remoteAccess.set(false);
               return {
                 exitCode: 0,
-                stdout: input.options.json ? asJson(status) : "Disconnected\n",
+                stdout: input.options.json
+                  ? asJson(status)
+                  : "Remote access is off. This cc stays signed in to your cc account; run `cc connect on` to turn it back on, or `cc account logout` to forget the pairing.\n",
+              };
+            }),
+        }),
+        on: cliCommand({
+          summary: "Turn remote access back on",
+          options: { json: JSON_OPTION },
+          run: (input) =>
+            attempt(async () => {
+              const status = await remoteAccess.set(true);
+              if (input.options.json) {
+                return { exitCode: 0, stdout: asJson(status) };
+              }
+              return {
+                exitCode: 0,
+                stdout: status.paired
+                  ? `Remote access is on — reachable at ${status.url}\n`
+                  : "Remote access is on. Run `cc account login` to sign in; the tunnel starts once you do.\n",
               };
             }),
         }),
@@ -230,7 +319,13 @@ export function registerConnectCli(args: {
               if (input.options.json) {
                 return { exitCode: 0, stdout: asJson(listing) };
               }
-              return { exitCode: 0, stdout: `${listing.url}\n` };
+              return {
+                exitCode: 0,
+                stdout:
+                  listing.nextUrl === undefined
+                    ? `${listing.url}\n`
+                    : `${listing.url}\n${listing.nextUrl}\n`,
+              };
             }),
         }),
         unexpose: cliCommand({
@@ -266,6 +361,29 @@ export function registerConnectCli(args: {
               };
             }),
         }),
+        "unexpose-all": cliCommand({
+          summary: "Stop sharing all HTTP ports on a machine",
+          options: {
+            host: {
+              type: "string",
+              placeholder: "id",
+              description: "Machine ID; defaults to the thread's host",
+            },
+            json: JSON_OPTION,
+          },
+          run: (input, ctx) =>
+            attempt(async () => {
+              const hostId =
+                input.options.host ?? (await hostResolver.resolveId(ctx));
+              const result = await tunnel.unexposeAll(hostId);
+              return {
+                exitCode: 0,
+                stdout: input.options.json
+                  ? asJson(result)
+                  : `Stopped sharing ${result.removed} ports on ${hostId}\n`,
+              };
+            }),
+        }),
         shares: cliCommand({
           summary: "List shared ports and their public URLs",
           suggestFor: ["list", "ls", "ports"],
@@ -286,10 +404,7 @@ export function registerConnectCli(args: {
               if (shares.length === 0) {
                 return { exitCode: 0, stdout: "No shared ports\n" };
               }
-              const lines = shares.map(
-                (share) =>
-                  `${share.hostName} (${share.hostId})  ${share.port}  ${share.url || `unavailable: ${share.unavailableReason ?? "unknown reason"}`}`,
-              );
+              const lines = shares.map(shareLine);
               return { exitCode: 0, stdout: `${lines.join("\n")}\n` };
             }),
         }),
@@ -298,8 +413,9 @@ export function registerConnectCli(args: {
           options: { json: JSON_OPTION },
           run: (input) =>
             attempt(async () => {
-              if (!tunnel.status().paired) throw notPairedError();
-              const result = await tunnel.listAccountServers();
+              const identity = tunnel.getIdentity();
+              if (identity === null) throw notPairedError();
+              const result = await hosted.listAccountServers(identity);
               if (input.options.json) {
                 return { exitCode: 0, stdout: asJson(result) };
               }
@@ -331,20 +447,15 @@ export function registerConnectCli(args: {
         }),
         "machine-code": cliCommand({
           summary:
-            'Mint a one-time code that enrolls the cc mobile app as a connect machine (needs the "Mobile app" experiment)',
+            "Mint a one-time code that enrolls the cc mobile app as a connect machine",
           options: { json: JSON_OPTION },
           run: (input) =>
             attempt(async () => {
-              if (!(await mobilePairing.enabled())) {
-                throw new PluginCliError(
-                  'mobile pairing is off — turn on the "Mobile app" experiment in Settings → Experiments (or `cc settings experiment mobileApp true`), then run this again',
-                  { code: "mobile_pairing_disabled" },
-                );
-              }
+              if (tunnel.getIdentity() === null) throw notPairedError();
               let payload: MobilePairingPayload;
               try {
                 payload = mobilePairingPayload(
-                  await tunnel.createMachineCode(),
+                  await hosted.createMachineCode(AbortSignal.timeout(10_000)),
                 );
               } catch (error) {
                 if (error instanceof MachineCodeError) {

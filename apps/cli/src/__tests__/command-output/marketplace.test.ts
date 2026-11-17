@@ -1,3 +1,4 @@
+import { isAbsolute, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   collectLogPayloads,
@@ -73,6 +74,44 @@ describe("cc marketplace", () => {
     expect(output).toContain("cc plugin install <id>@acme-plugins");
   });
 
+  it("sends --subdirectory with a git source and prints the stored subdirectory", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      json({
+        ok: true,
+        marketplace: {
+          ...acme,
+          sourceKind: "git",
+          source: "git:https://github.com/acme/agent-plugins.git@main",
+          subdirectory: "cc",
+          resolvedCommit: "0123456789abcdef0123456789abcdef01234567",
+        },
+      }),
+    );
+
+    await runCommand(
+      [
+        "marketplace",
+        "add",
+        "git:https://github.com/acme/agent-plugins.git@main",
+        "--subdirectory",
+        "cc",
+      ],
+      register,
+    );
+
+    expect(
+      JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body)),
+    ).toEqual({
+      source: "git:https://github.com/acme/agent-plugins.git@main",
+      subdirectory: "cc",
+    });
+    const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
+    expect(output).toContain(
+      "source: git:https://github.com/acme/agent-plugins.git@main",
+    );
+    expect(output).toContain("subdirectory: cc");
+  });
+
   it("resolves a relative path: source on the invoking machine", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       json({ ok: true, marketplace: { ...acme, sourceKind: "path" } }),
@@ -83,8 +122,9 @@ describe("cc marketplace", () => {
     const body = JSON.parse(
       String(vi.mocked(fetch).mock.calls[0]?.[1]?.body),
     ) as { source: string };
-    expect(body.source.startsWith("path:/")).toBe(true);
-    expect(body.source.endsWith("/catalog")).toBe(true);
+    expect(body.source.startsWith("path:")).toBe(true);
+    expect(isAbsolute(body.source.slice("path:".length))).toBe(true);
+    expect(body.source.endsWith(`${sep}catalog`)).toBe(true);
   });
 
   it("lists marketplaces with their source and entry count", async () => {
@@ -99,6 +139,30 @@ describe("cc marketplace", () => {
     expect(output).toContain("cc-community (official)");
     expect(output).toContain("acme-plugins");
     expect(output).toContain("https://acme.test/marketplace.json");
+    expect(output).not.toContain("Subdirectory");
+  });
+
+  it("lists the subdirectory a git marketplace is read from", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      json({
+        marketplaces: [
+          {
+            ...acme,
+            sourceKind: "git",
+            source: "git:https://acme.test/repo.git@main",
+            subdirectory: "cc",
+          },
+        ],
+      }),
+    );
+
+    await runCommand(["marketplace", "list"], register);
+
+    const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
+    expect(output).toMatch(/Source\s+Subdirectory\s+Entries/u);
+    expect(output).toMatch(
+      /git:https:\/\/acme\.test\/repo\.git@main\s+cc\s+2\s/u,
+    );
   });
 
   it("reports a failed refresh and exits non-zero without hiding the rest", async () => {

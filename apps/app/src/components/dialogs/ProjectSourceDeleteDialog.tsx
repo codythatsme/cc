@@ -1,7 +1,7 @@
 import {
   ConfirmDeleteDialog,
   ConfirmDeleteDialogContent,
-} from "./ConfirmDeleteDialog";
+} from "@cc/shared-ui/confirm-delete-dialog";
 
 export interface ProjectSourceDeleteDialogTarget {
   id: string;

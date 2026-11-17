@@ -1,82 +1,32 @@
-import { useLayoutEffect, useState, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type RefObject,
+} from "react";
+import {
+  observeSharedResize,
+  settleAfterSharedResizeWrites,
+} from "@cc/shared-ui/lib/shared-resize-observer";
 import { cn } from "@cc/shared-ui/lib/utils";
+import { useBottomAnchoredScroll } from "@/components/ui/bottom-anchored-scroll-body";
+import { useTimelinePositionKeeper } from "./TimelineWindowedItems.js";
 
 interface UseOverflowMeasurementArgs {
   elementRef: RefObject<HTMLElement | null>;
   enabled: boolean;
+  axis: "horizontal" | "vertical";
   measurementKey: string;
 }
 
-type OverflowMeasurement = "unmeasured" | "fits" | "overflowing";
-
-type OverflowMeasurementListener = (
-  measurement: Exclude<OverflowMeasurement, "unmeasured">,
-) => void;
-
-const overflowListenersByElement = new Map<
-  HTMLElement,
-  Set<OverflowMeasurementListener>
->();
-let sharedOverflowResizeObserver: ResizeObserver | null = null;
-
-function readOverflowMeasurement(
+function readOverflow(
   element: HTMLElement,
-): Exclude<OverflowMeasurement, "unmeasured"> {
-  return element.scrollHeight > element.clientHeight + 1 ||
-    element.scrollWidth > element.clientWidth + 1
-    ? "overflowing"
-    : "fits";
-}
-
-function measureOverflowElements(elements: readonly HTMLElement[]): void {
-  const results = elements.map((element) => ({
-    element,
-    measurement: readOverflowMeasurement(element),
-  }));
-  for (const { element, measurement } of results) {
-    for (const listener of overflowListenersByElement.get(element) ?? []) {
-      listener(measurement);
-    }
-  }
-}
-
-function getSharedOverflowResizeObserver(): ResizeObserver {
-  sharedOverflowResizeObserver ??= new ResizeObserver((entries) => {
-    const connectedElements: HTMLElement[] = [];
-    for (const entry of entries) {
-      if (entry.target instanceof HTMLElement && entry.target.isConnected) {
-        connectedElements.push(entry.target);
-      }
-    }
-    measureOverflowElements(connectedElements);
-  });
-  return sharedOverflowResizeObserver;
-}
-
-function observeOverflow(
-  element: HTMLElement,
-  listener: OverflowMeasurementListener,
-): () => void {
-  let listeners = overflowListenersByElement.get(element);
-  if (!listeners) {
-    listeners = new Set();
-    overflowListenersByElement.set(element, listeners);
-    getSharedOverflowResizeObserver().observe(element);
-  }
-  listeners.add(listener);
-
-  return () => {
-    const currentListeners = overflowListenersByElement.get(element);
-    currentListeners?.delete(listener);
-    if (currentListeners?.size === 0) {
-      overflowListenersByElement.delete(element);
-      sharedOverflowResizeObserver?.unobserve?.(element);
-      if (overflowListenersByElement.size === 0) {
-        sharedOverflowResizeObserver?.disconnect?.();
-        sharedOverflowResizeObserver = null;
-      }
-    }
-  };
+  axis: UseOverflowMeasurementArgs["axis"],
+): boolean {
+  return axis === "horizontal"
+    ? element.scrollWidth > element.clientWidth + 1
+    : element.scrollHeight > element.clientHeight + 1;
 }
 
 interface ConversationMessageOverflowToggleProps {
@@ -91,54 +41,71 @@ interface ConversationMessageInlineOverflowToggleProps {
   onToggle: () => void;
 }
 
-export function useOverflowMeasurement({
+export function useIsOverflowing({
   elementRef,
   enabled,
+  axis,
   measurementKey,
-}: UseOverflowMeasurementArgs): OverflowMeasurement {
-  const [measurement, setMeasurement] =
-    useState<OverflowMeasurement>("unmeasured");
+}: UseOverflowMeasurementArgs): boolean {
+  const [overflowing, setOverflowing] = useState(false);
+  const overflowingRef = useRef(false);
+  const positionKeeper = useTimelinePositionKeeper();
 
   useLayoutEffect(() => {
-    if (!enabled) {
-      setMeasurement("fits");
-      return;
-    }
-
     const element = elementRef.current;
-    if (!element) {
-      setMeasurement("unmeasured");
+    if (!enabled || element === null || typeof ResizeObserver === "undefined") {
       return;
     }
+    return observeSharedResize(element, {
+      read: () => (element.isConnected ? readOverflow(element, axis) : null),
+      write: (next) => {
+        if (next === null || next === overflowingRef.current) return;
+        overflowingRef.current = next;
+        setOverflowing(next);
+        if (positionKeeper !== null) {
+          settleAfterSharedResizeWrites(positionKeeper.reconcileAfterLayout);
+        }
+      },
+    });
+  }, [elementRef, enabled, axis, measurementKey, positionKeeper]);
 
-    const applyMeasurement: OverflowMeasurementListener = (nextMeasurement) => {
-      if (!element.isConnected) return;
-      setMeasurement(nextMeasurement);
-    };
-    if (typeof ResizeObserver === "undefined") {
-      applyMeasurement(readOverflowMeasurement(element));
-      return;
-    }
-
-    return observeOverflow(element, applyMeasurement);
-  }, [elementRef, enabled, measurementKey]);
-
-  return measurement;
+  return enabled && overflowing;
 }
 
-export function useIsOverflowing(args: UseOverflowMeasurementArgs): boolean {
-  return useOverflowMeasurement(args) === "overflowing";
+function useContentHoldingToggle(
+  expanding: boolean,
+  onToggle: () => void,
+): (event: MouseEvent<HTMLButtonElement>) => void {
+  const bottomAnchor = useBottomAnchoredScroll();
+  return (event) => {
+    const scrollArea = bottomAnchor?.getScrollElement();
+    const row = event.currentTarget.closest<HTMLElement>(
+      "[data-timeline-row-id]",
+    );
+    if (!bottomAnchor || !scrollArea || !row) {
+      onToggle();
+      return;
+    }
+    const rowTopVisible =
+      row.getBoundingClientRect().top >= scrollArea.getBoundingClientRect().top;
+    bottomAnchor.holdContentPosition({
+      edge: expanding || rowTopVisible ? "top" : "bottom",
+      element: row,
+      update: onToggle,
+    });
+  };
 }
 
 export function ConversationMessageOverflowToggle({
   expanded,
   onToggle,
 }: ConversationMessageOverflowToggleProps) {
+  const handleClick = useContentHoldingToggle(!expanded, onToggle);
   return (
     <div className="mt-1 flex justify-end">
       <button
         type="button"
-        onClick={onToggle}
+        onClick={handleClick}
         className="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground"
         aria-expanded={expanded}
       >
@@ -154,6 +121,7 @@ export function ConversationMessageInlineOverflowToggle({
   label,
   onToggle,
 }: ConversationMessageInlineOverflowToggleProps) {
+  const handleClick = useContentHoldingToggle(true, onToggle);
   return (
     <span className="pointer-events-none absolute inset-x-0 bottom-0 flex h-[1lh] items-stretch justify-end">
       <span
@@ -164,7 +132,7 @@ export function ConversationMessageInlineOverflowToggle({
       />
       <button
         type="button"
-        onClick={onToggle}
+        onClick={handleClick}
         className={cn(
           "pointer-events-auto cursor-pointer whitespace-nowrap pl-1.5 text-xs font-medium text-muted-foreground hover:text-foreground",
           buttonBackgroundClassName,

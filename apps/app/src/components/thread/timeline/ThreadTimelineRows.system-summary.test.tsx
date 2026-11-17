@@ -1,25 +1,38 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TimelineRow } from "@cc/server-contract";
+import { ThreadTitleMentionResourcesProvider } from "@/components/thread/ThreadTitleMentions";
 import { systemRow } from "@/test/fixtures/thread-timeline-rows";
+import { makeThreadListEntry } from "@cc/test-helpers/domain-fixtures";
+import { installFakeFlowLayout } from "@/test/fake-flow-layout";
+import { stubResizeObserverDeliveries } from "@/test/resize-observer-deliveries";
 import { ThreadTimelineRows } from "./ThreadTimelineRows";
 
-function renderRow(row: TimelineRow) {
-  return render(
-    <QueryClientProvider client={new QueryClient()}>
+function rowTree(row: TimelineRow, queryClient = new QueryClient()) {
+  return (
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <ThreadTimelineRows
           timelineRows={[row]}
           threadRuntimeDisplayStatus="idle"
-          workspaceRootPath={undefined}
         />
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+}
+
+function renderRow(row: TimelineRow) {
+  return render(rowTree(row));
 }
 
 beforeEach(() => {
@@ -55,6 +68,50 @@ function preview() {
 }
 
 describe("system summary overflow", () => {
+  it("links a thread title through the target thread's project", () => {
+    const targetThread = makeThreadListEntry({
+      id: "thr_target",
+      projectId: "proj_target",
+      title: "Target thread",
+      titleFallback: "Target thread",
+    });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <ThreadTitleMentionResourcesProvider
+            sectionNamesById={new Map()}
+            projectNamesById={new Map()}
+            threadById={new Map([[targetThread.id, targetThread]])}
+          >
+            <ThreadTimelineRows
+              projectId="proj_current"
+              timelineRows={[
+                systemRow({
+                  threadId: "thr_current",
+                  title: "Worker assigned to Target thread",
+                  detail: null,
+                  operationKind: "parent-change",
+                  parentChange: {
+                    action: "assign",
+                    previousParentThreadId: null,
+                    previousParentThreadTitle: null,
+                    nextParentThreadId: targetThread.id,
+                    nextParentThreadTitle: targetThread.title,
+                  },
+                }),
+              ]}
+              threadRuntimeDisplayStatus="idle"
+            />
+          </ThreadTitleMentionResourcesProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Target thread" }).getAttribute("href"),
+    ).toBe("/projects/proj_target/threads/thr_target");
+  });
+
   it.each([20, 40])(
     "shows a fitting %ipx summary without a toggle",
     (height) => {
@@ -79,8 +136,10 @@ describe("system summary overflow", () => {
     systemRow({ systemKind: "reconnect", title: summary, detail: null }),
     systemRow({ systemKind: "debug", title: summary, detail: null }),
   ])("expands an overflowing $systemKind / $operationKind summary", (row) => {
+    const deliverResizes = stubResizeObserverDeliveries();
     measureSummary(60);
     renderRow(row);
+    deliverResizes();
     expect(preview()?.classList.contains("line-clamp-2")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Show more" }));
     expect(preview()?.classList.contains("line-clamp-2")).toBe(false);
@@ -110,5 +169,87 @@ describe("system summary overflow", () => {
     );
     expect(screen.getByText(/at reconnect/).textContent).toContain(detail);
     expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+  });
+});
+
+describe("pending system detail scrolling", () => {
+  const LINE_HEIGHT = 100;
+  const DETAIL_HEIGHT = 100;
+
+  it("keeps an expanded pending detail at its end while it streams, holds a reader who scrolled up, and follows again once they reach the new end", async () => {
+    vi.useFakeTimers({
+      toFake: [
+        "setTimeout",
+        "clearTimeout",
+        "requestAnimationFrame",
+        "cancelAnimationFrame",
+        "performance",
+      ],
+    });
+    const layout = installFakeFlowLayout({
+      heightOf: (element) =>
+        element.tagName === "PRE"
+          ? (element.textContent ?? "").split("\n").length * LINE_HEIGHT
+          : null,
+      scrollElement: () =>
+        document.querySelector<HTMLElement>("[data-detail-scroll-area]"),
+      viewportHeight: DETAIL_HEIGHT,
+    });
+    try {
+      const pendingRow = (lineCount: number) =>
+        systemRow({
+          detail: Array.from(
+            { length: lineCount },
+            (_, index) => `line ${index + 1}`,
+          ).join("\n"),
+          status: "pending",
+        });
+      const settle = async () => {
+        await act(async () => {
+          layout.flushResizeObservers();
+          await vi.advanceTimersByTimeAsync(50);
+        });
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(4_000);
+          layout.flushResizeObservers();
+        });
+      };
+      const queryClient = new QueryClient();
+      const view = render(rowTree(pendingRow(10), queryClient));
+      const stream = async (lineCount: number) => {
+        view.rerender(rowTree(pendingRow(lineCount), queryClient));
+        await settle();
+      };
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /Provisioned thread/u }),
+      );
+      await settle();
+      expect(layout.maxScrollTop()).toBe(900);
+      expect(layout.scrollTop).toBe(900);
+
+      act(() => layout.layoutScrollTo(500));
+      await stream(11);
+      expect(layout.scrollTop).toBe(1_000);
+
+      act(() => layout.userScrollTo(500));
+      await settle();
+      await stream(12);
+      expect(layout.maxScrollTop()).toBe(1_100);
+      expect(layout.scrollTop).toBe(500);
+
+      act(() => layout.userScrollTo(1_000));
+      await settle();
+      await stream(13);
+      expect(layout.scrollTop).toBe(1_000);
+
+      act(() => layout.userScrollTo(1_200));
+      await settle();
+      await stream(14);
+      expect(layout.scrollTop).toBe(1_300);
+    } finally {
+      layout.restore();
+      vi.useRealTimers();
+    }
   });
 });

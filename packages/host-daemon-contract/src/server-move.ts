@@ -7,16 +7,6 @@ const activationTokenSchema = z.string().min(16);
 const sha256HexSchema = z.string().regex(/^[0-9a-f]{64}$/u);
 const portSchema = z.number().int().min(1).max(65535);
 
-export const serverMoveServiceManagerSchema = z.enum([
-  "launchd",
-  "systemd-user",
-  "systemd-system",
-  "none",
-]);
-export type ServerMoveServiceManager = z.infer<
-  typeof serverMoveServiceManagerSchema
->;
-
 export const serverMoveBindHostSchema = z.enum(["127.0.0.1", "0.0.0.0"]);
 
 export const serverMoveHealthStateSchema = z.enum([
@@ -33,9 +23,43 @@ export const serverMoveHealthSchema = z.object({
 export type ServerMoveHealth = z.infer<typeof serverMoveHealthSchema>;
 
 export const serverHealthResponseSchema = z.object({
+  ok: z.literal(true),
   serverMove: serverMoveHealthSchema.optional(),
 });
-export type ServerHealthResponse = z.infer<typeof serverHealthResponseSchema>;
+export type ServerHealth = z.infer<typeof serverHealthResponseSchema>;
+
+export function serverHealthUrl(serverUrl: string): string {
+  return `${serverUrl.replace(/\/+$/u, "")}/health`;
+}
+
+interface FetchServerHealthArgs {
+  fetchImpl?: (url: string, init: RequestInit) => Promise<Response>;
+  init: RequestInit;
+  url: string;
+}
+
+export async function fetchServerHealth(
+  args: FetchServerHealthArgs,
+): Promise<ServerHealth | null> {
+  try {
+    const response = await (args.fetchImpl ?? fetch)(args.url, args.init);
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
+      return null;
+    }
+    const parsed = serverHealthResponseSchema.safeParse(await response.json());
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isServerMoveReady(
+  serverMove: ServerMoveHealth | null,
+  moveId: string,
+): boolean {
+  return serverMove?.moveId === moveId && serverMove.state === "ready";
+}
 
 export const serverMoveCommandSchemas = {
   "server_move.inspect": z
@@ -117,7 +141,6 @@ export const serverMoveResultSchemas = {
       timeZone: z.string().min(1).nullable(),
       ccAppVersion: z.string().min(1),
       serverEntryAvailable: z.boolean(),
-      serviceManager: serverMoveServiceManagerSchema,
       existingServerData: existingServerDataSchema.nullable(),
       dataDirHasServerData: z.boolean(),
       portAvailable: z.boolean(),

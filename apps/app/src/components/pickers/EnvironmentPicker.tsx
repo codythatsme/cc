@@ -1,9 +1,13 @@
+import { PICKER_MOBILE_CLASS_NAME } from "@cc/shared-ui/picker-layout";
 import { EnvironmentProviderIcon } from "@/components/plugin/EnvironmentProviderIcon";
 import { useMemo, useRef, useState } from "react";
-import type { Host, ProjectSource } from "@cc/domain";
+import {
+  type Host,
+  type ProjectSource,
+  findLocalPathProjectSourceForHost,
+} from "@cc/domain";
 import type { SystemEnvironmentProvider } from "@cc/server-contract";
 import { Icon, type IconName } from "@cc/shared-ui/icon";
-import { findLocalPathProjectSourceForHost } from "@cc/domain";
 import { pluginIconName } from "@/components/plugin/PluginIcon";
 import { Button } from "@cc/shared-ui/button";
 import { Skeleton } from "@cc/shared-ui/skeleton";
@@ -41,10 +45,10 @@ import {
 import { selectHosts } from "@/hooks/queries/host-queries";
 import { providerInputsControlRequired } from "./environment-provider-inputs";
 import { MACHINE_BADGE_CLASS_NAME, orderLocalHostFirst } from "./MachinePicker";
-import { PickerLoadingRows } from "./PickerLoadingRows";
+import { ListLoadingPlaceholder } from "@cc/shared-ui/list-loading-placeholder";
 import { MachineIcon } from "@/components/machines/MachineLabel";
 import { searchMachineHosts } from "./machine-picker-search";
-import { useResetPickerScroll } from "./useResetPickerScroll";
+import { useResetPickerScroll } from "@cc/shared-ui/hooks/use-reset-picker-scroll";
 
 interface SelectedEnvironment {
   modeLabel: string;
@@ -353,6 +357,19 @@ export function EnvironmentPickerUI({
     selectedProvider,
   ]);
   const pickerOpen = open ?? uncontrolledOpen;
+  const availableHosts = availableMachines?.hosts ?? null;
+  const [hostClock, setHostClock] = useState(() => ({
+    open: pickerOpen,
+    hosts: availableHosts,
+    now: Date.now(),
+  }));
+  if (hostClock.open !== pickerOpen || hostClock.hosts !== availableHosts) {
+    setHostClock(() => ({
+      open: pickerOpen,
+      hosts: availableHosts,
+      now: Date.now(),
+    }));
+  }
   const handleOpenChange = (nextOpen: boolean) => {
     setUncontrolledOpen(nextOpen);
     onOpenChange?.(nextOpen);
@@ -449,6 +466,7 @@ export function EnvironmentPickerUI({
         </Button>
       </PopoverTrigger>
       <PopoverContent
+        mobileClassName={PICKER_MOBILE_CLASS_NAME}
         align="start"
         aria-label="Environment"
         mobileTitle="Environment"
@@ -458,10 +476,7 @@ export function EnvironmentPickerUI({
         className="flex max-h-[min(var(--radix-popover-content-available-height),calc(100dvh-0.5rem))] w-auto max-w-80 min-w-52 flex-col overflow-hidden p-0 max-md:min-h-0 max-md:w-full max-md:flex-1"
       >
         {isLoading ? (
-          <PickerLoadingRows
-            label="Loading environments"
-            rowDataAttribute="data-environment-loading-row"
-          />
+          <ListLoadingPlaceholder label="Loading environments" />
         ) : (
           <Command
             ref={commandRef}
@@ -493,6 +508,7 @@ export function EnvironmentPickerUI({
                   <MachineContextualEnvironmentOptions
                     machines={availableMachines}
                     sources={sources}
+                    now={hostClock.now}
                     selectedHostId={
                       parsed?.type === "provider"
                         ? selectedProviderHostId
@@ -520,6 +536,7 @@ export function EnvironmentPickerUI({
                     <MachineGroupedEnvironmentOptions
                       machines={availableMachines}
                       sources={sources}
+                      now={hostClock.now}
                       value={value}
                       onRequestMachineSetup={
                         onRequestMachineSetup ? requestMachineSetup : undefined
@@ -622,7 +639,6 @@ interface HostlessEnvironmentOptionsProps {
     | ((provider: SystemEnvironmentProvider, hostId: string | null) => void)
     | undefined;
   separated: boolean;
-  heading?: string;
 }
 
 function HostlessEnvironmentOptions({
@@ -631,14 +647,13 @@ function HostlessEnvironmentOptions({
   inputsControlProviderIds,
   onSelectProvider,
   separated,
-  heading,
 }: HostlessEnvironmentOptionsProps) {
   if (onSelectProvider === undefined || providers.length === 0) return null;
 
   return (
     <>
       {separated ? <CommandSeparator className="mx-0 shrink-0" /> : null}
-      <CommandGroup heading={heading} className="shrink-0">
+      <CommandGroup className="shrink-0">
         {providers.map((provider) => (
           <EnvironmentMenuItem
             key={provider.id}
@@ -730,6 +745,7 @@ function EnvironmentOptionsSection({
 interface MachineGroupedEnvironmentOptionsProps {
   machines: EnvironmentPickerMachines;
   sources: readonly ProjectSource[];
+  now: number;
   value: string;
   onRequestMachineSetup: ((host: Host) => void) | undefined;
   environmentProviders: readonly SystemEnvironmentProvider[];
@@ -744,6 +760,7 @@ interface MachineGroupedEnvironmentOptionsProps {
 function MachineGroupedEnvironmentOptions({
   machines,
   sources,
+  now,
   value,
   onRequestMachineSetup,
   environmentProviders,
@@ -752,7 +769,6 @@ function MachineGroupedEnvironmentOptions({
   inputsControlProviderIds,
   onSelectProvider,
 }: MachineGroupedEnvironmentOptionsProps) {
-  const now = Date.now();
   const orderedHosts = useMemo(
     () => orderLocalHostFirst(machines.hosts, machines.localDaemonHostId),
     [machines.hosts, machines.localDaemonHostId],
@@ -797,6 +813,7 @@ interface MachineContextualEnvironmentOptionsProps extends MachineGroupedEnviron
 function MachineContextualEnvironmentOptions({
   machines,
   sources,
+  now,
   selectedHostId,
   previewHostId,
   value,
@@ -812,7 +829,6 @@ function MachineContextualEnvironmentOptions({
   onSelectProvider,
 }: MachineContextualEnvironmentOptionsProps) {
   const machineListRef = useResetPickerScroll<HTMLDivElement>(searchQuery);
-  const now = Date.now();
   const orderedHosts = useMemo(
     () =>
       [...machines.hosts].sort(
@@ -857,7 +873,7 @@ function MachineContextualEnvironmentOptions({
             />
           ))}
           {filteredHosts.length === 0 ? (
-            <div className="px-2 py-[0.3125rem] text-xs text-muted-foreground max-md:py-2">
+            <div className="px-2 py-[0.3125rem] text-xs text-muted-foreground max-md:pointer-coarse:py-2">
               No machines found
             </div>
           ) : null}
@@ -942,7 +958,7 @@ function MachineChoiceItem({
       aria-current={active ? "true" : undefined}
       onSelect={onSelect}
       className={cn(
-        "flex items-center gap-3 py-[0.3125rem] text-xs max-md:py-2",
+        "flex items-center gap-3 py-[0.3125rem] text-xs max-md:pointer-coarse:py-2",
         LIST_HOVER_TRANSITION,
         active && "font-medium text-foreground",
       )}
@@ -1147,7 +1163,7 @@ function EnvironmentMenuItem({
       }}
       className={cn(
         "flex items-start justify-between gap-3 whitespace-normal",
-        "py-[0.3125rem] text-xs max-md:py-2",
+        "py-[0.3125rem] text-xs max-md:pointer-coarse:py-2",
         LIST_HOVER_TRANSITION,
       )}
     >

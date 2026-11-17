@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { LazyMarkdownHtml } from "./lazy-markdown-html";
+
 import { act, cleanup, render, waitFor, within } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -19,12 +21,15 @@ import { threadQueryKey } from "@/hooks/queries/query-keys";
 import { makeThreadResponse } from "@/test/fixtures/thread-responses";
 import { createQueryClientTestHarness } from "@/test/queryClientTestHarness";
 import { RouteNavigationProvider } from "./app-route-anchor";
-import { buildMarkdownMessageLinkRouting } from "./markdown-message-link-routing";
+import type { MarkdownLinkRouting } from "./markdown-link-routing";
+import { buildThreadHostFileContentUrl } from "@/lib/file-content-urls";
 import {
   buildMessageDirectiveRegistry,
   MESSAGE_DIRECTIVE_MOUNT_LIMIT,
 } from "./markdown-message-directives";
 import { MarkdownPreview } from "./markdown-preview";
+
+beforeAll(() => LazyMarkdownHtml.preload());
 
 vi.mock("@/lib/sdk", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/sdk")>();
@@ -96,7 +101,6 @@ function legMessageDirectives(leg: PreviewLeg) {
       projectId: null,
     },
     openWorkspaceFile: null,
-    openThreadPanel: null,
   };
 }
 
@@ -105,11 +109,20 @@ const messageDirectives = {
   legacy: legMessageDirectives("legacy"),
 };
 
-const linkRouting = buildMarkdownMessageLinkRouting({
-  onOpenLocalFileLink: () => true,
-  threadId: "thr_stream",
-  workspaceRootPath: "/workspace",
-});
+const WORKSPACE_PATHS = { baseDir: "/workspace", rootPath: "/workspace" };
+const linkRouting: MarkdownLinkRouting = {
+  localFile: {
+    hostId: null,
+    absoluteLinks: { kind: "trusted-host" },
+    onOpenLink: () => true,
+    relativeLinks: WORKSPACE_PATHS,
+  },
+  localImage: {
+    absolutePaths: { kind: "trusted-host" },
+    relativePaths: WORKSPACE_PATHS,
+    resolveSrc: ({ path }) => buildThreadHostFileContentUrl("thr_stream", path),
+  },
+};
 
 const threadMentions = { mentions: [], preserveSoftBreaks: false };
 const sectionNamesById = new Map<string, string>();
@@ -207,12 +220,8 @@ function createDifferentialLegs(initialContent = "") {
         views.incremental.container.innerHTML,
         JSON.stringify(content),
       ).toBe(views.legacy.container.innerHTML);
-      return {
-        incrementalMutations: observers.incremental
-          .takeRecords()
-          .map(mutationSignature),
-        legacyMutations: observers.legacy.takeRecords().map(mutationSignature),
-      };
+      observers.legacy.takeRecords();
+      return { incrementalRecords: observers.incremental.takeRecords() };
     },
   };
 }
@@ -249,6 +258,10 @@ const CURATED_DOCUMENTS: ReadonlyArray<readonly [string, string]> = [
   [
     "directives, mentions, and links",
     'Intro.\n\n::inline-vis{file="a.html"}\n\n> quoted **bold**\n\nSee thr_mentioned and @thread:thr_mentioned.\n\n[My file](</workspace/My File.ts:12>) and ![img](/workspace/a.png)\n\n:::note\nbox\n\n::inline-vis{file="b.html"}\n:::\n\nTail.',
+  ],
+  [
+    "glued directives and attribute formatting",
+    'Intro.\n\n::inline-vis{file="my*report*.html"}Next **bold** [docs].\n::inline-vis{file="second.html"}\n\n> ::inline-vis{file="quote.html"}Quoted *tail*.\n\n\\::inline-vis{file="literal.html"}Literal.\n\n[docs]: https://example.com\n',
   ],
   [
     "frontmatter and late references",
@@ -306,31 +319,36 @@ describe("MarkdownPreview incremental blocks", () => {
     60_000,
   );
 
-  it("keeps settled code and directive DOM connected across advances and a late definition", () => {
-    const initial =
-      'Intro.\n\n```ts\nconst a = 1;\n```\n\n::inline-vis{file="a.html"}\n\nUse [docs].\n\n';
-    const legs = createDifferentialLegs(initial);
-    const line = legs.incremental.querySelector("pre code span.sh__line");
-    const directive = within(legs.incremental).getByTestId("inline-vis");
-    if (line === null) {
-      throw new Error("Expected a highlighted settled code block");
-    }
+  it.each(["", "Next **bold** tail."])(
+    "keeps settled code and directive DOM connected across advances and a late definition: %s",
+    (tail) => {
+      const initial =
+        'Intro.\n\n```ts\nconst a = 1;\n```\n\n::inline-vis{file="a.html"}' +
+        tail +
+        "\n\nUse [docs].\n\n";
+      const legs = createDifferentialLegs(initial);
+      const line = legs.incremental.querySelector("pre code span.sh__line");
+      const directive = within(legs.incremental).getByTestId("inline-vis");
+      if (line === null) {
+        throw new Error("Expected a highlighted settled code block");
+      }
 
-    const advanced = `${initial}More.\n\n`;
-    legs.update(advanced);
-    expect(line.isConnected).toBe(true);
-    expect(directive.isConnected).toBe(true);
+      const advanced = `${initial}More.\n\n`;
+      legs.update(advanced);
+      expect(line.isConnected).toBe(true);
+      expect(directive.isConnected).toBe(true);
 
-    legs.update(`${advanced}[docs]: https://example.com\n\n`);
-    expect(
-      within(legs.incremental)
-        .getByRole("link", { name: "docs" })
-        .getAttribute("href"),
-    ).toBe("https://example.com");
-    expect(line.isConnected).toBe(true);
-    expect(directive.isConnected).toBe(true);
-    expect(counts.incremental.mounts).toBe(1);
-  });
+      legs.update(`${advanced}[docs]: https://example.com\n\n`);
+      expect(
+        within(legs.incremental)
+          .getByRole("link", { name: "docs" })
+          .getAttribute("href"),
+      ).toBe("https://example.com");
+      expect(line.isConnected).toBe(true);
+      expect(directive.isConnected).toBe(true);
+      expect(counts.incremental.mounts).toBe(1);
+    },
+  );
 
   it("mounts the first 32 of 34 directives across pieces like a single document", () => {
     const content = Array.from(
@@ -379,7 +397,7 @@ describe("MarkdownPreview incremental blocks", () => {
     legs.update(`${first}Second paragraph.\n\nThird.`);
   });
 
-  it("re-renders plugin directives with fresh attributes on every new body like a single document", () => {
+  it("renders a settled plugin directive once while later content streams", () => {
     const first = 'Intro.\n\n::inline-vis{file="a.html"}\n\n';
     const legs = createDifferentialLegs(first);
     const steps = [
@@ -389,12 +407,15 @@ describe("MarkdownPreview incremental blocks", () => {
     ];
     for (const step of steps) {
       legs.update(step);
-      expect(counts.incremental).toEqual(counts.legacy);
+      expect(counts.incremental).toEqual({
+        attributeEffects: 1,
+        mounts: 1,
+        renders: 1,
+      });
     }
-    expect(counts.legacy.attributeEffects).toBe(steps.length + 1);
   });
 
-  it("commits the same DOM mutations as a single document while settled content grows", () => {
+  it("only appends DOM for new blocks and never mutates settled blocks while content grows", () => {
     const blocks = [
       "# Plan\n\n",
       "See [the docs](https://example.com/docs) and [a file](</workspace/src/a.ts:12>).\n\n",
@@ -408,10 +429,24 @@ describe("MarkdownPreview incremental blocks", () => {
     ];
     let body = blocks[0] ?? "";
     const legs = createDifferentialLegs(body);
+    const root = legs.incremental.querySelector("[data-markdown-preview]");
     for (const block of blocks.slice(1)) {
+      const settledNodes = [...(root?.childNodes ?? [])];
       body += block;
-      const { incrementalMutations, legacyMutations } = legs.update(body);
-      expect(incrementalMutations, body).toEqual(legacyMutations);
+      const { incrementalRecords } = legs.update(body);
+      for (const record of incrementalRecords) {
+        expect(
+          settledNodes.some(
+            (node) => node === record.target || node.contains(record.target),
+          ),
+          `${mutationSignature(record)} after ${JSON.stringify(block)}`,
+        ).toBe(false);
+        expect(record.removedNodes.length, mutationSignature(record)).toBe(0);
+      }
+      expect(
+        settledNodes.every((node) => node.parentNode === root),
+        JSON.stringify(block),
+      ).toBe(true);
     }
   });
 });

@@ -1,20 +1,22 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useLayoutEffect, useRef, type RefObject } from "react";
+import {
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import type { Thread } from "@cc/domain";
 import { sdk } from "@/lib/sdk";
-import {
-  FORK_THREAD_CREATE_SEED_LOCATION_STATE_KEY,
-  isThreadForkable,
-  type ForkThreadCreateSeed,
-} from "@cc/client-core";
-import { getRootComposeRoutePath } from "@/lib/route-paths";
-import { getThreadDisplayTitle } from "@/lib/thread-title";
-import { useSetRootComposeProjectId } from "@/lib/root-compose-selection";
+import { isThreadForkable, type AppCreateThreadRequest } from "@cc/client-core";
+import type { ThreadRoutePathArgs } from "@/lib/route-paths";
 import { threadDefaultExecutionOptionsQueryKey } from "@/hooks/queries/query-keys";
 import { findCachedProviderInfo } from "@/hooks/queries/system-queries";
-import { useRouteNavigate } from "@/components/ui/app-route-anchor";
+import {
+  applyCreateThreadResult,
+  beginCreateThreadTransaction,
+} from "@/hooks/cache-owners/thread-runtime-cache-owner";
 
 interface UseForkThreadFromMessageArgs {
+  navigateInPane: (thread: ThreadRoutePathArgs) => void;
   sourceThread: Thread | null;
 }
 
@@ -22,19 +24,101 @@ interface ForkThreadFromMessageTarget {
   sourceSeqEnd: number;
 }
 
+type ForkThreadMutation = (
+  request: AppCreateThreadRequest,
+) => Promise<{ id: string; projectId: string }>;
+
+async function forkThreadFromMessage({
+  forkInFlightRef,
+  forkThreadRef,
+  navigateInPaneRef,
+  queryClient,
+  source,
+  target,
+}: {
+  forkInFlightRef: RefObject<boolean>;
+  forkThreadRef: RefObject<ForkThreadMutation>;
+  navigateInPaneRef: RefObject<(thread: ThreadRoutePathArgs) => void>;
+  queryClient: QueryClient;
+  source: Thread;
+  target: ForkThreadFromMessageTarget;
+}): Promise<void> {
+  forkInFlightRef.current = true;
+  try {
+    const executionOptions = await queryClient.fetchQuery({
+      queryKey: threadDefaultExecutionOptionsQueryKey(source.id),
+      queryFn: ({ signal }) =>
+        sdk.threads.defaultExecutionOptions({
+          signal,
+          threadId: source.id,
+        }),
+    });
+    if (executionOptions === null || source.environmentId === null) {
+      return;
+    }
+
+    const fork = await forkThreadRef.current({
+      environment: { type: "reuse", environmentId: source.environmentId },
+      input: [],
+      model: executionOptions.model,
+      originKind: "fork",
+      permissionMode: executionOptions.permissionMode,
+      pinned: source.pinnedAt !== null,
+      projectId: source.projectId,
+      providerId: source.providerId,
+      reasoningLevel: executionOptions.reasoningLevel,
+      sectionId: source.sectionId,
+      ...(executionOptions.serviceTier
+        ? { serviceTier: executionOptions.serviceTier }
+        : {}),
+      sourceSeqEnd: target.sourceSeqEnd,
+      sourceThreadId: source.id,
+      startedOnBehalfOf: null,
+    });
+    navigateInPaneRef.current({
+      projectId: fork.projectId,
+      threadId: fork.id,
+    });
+  } catch {
+    return;
+  } finally {
+    forkInFlightRef.current = false;
+  }
+}
+
 export function useForkThreadFromMessage({
+  navigateInPane,
   sourceThread,
 }: UseForkThreadFromMessageArgs): (
   target: ForkThreadFromMessageTarget,
 ) => Promise<void> {
-  const navigate = useRouteNavigate();
   const queryClient = useQueryClient();
-  const setRootComposeProjectId = useSetRootComposeProjectId();
+  const forkThread = useMutation({
+    meta: {
+      errorMessage: "Failed to fork thread.",
+      lifecycleOperation: "create_thread",
+    },
+    mutationFn: (request: AppCreateThreadRequest) =>
+      sdk.threads.spawn({
+        ...request,
+        origin: "app",
+        originKind: "fork",
+        startedOnBehalfOf: null,
+      }),
+    onMutate: async () => beginCreateThreadTransaction({ queryClient }),
+    onSuccess: (thread, request) => {
+      applyCreateThreadResult({ queryClient, request, thread });
+    },
+  });
+  const forkThreadRef = useRef<ForkThreadMutation>(forkThread.mutateAsync);
   const forkInFlightRef = useRef(false);
   const sourceThreadRef = useRef(sourceThread);
+  const navigateInPaneRef = useRef(navigateInPane);
   useLayoutEffect(() => {
+    forkThreadRef.current = forkThread.mutateAsync;
     sourceThreadRef.current = sourceThread;
-  }, [sourceThread]);
+    navigateInPaneRef.current = navigateInPane;
+  }, [forkThread.mutateAsync, navigateInPane, sourceThread]);
 
   return useCallback(
     async (target: ForkThreadFromMessageTarget) => {
@@ -51,44 +135,15 @@ export function useForkThreadFromMessage({
         return;
       }
 
-      forkInFlightRef.current = true;
-      try {
-        const executionOptions = await queryClient.fetchQuery({
-          queryKey: threadDefaultExecutionOptionsQueryKey(source.id),
-          queryFn: ({ signal }) =>
-            sdk.threads.defaultExecutionOptions({
-              signal,
-              threadId: source.id,
-            }),
-        });
-        if (executionOptions === null || source.environmentId === null) {
-          return;
-        }
-
-        const seed: ForkThreadCreateSeed = {
-          environmentId: source.environmentId,
-          model: executionOptions.model,
-          permissionMode: executionOptions.permissionMode,
-          projectId: source.projectId,
-          providerId: source.providerId,
-          reasoningLevel: executionOptions.reasoningLevel,
-          serviceTier: executionOptions.serviceTier,
-          sourceSeqEnd: target.sourceSeqEnd,
-          sourceThreadId: source.id,
-          sourceThreadTitle: getThreadDisplayTitle(source),
-        };
-        setRootComposeProjectId(source.projectId);
-        navigate(getRootComposeRoutePath(), {
-          state: {
-            focusPrompt: true,
-            reuseEnvironmentId: source.environmentId,
-            [FORK_THREAD_CREATE_SEED_LOCATION_STATE_KEY]: seed,
-          },
-        });
-      } finally {
-        forkInFlightRef.current = false;
-      }
+      await forkThreadFromMessage({
+        forkInFlightRef,
+        forkThreadRef,
+        navigateInPaneRef,
+        queryClient,
+        source,
+        target,
+      });
     },
-    [navigate, queryClient, setRootComposeProjectId],
+    [queryClient],
   );
 }

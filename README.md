@@ -200,6 +200,19 @@ the tested native modules. For source development, use the Node version in
 `.nvmrc`, run `pnpm install --frozen-lockfile`, then `pnpm ensure-native-modules`.
 Do not reuse native modules built for a different Node version or architecture.
 
+## Uninstall
+
+Quit cc, then remove the app with Homebrew. `--zap` also deletes cc's data
+directory (`~/.cc`), preferences, and caches; omit it to keep your threads and
+settings.
+
+```bash
+brew uninstall --zap --cask cc
+```
+
+Machines you added keep their own cc host service until you remove them from
+Settings → Machines first.
+
 ## Acknowledgements
 
 cc is derived from [bb](https://github.com/get-bb/bb). The original project's MIT

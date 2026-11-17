@@ -1,6 +1,7 @@
 import type { ExperimentalFileLocation } from "@codythatsme/plugin-sdk";
 export {
   normalizeExperimentalFileOpenOptions,
+  normalizeExperimentalFilePreviewOptions,
   normalizeExperimentalLiveFileTarget,
 } from "@codythatsme/plugin-sdk/internal/file-navigation-validation";
 import type { FilePreviewLineRange } from "@cc/client-core";

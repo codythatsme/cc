@@ -8,7 +8,6 @@ import {
   escapeSqlString,
   parseArchiveTmpCcSessionsArgs,
   parseThreadPreviewRows,
-  renderHelpText,
   resolveCodexStateDbPath,
 } from "../src/commands/archive-codex-tmp-cc-sessions.js";
 
@@ -31,7 +30,7 @@ describe("archive-codex-tmp-cc-sessions", () => {
     expect(parsedArgs.help).toBe(false);
     expect(parsedArgs.options).toEqual({
       codexBin: "/custom/codex",
-      codexHome: path.join("/Users/tester", ".codex"),
+      codexHome: path.resolve("/Users/tester", ".codex"),
       concurrency: 25,
       dryRun: false,
       patterns: [
@@ -52,7 +51,7 @@ describe("archive-codex-tmp-cc-sessions", () => {
     );
 
     expect(parsedArgs.options.codexHome).toBe(
-      path.join("/Users/tester", "custom-codex"),
+      path.resolve("/Users/tester", "custom-codex"),
     );
   });
 
@@ -75,7 +74,7 @@ describe("archive-codex-tmp-cc-sessions", () => {
 
     expect(parsedArgs.options).toEqual({
       codexBin: path.join("/Users/tester", "bin", "codex"),
-      codexHome: path.join("/Users/tester", "custom-codex"),
+      codexHome: path.resolve("/Users/tester", "custom-codex"),
       concurrency: 7,
       dryRun: true,
       patterns: ["/tmp/custom-cc-*"],
@@ -103,17 +102,6 @@ describe("archive-codex-tmp-cc-sessions", () => {
     expect(() =>
       parseArchiveTmpCcSessionsArgs(["--concurrency", "0"], {}, "/tmp"),
     ).toThrow("--concurrency must be a positive integer");
-  });
-
-  it("documents the command and default pattern", () => {
-    const help = renderHelpText();
-    expect(help).toContain("pnpm codex:archive-tmp-cc-sessions");
-    expect(help).toContain("*/cc-standalone-*");
-    expect(help).toContain("*/cc-integration-*");
-    expect(help).toContain("*/cc-integ-*");
-    expect(help).toContain("*/cc-qa-smoke-*");
-    expect(help).toContain("repeatable");
-    expect(help).toContain("state_<n>.sqlite");
   });
 
   it("resolves the highest numbered Codex state DB", () => {

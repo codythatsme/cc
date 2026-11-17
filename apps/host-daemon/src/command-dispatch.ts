@@ -1,7 +1,11 @@
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import { withVcsProcessPriority } from "@cc/process-utils";
 import { operationEnvironment } from "./operation-environment.js";
 import {
   runEnvironmentHook,
   cancelEnvironmentHook,
+  inspectEnvironmentCleanup,
 } from "./command-handlers/environment-hook.js";
 import {
   providerCliInstallEventSchema,
@@ -14,7 +18,6 @@ import {
   type HostDaemonOnlineRpcResult,
   type HostDaemonSettledCommandType,
   type ProviderCliInstallEvent,
-  type WorkspaceResolutionFailure,
 } from "@cc/host-daemon-contract";
 import type { AgentRuntimeBridgeLaunch } from "@cc/agent-runtime";
 import semver from "semver";
@@ -29,6 +32,7 @@ import {
   provisionEnvironment,
 } from "./command-handlers/environment.js";
 import {
+  inspectHostGitCheckout,
   inspectHostGitSource,
   listHostBranchOptions,
 } from "./command-handlers/host-branches.js";
@@ -49,10 +53,9 @@ import {
   listHostPaths,
   readHostFile,
   readHostFileChunk,
-  readHostFileMetadata,
-  readHostRelativeFile,
 } from "./command-handlers/host-files.js";
 import { writeHostFile } from "./command-handlers/file-write.js";
+import { discoverRepos } from "./command-handlers/discover-repos.js";
 import {
   mkdirHostPath,
   moveHostPath,
@@ -76,19 +79,16 @@ import {
   startThread,
   submitTurn,
 } from "./command-handlers/thread.js";
-import { WorkspaceError, type HostWorkspace } from "@cc/host-workspace";
 import {
   cloneProject,
   inspectProjectPath,
   resolveProjectCloneDefaultPath,
 } from "./command-handlers/project.js";
-import {
-  requireResolvedWorkspaceForCommand,
-  resolveWorkspaceForCommand,
-  workspaceResolutionFailureFromError,
-} from "./workspace-resolution.js";
+import { requireResolvedWorkspaceForCommand } from "./workspace-resolution.js";
 import { userExecutableProcessOptions } from "./user-executable-env.js";
 import type { ServerMoveService } from "./server-move/service.js";
+import { readWorkspaceAgentContext } from "./command-handlers/workspace-agent-context.js";
+import { WorkspaceError } from "cc-environment-provider-host/workspace-git";
 
 const THREAD_STOP_ACTIVE_TURN_WAIT_MS = 5_000;
 
@@ -136,7 +136,6 @@ async function stopThreadRuntime(
 }
 
 export {
-  CommandDispatchError,
   getErrorCode,
   type CommandDispatchOptions,
 } from "./command-dispatch-support.js";
@@ -152,6 +151,7 @@ type OnlineRpcHandlerMap = {
   [TType in HostDaemonOnlineRpcCommandType]: (
     command: Extract<HostDaemonOnlineRpcCommand, { type: TType }>,
     options: CommandDispatchOptions,
+    signal: AbortSignal,
   ) => Promise<HostDaemonOnlineRpcResult<TType>>;
 };
 
@@ -279,7 +279,6 @@ async function runProviderInstallationOnHost(
     );
     const maintenanceArgs = {
       providerId: command.providerId,
-      ...(command.cwd !== undefined ? { cwd: command.cwd } : {}),
       bridgeLaunch,
     };
     const run = await options.providerInstallationRun({
@@ -386,9 +385,7 @@ async function forwardDesktopBrowserCommand<
 }
 
 async function withResolvedBridgeLaunch<TResult>(
-  command: CommandOf<
-    "provider.list_models" | "provider.health" | "provider.usage"
-  >,
+  command: CommandOf<"provider.list_models" | "provider.health">,
   options: CommandDispatchOptions,
   call: (args: {
     providerId: string;
@@ -405,44 +402,6 @@ async function withResolvedBridgeLaunch<TResult>(
     ...(command.cwd !== undefined ? { cwd: command.cwd } : {}),
     bridgeLaunch,
   });
-}
-
-async function readAvailableWorkspace<TAvailable extends object>(
-  command: CommandOf<
-    | "workspace.status"
-    | "workspace.diff"
-    | "workspace.diffFiles"
-    | "workspace.diffPatch"
-  >,
-  options: CommandDispatchOptions,
-  read: (workspace: HostWorkspace) => Promise<TAvailable>,
-): Promise<
-  | ({ outcome: "available" } & TAvailable)
-  | { outcome: "unavailable"; failure: WorkspaceResolutionFailure }
-> {
-  const resolution = await resolveWorkspaceForCommand({
-    environmentId: command.environmentId,
-    requireGit: true,
-    runtimeManager: options.runtimeManager,
-    workspaceContext: command.workspaceContext,
-  });
-  if (!resolution.ok) {
-    return { outcome: "unavailable", failure: resolution.failure };
-  }
-  try {
-    return {
-      outcome: "available",
-      ...(await read(resolution.entry.workspace)),
-    };
-  } catch (error) {
-    return {
-      outcome: "unavailable",
-      failure: workspaceResolutionFailureFromError({
-        error,
-        workspacePath: command.workspaceContext.workspacePath,
-      }),
-    };
-  }
 }
 
 const commandHandlers: CommandHandlerMap = {
@@ -586,26 +545,17 @@ const commandHandlers: CommandHandlerMap = {
       noVerify: true,
     });
   },
-  "workspace.pull_request_action": async (command, options) => {
-    const entry = await requireResolvedWorkspaceForCommand({
-      environmentId: command.environmentId,
-      requireGit: true,
-      runtimeManager: options.runtimeManager,
-      workspaceContext: command.workspaceContext,
-    });
-    await entry.workspace.runPullRequestAction(
-      command.operation === "merge"
-        ? { operation: "merge", method: command.method }
-        : { operation: command.operation },
-      userExecutableProcessOptions(options.runtimeManager.getShellEnv()),
-    );
-    return {};
-  },
 };
 
 const onlineRpcHandlers: OnlineRpcHandlerMap = {
+  "desktop.broker.prove": async (command, options) => {
+    if (!options.desktopBrowserBroker)
+      throw new Error("Desktop browser broker unavailable");
+    return options.desktopBrowserBroker.prove(command.challenge);
+  },
   "environment.hook.run": runEnvironmentHook,
   "environment.hook.cancel": cancelEnvironmentHook,
+  "environment.inspect_cleanup": inspectEnvironmentCleanup,
   "desktop.browser.list_instances": forwardDesktopBrowserCommand,
   "desktop.browser.list_tabs": forwardDesktopBrowserCommand,
   "desktop.browser.create_tab": forwardDesktopBrowserCommand,
@@ -623,8 +573,10 @@ const onlineRpcHandlers: OnlineRpcHandlerMap = {
     }
     return options.ensureConnectTunnelIdentity();
   },
-  "host.list_files": listHostFiles,
-  "host.list_paths": listHostPaths,
+  "host.list_files": (command, _options, signal) =>
+    listHostFiles(command, signal),
+  "host.list_paths": (command, _options, signal) =>
+    listHostPaths(command, signal),
   "host.mkdir": mkdirHostPath,
   "host.move_path": moveHostPath,
   "host.remove_path": removeHostPath,
@@ -650,30 +602,61 @@ const onlineRpcHandlers: OnlineRpcHandlerMap = {
   },
   "host.list_commands": listHostCommands,
   "host.list_skills": listHostSkills,
+  "host.read_workspace_agent_context": readWorkspaceAgentContext,
   "host.delete_skill": deleteHostSkill,
   "host.write_skill": writeHostSkill,
   "host.install_global_skills": installGlobalSkills,
   "host.global_skills_status": async (command) =>
     readGlobalSkillsStatus(command, {}),
+  "host.inspect_git_checkout": inspectHostGitCheckout,
   "host.inspect_git_source": inspectHostGitSource,
   "host.list_branch_options": listHostBranchOptions,
-  "host.file_metadata": readHostFileMetadata,
   "host.read_file": readHostFile,
   "host.read_file_chunk": readHostFileChunk,
-  "host.read_file_relative": readHostRelativeFile,
   "host.write_file": writeHostFile,
   "provider.list_models": (command, options) =>
     withResolvedBridgeLaunch(command, options, (args) =>
-      options.listModels(args),
+      options.listModels({
+        ...args,
+        contributedEnv: command.contributedEnv,
+        ...(command.selectedModel === undefined
+          ? {}
+          : { selectedModel: command.selectedModel }),
+      }),
     ),
+  "provider.list_commands": async (command, options) => {
+    const cwd =
+      command.cwd ?? path.join(options.dataDir, "provider-command-catalog");
+    if (command.cwd === null) {
+      await mkdir(cwd, { recursive: true });
+    }
+    return options.listCommands({
+      providerId: command.providerId,
+      bridgeLaunch: await resolveRuntimeBridgeLaunch(
+        command.bridgeLaunch,
+        options,
+      ),
+      cwd,
+    });
+  },
   "provider.health": (command, options) =>
     withResolvedBridgeLaunch(command, options, (args) =>
       options.providerHealth(args),
     ),
-  "provider.usage": (command, options) =>
-    withResolvedBridgeLaunch(command, options, (args) =>
-      options.providerUsage(args),
-    ),
+  "provider.usage": async (command, options) =>
+    options.providerUsage({
+      providerId: command.providerId,
+      bridgeLaunch: await resolveRuntimeBridgeLaunch(
+        command.bridgeLaunch,
+        options,
+      ),
+    }),
+  "host.discover_repos": (command) =>
+    discoverRepos({
+      maxDepth: command.maxDepth,
+      sinceDays: command.sinceDays,
+      limit: command.limit,
+    }),
   "provider.installation.status": async (command, options) => {
     const bridgeLaunch = await resolveRuntimeBridgeLaunch(
       command.bridgeLaunch,
@@ -681,70 +664,10 @@ const onlineRpcHandlers: OnlineRpcHandlerMap = {
     );
     return options.providerInstallationStatus({
       providerId: command.providerId,
-      ...(command.cwd !== undefined ? { cwd: command.cwd } : {}),
-      ...(command.requirement !== undefined
-        ? { requirement: command.requirement }
-        : {}),
       bridgeLaunch,
     });
   },
   "provider.installation.run": runProviderInstallationOnHost,
-  "workspace.status": (command, options) =>
-    readAvailableWorkspace(command, options, async (workspace) => ({
-      workspaceStatus: await workspace.getStatus({
-        mergeBaseBranch: command.mergeBaseBranch,
-        maxUntrackedLineStatFiles: command.maxUntrackedLineStatFiles,
-        maxUntrackedLineStatBytes: command.maxUntrackedLineStatBytes,
-      }),
-    })),
-  "workspace.diff": (command, options) =>
-    readAvailableWorkspace(command, options, async (workspace) => ({
-      diff: await workspace.getDiff({
-        target: command.target,
-        maxDiffBytes: command.maxDiffBytes,
-        maxFileListBytes: command.maxFileListBytes,
-        maxUntrackedFiles: command.maxUntrackedFiles,
-      }),
-    })),
-  "workspace.diffFiles": (command, options) =>
-    readAvailableWorkspace(command, options, (workspace) =>
-      workspace.diffFiles({
-        target: command.target,
-        maxFiles: command.maxFiles,
-      }),
-    ),
-  "workspace.diffPatch": (command, options) =>
-    readAvailableWorkspace(command, options, async (workspace) => ({
-      patches: await workspace.diffPatch({
-        target: command.target,
-        paths: command.paths,
-        maxBytesPerFile: command.maxBytesPerFile,
-      }),
-    })),
-  "workspace.pull_request": async (command, options) => {
-    const resolution = await resolveWorkspaceForCommand({
-      environmentId: command.environmentId,
-      requireGit: true,
-      runtimeManager: options.runtimeManager,
-      workspaceContext: command.workspaceContext,
-    });
-    if (!resolution.ok) {
-      return resolution.failure.code === "not_git_repo"
-        ? { outcome: "absent" }
-        : { outcome: "unavailable", message: resolution.failure.message };
-    }
-    const lookup = await resolution.entry.workspace.getPullRequest(
-      userExecutableProcessOptions(options.runtimeManager.getShellEnv()),
-    );
-    switch (lookup.outcome) {
-      case "found":
-        return { outcome: "available", pullRequest: lookup.pullRequest };
-      case "none":
-        return { outcome: "absent" };
-      case "unavailable":
-        return { outcome: "unavailable", message: lookup.message };
-    }
-  },
   "server_move.inspect": (command, options) =>
     requireServerMove(options).inspect(command),
   "server_move.probe": (command, options) =>
@@ -766,7 +689,9 @@ export async function dispatchCommand<
   options: CommandDispatchOptions,
 ): Promise<HostDaemonCommandResult<TType>> {
   try {
-    return await commandHandlers[command.type](command, options);
+    return await withVcsProcessPriority("interactive", () =>
+      commandHandlers[command.type](command, options),
+    );
   } catch (error) {
     throwExpectedWorkspacePathNotFoundOrRethrow(error);
   }
@@ -777,9 +702,12 @@ export async function dispatchOnlineRpcCommand<
 >(
   command: Extract<HostDaemonOnlineRpcCommand, { type: TType }>,
   options: CommandDispatchOptions,
+  signal: AbortSignal,
 ): Promise<HostDaemonOnlineRpcResult<TType>> {
   try {
-    return await onlineRpcHandlers[command.type](command, options);
+    return await withVcsProcessPriority("interactive", () =>
+      onlineRpcHandlers[command.type](command, options, signal),
+    );
   } catch (error) {
     throwExpectedWorkspacePathNotFoundOrRethrow(error);
   }

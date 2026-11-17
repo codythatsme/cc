@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { CompactViewportOverrideProvider } from "@cc/shared-ui/hooks/use-compact-viewport";
 import {
   Sidebar,
-  SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -63,44 +62,8 @@ describe("app chrome opts out of text selection", () => {
     expect(getPanel().classList.contains("select-none")).toBe(true);
   });
 
-  it("suppresses translated page actions without suppressing the fixed sidebar trigger", () => {
-    render(
-      <CompactViewportOverrideProvider isCompactViewport>
-        <SidebarProvider>
-          <Sidebar>Sidebar content</Sidebar>
-          <SidebarInset>
-            <AppPageHeader
-              center={<p>Thread title</p>}
-              actions={<button type="button">Header action</button>}
-            />
-          </SidebarInset>
-          <SidebarTrigger />
-        </SidebarProvider>
-      </CompactViewportOverrideProvider>,
-    );
-
-    const inset = document.querySelector('[data-sidebar="inset"]');
-    const headerActions = document.querySelector(
-      "[data-app-page-header-actions]",
-    );
-    const sidebarTrigger = screen.getByRole("button", {
-      name: "Toggle Sidebar",
-    });
-
-    expect(inset?.classList.contains("group/page-inset")).toBe(true);
-    expect(headerActions?.classList).toContain(
-      "group-data-[panel-shelf=shelf]/page-inset:invisible",
-    );
-    expect(sidebarTrigger.closest("[data-app-page-header-actions]")).toBeNull();
-  });
-
-  it("marks the right panel's top chrome with and without the diff toolbar", () => {
-    expect(getSecondaryPanelChromeStackClassName(false)).toContain(
-      "select-none",
-    );
-    expect(getSecondaryPanelChromeStackClassName(true)).toContain(
-      "select-none",
-    );
+  it("marks the right panel's top chrome", () => {
+    expect(getSecondaryPanelChromeStackClassName()).toContain("select-none");
   });
 
   it("restores native selection on editable controls inside opted-out chrome", () => {

@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   archiveThread,
-  createConnection,
   createQueuedThreadMessage,
   createProject,
   createPromptHistoryEntry,
   createThread,
   markThreadDeleted,
-  migrate,
   noopNotifier,
   promptHistoryEntries,
   upsertHost,
+  type DbConnection,
 } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import type { PromptHistoryScope, PromptInput } from "@cc/domain";
 import {
   listProjectPromptHistory,
@@ -20,11 +20,9 @@ import {
 } from "../../src/services/prompt-history.js";
 import { textInput } from "../helpers/prompt-input.js";
 
-type TestDb = ReturnType<typeof createConnection>;
-
 interface InsertPromptHistoryEntryArgs {
   createdAt: number;
-  db: TestDb;
+  db: DbConnection;
   input: PromptInput[];
   projectId: string;
   requestSequence: number;
@@ -33,8 +31,7 @@ interface InsertPromptHistoryEntryArgs {
 }
 
 function setup() {
-  const db = createConnection(":memory:");
-  migrate(db);
+  const db = createMigratedConnection();
   const host = upsertHost(db, noopNotifier, {
     name: "test-host",
   });

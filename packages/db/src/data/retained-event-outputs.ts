@@ -16,10 +16,10 @@ import {
   type RetainedEventOutputTarget,
 } from "../retained-event-output.js";
 import { events, retainedEventOutputs } from "../schema.js";
+import { queryInSqliteVariableBatches } from "./sqlite-variable-batches.js";
 
 const COMPLETED_EVENT_OUTPUT_TRUNCATION_MARKER =
   "\n\n[... output truncated by retention policy; showing beginning and end ...]\n\n";
-const RETAINED_EVENT_OUTPUT_LOOKUP_BATCH_SIZE = 100;
 
 interface PreparedRetainedEventOutput {
   expiresAt: number;
@@ -50,10 +50,9 @@ interface InsertPreparedRetainedEventOutputArgs {
   output: PreparedRetainedEventOutput;
 }
 
-interface CopyRetainedEventOutputArgs {
+interface CopyRetainedEventOutputsArgs {
   copiedAt: number;
-  sourceEventId: string;
-  targetEventId: string;
+  events: readonly { sourceEventId: string; targetEventId: string }[];
 }
 
 interface HydratableStoredEventRow {
@@ -227,20 +226,25 @@ export function insertPreparedRetainedEventOutput(
     .run();
 }
 
-export function copyRetainedEventOutput(
+export function copyRetainedEventOutputs(
   db: DbQueryConnection,
-  args: CopyRetainedEventOutputArgs,
+  args: CopyRetainedEventOutputsArgs,
 ): void {
+  if (args.events.length === 0) {
+    return;
+  }
   db.run(sql`INSERT INTO retained_event_outputs
     (event_id, output_path, value, expires_at)
     SELECT
-      ${args.targetEventId},
-      output_path,
-      value,
-      expires_at
-    FROM retained_event_outputs
-    WHERE event_id = ${args.sourceEventId}
-      AND expires_at > ${args.copiedAt}`);
+      copied.value ->> '$.targetEventId',
+      source.output_path,
+      source.value,
+      source.expires_at
+    FROM json_each(${JSON.stringify(args.events)}) AS copied
+    JOIN retained_event_outputs AS source
+      ON source.event_id = copied.value ->> '$.sourceEventId'
+    WHERE source.expires_at > ${args.copiedAt}
+    ORDER BY copied.key`);
 }
 
 function decodeRetainedOutputValue(encodedValue: string): string {
@@ -309,15 +313,13 @@ export function hydrateRetainedEventOutputRows<
   if (rows.length === 0) {
     return [];
   }
-  const eventIds = [...new Set(rows.map((row) => row.id))];
-  const outputs: RetainedEventOutputHydrationRow[] = [];
-  for (
-    let start = 0;
-    start < eventIds.length;
-    start += RETAINED_EVENT_OUTPUT_LOOKUP_BATCH_SIZE
-  ) {
-    outputs.push(
-      ...db
+  const outputs = queryInSqliteVariableBatches({
+    dedupeKey: (eventId) => eventId,
+    fixedVariableCount: 1,
+    variableCountPerValue: 1,
+    values: rows.map((row) => row.id),
+    queryBatch: (batch) =>
+      db
         .select({
           encodedValue: retainedEventOutputs.value,
           eventId: retainedEventOutputs.eventId,
@@ -326,19 +328,12 @@ export function hydrateRetainedEventOutputRows<
         .from(retainedEventOutputs)
         .where(
           and(
-            inArray(
-              retainedEventOutputs.eventId,
-              eventIds.slice(
-                start,
-                start + RETAINED_EVENT_OUTPUT_LOOKUP_BATCH_SIZE,
-              ),
-            ),
+            inArray(retainedEventOutputs.eventId, [...batch]),
             gt(retainedEventOutputs.expiresAt, now),
           ),
         )
         .all(),
-    );
-  }
+  });
   if (outputs.length === 0) {
     return [...rows];
   }
@@ -356,14 +351,13 @@ function listRetainedEventOutputSizes(
   eventIds: readonly string[],
   now: number,
 ): RetainedEventOutputSizeRow[] {
-  const sizes: RetainedEventOutputSizeRow[] = [];
-  for (
-    let start = 0;
-    start < eventIds.length;
-    start += RETAINED_EVENT_OUTPUT_LOOKUP_BATCH_SIZE
-  ) {
-    sizes.push(
-      ...db
+  return queryInSqliteVariableBatches({
+    dedupeKey: (eventId) => eventId,
+    fixedVariableCount: 1,
+    variableCountPerValue: 1,
+    values: eventIds,
+    queryBatch: (batch) =>
+      db
         .select({
           eventId: retainedEventOutputs.eventId,
           outputPath: retainedEventOutputs.outputPath,
@@ -372,20 +366,12 @@ function listRetainedEventOutputSizes(
         .from(retainedEventOutputs)
         .where(
           and(
-            inArray(
-              retainedEventOutputs.eventId,
-              eventIds.slice(
-                start,
-                start + RETAINED_EVENT_OUTPUT_LOOKUP_BATCH_SIZE,
-              ),
-            ),
+            inArray(retainedEventOutputs.eventId, [...batch]),
             gt(retainedEventOutputs.expiresAt, now),
           ),
         )
         .all(),
-    );
-  }
-  return sizes;
+  });
 }
 
 function retainedOutputSizeTotal(

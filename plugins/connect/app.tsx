@@ -1,10 +1,27 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ExpandableText } from "@cc/shared-ui/expandable-text";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   definePluginApp,
+  experimental_copyToClipboard,
   UrlLink as UrlLink,
+  useCcNavigate,
   useRealtime,
+  useRealtimeConnectionState,
   useRpc,
+  useSdk,
+  type InternalDoNotUseSetupFailureDetail,
+  type InternalDoNotUseSetupFailureStage,
+  type InternalDoNotUseSetupGuideSectionProps,
+  type PluginSettingsSectionProps,
 } from "@codythatsme/plugin-sdk/app";
+import { mobileAppDownloads } from "@cc/domain";
 import {
   encodeMobilePairingPayload,
   mobilePairingPayload,
@@ -12,7 +29,14 @@ import {
 } from "@cc/connect-client";
 import type { connectRpcContract } from "./src/rpc.js";
 import type { MachineCodeErrorCode } from "./src/machine-code.js";
-import type { ConnectPairErrorCode } from "./src/redeem.js";
+import {
+  ACCOUNT_PLUGIN_ID,
+  accountErrorCode,
+  accountStatusSchema,
+  loginPollOutputSchema,
+  loginViewSchema,
+  type LoginView,
+} from "cc-plugin-cc-account/src/schemas.js";
 import QRCode from "qrcode";
 import { Button } from "@cc/shared-ui/button";
 import {
@@ -22,9 +46,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@cc/shared-ui/dialog";
+import {
+  formatCountdown,
+  useCountdown,
+} from "@cc/shared-ui/hooks/use-countdown";
 import { Icon } from "@cc/shared-ui/icon";
 import { Input } from "@cc/shared-ui/input";
 import { cn } from "@cc/shared-ui/lib/utils";
+import { copyTextWithSdkToast } from "@cc/shared-ui/sdk-clipboard-copy";
+import { MobilePlatformIcon } from "@cc/shared-ui/mobile-platform-icon";
+import {
+  SETUP_OPTION_ICON_GUTTER_CLASS,
+  SETUP_OPTION_ICON_OUTDENT_CLASS,
+  SetupOptionRow,
+} from "@cc/shared-ui/setup-option-row";
+import {
+  CodeDisplay,
+  CodeEntryForm,
+  DisclosureToggle,
+  INLINE_CHIP_BUTTON_CLASS,
+  InlinePanel,
+  InlineTextLink,
+  PendingStatus,
+  QuietTextAction,
+} from "@cc/shared-ui/sign-in-panel";
 import { CONNECT_REALTIME_CHANNEL, type ConnectStatus } from "@/src/types";
 
 function errorText(error: unknown): string {
@@ -34,10 +79,29 @@ function errorText(error: unknown): string {
 const DANGER_QUIET_CLASS =
   "text-destructive-text hover:text-destructive-text hover:bg-surface-destructive";
 
+type ConnectPairErrorCode =
+  | "invalid_code"
+  | "expired_code"
+  | "already_used"
+  | "network"
+  | "unauthorized"
+  | "profile_unavailable"
+  | "superseded"
+  | "account_unavailable";
+
 interface PairErrorCopy {
   lead: string;
   linkLabel: string;
   tail: string;
+}
+
+const LOGIN_POLL_MS = 2_000;
+const LOGIN_POLL_MAX_MS = 30_000;
+
+function loginPollDelay(failures: number): number {
+  return failures === 0
+    ? LOGIN_POLL_MS
+    : Math.min(LOGIN_POLL_MS * 2 ** failures, LOGIN_POLL_MAX_MS);
 }
 
 const PAIR_ERROR_COPY: Record<ConnectPairErrorCode, PairErrorCopy> = {
@@ -57,23 +121,62 @@ const PAIR_ERROR_COPY: Record<ConnectPairErrorCode, PairErrorCopy> = {
     tail: " — each code works once.",
   },
   network: {
-    lead: "Couldn't reach the Connect service.",
+    lead: "Couldn't reach cc.example.invalid.",
     linkLabel: "Open the dashboard",
     tail: " — check your connection, then try again.",
   },
+  unauthorized: {
+    lead: "cc.example.invalid rejected the new pairing.",
+    linkLabel: "Get a new code",
+    tail: " and try again.",
+  },
+  profile_unavailable: {
+    lead: "This cc saved the pairing, but cc.example.invalid hasn't returned your account yet.",
+    linkLabel: "Open the dashboard",
+    tail: " — cc keeps retrying, and remote access starts once it does.",
+  },
+  superseded: {
+    lead: "Another sign-in or a sign-out replaced this one.",
+    linkLabel: "Open the dashboard",
+    tail: " — check which account this cc uses under cc account.",
+  },
+  account_unavailable: {
+    lead: "The cc account plugin is off.",
+    linkLabel: "Open the dashboard",
+    tail: " — turn cc account on under Plugins, then try again.",
+  },
 };
 
-function toPairErrorCode(error: unknown): ConnectPairErrorCode {
-  const message = errorText(error);
+function isUnavailableError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    (error.status === 503 || error.status === 404)
+  );
+}
+
+function pairFailureDetail(error: unknown): ConnectPairErrorCode | "other" {
+  if (isUnavailableError(error)) return "account_unavailable";
+  const code = accountErrorCode(error);
   if (
-    message === "invalid_code" ||
-    message === "expired_code" ||
-    message === "already_used" ||
-    message === "network"
+    code === "invalid_code" ||
+    code === "expired_code" ||
+    code === "already_used" ||
+    code === "network" ||
+    code === "unauthorized" ||
+    code === "profile_unavailable" ||
+    code === "superseded"
   ) {
-    return message;
+    return code;
   }
-  return "invalid_code";
+  return "other";
+}
+
+function toPairErrorCode(
+  detail: ConnectPairErrorCode | "other",
+): ConnectPairErrorCode {
+  return detail === "other" ? "invalid_code" : detail;
 }
 
 function asStatus(payload: unknown): ConnectStatus | null {
@@ -81,6 +184,7 @@ function asStatus(payload: unknown): ConnectStatus | null {
   const record = payload as {
     state?: unknown;
     paired?: unknown;
+    enabled?: unknown;
     handle?: unknown;
     url?: unknown;
     dashboardUrl?: unknown;
@@ -133,6 +237,7 @@ function asStatus(payload: unknown): ConnectStatus | null {
   return {
     state: record.state,
     paired: record.paired,
+    enabled: typeof record.enabled === "boolean" ? record.enabled : true,
     handle: typeof record.handle === "string" ? record.handle : null,
     url: typeof record.url === "string" ? record.url : null,
     dashboardUrl:
@@ -207,17 +312,6 @@ function StatusDot({ tone }: { tone: "ok" | "warn" | "muted" }) {
   );
 }
 
-function StepNumber({ value }: { value: number }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-recessed text-xs font-medium text-muted-foreground"
-    >
-      {value}
-    </span>
-  );
-}
-
 function QrCodeImage({
   value,
   alt,
@@ -280,17 +374,16 @@ function UrlHero({ url, showOpen }: { url: string; showOpen: boolean }) {
   }, []);
 
   const copy = useCallback(() => {
-    navigator.clipboard.writeText(url).then(
-      () => {
-        setCopyState("copied");
-        if (timerRef.current !== null) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => setCopyState("idle"), 1500);
-      },
-      () => {
+    void experimental_copyToClipboard({ text: url }).then((copied) => {
+      if (!copied) {
         selectUrl();
         setCopyState("manual");
-      },
-    );
+        return;
+      }
+      setCopyState("copied");
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopyState("idle"), 1500);
+    });
   }, [url, selectUrl]);
 
   return (
@@ -341,14 +434,12 @@ function QuietCopyButton({ text, label }: { text: string; label: string }) {
     [],
   );
   const copy = useCallback(() => {
-    navigator.clipboard.writeText(text).then(
-      () => {
-        setCopied(true);
-        if (timerRef.current !== null) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => setCopied(false), 1500);
-      },
-      () => {},
-    );
+    void experimental_copyToClipboard({ text }).then((written) => {
+      if (!written) return;
+      setCopied(true);
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
+    });
   }, [text]);
   return (
     <Button
@@ -366,12 +457,18 @@ function QuietCopyButton({ text, label }: { text: string; label: string }) {
 
 function PairForm({
   dashboardUrl,
+  layout,
+  onSubmitted,
+  onFailed,
   onPaired,
 }: {
   dashboardUrl: string;
+  layout: "settings" | "setupGuide";
+  onSubmitted: () => void;
+  onFailed: (detail: InternalDoNotUseSetupFailureDetail) => void;
   onPaired: () => void;
 }) {
-  const rpc = useRpc<typeof connectRpcContract>();
+  const sdk = useSdk();
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
   const [errorCode, setErrorCode] = useState<ConnectPairErrorCode | null>(null);
@@ -383,22 +480,32 @@ function PairForm({
       const canonical = formatConnectCode(value);
       if (!isCompleteCode(canonical)) return;
       submittedRef.current = canonical;
+      onSubmitted();
       setPending(true);
       setErrorCode(null);
-      rpc.call("pair", { code: canonical }).then(
-        () => {
-          setPending(false);
-          setCode("");
-          submittedRef.current = null;
-          onPaired();
-        },
-        (rpcError: unknown) => {
-          setPending(false);
-          setErrorCode(toPairErrorCode(rpcError));
-        },
-      );
+      sdk.plugins
+        .callRpc({
+          pluginId: ACCOUNT_PLUGIN_ID,
+          method: "redeemCode",
+          input: { code: canonical, baseUrl: null },
+          outputSchema: accountStatusSchema,
+        })
+        .then(
+          () => {
+            setPending(false);
+            setCode("");
+            submittedRef.current = null;
+            onPaired();
+          },
+          (rpcError: unknown) => {
+            const detail = pairFailureDetail(rpcError);
+            setPending(false);
+            setErrorCode(toPairErrorCode(detail));
+            onFailed(detail);
+          },
+        );
     },
-    [pending, rpc, onPaired],
+    [pending, sdk, onSubmitted, onFailed, onPaired],
   );
 
   const onChange = useCallback(
@@ -417,36 +524,56 @@ function PairForm({
   const copy = errorCode !== null ? PAIR_ERROR_COPY[errorCode] : null;
 
   return (
-    <div className="space-y-2.5">
-      <form
-        className="flex max-w-md items-center gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submit(code);
-        }}
-      >
-        <Input
+    <div className={layout === "setupGuide" ? "space-y-3" : "space-y-2.5"}>
+      {layout === "setupGuide" ? (
+        <CodeEntryForm
+          label="Pairing code"
           value={code}
-          onChange={(event) => onChange(event.target.value)}
           placeholder="XXXX–XXXX"
-          autoComplete="off"
-          spellCheck={false}
-          aria-label="Connect code"
-          aria-invalid={errorCode !== null}
-          className={cn(
-            "font-mono tracking-widest",
-            errorCode !== null && "border-destructive ring-1 ring-destructive",
-          )}
+          submitLabel="Pair"
+          canSubmit={complete}
+          pending={pending}
+          invalid={errorCode !== null}
+          onChange={onChange}
+          onSubmit={() => submit(code)}
         />
-        <Button type="submit" disabled={pending || !complete}>
-          {pending ? (
-            <Icon name="Spinner" className="size-4 animate-spin" />
-          ) : null}
-          Connect
-        </Button>
-      </form>
+      ) : (
+        <form
+          className="flex max-w-md items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit(code);
+          }}
+        >
+          <Input
+            value={code}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder="XXXX–XXXX"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label="Pairing code"
+            aria-invalid={errorCode !== null}
+            className={cn(
+              "font-mono tracking-widest",
+              errorCode !== null &&
+                "border-destructive ring-1 ring-destructive",
+            )}
+          />
+          <Button type="submit" disabled={pending || !complete}>
+            {pending ? (
+              <Icon name="Spinner" className="size-4 animate-spin" />
+            ) : null}
+            Pair
+          </Button>
+        </form>
+      )}
       {copy !== null ? (
-        <div className="max-w-md rounded-md border border-surface-destructive-border bg-surface-destructive px-3 py-2 text-xs text-destructive-text">
+        <div
+          className={cn(
+            "rounded-md border border-surface-destructive-border bg-surface-destructive px-3 py-2 text-xs text-destructive-text",
+            layout === "settings" && "max-w-md",
+          )}
+        >
           {copy.lead}{" "}
           <UrlLink
             href={dashboardUrl}
@@ -463,27 +590,46 @@ function PairForm({
   );
 }
 
+function signInStartFailureDetail(
+  error: unknown,
+): InternalDoNotUseSetupFailureDetail {
+  if (isUnavailableError(error)) return "account_unavailable";
+  switch (accountErrorCode(error)) {
+    case "rate_limited":
+      return "rate_limited";
+    case "unavailable":
+      return "service_unavailable";
+    case "network":
+      return "network";
+    default:
+      return "other";
+  }
+}
+
+function loginFailureDetail(
+  state: "denied" | "expired" | "failed",
+): InternalDoNotUseSetupFailureDetail {
+  return state === "failed" ? "login_failed" : state;
+}
+
+function signInStartErrorText(error: unknown): string {
+  if (isUnavailableError(error)) {
+    return "The cc account plugin is off. Turn it on under Plugins, then try again.";
+  }
+  switch (accountErrorCode(error)) {
+    case "rate_limited":
+      return "Too many sign-in attempts from this network. Wait a minute, then try again.";
+    case "unavailable":
+      return "cc.example.invalid couldn't start sign-in right now. Try again in a minute.";
+    default:
+      return "Couldn't reach cc.example.invalid to start sign-in. Check your connection, then try again.";
+  }
+}
+
 function toMachineCodeErrorCode(error: unknown): MachineCodeErrorCode {
   const message = errorText(error);
   if (message === "machine_limit" || message === "not_paired") return message;
   return "network";
-}
-
-function formatCountdown(remainingMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function useCountdown(expiresAt: number | null): number | null {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (expiresAt === null) return;
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [expiresAt]);
-  return expiresAt === null ? null : expiresAt - now;
 }
 
 function MobilePairingCard({
@@ -501,100 +647,78 @@ function MobilePairingCard({
   const expired = remainingMs !== null && remainingMs <= 0;
   const qrText = encodeMobilePairingPayload(payload);
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-recessed/50 px-3 py-3 sm:flex-row sm:items-start">
-      <div className={cn("shrink-0", expired && "opacity-40 saturate-0")}>
-        <QrCodeImage
-          value={qrText}
-          alt="QR code to pair the cc mobile app"
-          className="size-40"
-        />
-      </div>
-      <div className="min-w-0 flex-1 space-y-2">
-        <p className="text-sm">
-          Scan this with the cc mobile app, or enter the code by hand.
-        </p>
-        <div className="flex max-w-xs items-center gap-1 rounded-lg border border-border bg-surface-recessed py-1 pl-3.5 pr-1">
-          <span
-            className={cn(
-              "min-w-0 flex-1 truncate font-mono text-sm font-medium tracking-widest",
-              expired
-                ? "text-muted-foreground line-through"
-                : "text-foreground",
-            )}
-            aria-label="Mobile pairing code"
-          >
-            {payload.code}
-          </span>
-          {expired ? null : (
-            <QuietCopyButton text={payload.code} label="Copy pairing code" />
+    <div className="@container/connect-pairing min-w-0">
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-recessed/50 px-3 py-3 @min-[32rem]/connect-pairing:flex-row @min-[32rem]/connect-pairing:items-start">
+        <div
+          className={cn(
+            "shrink-0 self-center @min-[32rem]/connect-pairing:self-start",
+            expired && "opacity-40 saturate-0",
           )}
+        >
+          <QrCodeImage
+            value={qrText}
+            alt="QR code to pair the cc mobile app"
+            className="size-40"
+          />
         </div>
-        <div className="flex items-center gap-2 text-xs text-subtle-foreground">
-          {expired ? (
-            <>
-              <span>Code expired</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground"
-                disabled={minting}
-                onClick={onRenew}
-              >
-                {minting ? (
-                  <Icon name="Spinner" className="size-4 animate-spin" />
-                ) : null}
-                Generate a new code
-              </Button>
-            </>
-          ) : remainingMs !== null ? (
-            <span className="tabular-nums">
-              Code expires in {formatCountdown(remainingMs)}
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="text-sm">
+            {expired
+              ? "Generate a new code, then scan it or enter it in the cc mobile app."
+              : "Scan this with the cc mobile app, or enter the code by hand."}
+          </p>
+          <div className="flex max-w-xs items-center gap-1 rounded-lg border border-border bg-surface-recessed py-1 pl-3.5 pr-1">
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate font-mono text-sm font-medium tracking-widest",
+                expired
+                  ? "text-muted-foreground line-through"
+                  : "text-foreground",
+              )}
+              aria-label="Mobile pairing code"
+            >
+              {payload.code}
             </span>
-          ) : null}
+            {expired ? null : (
+              <QuietCopyButton text={payload.code} label="Copy pairing code" />
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-subtle-foreground">
+            {expired ? (
+              <>
+                <span>Code expired</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  disabled={minting}
+                  onClick={onRenew}
+                >
+                  {minting ? (
+                    <Icon name="Spinner" className="size-4 animate-spin" />
+                  ) : null}
+                  Generate a new code
+                </Button>
+              </>
+            ) : remainingMs !== null ? (
+              <span className="tabular-nums">
+                Code expires in {formatCountdown(remainingMs)}
+              </span>
+            ) : null}
+          </div>
+          <p className="text-xs text-subtle-foreground/75">
+            {expired ? "Each new code works once." : "This code works once."}{" "}
+            You can revoke your phone’s access from the {dashboardHost}{" "}
+            dashboard.
+          </p>
         </div>
-        <p className="text-xs text-subtle-foreground/75">
-          The code works once. Your phone gets its own credential on your{" "}
-          {dashboardHost} account — it shows up in the dashboard&apos;s machine
-          list, where you can revoke it. Same thing from a terminal:{" "}
-          <span className="font-mono">cc connect machine-code</span>.
-        </p>
       </div>
     </div>
   );
 }
 
-function useMobilePairingEnabled(): boolean {
-  const rpc = useRpc<typeof connectRpcContract>();
-  const [enabled, setEnabled] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    rpc.call("mobilePairing").then(
-      (result) => {
-        if (!cancelled) setEnabled(result.enabled);
-      },
-      () => {
-        if (!cancelled) setEnabled(false);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [rpc]);
-  return enabled;
-}
-
 function AddMobileDeviceSection({ dashboardUrl }: { dashboardUrl: string }) {
-  const enabled = useMobilePairingEnabled();
-  if (!enabled) return null;
-  return <AddMobileDeviceSectionContent dashboardUrl={dashboardUrl} />;
-}
-
-function AddMobileDeviceSectionContent({
-  dashboardUrl,
-}: {
-  dashboardUrl: string;
-}) {
   const rpc = useRpc<typeof connectRpcContract>();
   const [payload, setPayload] = useState<MobilePairingPayload | null>(null);
   const [minting, setMinting] = useState(false);
@@ -618,12 +742,16 @@ function AddMobileDeviceSectionContent({
   }, [minting, rpc]);
 
   return (
-    <div className="space-y-2.5 border-t border-border-seam pt-4">
-      <div className="flex items-center">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-subtle-foreground">
-          Mobile app
-        </h3>
-        <span className="flex-1" />
+    <div className="mt-3 space-y-2.5 border-t border-border-seam pt-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
+          <h3 className="text-xs font-medium">Pair your phone</h3>
+          {payload === null ? (
+            <p className="mt-1 text-xs text-subtle-foreground/75">
+              Scan or enter a code.
+            </p>
+          ) : null}
+        </div>
         {payload === null ? (
           <Button
             type="button"
@@ -636,9 +764,12 @@ function AddMobileDeviceSectionContent({
             {minting ? (
               <Icon name="Spinner" className="size-3.5 animate-spin" />
             ) : (
-              <Icon name="Plus" className="size-3.5" />
+              <Icon
+                name={errorCode === "network" ? "RotateCcw" : "Plus"}
+                className="size-3.5"
+              />
             )}
-            Add mobile device
+            {errorCode === "network" ? "Try again" : "Add mobile device"}
           </Button>
         ) : (
           <Button
@@ -664,31 +795,28 @@ function AddMobileDeviceSectionContent({
           minting={minting}
           onRenew={mint}
         />
-      ) : (
-        <p className="text-xs text-subtle-foreground/75">
-          Pair the cc mobile app with this cc. It gets a one-time code to scan
-          or type; the phone then reaches this cc through {dashboardHost}.
-        </p>
-      )}
+      ) : null}
 
-      {errorCode === "machine_limit" ? (
-        <div className="max-w-md rounded-md border border-surface-destructive-border bg-surface-destructive px-3 py-2 text-xs text-destructive-text">
-          Your {dashboardHost} account has reached its machine limit.{" "}
-          <UrlLink
-            href={dashboardUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold underline underline-offset-2"
-          >
-            Revoke a device you no longer use
-          </UrlLink>{" "}
-          in the dashboard, then try again.
-        </div>
-      ) : errorCode !== null ? (
-        <p className="text-xs text-destructive-text">
-          {errorCode === "not_paired"
-            ? "This cc is no longer paired — re-pair, then try again."
-            : "Couldn't reach the Connect service to create a code — check your connection, then try again."}
+      {errorCode !== null ? (
+        <p role="alert" className="text-xs text-destructive-text">
+          {errorCode === "machine_limit" ? (
+            <>
+              Your {dashboardHost} account has reached its machine limit.{" "}
+              <UrlLink
+                href={dashboardUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold underline underline-offset-2"
+              >
+                Revoke a device you no longer use
+              </UrlLink>{" "}
+              in the dashboard, then try again.
+            </>
+          ) : errorCode === "not_paired" ? (
+            "This cc is signed out. Open Manage to sign in, then try again."
+          ) : (
+            "Couldn't reach the Connect service to create a code — check your connection, then try again."
+          )}
         </p>
       ) : null}
     </div>
@@ -727,12 +855,16 @@ function SharedPortsSection({
   const [portInput, setPortInput] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [exposing, setExposing] = useState(false);
+  const [collapsedHosts, setCollapsedHosts] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [revokingHost, setRevokingHost] = useState<string | null>(null);
   const [revokingShare, setRevokingShare] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const expose = useCallback(() => {
     const trimmed = portInput.trim();
-    if (trimmed.length === 0 || exposing) return;
+    if (trimmed.length === 0 || exposing || revokingHost !== null) return;
     const port = Number(trimmed);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
       setError("Port must be an integer between 1 and 65535");
@@ -751,11 +883,11 @@ function SharedPortsSection({
         setError(errorText(rpcError));
       },
     );
-  }, [portInput, exposing, rpc]);
+  }, [portInput, exposing, revokingHost, rpc]);
 
   const unexpose = useCallback(
     (hostId: string, port: number) => {
-      if (revokingShare !== null) return;
+      if (revokingShare !== null || revokingHost !== null) return;
       const key = `${hostId}:${port}`;
       setRevokingShare(key);
       setError(null);
@@ -769,8 +901,21 @@ function SharedPortsSection({
         },
       );
     },
-    [revokingShare, rpc],
+    [revokingShare, revokingHost, rpc],
   );
+
+  const unexposeAll = async (hostId: string) => {
+    if (revokingHost !== null || revokingShare !== null) return;
+    setRevokingHost(hostId);
+    setError(null);
+    try {
+      await rpc.call("unexposeAll", { hostId });
+    } catch (rpcError) {
+      setError(errorText(rpcError));
+    } finally {
+      setRevokingHost(null);
+    }
+  };
 
   return (
     <div
@@ -779,8 +924,8 @@ function SharedPortsSection({
         dimmed && "pointer-events-none opacity-60 saturate-[0.85]",
       )}
     >
-      <div className="flex items-center">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-subtle-foreground">
+      <div className="flex flex-wrap items-center gap-1">
+        <h3 className="text-2xs font-semibold uppercase tracking-wide text-subtle-foreground">
           Shared ports
         </h3>
         <span className="flex-1" />
@@ -789,6 +934,7 @@ function SharedPortsSection({
           variant="ghost"
           size="sm"
           className="text-muted-foreground"
+          disabled={revokingHost !== null}
           onClick={() => setFormOpen((open) => !open)}
         >
           <Icon name="Plus" className="size-3.5" />
@@ -799,21 +945,62 @@ function SharedPortsSection({
       {shares.length > 0 ? (
         <div className="space-y-2.5">
           {groupSharesByHost(shares).map((group) => {
+            const collapsed = collapsedHosts.has(group.hostId);
             const hostDown = group.shares.every((share) => share.url === "");
             return (
               <div key={group.hostId} className="space-y-1">
-                <div className="flex items-center gap-1.5">
-                  <StatusDot tone={hostDown ? "muted" : "ok"} />
-                  <span
-                    className={cn(
-                      "min-w-0 truncate text-xs font-medium",
-                      hostDown ? "text-muted-foreground" : "text-foreground",
-                    )}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`${group.hostName}, ${group.shares.length} shared ports`}
+                    aria-expanded={!collapsed}
+                    onClick={() =>
+                      setCollapsedHosts((previous) => {
+                        const next = new Set(previous);
+                        if (next.has(group.hostId)) next.delete(group.hostId);
+                        else next.add(group.hostId);
+                        return next;
+                      })
+                    }
                   >
-                    {group.hostName}
-                  </span>
+                    <Icon
+                      name={collapsed ? "ChevronRight" : "ChevronDown"}
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                    />
+                    <StatusDot tone={hostDown ? "muted" : "ok"} />
+                    <span
+                      className={cn(
+                        "min-w-0 truncate text-xs font-medium",
+                        hostDown ? "text-muted-foreground" : "text-foreground",
+                      )}
+                    >
+                      {group.hostName}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {group.shares.length}
+                    </span>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className={DANGER_QUIET_CLASS}
+                    aria-label={`Revoke all (${group.shares.length}) shared ports on ${group.hostName}`}
+                    disabled={
+                      revokingHost !== null ||
+                      revokingShare !== null ||
+                      exposing
+                    }
+                    onClick={() => void unexposeAll(group.hostId)}
+                  >
+                    {revokingHost === group.hostId ? (
+                      <Icon name="Spinner" className="size-4 animate-spin" />
+                    ) : null}
+                    Revoke all ({group.shares.length})
+                  </Button>
                 </div>
-                <ul className="space-y-1 pl-3.5">
+                <ul hidden={collapsed} className="space-y-1 pl-7">
                   {group.shares.map((share) => (
                     <li
                       key={`${share.hostId}:${share.port}`}
@@ -859,7 +1046,7 @@ function SharedPortsSection({
                         size="sm"
                         className={DANGER_QUIET_CLASS}
                         disabled={
-                          revokingShare === `${share.hostId}:${share.port}`
+                          revokingHost !== null || revokingShare !== null
                         }
                         onClick={() => unexpose(share.hostId, share.port)}
                       >
@@ -903,7 +1090,9 @@ function SharedPortsSection({
           <Button
             type="submit"
             size="sm"
-            disabled={exposing || portInput.trim().length === 0}
+            disabled={
+              exposing || revokingHost !== null || portInput.trim().length === 0
+            }
           >
             {exposing ? (
               <Icon name="Spinner" className="size-4 animate-spin" />
@@ -924,18 +1113,16 @@ function SharedPortsSection({
   );
 }
 
-function DisconnectDialog({
+function TurnOffDialog({
   open,
   onOpenChange,
   host,
-  dashboardHost,
   pending,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   host: string;
-  dashboardHost: string;
   pending: boolean;
   onConfirm: () => void;
 }) {
@@ -945,12 +1132,12 @@ function DisconnectDialog({
         {open ? (
           <>
             <DialogHeader>
-              <DialogTitle>Disconnect remote access?</DialogTitle>
+              <DialogTitle>Turn off remote access?</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{host}</span> will
-              stop working on all devices. Re-pairing needs a new code from your{" "}
-              {dashboardHost} dashboard.
+              stop working on all devices until you turn remote access back on.
+              This cc stays signed in to your cc account.
             </p>
             <DialogFooter>
               <Button
@@ -970,7 +1157,7 @@ function DisconnectDialog({
                 {pending ? (
                   <Icon name="Spinner" className="size-4 animate-spin" />
                 ) : null}
-                {pending ? "Disconnecting…" : "Disconnect"}
+                {pending ? "Turning off…" : "Turn off"}
               </Button>
             </DialogFooter>
           </>
@@ -980,14 +1167,267 @@ function DisconnectDialog({
   );
 }
 
+interface AccountLogin {
+  login: LoginView | null;
+  starting: boolean;
+  error: string | null;
+  start(): void;
+  cancel(): void;
+}
+
+function useAccountLogin(
+  onSignedIn: () => void,
+  onFailed: (detail: InternalDoNotUseSetupFailureDetail) => void,
+  openOnStart: boolean,
+): AccountLogin {
+  const sdk = useSdk();
+  const navigate = useCcNavigate();
+  const [login, setLogin] = useState<LoginView | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const onSignedInRef = useRef(onSignedIn);
+  useEffect(() => {
+    onSignedInRef.current = onSignedIn;
+  });
+  const onFailedRef = useRef(onFailed);
+  useEffect(() => {
+    onFailedRef.current = onFailed;
+  });
+
+  const start = useCallback(() => {
+    setStarting(true);
+    setError(null);
+    sdk.plugins
+      .callRpc({
+        pluginId: ACCOUNT_PLUGIN_ID,
+        method: "login.start",
+        input: { baseUrl: null },
+        outputSchema: loginViewSchema,
+      })
+      .then(
+        (view) => {
+          setStarting(false);
+          setLogin(view);
+          if (openOnStart && view.state === "pending") {
+            navigate.openUrl(view.verificationUrl);
+          }
+        },
+        (rpcError: unknown) => {
+          setStarting(false);
+          setError(signInStartErrorText(rpcError));
+          onFailedRef.current(signInStartFailureDetail(rpcError));
+        },
+      );
+  }, [navigate, openOnStart, sdk]);
+
+  const pendingId = login?.state === "pending" ? login.id : null;
+  useEffect(() => {
+    if (pendingId === null) return;
+    let cancelled = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = () => {
+      sdk.plugins
+        .callRpc({
+          pluginId: ACCOUNT_PLUGIN_ID,
+          method: "login.poll",
+          input: { loginId: pendingId },
+          outputSchema: loginPollOutputSchema,
+        })
+        .then(
+          (result) => {
+            failures = 0;
+            if (!cancelled && result.login?.id === pendingId) {
+              setLogin(result.login);
+            }
+          },
+          () => {
+            failures += 1;
+          },
+        )
+        .finally(() => {
+          if (!cancelled) timer = setTimeout(poll, loginPollDelay(failures));
+        });
+    };
+    timer = setTimeout(poll, LOGIN_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [pendingId, sdk]);
+
+  const signedInId = login?.state === "signed-in" ? login.id : null;
+  useEffect(() => {
+    if (signedInId !== null) onSignedInRef.current();
+  }, [signedInId]);
+  const failedLogin =
+    login !== null &&
+    (login.state === "denied" ||
+      login.state === "expired" ||
+      login.state === "failed")
+      ? { id: login.id, state: login.state }
+      : null;
+  const failedLoginId = failedLogin?.id ?? null;
+  const failedLoginState = failedLogin?.state ?? null;
+  useEffect(() => {
+    if (failedLoginId === null || failedLoginState === null) return;
+    onFailedRef.current(loginFailureDetail(failedLoginState));
+  }, [failedLoginId, failedLoginState]);
+
+  const cancel = useCallback(() => {
+    if (pendingId !== null) {
+      sdk.plugins
+        .callRpc({
+          pluginId: ACCOUNT_PLUGIN_ID,
+          method: "login.cancel",
+          input: { loginId: pendingId },
+          outputSchema: loginPollOutputSchema.pick({ login: true }),
+        })
+        .then(
+          () => {},
+          () => {},
+        );
+    }
+    setLogin(null);
+    setError(null);
+  }, [pendingId, sdk]);
+
+  return { login, starting, error, start, cancel };
+}
+
+function AccountSignInCard({
+  onStarted,
+  onFailed,
+  onSignedIn,
+}: {
+  onStarted: () => void;
+  onFailed: (detail: InternalDoNotUseSetupFailureDetail) => void;
+  onSignedIn: () => void;
+}) {
+  const { login, starting, error, start, cancel } = useAccountLogin(
+    onSignedIn,
+    onFailed,
+    false,
+  );
+
+  if (login === null) {
+    return (
+      <div className="min-w-0 space-y-2">
+        <Button
+          type="button"
+          className="h-auto min-h-9 max-w-full whitespace-normal"
+          disabled={starting}
+          onClick={() => {
+            onStarted();
+            start();
+          }}
+        >
+          {starting ? (
+            <Icon name="Spinner" className="size-4 animate-spin" />
+          ) : null}
+          Sign in to your cc account
+        </Button>
+        {error !== null ? (
+          <p className="text-xs text-destructive-text">{error}</p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (login.state === "signed-in") {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Signed in. Remote access is starting…
+      </p>
+    );
+  }
+
+  if (login.state !== "pending") {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-destructive-text">
+          {login.message ?? "Sign-in didn't finish."}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            onStarted();
+            start();
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 rounded-md border border-border bg-surface-recessed/50 px-3 py-3">
+      <p className="text-xs text-muted-foreground">
+        Confirm this code on {hostOf(login.verificationUrl)}:
+      </p>
+      <p
+        aria-label="Sign-in code"
+        className="font-mono text-base font-semibold tracking-widest"
+      >
+        {login.userCode}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" asChild>
+          <UrlLink
+            href={login.verificationUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open cc.example.invalid
+            <Icon name="ExternalLink" className="size-3.5" />
+          </UrlLink>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          onClick={cancel}
+        >
+          Cancel
+        </Button>
+      </div>
+      <p className="flex items-center gap-2 text-xs text-subtle-foreground">
+        <Icon name="Spinner" className="size-3.5 animate-spin" />
+        Waiting for you to approve it. You can approve from any device.
+      </p>
+    </div>
+  );
+}
+
 function NotPairedContent({
   dashboardUrl,
+  onSetupStarted,
+  onSetupFailed,
   onPaired,
 }: {
   dashboardUrl: string;
+  onSetupStarted: () => void;
+  onSetupFailed: (
+    stage: InternalDoNotUseSetupFailureStage,
+    detail?: InternalDoNotUseSetupFailureDetail,
+  ) => void;
   onPaired: () => void;
 }) {
+  const reportSignInFailed = useCallback(
+    (detail: InternalDoNotUseSetupFailureDetail) =>
+      onSetupFailed("sign_in", detail),
+    [onSetupFailed],
+  );
+  const reportPairingFailed = useCallback(
+    (detail: InternalDoNotUseSetupFailureDetail) =>
+      onSetupFailed("pairing", detail),
+    [onSetupFailed],
+  );
   const dashboardHost = hostOf(dashboardUrl);
+  const [codeOpen, setCodeOpen] = useState(false);
   if (!dashboardUrl) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -999,82 +1439,82 @@ function NotPairedContent({
     );
   }
   return (
-    <div className="space-y-4">
+    <div className="@container/connect-controls space-y-4">
       <p className="text-sm text-muted-foreground">
-        Pairing gives this cc a private URL like{" "}
+        Remote access uses your cc account. Once you sign in, this cc gets a
+        private URL like{" "}
         <span className="rounded bg-surface-recessed px-1.5 py-0.5 font-mono text-xs text-foreground">
           you.{dashboardHost}
         </span>
         . Your code and data stay on this machine.
       </p>
 
-      <div className="flex gap-3">
-        <StepNumber value={1} />
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-sm">
-            Get a one-time connect code from your {dashboardHost} dashboard.
-          </p>
-          <Button type="button" asChild>
-            <UrlLink href={dashboardUrl} target="_blank" rel="noreferrer">
-              Get a connect code
-              <Icon name="ExternalLink" className="size-3.5" />
-            </UrlLink>
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex gap-3">
-        <StepNumber value={2} />
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-sm">Paste it here — it connects automatically.</p>
-          <PairForm dashboardUrl={dashboardUrl} onPaired={onPaired} />
-        </div>
-      </div>
-
-      <p className="flex items-start gap-1.5 text-xs text-subtle-foreground">
-        <Icon
-          name="AlertTriangle"
-          className="mt-px size-3.5 shrink-0 opacity-70"
+      <div className="flex flex-col items-start gap-2 @min-[32rem]/connect-controls:flex-row @min-[32rem]/connect-controls:flex-wrap @min-[32rem]/connect-controls:items-center">
+        <AccountSignInCard
+          onStarted={onSetupStarted}
+          onFailed={reportSignInFailed}
+          onSignedIn={onPaired}
         />
-        Anyone signed in to your {dashboardHost} account gets full control of
-        this cc.
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          onClick={() => setCodeOpen((open) => !open)}
+        >
+          Have a pairing code?
+        </Button>
+      </div>
+      {codeOpen ? (
+        <PairForm
+          dashboardUrl={dashboardUrl}
+          layout="settings"
+          onSubmitted={onSetupStarted}
+          onFailed={reportPairingFailed}
+          onPaired={onPaired}
+        />
+      ) : null}
+
+      <p className="text-xs text-subtle-foreground">
+        Only your {dashboardHost} account can open this cc. Manage the account
+        under Plugins → cc account.
       </p>
     </div>
   );
 }
 
-function DisconnectControls({
+function TurnOffControls({
   status,
   note,
   onChanged,
-  onDisconnected,
+  onTurnedOff,
 }: {
   status: ConnectStatus;
   note: string;
   onChanged: () => void;
-  onDisconnected: () => void;
+  onTurnedOff: () => void;
 }) {
   const rpc = useRpc<typeof connectRpcContract>();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
-  const [disconnectError, setDisconnectError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const disconnect = useCallback(() => {
-    setDisconnecting(true);
-    setDisconnectError(null);
-    rpc.call("disconnect").then(
+  const turnOff = useCallback(() => {
+    setPending(true);
+    setError(null);
+    rpc.call("setRemoteAccess", { enabled: false }).then(
       () => {
-        setDisconnecting(false);
+        setPending(false);
         setConfirmOpen(false);
-        onDisconnected();
+        onTurnedOff();
         onChanged();
       },
-      (error: unknown) => {
-        setDisconnecting(false);
-        setDisconnectError(errorText(error));
+      (rpcError: unknown) => {
+        setPending(false);
+        setError(errorText(rpcError));
       },
     );
-  }, [rpc, onChanged, onDisconnected]);
+  }, [rpc, onChanged, onTurnedOff]);
 
   const host = status.url !== null ? hostOf(status.url) : "this cc";
 
@@ -1090,20 +1530,19 @@ function DisconnectControls({
           className={DANGER_QUIET_CLASS}
           onClick={() => setConfirmOpen(true)}
         >
-          Disconnect
+          Turn off
         </Button>
       </div>
-      {disconnectError !== null ? (
-        <p className="text-xs text-destructive-text">{disconnectError}</p>
+      {error !== null ? (
+        <p className="text-xs text-destructive-text">{error}</p>
       ) : null}
 
-      <DisconnectDialog
+      <TurnOffDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         host={host}
-        dashboardHost={hostOf(status.dashboardUrl)}
-        pending={disconnecting}
-        onConfirm={disconnect}
+        pending={pending}
+        onConfirm={turnOff}
       />
     </>
   );
@@ -1112,14 +1551,12 @@ function DisconnectControls({
 function ConnectedContent({
   status,
   onChanged,
-  onDisconnected,
+  onTurnedOff,
 }: {
   status: ConnectStatus;
   onChanged: () => void;
-  onDisconnected: () => void;
+  onTurnedOff: () => void;
 }) {
-  const [repairOpen, setRepairOpen] = useState(false);
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -1131,39 +1568,17 @@ function ConnectedContent({
             ? ` · ${status.remoteClients} viewing remotely`
             : ""}
         </span>
-        <span className="flex-1" />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground"
-          onClick={() => setRepairOpen((open) => !open)}
-        >
-          Re-pair
-        </Button>
       </div>
 
       {status.url !== null ? <UrlHero url={status.url} showOpen /> : null}
 
-      {repairOpen ? (
-        <div className="space-y-2 rounded-md border border-border bg-surface-recessed/50 px-3 py-3">
-          <p className="text-xs text-muted-foreground">
-            Re-pairing replaces this cc&apos;s credential. Paste a fresh code
-            from your dashboard.
-          </p>
-          <PairForm dashboardUrl={status.dashboardUrl} onPaired={onChanged} />
-        </div>
-      ) : null}
-
-      <AddMobileDeviceSection dashboardUrl={status.dashboardUrl} />
-
       <SharedPortsSection shares={status.shares} dimmed={false} />
 
-      <DisconnectControls
+      <TurnOffControls
         status={status}
-        note="Disconnecting forgets this cc's credential."
+        note="Turning off keeps this cc signed in to your cc account."
         onChanged={onChanged}
-        onDisconnected={onDisconnected}
+        onTurnedOff={onTurnedOff}
       />
     </div>
   );
@@ -1172,11 +1587,11 @@ function ConnectedContent({
 function ReconnectingContent({
   status,
   onChanged,
-  onDisconnected,
+  onTurnedOff,
 }: {
   status: ConnectStatus;
   onChanged: () => void;
-  onDisconnected: () => void;
+  onTurnedOff: () => void;
 }) {
   const why = [status.lastError, retryHint(status.nextRetryAt)]
     .filter((part): part is string => part !== null && part.length > 0)
@@ -1189,9 +1604,12 @@ function ReconnectingContent({
         <span className="shrink-0 text-sm font-semibold text-warning-text">
           Reconnecting…
         </span>
-        <span className="min-w-0 truncate text-xs text-warning-text/80">
+        <ExpandableText
+          expandLabel="Show details"
+          className="min-w-0 text-xs text-warning-text/80"
+        >
           {why}
-        </span>
+        </ExpandableText>
       </div>
 
       <div className="space-y-2 pointer-events-none opacity-60 saturate-[0.85]">
@@ -1205,26 +1623,87 @@ function ReconnectingContent({
 
       <SharedPortsSection shares={status.shares} dimmed />
 
-      <DisconnectControls
+      <TurnOffControls
         status={status}
         note="Remote devices can't reach this cc right now. Local access is unaffected."
         onChanged={onChanged}
-        onDisconnected={onDisconnected}
+        onTurnedOff={onTurnedOff}
       />
     </div>
   );
 }
 
-function ConnectSettingsSection() {
+function OffContent({
+  status,
+  onTurnOnStarted,
+  onTurnOnFailed,
+  onChanged,
+}: {
+  status: ConnectStatus;
+  onTurnOnStarted: () => void;
+  onTurnOnFailed: () => void;
+  onChanged: () => void;
+}) {
   const rpc = useRpc<typeof connectRpcContract>();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const turnOn = useCallback(() => {
+    onTurnOnStarted();
+    setPending(true);
+    setError(null);
+    rpc.call("setRemoteAccess", { enabled: true }).then(
+      () => {
+        setPending(false);
+        onChanged();
+      },
+      (rpcError: unknown) => {
+        setPending(false);
+        setError(errorText(rpcError));
+        onTurnOnFailed();
+      },
+    );
+  }, [rpc, onTurnOnStarted, onTurnOnFailed, onChanged]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <StatusDot tone="muted" />
+        <span className="text-sm font-semibold">Remote access is off</span>
+        <span className="flex-1" />
+        <Button type="button" size="sm" disabled={pending} onClick={turnOn}>
+          {pending ? (
+            <Icon name="Spinner" className="size-4 animate-spin" />
+          ) : null}
+          Turn on
+        </Button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        This cc stays signed in to your cc account. Turn remote access on to
+        reach it again
+        {status.url !== null ? ` at ${hostOf(status.url)}` : ""}.
+      </p>
+      <SharedPortsSection shares={status.shares} dimmed />
+      {error !== null ? (
+        <p className="text-xs text-destructive-text">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function useConnectStatus() {
+  const rpc = useRpc<typeof connectRpcContract>();
+  const connectionState = useRealtimeConnectionState();
+  const previousConnectionState = useRef(connectionState);
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
-  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestStatusRequest = useRef(0);
 
   const refetch = useCallback(() => {
+    const request = ++latestStatusRequest.current;
     rpc.call("status").then(
       (result) => {
+        if (request !== latestStatusRequest.current) return;
         const next = asStatus(result);
         if (next !== null) {
           setStatus(next);
@@ -1233,13 +1712,24 @@ function ConnectSettingsSection() {
           setLoadError("Unexpected status payload.");
         }
       },
-      (error: unknown) => setLoadError(errorText(error)),
+      (error: unknown) => {
+        if (request !== latestStatusRequest.current) return;
+        setLoadError(errorText(error));
+      },
     );
   }, [rpc]);
 
   useEffect(() => {
     refetch();
   }, [refetch]);
+
+  useEffect(() => {
+    const previous = previousConnectionState.current;
+    previousConnectionState.current = connectionState;
+    if (connectionState === "connected" && previous !== "connected") {
+      refetch();
+    }
+  }, [connectionState, refetch]);
 
   useRealtime(CONNECT_REALTIME_CHANNEL, (payload) => {
     const next = asStatus(payload);
@@ -1249,8 +1739,54 @@ function ConnectSettingsSection() {
     }
   });
 
-  const showDisconnected = useCallback(() => {
-    setFlash("Remote access disconnected");
+  return { status, loadError, refetch };
+}
+
+function MobilePairingSection() {
+  const { status, loadError, refetch } = useConnectStatus();
+  if (loadError !== null)
+    return (
+      <div className="mt-3 space-y-2 border-t border-border-seam pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xs font-medium">Pair your phone</h3>
+          <Button variant="ghost" size="sm" onClick={refetch}>
+            Try again
+          </Button>
+        </div>
+        <p role="alert" className="text-xs text-destructive-text">
+          Could not load phone pairing: {loadError}
+        </p>
+      </div>
+    );
+  if (!status?.paired || !status.enabled || status.state !== "connected")
+    return null;
+  return <AddMobileDeviceSection dashboardUrl={status.dashboardUrl} />;
+}
+
+function ConnectSettingsSection({
+  internal_DO_NOT_USE_onSetupStarted: onSetupStarted,
+  internal_DO_NOT_USE_onSetupFailed: onSetupFailed,
+}: PluginSettingsSectionProps) {
+  const { status, loadError, refetch } = useConnectStatus();
+  const reportSetupStarted = useCallback(
+    () => onSetupStarted?.(),
+    [onSetupStarted],
+  );
+  const reportSetupFailed = useCallback(
+    (
+      stage: InternalDoNotUseSetupFailureStage,
+      detail?: InternalDoNotUseSetupFailureDetail,
+    ) => onSetupFailed?.(stage, detail),
+    [onSetupFailed],
+  );
+  const reportTurnOnFailed = useCallback(
+    () => onSetupFailed?.("turn_on"),
+    [onSetupFailed],
+  );
+  const [flash, setFlash] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showTurnedOff = useCallback(() => {
+    setFlash("Remote access turned off");
     if (flashTimerRef.current !== null) clearTimeout(flashTimerRef.current);
     flashTimerRef.current = setTimeout(() => setFlash(null), 4000);
   }, []);
@@ -1275,7 +1811,7 @@ function ConnectSettingsSection() {
 
   return (
     <div className="space-y-3">
-      {flash !== null && !status.paired ? (
+      {flash !== null && !status.enabled ? (
         <div
           role="status"
           className="flex items-center gap-2 rounded-md border border-border bg-surface-recessed px-3 py-2 text-xs text-foreground"
@@ -1287,22 +1823,660 @@ function ConnectSettingsSection() {
       {!status.paired ? (
         <NotPairedContent
           dashboardUrl={status.dashboardUrl}
+          onSetupStarted={reportSetupStarted}
+          onSetupFailed={reportSetupFailed}
           onPaired={refetch}
+        />
+      ) : !status.enabled ? (
+        <OffContent
+          status={status}
+          onTurnOnStarted={reportSetupStarted}
+          onTurnOnFailed={reportTurnOnFailed}
+          onChanged={refetch}
         />
       ) : status.state === "reconnecting" ? (
         <ReconnectingContent
           status={status}
           onChanged={refetch}
-          onDisconnected={showDisconnected}
+          onTurnedOff={showTurnedOff}
         />
       ) : (
         <ConnectedContent
           status={status}
           onChanged={refetch}
-          onDisconnected={showDisconnected}
+          onTurnedOff={showTurnedOff}
         />
       )}
     </div>
+  );
+}
+
+type MobilePlatform = "ios" | "android";
+
+const MOBILE_APP_INSTALL_OPTIONS: readonly {
+  platform: MobilePlatform;
+  label: string;
+  url: string;
+}[] = [
+  {
+    platform: "ios",
+    label: "iPhone",
+    url: mobileAppDownloads.ios,
+  },
+  {
+    platform: "android",
+    label: "Android",
+    url: mobileAppDownloads.android,
+  },
+];
+
+const SETUP_GUIDE_DESCRIPTION =
+  "A private web address for your cc server, like me.cc.example.invalid, to use cc from any browser or your phone. Your projects and files stay on your machines.";
+
+const PAIRING_CODE_RENEW_BEFORE_MS = 15_000;
+const PAIRING_CODE_RETRY_MS = 15_000;
+const PAIRING_LOOKUP_MS = 3_000;
+
+function SetupGuideError({ children }: { children: ReactNode }) {
+  return (
+    <p role="alert" className="text-xs text-destructive-text">
+      {children}
+    </p>
+  );
+}
+
+function HaveTheAppLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={INLINE_CHIP_BUTTON_CLASS}
+    >
+      <span className="underline underline-offset-2">I have the app</span>
+    </button>
+  );
+}
+
+function AppInstallQr({ platform }: { platform: MobilePlatform }) {
+  const install = MOBILE_APP_INSTALL_OPTIONS.find(
+    (option) => option.platform === platform,
+  );
+  if (install === undefined) return null;
+  return (
+    <div className="flex items-center gap-3">
+      <QrCodeImage
+        value={install.url}
+        alt={`QR code to install cc on ${install.label}`}
+        className="size-16 shrink-0 p-1"
+      />
+      <div className="flex flex-col items-start gap-2">
+        <p>Scan with your phone's camera.</p>
+        <QuietTextAction
+          icon="Copy"
+          onClick={() =>
+            void copyTextWithSdkToast(install.url, {
+              successMessage: "Install link copied",
+            })
+          }
+        >
+          Copy install link
+        </QuietTextAction>
+      </div>
+    </div>
+  );
+}
+
+function machineCodeErrorText(
+  code: MachineCodeErrorCode,
+  dashboardHost: string,
+): string {
+  switch (code) {
+    case "machine_limit":
+      return `Your ${dashboardHost} account has reached its device limit. Revoke a device you no longer use in the dashboard to pair this phone.`;
+    case "not_paired":
+      return "This cc is signed out of your cc account, so it can't pair a phone.";
+    case "network":
+      return "Couldn't reach cc.example.invalid for a pairing code. cc keeps trying.";
+  }
+}
+
+type PhonePairing =
+  | { kind: "loading" }
+  | { kind: "code"; payload: MobilePairingPayload }
+  | { kind: "error"; code: MachineCodeErrorCode }
+  | { kind: "paired" };
+
+function usePhonePairing(active: boolean): PhonePairing {
+  const rpc = useRpc<typeof connectRpcContract>();
+  const [pairing, setPairing] = useState<PhonePairing>({ kind: "loading" });
+  const [mintRequest, setMintRequest] = useState(0);
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    rpc.call("createMachineCode").then(
+      (result) => {
+        if (!cancelled) {
+          setPairing({ kind: "code", payload: mobilePairingPayload(result) });
+        }
+      },
+      (rpcError: unknown) => {
+        if (!cancelled) {
+          setPairing({ kind: "error", code: toMachineCodeErrorCode(rpcError) });
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [active, mintRequest, rpc]);
+
+  const payload = pairing.kind === "code" ? pairing.payload : null;
+  useEffect(() => {
+    if (!active || payload === null) return;
+    const timer = setTimeout(
+      () => setMintRequest((request) => request + 1),
+      Math.max(
+        PAIRING_CODE_RETRY_MS,
+        payload.expiresAt - Date.now() - PAIRING_CODE_RENEW_BEFORE_MS,
+      ),
+    );
+    return () => clearTimeout(timer);
+  }, [active, payload]);
+
+  const errorCode = pairing.kind === "error" ? pairing.code : null;
+  useEffect(() => {
+    if (!active || errorCode !== "network") return;
+    const timer = setTimeout(
+      () => setMintRequest((request) => request + 1),
+      PAIRING_CODE_RETRY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [active, errorCode, mintRequest]);
+
+  const code = payload?.code ?? null;
+  useEffect(() => {
+    if (!active || code === null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const lookup = () => {
+      rpc
+        .call("lookupMachineCode", { code })
+        .then(
+          (result) => {
+            if (!cancelled && result.consumed) setPairing({ kind: "paired" });
+          },
+          () => {},
+        )
+        .finally(() => {
+          if (!cancelled) timer = setTimeout(lookup, PAIRING_LOOKUP_MS);
+        });
+    };
+    timer = setTimeout(lookup, PAIRING_LOOKUP_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [active, code, rpc]);
+
+  return pairing;
+}
+
+function PairingCode({
+  pairing,
+  dashboardHost,
+}: {
+  pairing: PhonePairing;
+  dashboardHost: string;
+}) {
+  if (pairing.kind === "error") {
+    return (
+      <SetupGuideError>
+        {machineCodeErrorText(pairing.code, dashboardHost)}
+      </SetupGuideError>
+    );
+  }
+  if (pairing.kind !== "code") {
+    return <PendingStatus>Getting a pairing code…</PendingStatus>;
+  }
+  return (
+    <div className="flex items-stretch gap-3">
+      <QrCodeImage
+        value={encodeMobilePairingPayload(pairing.payload)}
+        alt="QR code to pair the cc mobile app"
+        className="size-16 shrink-0 p-1"
+      />
+      <CodeDisplay
+        className="flex-1"
+        code={pairing.payload.code}
+        label="Mobile pairing code"
+        copyLabel="Copy pairing code"
+        onCopy={(value) => void copyTextWithSdkToast(value)}
+      />
+    </div>
+  );
+}
+
+type PhoneStep = "install" | "pair";
+
+function PhonePairingSteps({
+  step,
+  onStepChange,
+  pairing,
+  dashboardHost,
+}: {
+  step: PhoneStep;
+  onStepChange: (step: PhoneStep) => void;
+  pairing: PhonePairing;
+  dashboardHost: string;
+}) {
+  const [openPlatform, setOpenPlatform] = useState<MobilePlatform | null>(null);
+  return (
+    <div className="flex flex-col items-start gap-3 border-t border-border-hairline bg-surface-recessed p-3 text-xs text-muted-foreground">
+      {step === "install" ? (
+        <>
+          <div className="flex flex-col items-start gap-1">
+            <span className="text-foreground">
+              Install the cc app on your phone:
+            </span>
+            <p className="-ml-1 flex flex-wrap items-center gap-x-1 gap-y-1">
+              {MOBILE_APP_INSTALL_OPTIONS.map((option, index) => {
+                const expanded = openPlatform === option.platform;
+                return (
+                  <Fragment key={option.platform}>
+                    {index > 0 ? <span aria-hidden="true">·</span> : null}
+                    <DisclosureToggle
+                      expanded={expanded}
+                      caretWhenCollapsed={false}
+                      leading={
+                        <MobilePlatformIcon platform={option.platform} />
+                      }
+                      onToggle={() =>
+                        setOpenPlatform(expanded ? null : option.platform)
+                      }
+                    >
+                      {option.label}
+                    </DisclosureToggle>
+                  </Fragment>
+                );
+              })}
+              <span aria-hidden="true">·</span>
+              <HaveTheAppLink onClick={() => onStepChange("pair")} />
+            </p>
+          </div>
+          {openPlatform === null ? null : (
+            <AppInstallQr platform={openPlatform} />
+          )}
+        </>
+      ) : (
+        <>
+          <p className="text-foreground">Open the cc app and scan this code:</p>
+          <div className="w-full">
+            <PairingCode pairing={pairing} dashboardHost={dashboardHost} />
+          </div>
+          <QuietTextAction onClick={() => onStepChange("install")}>
+            Don't have the app yet?
+          </QuietTextAction>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ConnectOnSetupRow({
+  status,
+  onPhone,
+}: {
+  status: ConnectStatus;
+  onPhone: boolean;
+}) {
+  const [step, setStep] = useState<PhoneStep>("install");
+  const pairing = usePhonePairing(!onPhone && step === "pair");
+  const url = status.url;
+  const showsSteps = !onPhone && pairing.kind !== "paired";
+  return (
+    <SetupOptionRow
+      icon="ComputerCloud"
+      title="cc connect"
+      footer={
+        showsSteps ? (
+          <PhonePairingSteps
+            step={step}
+            onStepChange={setStep}
+            pairing={pairing}
+            dashboardHost={hostOf(status.dashboardUrl)}
+          />
+        ) : null
+      }
+      description={
+        <div className="flex items-start">
+          <span
+            className={cn(
+              SETUP_OPTION_ICON_OUTDENT_CLASS,
+              "flex h-4 shrink-0 items-center justify-center",
+            )}
+          >
+            <Icon
+              name="CircleCheck"
+              aria-hidden
+              className="size-3.5 text-success"
+            />
+          </span>
+          <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-foreground @max-xl/onboarding:flex-col @max-xl/onboarding:items-start">
+            <span>cc connect is on</span>
+            {url === null ? null : (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="text-subtle-foreground @max-xl/onboarding:hidden"
+                >
+                  ·
+                </span>
+                <span className="flex min-w-0 max-w-full items-center gap-1">
+                  <code className="min-w-0 truncate font-mono text-xs">
+                    {url}
+                  </code>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="-my-1 size-6 shrink-0"
+                    aria-label="Copy URL"
+                    onClick={() => void copyTextWithSdkToast(url)}
+                  >
+                    <Icon name="Copy" aria-hidden className="size-3.5" />
+                  </Button>
+                </span>
+              </>
+            )}
+          </p>
+        </div>
+      }
+    >
+      {!onPhone && pairing.kind === "paired" ? (
+        <p className="flex items-center gap-1.5 text-foreground">
+          <Icon
+            name="CircleCheck"
+            aria-hidden
+            className="size-3.5 text-success"
+          />
+          Phone paired
+        </p>
+      ) : null}
+    </SetupOptionRow>
+  );
+}
+
+function setupGuideLoginPanel(
+  login: AccountLogin["login"],
+  openUrl: (url: string) => boolean,
+): ReactNode {
+  if (login?.state !== "pending") return null;
+  return (
+    <p
+      role="status"
+      className={cn(
+        "flex items-center gap-1.5 text-xs text-muted-foreground",
+        SETUP_OPTION_ICON_GUTTER_CLASS,
+      )}
+    >
+      <Icon
+        name="Spinner"
+        aria-hidden
+        className="size-3.5 shrink-0 animate-spin text-subtle-foreground"
+      />
+      <span>
+        Finish signing in on{" "}
+        <InlineTextLink href={login.verificationUrl} onOpen={openUrl}>
+          {hostOf(login.verificationUrl)}
+        </InlineTextLink>
+        .
+      </span>
+    </p>
+  );
+}
+
+function setupGuideLoginContent(login: AccountLogin["login"]): ReactNode {
+  if (login === null) return null;
+  if (login.state === "pending") return null;
+  if (login.state === "signed-in") {
+    return <PendingStatus>Signed in. Turning on cc connect…</PendingStatus>;
+  }
+  return (
+    <SetupGuideError>
+      {login.message ?? "Sign-in didn't finish."}
+    </SetupGuideError>
+  );
+}
+
+function ConnectSetupGuideSection({
+  onPhone,
+  onSetupStarted,
+  onSetupFailed,
+}: InternalDoNotUseSetupGuideSectionProps) {
+  const rpc = useRpc<typeof connectRpcContract>();
+  const navigate = useCcNavigate();
+  const { status, loadError, refetch } = useConnectStatus();
+  const reportSignInFailed = useCallback(
+    (detail: InternalDoNotUseSetupFailureDetail) =>
+      onSetupFailed("sign_in", detail),
+    [onSetupFailed],
+  );
+  const reportPairingFailed = useCallback(
+    (detail: InternalDoNotUseSetupFailureDetail) =>
+      onSetupFailed("pairing", detail),
+    [onSetupFailed],
+  );
+  const { login, starting, error, start, cancel } = useAccountLogin(
+    refetch,
+    reportSignInFailed,
+    true,
+  );
+  const [turningOn, setTurningOn] = useState(false);
+  const [turnOnError, setTurnOnError] = useState<string | null>(null);
+  const [openFooterPanel, setOpenFooterPanel] = useState<
+    "signInCode" | "pairingForm" | null
+  >(null);
+  const toggleFooterPanel = (panel: "signInCode" | "pairingForm") =>
+    setOpenFooterPanel((open) => (open === panel ? null : panel));
+  const [codePairing, setCodePairing] = useState<{
+    id: number;
+    statusAtPairing: ConnectStatus | null;
+  } | null>(null);
+  const codePairingCountRef = useRef(0);
+  const signedInLoginId = login?.state === "signed-in" ? login.id : null;
+  const turnOnKey =
+    signedInLoginId ?? (codePairing === null ? null : `code:${codePairing.id}`);
+  const remoteAccessOff = status !== null && status.paired && !status.enabled;
+  const turnedOnForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (turnOnKey === null || !remoteAccessOff) return;
+    if (turnedOnForRef.current === turnOnKey) return;
+    turnedOnForRef.current = turnOnKey;
+    rpc
+      .call("setRemoteAccess", { enabled: true })
+      .then(refetch, (rpcError: unknown) => {
+        setTurnOnError(errorText(rpcError));
+        onSetupFailed("turn_on");
+      });
+  }, [onSetupFailed, refetch, remoteAccessOff, rpc, turnOnKey]);
+  useEffect(() => {
+    if (
+      codePairing !== null &&
+      status !== null &&
+      status !== codePairing.statusAtPairing &&
+      !status.paired
+    ) {
+      setCodePairing(null);
+    }
+  }, [codePairing, status]);
+
+  if (
+    status !== null &&
+    status.paired &&
+    status.enabled &&
+    status.state === "connected"
+  ) {
+    return <ConnectOnSetupRow status={status} onPhone={onPhone} />;
+  }
+
+  const connectingState =
+    status !== null && status.paired && status.enabled ? status.state : null;
+  const connecting = connectingState !== null;
+  const turningOnAfterPairing = codePairing !== null && turnOnError === null;
+  const signingIn =
+    turningOnAfterPairing ||
+    (login !== null &&
+      (login.state === "pending" ||
+        (login.state === "signed-in" && turnOnError === null)));
+  const setUp = () => {
+    setTurnOnError(null);
+    setOpenFooterPanel(null);
+    setCodePairing(null);
+    if (status === null) {
+      refetch();
+      return;
+    }
+    onSetupStarted();
+    if (!status.paired) {
+      start();
+      return;
+    }
+    setTurningOn(true);
+    rpc.call("setRemoteAccess", { enabled: true }).then(
+      () => {
+        setTurningOn(false);
+        refetch();
+      },
+      (rpcError: unknown) => {
+        setTurningOn(false);
+        setTurnOnError(errorText(rpcError));
+        onSetupFailed("turn_on");
+      },
+    );
+  };
+
+  const showsContent =
+    connecting ||
+    turningOnAfterPairing ||
+    (login !== null && login.state !== "pending") ||
+    error !== null ||
+    turnOnError !== null ||
+    loadError !== null;
+  const pendingSignIn =
+    status !== null &&
+    !status.paired &&
+    !connecting &&
+    login?.state === "pending"
+      ? { status, login }
+      : null;
+  const paired = () => {
+    codePairingCountRef.current += 1;
+    setCodePairing({
+      id: codePairingCountRef.current,
+      statusAtPairing: status,
+    });
+    cancel();
+    refetch();
+  };
+
+  return (
+    <SetupOptionRow
+      icon="ComputerCloud"
+      title="cc connect"
+      description={SETUP_GUIDE_DESCRIPTION}
+      footer={
+        pendingSignIn === null ? null : (
+          <div className="px-3 pb-3">
+            <InlinePanel
+              hasBody={false}
+              toggles={
+                <>
+                  <DisclosureToggle
+                    expanded={openFooterPanel === "signInCode"}
+                    onToggle={() => toggleFooterPanel("signInCode")}
+                  >
+                    Show pairing code
+                  </DisclosureToggle>
+                  <DisclosureToggle
+                    expanded={openFooterPanel === "pairingForm"}
+                    onToggle={() => toggleFooterPanel("pairingForm")}
+                  >
+                    Have a pairing code?
+                  </DisclosureToggle>
+                </>
+              }
+              expanded={
+                openFooterPanel === "signInCode" ? (
+                  <div className="border-t border-border-hairline p-3">
+                    <CodeDisplay
+                      code={pendingSignIn.login.userCode}
+                      label="cc connect sign-in code"
+                      copyLabel="Copy code"
+                      onCopy={(code) => void copyTextWithSdkToast(code)}
+                    />
+                  </div>
+                ) : openFooterPanel === "pairingForm" ? (
+                  <div className="border-t border-border-hairline p-3">
+                    <PairForm
+                      dashboardUrl={pendingSignIn.status.dashboardUrl}
+                      layout="setupGuide"
+                      onSubmitted={onSetupStarted}
+                      onFailed={reportPairingFailed}
+                      onPaired={paired}
+                    />
+                  </div>
+                ) : null
+              }
+            >
+              {null}
+            </InlinePanel>
+          </div>
+        )
+      }
+      panel={connecting ? null : setupGuideLoginPanel(login, navigate.openUrl)}
+      action={
+        connecting || signingIn ? undefined : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={starting || turningOn}
+            onClick={setUp}
+          >
+            {starting || turningOn ? (
+              <Icon name="Spinner" className="size-4 animate-spin" />
+            ) : null}
+            Set up
+          </Button>
+        )
+      }
+    >
+      {showsContent ? (
+        <>
+          {connecting ? (
+            <PendingStatus>
+              {connectingState === "reconnecting"
+                ? "cc connect is reconnecting…"
+                : "cc connect is starting…"}
+            </PendingStatus>
+          ) : turnOnError !== null ? null : turningOnAfterPairing ? (
+            <PendingStatus>Signed in. Turning on cc connect…</PendingStatus>
+          ) : (
+            setupGuideLoginContent(login)
+          )}
+          {error !== null ? <SetupGuideError>{error}</SetupGuideError> : null}
+          {turnOnError !== null ? (
+            <SetupGuideError>{turnOnError}</SetupGuideError>
+          ) : null}
+          {loadError !== null ? (
+            <SetupGuideError>
+              Couldn't load cc connect: {loadError}
+            </SetupGuideError>
+          ) : null}
+        </>
+      ) : null}
+    </SetupOptionRow>
   );
 }
 
@@ -1313,13 +2487,13 @@ export default definePluginApp((app) => {
       "Use this cc from any device, anywhere — using your own connect service.",
     component: ConnectSettingsSection,
   });
-  app.experimental_sidebarFooter.register({
-    kind: "action",
+  app.slots.settingsSection({
+    id: "mobile-pairing",
+    experimental_page: "mobile",
+    component: MobilePairingSection,
+  });
+  app.slots.internal_DO_NOT_USE_setupGuideSection({
     id: "remote-access",
-    label: "Remote access",
-    icon: "Smartphone",
-    onActivate({ openPluginDetails }) {
-      openPluginDetails();
-    },
+    component: ConnectSetupGuideSection,
   });
 });

@@ -10,12 +10,14 @@ export interface ShareListing {
   port: number;
   createdAt: number;
   url: string;
+  nextUrl?: string;
   unavailableReason?: string;
 }
 
 export interface ConnectStatus {
   state: ConnectStateName;
   paired: boolean;
+  enabled: boolean;
   handle: string | null;
   url: string | null;
   dashboardUrl: string;

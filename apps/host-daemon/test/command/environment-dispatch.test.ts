@@ -1,19 +1,17 @@
 import fs from "node:fs/promises";
-import { afterEach, describe, expect, it } from "vitest";
-import { WorkspaceError, type HostWorkspace } from "@cc/host-workspace";
+import { makeTempDir } from "@cc/test-helpers";
+import { describe, expect, it } from "vitest";
+import type { HostWorkspace } from "@cc/host-workspace";
 import { dispatchCommand } from "../../src/command-dispatch.js";
 import type { EventSinkInput } from "../../src/event-sink.js";
 import {
-  cleanupTempDirs,
   createFakeRuntime,
   createFakeWorkspace,
   createHarness,
   makeDispatchOptions,
-  makeTempDir,
 } from "./dispatch-helpers.js";
 import { RuntimeManager } from "../../src/runtime-manager.js";
-
-afterEach(cleanupTempDirs);
+import { WorkspaceError } from "cc-environment-provider-host/workspace-git";
 
 function streamedEntries(emitted: EventSinkInput[]) {
   return emitted.flatMap((input) =>
@@ -519,21 +517,59 @@ it("cancels setup with contributions even when another attach is waiting", async
     await expect
       .poll(async () => fs.readFile(`${sourcePath}/started`, "utf8"))
       .toBe("configured");
-    await dispatchCommand(
-      {
-        type: "environment.attach.cancel",
-        environmentId: command.environmentId,
-      },
-      options,
-    );
-    expect(await settled).toEqual([
-      expect.objectContaining({ status: "rejected" }),
-      expect.objectContaining({ status: "rejected" }),
-    ]);
+    await expect(
+      dispatchCommand(
+        {
+          type: "environment.attach.cancel",
+          environmentId: command.environmentId,
+        },
+        options,
+      ),
+    ).resolves.toEqual({ aborted: true });
+    const rejection = {
+      status: "rejected",
+      reason: expect.objectContaining({ code: "provision_cancelled" }),
+    };
+    expect(await settled).toEqual([rejection, rejection]);
     await expect(fs.stat(`${sourcePath}/after-cancel`)).rejects.toThrow();
     expect(harness.provisions).toHaveLength(0);
   } finally {
     await harness.manager.shutdownAll();
     await settled;
   }
+});
+
+it("stops a running setup script when the runtime manager shuts down", async () => {
+  const sourcePath = await makeTempDir("cc-setup-env-shutdown-");
+  const harness = createHarness({ workspacePath: sourcePath });
+  await fs.writeFile(
+    `${sourcePath}/.cc-env-setup.sh`,
+    "echo started > started\nsleep 120\nprintf unsafe > after-shutdown\n",
+  );
+  const attached = dispatchCommand(
+    {
+      type: "environment.attach",
+      contributedEnv: [],
+      environmentId: "env-setup-shutdown",
+      initiator: null,
+      path: sourcePath,
+      setupScriptTimeoutMs: 600_000,
+    },
+    harness.dispatchOptions(),
+  );
+  const settled = Promise.allSettled([attached]);
+  await expect
+    .poll(async () => fs.readFile(`${sourcePath}/started`, "utf8"))
+    .toBe("started\n");
+
+  await harness.manager.shutdownAll();
+
+  expect(await settled).toEqual([
+    {
+      status: "rejected",
+      reason: expect.objectContaining({ code: "provision_cancelled" }),
+    },
+  ]);
+  await expect(fs.stat(`${sourcePath}/after-shutdown`)).rejects.toThrow();
+  expect(harness.provisions).toHaveLength(0);
 });

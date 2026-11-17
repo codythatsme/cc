@@ -309,7 +309,7 @@ export function parseArchiveTmpCcSessionsArgs(
   return { help, options };
 }
 
-export function renderHelpText(): string {
+function renderHelpText(): string {
   const defaultPatterns = DEFAULT_TMP_CC_PATTERNS.join(", ");
   return `
   ${bold("codex archive tmp cc sessions")}

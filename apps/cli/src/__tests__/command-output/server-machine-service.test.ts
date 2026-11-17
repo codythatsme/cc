@@ -132,7 +132,13 @@ afterAll(async () => {
 describe("cc server install-machine-service", () => {
   setupCommandOutputTestEnvironment();
 
-  it("stops the cc running from the data directory and installs the service for it", async () => {
+  it("stops the cc running from the data directory and installs the service for it", async ({
+    skip,
+  }) => {
+    skip(
+      process.platform === "win32",
+      "runs a POSIX shell installer for launchd/systemd",
+    );
     const fixture = await createFixture();
     const cc = await startRecordedCc(fixture);
     const ccExit = new Promise<NodeJS.Signals | null>((resolvePromise) => {
@@ -192,7 +198,13 @@ describe("cc server install-machine-service", () => {
     await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
   });
 
-  it("leaves cc running when node on the PATH is too old for the service", async () => {
+  it("leaves cc running when node on the PATH is too old for the service", async ({
+    skip,
+  }) => {
+    skip(
+      process.platform === "win32",
+      "runs a POSIX shell installer for launchd/systemd",
+    );
     const fixture = await createFixture();
     const cc = await startRecordedCc(fixture);
     const binDir = join(fixture.root, "bin");
@@ -225,7 +237,36 @@ describe("cc server install-machine-service", () => {
     await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
   });
 
-  it("reports an installer failure", async () => {
+  it.runIf(process.platform === "win32")(
+    "refuses on Windows before stopping cc or running an installer",
+    async () => {
+      const fixture = await createFixture();
+
+      await expect(
+        runCommand(
+          [
+            "server",
+            "install-machine-service",
+            "--data-dir",
+            fixture.dataDir,
+            "--yes",
+          ],
+          register,
+        ),
+      ).rejects.toThrow("process.exit:1");
+
+      expect(collectLogPayloads(vi.mocked(console.error))).toEqual([
+        "Error: cc cannot install the background machine service on Windows. It is available on macOS and Linux.",
+      ]);
+      await expect(readFile(fixture.installerLog, "utf8")).rejects.toThrow();
+    },
+  );
+
+  it("reports an installer failure", async ({ skip }) => {
+    skip(
+      process.platform === "win32",
+      "runs a POSIX shell installer for launchd/systemd",
+    );
     const fixture = await createFixture();
     vi.stubEnv("FAKE_INSTALLER_EXIT", "1");
     readlineMocks.question.mockResolvedValue("y");
@@ -249,7 +290,13 @@ describe("cc server install-machine-service", () => {
 describe("cc server unlock with a machine service", () => {
   setupCommandOutputTestEnvironment();
 
-  it("refuses while a background service runs this computer as a machine", async () => {
+  it("refuses while a background service runs this computer as a machine", async ({
+    skip,
+  }) => {
+    skip(
+      process.platform === "win32",
+      "runs a POSIX shell installer for launchd/systemd",
+    );
     const fixture = await createFixture();
     await runCommand(
       [

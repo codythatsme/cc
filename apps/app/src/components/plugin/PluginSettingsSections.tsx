@@ -1,13 +1,49 @@
+import type {
+  InternalDoNotUseSetupFailureDetail,
+  InternalDoNotUseSetupFailureStage,
+} from "@codythatsme/plugin-sdk/app";
 import {
-  usePluginSlots,
+  usePluginSlotKind,
   type PluginSettingsSectionSlot,
 } from "@/lib/plugin-slots";
 import { PluginSlotMount } from "./PluginSlotMount";
 
-export function PluginSettingsSections({ pluginId }: { pluginId: string }) {
-  const { settingsSections } = usePluginSlots();
+export function PluginSettingsSections({
+  pluginId,
+  onSetupStarted,
+  onSetupFailed,
+}: {
+  pluginId: string;
+  onSetupStarted?: () => void;
+  onSetupFailed?: (
+    stage: InternalDoNotUseSetupFailureStage,
+    detail?: InternalDoNotUseSetupFailureDetail,
+  ) => void;
+}) {
+  const settingsSections = usePluginSlotKind("settingsSections");
   const sections = settingsSections.filter(
-    (section) => section.pluginId === pluginId,
+    (section) =>
+      section.pluginId === pluginId && section.experimental_page === undefined,
+  );
+  if (sections.length === 0) return null;
+  return (
+    <PluginSettingsSectionList
+      sections={sections}
+      onSetupStarted={onSetupStarted}
+      onSetupFailed={onSetupFailed}
+    />
+  );
+}
+
+export function PluginMobileSettingsSections({
+  pluginId,
+}: {
+  pluginId: string | null;
+}) {
+  const settingsSections = usePluginSlotKind("settingsSections");
+  const sections = settingsSections.filter(
+    (section) =>
+      section.experimental_page === "mobile" && section.pluginId === pluginId,
   );
   if (sections.length === 0) return null;
   return <PluginSettingsSectionList sections={sections} />;
@@ -15,8 +51,17 @@ export function PluginSettingsSections({ pluginId }: { pluginId: string }) {
 
 function PluginSettingsSectionList({
   sections,
+  onSetupStarted,
+  onSetupFailed,
 }: {
   sections: readonly PluginSettingsSectionSlot[];
+  onSetupStarted?: (() => void) | undefined;
+  onSetupFailed?:
+    | ((
+        stage: InternalDoNotUseSetupFailureStage,
+        detail?: InternalDoNotUseSetupFailureDetail,
+      ) => void)
+    | undefined;
 }) {
   return (
     <div className="space-y-6" data-testid="plugin-settings-sections">
@@ -39,7 +84,14 @@ function PluginSettingsSectionList({
               slotKind="settingsSection"
               slotId={section.id}
             >
-              <section.component />
+              <section.component
+                {...(onSetupStarted === undefined
+                  ? {}
+                  : { internal_DO_NOT_USE_onSetupStarted: onSetupStarted })}
+                {...(onSetupFailed === undefined
+                  ? {}
+                  : { internal_DO_NOT_USE_onSetupFailed: onSetupFailed })}
+              />
             </PluginSlotMount>
           </div>
         );

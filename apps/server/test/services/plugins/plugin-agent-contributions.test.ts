@@ -2,7 +2,8 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createConnection, migrate, type DbConnection } from "@cc/db";
+import { type DbConnection } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { encodeClientTurnRequestIdNumber } from "@cc/domain";
 import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
@@ -98,14 +99,15 @@ describe("plugin skills tier", () => {
   let service: PluginService;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     workDir = await mkdtemp(join(tmpdir(), "cc-plugin-skills-test-"));
     service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -147,7 +149,7 @@ describe("plugin skills tier", () => {
     }
 
     const skillTreeRegistry = new SkillTreeRegistry();
-    const entries = resolveSkillCatalogEntries(testLogger, {
+    const entries = await resolveSkillCatalogEntries(testLogger, {
       dataDir,
       pluginSkillRoots: service.listSkillRootContributions(),
       projectSkillSources: [projectGammaSource],
@@ -188,32 +190,14 @@ describe("plugin skills tier", () => {
     expect(service.listSkillRootContributions()).toEqual([
       { pluginId: "relocated", rootPath: join(rootDir, "custom") },
     ]);
-    const sources = resolveSkillCatalogEntries(testLogger, {
-      dataDir: join(workDir, "data"),
-      pluginSkillRoots: service.listSkillRootContributions(),
-      skillTreeRegistry: new SkillTreeRegistry(),
-    }).map((entry) => entry.runtimeSource);
-    expect(sources.map((source) => source.name)).toEqual(["relocated-skill"]);
-  });
-
-  it("a skill added after install is discovered on the next resolve after reload", async () => {
-    const rootDir = await writePlugin(workDir, {
-      name: "cc-plugin-growing",
-      skillNames: ["first-skill"],
-    });
-    await service.installPath(rootDir);
-
-    const resolve = () =>
-      resolveSkillCatalogEntries(testLogger, {
+    const sources = (
+      await resolveSkillCatalogEntries(testLogger, {
         dataDir: join(workDir, "data"),
         pluginSkillRoots: service.listSkillRootContributions(),
         skillTreeRegistry: new SkillTreeRegistry(),
-      }).map((entry) => entry.runtimeSource.name);
-
-    expect(resolve()).toEqual(["first-skill"]);
-    await writeSkill(join(rootDir, "skills"), "second-skill");
-    await service.reload("growing");
-    expect(resolve()).toEqual(["first-skill", "second-skill"]);
+      })
+    ).map((entry) => entry.runtimeSource);
+    expect(sources.map((source) => source.name)).toEqual(["relocated-skill"]);
   });
 });
 
@@ -227,13 +211,14 @@ describe("plugin agent contributions reach thread runtime config", () => {
   });
 
   it("isolates resolver failures and timeouts", async () => {
-    const db = createConnection(":memory:");
-    migrate(db);
+    const db = createMigratedConnection();
     const service = createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },

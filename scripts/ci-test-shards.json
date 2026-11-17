@@ -1,0 +1,175 @@
+{
+  "tests": [
+    {
+      "shard": "server-1",
+      "filter": "--filter=@cc/server",
+      "vitestShard": "1/2"
+    },
+    {
+      "shard": "server-2",
+      "filter": "--filter=@cc/server",
+      "vitestShard": "2/2"
+    },
+    {
+      "shard": "app-1",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "1/8"
+    },
+    {
+      "shard": "app-2",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "2/8"
+    },
+    {
+      "shard": "app-3",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "3/8"
+    },
+    {
+      "shard": "app-4",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "4/8"
+    },
+    {
+      "shard": "app-5",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "5/8"
+    },
+    {
+      "shard": "app-6",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "6/8"
+    },
+    {
+      "shard": "app-7",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "7/8"
+    },
+    {
+      "shard": "app-8",
+      "filter": "--filter=@cc/app",
+      "vitestShard": "8/8"
+    },
+    {
+      "shard": "integration",
+      "filter": "--filter=@cc/integration-tests",
+      "vitestShard": ""
+    },
+    {
+      "shard": "plugins-1",
+      "filter": "--filter='cc-plugin-provider-*' --filter=cc-plugin-tasks --filter=cc-plugin-connect --filter=cc-plugin-thread-list",
+      "vitestShard": ""
+    },
+    {
+      "shard": "plugins-2",
+      "filter": "--filter='cc-plugin-*' --filter='!cc-plugin-provider-*' --filter='!cc-plugin-tasks' --filter='!cc-plugin-connect' --filter='!cc-plugin-thread-list'",
+      "vitestShard": ""
+    },
+    {
+      "shard": "packages-host",
+      "filter": "--filter=@cc/host-daemon --filter=@cc/cli --filter=@cc/agent-runtime --filter=@cc/provider-parity --filter=@cc/db",
+      "vitestShard": ""
+    },
+    {
+      "shard": "packages-build",
+      "filter": "--filter=@cc/templates --filter=cc-app --filter=@cc/demo-server --filter=@cc/desktop --filter=@cc/plugin-build",
+      "vitestShard": ""
+    },
+    {
+      "shard": "packages-other",
+      "filter": "--filter='!@cc/server' --filter='!@cc/app' --filter='!@cc/integration-tests' --filter='!cc-plugin-*' --filter='!@cc/host-daemon' --filter='!@cc/cli' --filter='!@cc/agent-runtime' --filter='!@cc/provider-parity' --filter='!@cc/db' --filter='!@cc/templates' --filter='!cc-app' --filter='!@cc/demo-server' --filter='!@cc/desktop' --filter='!@cc/plugin-build'",
+      "vitestShard": ""
+    }
+  ],
+  "windows-tests": [
+    {
+      "shard": "server-1",
+      "filter": "--filter=@cc/server",
+      "concurrency": 4,
+      "vitestShard": "1/3"
+    },
+    {
+      "shard": "server-2",
+      "filter": "--filter=@cc/server",
+      "concurrency": 4,
+      "vitestShard": "2/3"
+    },
+    {
+      "shard": "server-3",
+      "filter": "--filter=@cc/server",
+      "concurrency": 4,
+      "vitestShard": "3/3"
+    },
+    {
+      "shard": "app-1",
+      "filter": "--filter=@cc/app",
+      "concurrency": 2,
+      "vitestShard": "1/4"
+    },
+    {
+      "shard": "app-2",
+      "filter": "--filter=@cc/app",
+      "concurrency": 2,
+      "vitestShard": "2/4"
+    },
+    {
+      "shard": "app-3",
+      "filter": "--filter=@cc/app",
+      "concurrency": 2,
+      "vitestShard": "3/4"
+    },
+    {
+      "shard": "app-4",
+      "filter": "--filter=@cc/app",
+      "concurrency": 2,
+      "vitestShard": "4/4"
+    },
+    {
+      "shard": "plugins-1",
+      "filter": "--filter=cc-plugin-provider-* --filter=cc-plugin-tasks --filter=cc-plugin-connect --filter=cc-plugin-thread-list",
+      "concurrency": 2,
+      "vitestShard": ""
+    },
+    {
+      "shard": "plugins-2",
+      "filter": "--filter=cc-plugin-* --filter=!cc-plugin-provider-* --filter=!cc-plugin-tasks --filter=!cc-plugin-connect --filter=!cc-plugin-thread-list",
+      "concurrency": 4,
+      "vitestShard": ""
+    },
+    {
+      "shard": "packages-host",
+      "filter": "--filter=@cc/host-daemon --filter=@cc/cli",
+      "concurrency": 1,
+      "vitestShard": ""
+    },
+    {
+      "shard": "integration",
+      "filter": "--filter=@cc/integration-tests",
+      "concurrency": 1,
+      "vitestShard": ""
+    },
+    {
+      "shard": "packages-build",
+      "filter": "--filter=@cc/templates --filter=cc-app --filter=@cc/demo-server --filter=@cc/desktop --filter=@cc/plugin-build",
+      "concurrency": 2,
+      "vitestShard": ""
+    },
+    {
+      "shard": "packages-other",
+      "filter": "--filter=!@cc/server --filter=!@cc/app --filter=!cc-plugin-* --filter=!@cc/host-daemon --filter=!@cc/cli --filter=!@cc/integration-tests --filter=!@cc/templates --filter=!cc-app --filter=!@cc/demo-server --filter=!@cc/desktop --filter=!@cc/plugin-build --filter=!@cc/process-utils --filter=!@cc/host-workspace --filter=!@cc/host-watcher --filter=!@cc/agent-runtime --filter=!@cc/provider-bridge-protocol --filter=!@cc/provider-bridge-acp --filter=!@cc/host-daemon-contract --filter=!@cc/config --filter=!@cc/db",
+      "concurrency": 4,
+      "vitestShard": ""
+    }
+  ],
+  "foundation": [
+    "@cc/process-utils",
+    "@cc/host-workspace",
+    "@cc/host-watcher",
+    "@cc/agent-runtime",
+    "@cc/provider-bridge-protocol",
+    "@cc/provider-bridge-acp",
+    "@cc/host-daemon-contract",
+    "@cc/config",
+    "@cc/db"
+  ]
+}

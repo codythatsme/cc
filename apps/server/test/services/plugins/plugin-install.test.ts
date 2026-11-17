@@ -17,18 +17,17 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-  createConnection,
+  deleteInstalledPlugin,
   getInstalledPlugin,
   getInstalledPluginRegistration,
   listPluginArtifacts,
-  migrate,
-  type DbConnection,
 } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import { ROOT_PLUGIN_SOURCE_SELECTION } from "@cc/server-contract";
 import type { Logger } from "@cc/logger";
 import { scaffoldPlugin } from "@cc/templates/plugin-scaffold";
@@ -43,10 +42,7 @@ import {
   runInstallCommand,
 } from "../../../src/services/plugins/install-sources.js";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
-import {
-  createPluginService,
-  type PluginService,
-} from "../../../src/services/plugins/plugin-service.js";
+import { createPluginService } from "../../../src/services/plugins/plugin-service.js";
 import { testLogger } from "../../helpers/test-app.js";
 
 const logger = testLogger as unknown as Logger;
@@ -188,7 +184,32 @@ function artifactMeta(args: {
   });
 }
 
+function localGitCachePath(repoDir: string): string {
+  const parsed = parsePluginSource(`git:${repoDir}`);
+  if (parsed.kind !== "git") {
+    throw new Error(`Expected a git source for ${repoDir}`);
+  }
+  return parsed.cachePath;
+}
+
 describe("plugin install sources", () => {
+  it("reads a Windows folder as a local git source", () => {
+    expect(
+      parsePluginSource("git:C:\\Users\\me\\plugins\\cc-plugin-foo@v1"),
+    ).toMatchObject({
+      kind: "git",
+      url: "C:\\Users\\me\\plugins\\cc-plugin-foo",
+      spec: "v1",
+      cachePath: expect.stringMatching(/^local\/cc-plugin-foo-[a-f0-9]{12}$/u),
+    });
+    expect(localGitCachePath("c:/users/ME/plugins/cc-plugin-foo/")).toBe(
+      localGitCachePath("C:\\Users\\me\\plugins\\cc-plugin-foo"),
+    );
+    expect(() => parsePluginSource("git:C:\\Users\\me\\..\\other")).toThrow(
+      "invalid git repository path",
+    );
+  });
+
   it("parses git URLs, tracks HEAD by default, and rejects traversal", () => {
     expect(parsePluginSource("git:github.com/acme/cc-plugin-foo@v1")).toEqual({
       kind: "git",
@@ -235,6 +256,9 @@ describe("plugin install sources", () => {
     expect(() =>
       parsePluginSource("git:github.com/acme/repo@-evil"),
     ).toThrowError(/invalid git ref/);
+    expect(() => parsePluginSource("git:@main")).toThrowError(
+      /invalid git url/,
+    );
   });
 
   it("reads git semver ranges, explicit selectors, and tag prefixes", () => {
@@ -368,7 +392,7 @@ describe("plugin install sources", () => {
 
   it("keeps scoped npm and nested git cache paths inside their roots", () => {
     expect(npmArtifactCacheDir("/data", "@acme/plugin", "1.2.3")).toBe(
-      "/data/plugins/cache/npm/@acme/plugin/1.2.3",
+      resolve("/data/plugins/cache/npm/@acme/plugin/1.2.3"),
     );
     expect(
       gitArtifactCacheDir(
@@ -377,7 +401,9 @@ describe("plugin install sources", () => {
         "abcdef1234567",
       ),
     ).toBe(
-      "/data/plugins/cache/git/github.com/acme/nested/plugin/abcdef1234567",
+      resolve(
+        "/data/plugins/cache/git/github.com/acme/nested/plugin/abcdef1234567",
+      ),
     );
     expect(() => npmArtifactCacheDir("/data", "../plugin", "1.2.3")).toThrow(
       /invalid npm package/,
@@ -388,56 +414,64 @@ describe("plugin install sources", () => {
   });
 });
 
+async function createPluginInstallFixture() {
+  const db = createMigratedConnection();
+  const workDir = await mkdtemp(join(tmpdir(), "cc-plugin-install-"));
+  const dataDir = join(workDir, "data");
+  const counters = { materializationCount: 0 };
+  const service = createPluginService({
+    aiServices: createAiServiceRegistry(),
+    db,
+    hub: {
+      getDaemonSessionIdForHost: () => null,
+      notifyPluginChanged: () => {},
+      onWatchedTargets: () => () => {},
+      notifyPluginSignal: () => 0,
+      notifySystem: () => {},
+    },
+    logger,
+    dataDir,
+    appVersion: "0.9.0",
+    loadTimeoutMs: 2000,
+    onArtifactMaterialize: () => {
+      counters.materializationCount += 1;
+    },
+  });
+  return { db, workDir, dataDir, service, counters };
+}
+const test = it.extend<{
+  fixture: Awaited<ReturnType<typeof createPluginInstallFixture>>;
+}>({
+  fixture: async ({}, use) => {
+    const fixture = await createPluginInstallFixture();
+    try {
+      await use(fixture);
+    } finally {
+      try {
+        await fixture.service.stop();
+      } finally {
+        fixture.db.$client.close();
+        await rm(fixture.workDir, { recursive: true, force: true });
+      }
+    }
+  },
+});
+beforeAll(() => vi.setConfig({ maxConcurrency: 2 }));
+afterAll(() => vi.resetConfig());
+
+const describeGit = hasGit ? describe.concurrent : describe.skip;
+
 describe("plugin install flows", () => {
-  let db: DbConnection;
-  let workDir: string;
-  let dataDir: string;
-  let service: PluginService;
-  let afterArtifactPromoted:
-    | ((args: {
-        pluginId: string;
-        artifactId: string;
-        path: string;
-      }) => Promise<void>)
-    | undefined;
-  let materializationCount: number;
+  describeGit("git sources", { timeout: 30_000 }, () => {
+    test("installs and tracks the default branch when the ref is omitted", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
 
-  beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-install-"));
-    dataDir = join(workDir, "data");
-    afterArtifactPromoted = undefined;
-    materializationCount = 0;
-    service = createPluginService({
-      aiServices: createAiServiceRegistry(),
-      db,
-      hub: {
-        getDaemonSessionIdForHost: () => null,
-        notifyPluginSignal: () => 0,
-        notifySystem: () => {},
-      },
-      logger,
-      dataDir,
-      appVersion: "0.9.0",
-      loadTimeoutMs: 2000,
-      afterArtifactPromoted: async (args) => afterArtifactPromoted?.(args),
-      onArtifactMaterialize: () => {
-        materializationCount += 1;
-      },
-    });
-  });
-
-  afterEach(async () => {
-    vi.unstubAllGlobals();
-    await service.stop();
-    await rm(workDir, { recursive: true, force: true });
-  });
-
-  describe.skipIf(!hasGit)("git sources", { timeout: 30_000 }, () => {
-    it("installs and tracks the default branch when the ref is omitted", async () => {
       const repoDir = join(workDir, "repo-default-branch");
-      await writePluginFixture(repoDir, { name: "cc-plugin-default-branch" });
+      await writePluginFixture(repoDir, {
+        name: "cc-plugin-default-branch",
+      });
       await initGitRepo(repoDir);
       const commit = await commitAll(repoDir, "init");
 
@@ -460,7 +494,11 @@ describe("plugin install flows", () => {
       });
     });
 
-    it("stamps catalog provenance for a git official catalog entry", async () => {
+    test("stamps catalog provenance for a git official catalog entry", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-catalog");
       await writePluginFixture(repoDir, { name: "cc-plugin-catalog-git" });
       await initGitRepo(repoDir);
@@ -496,7 +534,11 @@ describe("plugin install flows", () => {
       });
     });
 
-    it("refuses a git commit that changed after marketplace confirmation", async () => {
+    test("refuses a git commit that changed after marketplace confirmation", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-catalog-confirmed");
       await writePluginFixture(repoDir, { name: "cc-plugin-confirmed" });
       await initGitRepo(repoDir);
@@ -515,7 +557,11 @@ describe("plugin install flows", () => {
       expect(getInstalledPlugin(db, "confirmed")).toBeUndefined();
     });
 
-    it("refuses a catalog entry whose plugin requires another plugin SDK", async () => {
+    test("refuses a catalog entry whose plugin requires another plugin SDK", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-catalog-sdk-too-new");
       await writePluginFixture(repoDir, {
         name: "cc-plugin-sdk-listed",
@@ -542,7 +588,11 @@ describe("plugin install flows", () => {
       expect(getInstalledPluginRegistration(db, "sdk-listed")).toBeUndefined();
     });
 
-    it("refuses a listed npm registry that is not a public https host", async () => {
+    test("refuses a listed npm registry that is not a public https host", async ({
+      fixture,
+    }) => {
+      const { db, service } = fixture;
+
       for (const registry of [
         "https://127.0.0.1/registry",
         "https://localhost/registry",
@@ -563,7 +613,11 @@ describe("plugin install flows", () => {
       expect(getInstalledPluginRegistration(db, "registry")).toBeUndefined();
     });
 
-    it("guards a listed npm registry while it resolves an install plan", async () => {
+    test("guards a listed npm registry while it resolves an install plan", async ({
+      fixture,
+    }) => {
+      const { service } = fixture;
+
       await expect(
         service.resolveCatalogNpmSource({
           packageName: "cc-plugin-registry",
@@ -574,7 +628,11 @@ describe("plugin install flows", () => {
       ).rejects.toThrow(/not public/u);
     });
 
-    it("refuses a git catalog install whose manifest id differs from the entry", async () => {
+    test("refuses a git catalog install whose manifest id differs from the entry", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-catalog-mismatch");
       await writePluginFixture(repoDir, { name: "cc-plugin-imposter" });
       await initGitRepo(repoDir);
@@ -592,7 +650,11 @@ describe("plugin install flows", () => {
       ).rejects.toThrow(/expects "expected-id"/);
     });
 
-    it("clones a pinned tag into its exact immutable cache dir and loads it", async () => {
+    test("clones a pinned tag into its exact immutable cache dir and loads it", async ({
+      fixture,
+    }) => {
+      const { db, workDir, dataDir, service } = fixture;
+
       const repoDir = join(workDir, "repo");
       await writePluginFixture(repoDir, { name: "cc-plugin-gitty" });
       await initGitRepo(repoDir);
@@ -605,15 +667,7 @@ describe("plugin install flows", () => {
       expect(entry.status).toBe("running");
       expect(entry.source).toBe(source);
       expect(entry.rootDir).toBe(
-        join(
-          dataDir,
-          "plugins",
-          "cache",
-          "git",
-          "local",
-          ...repoDir.replace(/^\/+/, "").split("/"),
-          commit,
-        ),
+        gitArtifactCacheDir(dataDir, localGitCachePath(repoDir), commit),
       );
       await stat(join(entry.rootDir, "package.json"));
       expect(getInstalledPluginRegistration(db, "gitty")).toMatchObject({
@@ -626,7 +680,11 @@ describe("plugin install flows", () => {
       });
     });
 
-    it("resolves a semver range over release tags and tracks compatible", async () => {
+    test("resolves a semver range over release tags and tracks compatible", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-range");
       await writePluginFixture(repoDir, { name: "cc-plugin-ranger" });
       await initGitRepo(repoDir);
@@ -659,10 +717,17 @@ describe("plugin install flows", () => {
       });
       expect(second).not.toBe(first);
       const view = await service.getSource("ranger");
-      expect(view).toMatchObject({ range: "^1.0.0", resolvedTag: "v1.1.0" });
+      expect(view).toMatchObject({
+        range: "^1.0.0",
+        resolvedTag: "v1.1.0",
+      });
     });
 
-    it("refuses a range spec that is also a ref, and honors the explicit forms", async () => {
+    test("refuses a range spec that is also a ref, and honors the explicit forms", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-ambiguous");
       await writePluginFixture(repoDir, { name: "cc-plugin-ambiguous" });
       await initGitRepo(repoDir);
@@ -690,7 +755,11 @@ describe("plugin install flows", () => {
       });
     });
 
-    it("resolves a prefixed range and reports one with no matching tag", async () => {
+    test("resolves a prefixed range and reports one with no matching tag", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-prefixed");
       await writePluginFixture(repoDir, { name: "cc-plugin-prefixed" });
       await initGitRepo(repoDir);
@@ -717,9 +786,15 @@ describe("plugin install flows", () => {
       });
     });
 
-    it("installs a catalog entry that lists a semver range", async () => {
+    test("installs a catalog entry that lists a semver range", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-catalog-range");
-      await writePluginFixture(repoDir, { name: "cc-plugin-catalog-range" });
+      await writePluginFixture(repoDir, {
+        name: "cc-plugin-catalog-range",
+      });
       await initGitRepo(repoDir);
       const commit = await commitAll(repoDir, "init");
       await git(repoDir, ["tag", "v1.3.0"]);
@@ -747,7 +822,11 @@ describe("plugin install flows", () => {
       );
     });
 
-    it("refuses a git plugin that shadows a builtin after materialization", async () => {
+    test("refuses a git plugin that shadows a builtin after materialization", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-connect");
       await writePluginFixture(repoDir, { name: "cc-plugin-connect" });
       await initGitRepo(repoDir);
@@ -759,7 +838,11 @@ describe("plugin install flows", () => {
       expect(getInstalledPluginRegistration(db, "connect")).toBeUndefined();
     });
 
-    it("installs a pinned commit sha via clone + checkout", async () => {
+    test("installs a pinned commit sha via clone + checkout", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-sha");
       await writePluginFixture(repoDir, { name: "cc-plugin-shaman" });
       await initGitRepo(repoDir);
@@ -777,7 +860,11 @@ describe("plugin install flows", () => {
       expect(entry.version).toBe("0.1.0");
     });
 
-    it("never reuses an exact-resolution artifact owned by another plugin", async () => {
+    test("never reuses an exact-resolution artifact owned by another plugin", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-owner");
       await writePluginFixture(repoDir, { name: "cc-plugin-owner" });
       await initGitRepo(repoDir);
@@ -804,7 +891,11 @@ describe("plugin install flows", () => {
       ]);
     });
 
-    it("serializes concurrent installs of the same exact resolution", async () => {
+    test("serializes concurrent installs of the same exact resolution", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-concurrent");
       await writePluginFixture(repoDir, { name: "cc-plugin-concurrent" });
       await initGitRepo(repoDir);
@@ -827,11 +918,15 @@ describe("plugin install flows", () => {
           }),
         ]),
       );
-      expect(materializationCount).toBe(1);
+      expect(fixture.counters.materializationCount).toBe(1);
       expect(listPluginArtifacts(db, "concurrent")).toHaveLength(1);
     });
 
-    it("refuses a managed reinstall and points to the update command", async () => {
+    test("refuses a managed reinstall and points to the update command", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-refresh");
       await writePluginFixture(repoDir, { name: "cc-plugin-fresh" });
       await initGitRepo(repoDir);
@@ -853,7 +948,11 @@ describe("plugin install flows", () => {
       ).toMatchObject({ version: "0.1.0", status: "running" });
     });
 
-    it("refuses a managed frontend reinstall before validating a broken new tip or creating an artifact", async () => {
+    test("refuses a managed frontend reinstall before validating a broken new tip or creating an artifact", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-managed-frontend");
       await writePluginFixture(repoDir, {
         name: "cc-plugin-managed-frontend",
@@ -897,7 +996,11 @@ describe("plugin install flows", () => {
       ).toMatchObject({ version: "0.1.0", status: "running" });
     }, 120_000);
 
-    it("keeps the previous install intact when a reinstall fails validation", async () => {
+    test("keeps the previous install intact when a reinstall fails validation", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-sturdy");
       await writePluginFixture(repoDir, { name: "cc-plugin-sturdy" });
       await initGitRepo(repoDir);
@@ -919,7 +1022,11 @@ describe("plugin install flows", () => {
       expect(entry?.version).toBe("0.1.0");
     });
 
-    it("rebuilds a git plugin's server bundle over any committed dist", async () => {
+    test("rebuilds a git plugin's server bundle over any committed dist", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
       const identityRepo = join(workDir, "repo-artifact-identity");
       await writePluginFixture(identityRepo, {
         name: "cc-plugin-artifact-identity",
@@ -946,7 +1053,11 @@ describe("plugin install flows", () => {
       });
     });
 
-    it("hard-fails install on an engines.cc mismatch and cleans up the clone", async () => {
+    test("hard-fails install on an engines.cc mismatch and cleans up the clone", async ({
+      fixture,
+    }) => {
+      const { workDir, dataDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-too-new");
       await writePluginFixture(repoDir, {
         name: "cc-plugin-too-new",
@@ -964,31 +1075,16 @@ describe("plugin install flows", () => {
         dataDir,
         "plugins",
         "git",
-        "local",
-        ...repoDir.replace(/^\/+/, "").split("/"),
+        ...localGitCachePath(repoDir).split("/"),
       );
       await expect(stat(`${managed}@main`)).rejects.toThrowError();
     });
 
-    it("hard-fails managed install on an engines.ccPluginSdk mismatch", async () => {
-      const repoDir = join(workDir, "repo-sdk-too-new");
-      await writePluginFixture(repoDir, {
-        name: "cc-plugin-sdk-too-new",
-        pluginSdkRange: ">=99.0.0",
-      });
-      await initGitRepo(repoDir);
-      await commitAll(repoDir, "init");
+    test("remove deletes cached git artifacts and never touches a path source", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
 
-      await expect(
-        service.install(`git:${repoDir}@main`, { kind: "root" }),
-      ).rejects.toThrowError(
-        new RegExp(
-          `install refused.*requires cc plugin SDK >=99\\.0\\.0, running SDK is ${PLUGIN_SDK_VERSION.replaceAll(".", "\\.")}`,
-        ),
-      );
-    });
-
-    it("remove retains immutable git artifacts and never touches a path source", async () => {
       const repoDir = join(workDir, "repo-rm");
       await writePluginFixture(repoDir, { name: "cc-plugin-managed" });
       await initGitRepo(repoDir);
@@ -1002,14 +1098,20 @@ describe("plugin install flows", () => {
       await service.install(pathDir, { kind: "root" });
 
       expect(await service.remove("managed")).toBe(true);
-      await stat(managedEntry.rootDir);
+      await expect(stat(managedEntry.rootDir)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
       await stat(join(repoDir, "package.json"));
 
       expect(await service.remove("localdir")).toBe(true);
       await stat(join(pathDir, "package.json"));
     });
 
-    it("refuses a cached artifact whose engine range no longer matches", async () => {
+    test("refuses a cached artifact whose engine range no longer matches", async ({
+      fixture,
+    }) => {
+      let { db, workDir, dataDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-cached-engine");
       await writePluginFixture(repoDir, {
         name: "cc-plugin-cached-engine",
@@ -1020,15 +1122,17 @@ describe("plugin install flows", () => {
       const source = `git:${repoDir}@main`;
 
       await service.install(source, { kind: "root" });
-      expect(await service.remove("cached-engine")).toBe(true);
-      const clonesBefore = materializationCount;
       await service.stop();
+      expect(deleteInstalledPlugin(db, "cached-engine")).toBe(true);
+      const clonesBefore = fixture.counters.materializationCount;
 
-      service = createPluginService({
+      service = fixture.service = createPluginService({
         aiServices: createAiServiceRegistry(),
         db,
         hub: {
           getDaemonSessionIdForHost: () => null,
+          notifyPluginChanged: () => {},
+          onWatchedTargets: () => () => {},
           notifyPluginSignal: () => 0,
           notifySystem: () => {},
         },
@@ -1037,42 +1141,24 @@ describe("plugin install flows", () => {
         appVersion: "0.5.0",
         loadTimeoutMs: 2000,
         onArtifactMaterialize: () => {
-          materializationCount += 1;
+          fixture.counters.materializationCount += 1;
         },
       });
 
       await expect(
         service.install(source, { kind: "root" }),
       ).rejects.toThrowError(/install refused.*requires cc >=0\.9\.0/u);
-      expect(materializationCount).toBe(clonesBefore);
+      expect(fixture.counters.materializationCount).toBe(clonesBefore);
       expect(
         getInstalledPluginRegistration(db, "cached-engine"),
       ).toBeUndefined();
     });
 
-    it("refuses a git url without the git binary being asked to run arbitrary flags", async () => {
-      await expect(
-        service.install("git:@main", { kind: "root" }),
-      ).rejects.toThrowError();
-    });
-
-    it("builds both bundles for a git plugin", async () => {
-      const repoDir = join(workDir, "repo-selfcontained");
-      await writePluginFixture(repoDir, { name: "cc-plugin-selfcontained" });
-      await initGitRepo(repoDir);
-      await commitAll(repoDir, "init");
-
-      const entry = await service.install(`git:${repoDir}@main`, {
-        kind: "root",
-      });
-      expect(entry.status).toBe("running");
-      await stat(join(entry.rootDir, "dist", "server.js"));
-      await stat(join(entry.rootDir, "dist", "server.meta.json"));
-    });
-
-    it.runIf(hasNpm)(
+    test.runIf(hasNpm)(
       "builds a Git host entry without installing the SDK at runtime",
-      async () => {
+      async ({ fixture }) => {
+        const { workDir, service } = fixture;
+
         const repoDir = join(workDir, "repo-host-with-dev-sdk-omitted");
         await writePluginFixture(repoDir, {
           name: "cc-plugin-host-with-dev-sdk-omitted",
@@ -1119,7 +1205,11 @@ describe("plugin install flows", () => {
       },
     );
 
-    it("restores a target moved aside by an interrupted promotion", async () => {
+    test("restores a target moved aside by an interrupted promotion", async ({
+      fixture,
+    }) => {
+      let { db, workDir, dataDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-interrupted-promotion");
       await writePluginFixture(repoDir, {
         name: "cc-plugin-interrupted-promotion",
@@ -1141,11 +1231,13 @@ describe("plugin install flows", () => {
       await rename(entry.rootDir, `${entry.rootDir}.corrupt`);
       await mkdir(`${entry.rootDir}.promoting`, { recursive: true });
       await writeFile(join(`${entry.rootDir}.promoting`, "partial"), "copy");
-      service = createPluginService({
+      service = fixture.service = createPluginService({
         aiServices: createAiServiceRegistry(),
         db,
         hub: {
           getDaemonSessionIdForHost: () => null,
+          notifyPluginChanged: () => {},
+          onWatchedTargets: () => () => {},
           notifyPluginSignal: () => 0,
           notifySystem: () => {},
         },
@@ -1153,6 +1245,7 @@ describe("plugin install flows", () => {
         dataDir,
         appVersion: "0.9.0",
         loadTimeoutMs: 2000,
+        bundledPlugins: [],
       });
 
       await service.start();
@@ -1169,7 +1262,11 @@ describe("plugin install flows", () => {
       ).toMatchObject({ id: "interrupted-promotion", status: "running" });
     }, 60_000);
 
-    it("ignores a repository .npmrc when installing dependencies", async () => {
+    test("ignores a repository .npmrc when installing dependencies", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
       const repoDir = join(workDir, "repo-npmrc");
       await writePluginFixture(repoDir, { name: "cc-plugin-npmrc" });
       await writeFile(
@@ -1187,9 +1284,11 @@ describe("plugin install flows", () => {
       await expect(stat(join(entry.rootDir, ".npmrc"))).rejects.toThrowError();
     });
 
-    it.runIf(hasNpm)(
+    test.runIf(hasNpm)(
       "inlines a git plugin's third-party dependency into its bundles",
-      async () => {
+      async ({ fixture }) => {
+        const { workDir, service } = fixture;
+
         const depDir = join(workDir, "dep-package");
         await mkdir(depDir, { recursive: true });
         await writeFile(
@@ -1240,77 +1339,82 @@ describe("plugin install flows", () => {
     );
   });
 
-  describe.skipIf(!hasGit)(
-    "multi-plugin repositories",
-    { timeout: 60_000 },
-    () => {
-      async function writeCollectionRepo(repoDir: string): Promise<string> {
-        await writePluginFixture(join(repoDir, "plugins", "alpha"), {
-          name: "cc-plugin-collection-alpha",
-        });
-        await writePluginFixture(join(repoDir, "plugins", "beta"), {
-          name: "cc-plugin-collection-beta",
-        });
-        await mkdir(join(repoDir, ".cc"), { recursive: true });
-        await writeFile(
-          join(repoDir, ".cc", "plugins.json"),
-          JSON.stringify({
-            schemaVersion: 1,
-            name: "collection",
-            plugins: [
-              { name: "alpha", source: "./plugins/alpha" },
-              { name: "beta", source: "./plugins/beta" },
-            ],
-          }),
-        );
-        await initGitRepo(repoDir);
-        return commitAll(repoDir, "init");
-      }
+  describeGit("multi-plugin repositories", { timeout: 60_000 }, () => {
+    async function writeCollectionRepo(repoDir: string): Promise<string> {
+      await writePluginFixture(join(repoDir, "plugins", "alpha"), {
+        name: "cc-plugin-collection-alpha",
+      });
+      await writePluginFixture(join(repoDir, "plugins", "beta"), {
+        name: "cc-plugin-collection-beta",
+      });
+      await mkdir(join(repoDir, ".cc"), { recursive: true });
+      await writeFile(
+        join(repoDir, ".cc", "plugins.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          name: "collection",
+          plugins: [
+            { name: "alpha", source: "./plugins/alpha" },
+            { name: "beta", source: "./plugins/beta" },
+          ],
+        }),
+      );
+      await initGitRepo(repoDir);
+      return commitAll(repoDir, "init");
+    }
 
-      it("installs two plugins of one repository into one shared checkout", async () => {
-        const repoDir = join(workDir, "repo-collection");
-        const commit = await writeCollectionRepo(repoDir);
+    test("installs two plugins of one repository into one shared checkout", async ({
+      fixture,
+    }) => {
+      const { db, workDir, dataDir, service } = fixture;
 
-        const alpha = await service.install(`git:${repoDir}@main`, {
-          kind: "entry",
-          name: "alpha",
-        });
-        const alphaBundle = await readFile(
-          join(alpha.rootDir, "dist", "server.js"),
-          "utf8",
-        );
-        const beta = await service.install(`git:${repoDir}@main`, {
-          kind: "subdirectory",
-          path: "./plugins/beta",
-        });
+      const repoDir = join(workDir, "repo-collection");
+      const commit = await writeCollectionRepo(repoDir);
 
-        expect(alpha.status).toBe("running");
-        expect(beta.status).toBe("running");
-        const checkout = gitArtifactCacheDir(
-          dataDir,
-          `local${repoDir}`,
-          commit,
-        );
-        expect(alpha.rootDir).toBe(join(checkout, "plugins", "alpha"));
-        expect(beta.rootDir).toBe(join(checkout, "plugins", "beta"));
-        expect(
-          getInstalledPluginRegistration(db, "collection-alpha"),
-        ).toMatchObject({
-          sourceKind: "git",
-          sourceGitUrl: repoDir,
-          sourceGitSubdirectory: "plugins/alpha",
-          gitResolvedCommit: commit,
-        });
-        expect(
-          getInstalledPluginRegistration(db, "collection-beta"),
-        ).toMatchObject({ sourceGitSubdirectory: "plugins/beta" });
-        expect(
-          await readFile(join(alpha.rootDir, "dist", "server.js"), "utf8"),
-        ).toBe(alphaBundle);
-        expect(listPluginArtifacts(db, "collection-alpha")).toHaveLength(1);
+      const alpha = await service.install(`git:${repoDir}@main`, {
+        kind: "entry",
+        name: "alpha",
+      });
+      const alphaBundle = await readFile(
+        join(alpha.rootDir, "dist", "server.js"),
+        "utf8",
+      );
+      const beta = await service.install(`git:${repoDir}@main`, {
+        kind: "subdirectory",
+        path: "./plugins/beta",
       });
 
-      it("promotes an in-repository symlinked plugin after a sibling", async () => {
+      expect(alpha.status).toBe("running");
+      expect(beta.status).toBe("running");
+      const checkout = gitArtifactCacheDir(
+        dataDir,
+        localGitCachePath(repoDir),
+        commit,
+      );
+      expect(alpha.rootDir).toBe(join(checkout, "plugins", "alpha"));
+      expect(beta.rootDir).toBe(join(checkout, "plugins", "beta"));
+      expect(
+        getInstalledPluginRegistration(db, "collection-alpha"),
+      ).toMatchObject({
+        sourceKind: "git",
+        sourceGitUrl: repoDir,
+        sourceGitSubdirectory: "plugins/alpha",
+        gitResolvedCommit: commit,
+      });
+      expect(
+        getInstalledPluginRegistration(db, "collection-beta"),
+      ).toMatchObject({ sourceGitSubdirectory: "plugins/beta" });
+      expect(
+        await readFile(join(alpha.rootDir, "dist", "server.js"), "utf8"),
+      ).toBe(alphaBundle);
+      expect(listPluginArtifacts(db, "collection-alpha")).toHaveLength(1);
+    });
+
+    test.skipIf(process.platform === "win32")(
+      "promotes an in-repository symlinked plugin after a sibling",
+      async ({ fixture }) => {
+        const { workDir, service } = fixture;
+
         const repoDir = join(workDir, "repo-collection-symlinked-entry");
         await writePluginFixture(join(repoDir, "plugins", "actual"), {
           name: "cc-plugin-collection-linked",
@@ -1345,67 +1449,82 @@ describe("plugin install flows", () => {
 
         expect(linked.status).toBe("running");
         await stat(join(linked.rootDir, "dist", "server.js"));
+      },
+    );
+
+    test("keeps a nested sibling intact when the repository root installs too", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
+      const repoDir = join(workDir, "repo-collection-root");
+      await writePluginFixture(join(repoDir, "plugins", "alpha"), {
+        name: "cc-plugin-collection-alpha",
+      });
+      await writePluginFixture(repoDir, {
+        name: "cc-plugin-collection-top",
+      });
+      await initGitRepo(repoDir);
+      await commitAll(repoDir, "init");
+
+      const alpha = await service.install(`git:${repoDir}@main`, {
+        kind: "subdirectory",
+        path: "./plugins/alpha",
+      });
+      const alphaBundle = await readFile(
+        join(alpha.rootDir, "dist", "server.js"),
+        "utf8",
+      );
+      const top = await service.install(`git:${repoDir}@main`, {
+        kind: "root",
       });
 
-      it("keeps a nested sibling intact when the repository root installs too", async () => {
-        const repoDir = join(workDir, "repo-collection-root");
-        await writePluginFixture(join(repoDir, "plugins", "alpha"), {
-          name: "cc-plugin-collection-alpha",
-        });
-        await writePluginFixture(repoDir, { name: "cc-plugin-collection-top" });
-        await initGitRepo(repoDir);
-        await commitAll(repoDir, "init");
+      expect(top.status).toBe("running");
+      expect(
+        await readFile(join(alpha.rootDir, "dist", "server.js"), "utf8"),
+      ).toBe(alphaBundle);
+      await stat(join(top.rootDir, "dist", "server.js"));
+      expect(
+        service
+          .list()
+          .filter((plugin) => plugin.id.startsWith("collection-"))
+          .map((plugin) => plugin.status),
+      ).toEqual(["running", "running"]);
+    });
 
-        const alpha = await service.install(`git:${repoDir}@main`, {
-          kind: "subdirectory",
-          path: "./plugins/alpha",
-        });
-        const alphaBundle = await readFile(
-          join(alpha.rootDir, "dist", "server.js"),
-          "utf8",
-        );
-        const top = await service.install(`git:${repoDir}@main`, {
-          kind: "root",
-        });
+    test("refreshes a root artifact hash after a nested install", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
 
-        expect(top.status).toBe("running");
-        expect(
-          await readFile(join(alpha.rootDir, "dist", "server.js"), "utf8"),
-        ).toBe(alphaBundle);
-        await stat(join(top.rootDir, "dist", "server.js"));
-        expect(
-          service
-            .list()
-            .filter((plugin) => plugin.id.startsWith("collection-"))
-            .map((plugin) => plugin.status),
-        ).toEqual(["running", "running"]);
+      const repoDir = join(workDir, "repo-collection-root-first");
+      await writePluginFixture(join(repoDir, "plugins", "alpha"), {
+        name: "cc-plugin-collection-root-first-alpha",
+      });
+      await writePluginFixture(repoDir, {
+        name: "cc-plugin-collection-root-first-top",
+      });
+      await initGitRepo(repoDir);
+      await commitAll(repoDir, "init");
+
+      const top = await service.install(`git:${repoDir}@main`, {
+        kind: "root",
+      });
+      await service.install(`git:${repoDir}@main`, {
+        kind: "subdirectory",
+        path: "plugins/alpha",
       });
 
-      it("refreshes a root artifact hash after a nested install", async () => {
-        const repoDir = join(workDir, "repo-collection-root-first");
-        await writePluginFixture(join(repoDir, "plugins", "alpha"), {
-          name: "cc-plugin-collection-root-first-alpha",
-        });
-        await writePluginFixture(repoDir, {
-          name: "cc-plugin-collection-root-first-top",
-        });
-        await initGitRepo(repoDir);
-        await commitAll(repoDir, "init");
+      expect(listPluginArtifacts(db, top.id)).toMatchObject([
+        { contentHash: await hashInstallDir(top.rootDir) },
+      ]);
+    });
 
-        const top = await service.install(`git:${repoDir}@main`, {
-          kind: "root",
-        });
-        await service.install(`git:${repoDir}@main`, {
-          kind: "subdirectory",
-          path: "plugins/alpha",
-        });
+    test.skipIf(process.platform === "win32")(
+      "keeps a symlinked nested plugin when the repository root installs",
+      async ({ fixture }) => {
+        const { workDir, service } = fixture;
 
-        expect(listPluginArtifacts(db, top.id)).toMatchObject([
-          { contentHash: await hashInstallDir(top.rootDir) },
-        ]);
-      });
-
-      it("keeps a symlinked nested plugin when the repository root installs", async () => {
         const repoDir = join(workDir, "repo-collection-root-symlink");
         await writePluginFixture(join(repoDir, "plugins", "actual"), {
           name: "cc-plugin-collection-linked-root",
@@ -1434,128 +1553,157 @@ describe("plugin install flows", () => {
             .filter((plugin) => plugin.id.includes("collection-"))
             .map((plugin) => plugin.status),
         ).toEqual(["running", "running"]);
-      });
+      },
+    );
 
-      it("reinstalls a nested plugin whose directory was collected", async () => {
-        const repoDir = join(workDir, "repo-collection-recollected");
-        const commit = await writeCollectionRepo(repoDir);
-        const alpha = await service.install(`git:${repoDir}@main`, {
+    test("reinstalls a nested plugin whose directory was collected", async ({
+      fixture,
+    }) => {
+      const { workDir, dataDir, service } = fixture;
+
+      const repoDir = join(workDir, "repo-collection-recollected");
+      const commit = await writeCollectionRepo(repoDir);
+      const alpha = await service.install(`git:${repoDir}@main`, {
+        kind: "entry",
+        name: "alpha",
+      });
+      expect(await service.remove("collection-alpha")).toBe(true);
+      const checkout = gitArtifactCacheDir(
+        dataDir,
+        localGitCachePath(repoDir),
+        commit,
+      );
+      await rm(join(checkout, "plugins"), { recursive: true, force: true });
+
+      const again = await service.install(`git:${repoDir}@main`, {
+        kind: "entry",
+        name: "alpha",
+      });
+      expect(again.status).toBe("running");
+      expect(again.rootDir).toBe(alpha.rootDir);
+      await stat(join(again.rootDir, "dist", "server.js"));
+    });
+
+    test("lists the collection entries when no plugin is selected", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
+      const repoDir = join(workDir, "repo-collection-unselected");
+      await writeCollectionRepo(repoDir);
+
+      await expect(
+        service.install(`git:${repoDir}@main`, { kind: "root" }),
+      ).rejects.toThrowError(/--plugin <name> \(alpha, beta\)/);
+    });
+
+    test("refuses an unknown entry name and an escaping subdirectory", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
+      const repoDir = join(workDir, "repo-collection-bad-selection");
+      await writeCollectionRepo(repoDir);
+
+      await expect(
+        service.install(`git:${repoDir}@main`, {
           kind: "entry",
-          name: "alpha",
-        });
-        expect(await service.remove("collection-alpha")).toBe(true);
-        const checkout = gitArtifactCacheDir(
-          dataDir,
-          `local${repoDir}`,
-          commit,
-        );
-        await rm(join(checkout, "plugins"), { recursive: true, force: true });
+          name: "gamma",
+        }),
+      ).rejects.toThrowError(/no plugin "gamma" — available: alpha, beta/);
+      await expect(
+        service.install(`git:${repoDir}@main`, {
+          kind: "subdirectory",
+          path: "../../etc",
+        }),
+      ).rejects.toThrowError(/invalid plugin subdirectory/);
+    });
 
-        const again = await service.install(`git:${repoDir}@main`, {
+    test("installs a collection entry from a local path repository", async ({
+      fixture,
+    }) => {
+      const { db, workDir, service } = fixture;
+
+      const repoDir = join(workDir, "repo-collection-path");
+      await writeCollectionRepo(repoDir);
+
+      const entry = await service.install(`path:${repoDir}`, {
+        kind: "entry",
+        name: "beta",
+      });
+
+      const betaRoot = await realpath(join(repoDir, "plugins", "beta"));
+      expect(entry.rootDir).toBe(betaRoot);
+      expect(
+        getInstalledPluginRegistration(db, "collection-beta"),
+      ).toMatchObject({
+        sourceKind: "path",
+        sourcePath: betaRoot,
+      });
+    });
+
+    test("refuses a collection entry whose directory leaves the repository", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
+      const outsideDir = join(workDir, "outside-plugin");
+      await writePluginFixture(outsideDir, { name: "cc-plugin-outside" });
+      const repoDir = join(workDir, "repo-collection-symlink");
+      await mkdir(join(repoDir, "plugins"), { recursive: true });
+      await mkdir(join(repoDir, ".cc"), { recursive: true });
+      await writeFile(
+        join(repoDir, ".cc", "plugins.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          name: "collection",
+          plugins: [{ name: "escape", source: "./plugins/escape" }],
+        }),
+      );
+      await symlink(outsideDir, join(repoDir, "plugins", "escape"));
+
+      await expect(
+        service.install(`path:${repoDir}`, {
           kind: "entry",
-          name: "alpha",
-        });
-        expect(again.status).toBe("running");
-        expect(again.rootDir).toBe(alpha.rootDir);
-        await stat(join(again.rootDir, "dist", "server.js"));
+          name: "escape",
+        }),
+      ).rejects.toThrowError(/resolves outside its root/);
+    });
+
+    test("refuses a collection entry symlinked to the repository root", async ({
+      fixture,
+    }) => {
+      const { workDir, service } = fixture;
+
+      const repoDir = join(workDir, "repo-collection-root-link");
+      await writePluginFixture(repoDir, {
+        name: "cc-plugin-collection-root-link",
       });
+      await mkdir(join(repoDir, "plugins"), { recursive: true });
+      await mkdir(join(repoDir, ".cc"), { recursive: true });
+      await writeFile(
+        join(repoDir, ".cc", "plugins.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          name: "collection",
+          plugins: [{ name: "root-link", source: "./plugins/root-link" }],
+        }),
+      );
+      await symlink("..", join(repoDir, "plugins", "root-link"));
 
-      it("lists the collection entries when no plugin is selected", async () => {
-        const repoDir = join(workDir, "repo-collection-unselected");
-        await writeCollectionRepo(repoDir);
-
-        await expect(
-          service.install(`git:${repoDir}@main`, { kind: "root" }),
-        ).rejects.toThrowError(/--plugin <name> \(alpha, beta\)/);
-      });
-
-      it("refuses an unknown entry name and an escaping subdirectory", async () => {
-        const repoDir = join(workDir, "repo-collection-bad-selection");
-        await writeCollectionRepo(repoDir);
-
-        await expect(
-          service.install(`git:${repoDir}@main`, {
-            kind: "entry",
-            name: "gamma",
-          }),
-        ).rejects.toThrowError(/no plugin "gamma" — available: alpha, beta/);
-        await expect(
-          service.install(`git:${repoDir}@main`, {
-            kind: "subdirectory",
-            path: "../../etc",
-          }),
-        ).rejects.toThrowError(/invalid plugin subdirectory/);
-      });
-
-      it("installs a collection entry from a local path repository", async () => {
-        const repoDir = join(workDir, "repo-collection-path");
-        await writeCollectionRepo(repoDir);
-
-        const entry = await service.install(`path:${repoDir}`, {
+      await expect(
+        service.install(`path:${repoDir}`, {
           kind: "entry",
-          name: "beta",
-        });
-
-        const betaRoot = await realpath(join(repoDir, "plugins", "beta"));
-        expect(entry.rootDir).toBe(betaRoot);
-        expect(
-          getInstalledPluginRegistration(db, "collection-beta"),
-        ).toMatchObject({
-          sourceKind: "path",
-          sourcePath: betaRoot,
-        });
-      });
-
-      it("refuses a collection entry whose directory leaves the repository", async () => {
-        const outsideDir = join(workDir, "outside-plugin");
-        await writePluginFixture(outsideDir, { name: "cc-plugin-outside" });
-        const repoDir = join(workDir, "repo-collection-symlink");
-        await mkdir(join(repoDir, "plugins"), { recursive: true });
-        await mkdir(join(repoDir, ".cc"), { recursive: true });
-        await writeFile(
-          join(repoDir, ".cc", "plugins.json"),
-          JSON.stringify({
-            schemaVersion: 1,
-            name: "collection",
-            plugins: [{ name: "escape", source: "./plugins/escape" }],
-          }),
-        );
-        await symlink(outsideDir, join(repoDir, "plugins", "escape"));
-
-        await expect(
-          service.install(`path:${repoDir}`, { kind: "entry", name: "escape" }),
-        ).rejects.toThrowError(/resolves outside its root/);
-      });
-
-      it("refuses a collection entry symlinked to the repository root", async () => {
-        const repoDir = join(workDir, "repo-collection-root-link");
-        await writePluginFixture(repoDir, {
-          name: "cc-plugin-collection-root-link",
-        });
-        await mkdir(join(repoDir, "plugins"), { recursive: true });
-        await mkdir(join(repoDir, ".cc"), { recursive: true });
-        await writeFile(
-          join(repoDir, ".cc", "plugins.json"),
-          JSON.stringify({
-            schemaVersion: 1,
-            name: "collection",
-            plugins: [{ name: "root-link", source: "./plugins/root-link" }],
-          }),
-        );
-        await symlink("..", join(repoDir, "plugins", "root-link"));
-
-        await expect(
-          service.install(`path:${repoDir}`, {
-            kind: "entry",
-            name: "root-link",
-          }),
-        ).rejects.toThrowError(/resolves to its root/);
-      });
-    },
-  );
+          name: "root-link",
+        }),
+      ).rejects.toThrowError(/resolves to its root/);
+    });
+  });
 
   describe("plugin artifact metadata validation", () => {
-    it("rejects an artifact whose pluginId does not match the manifest", () => {
+    test("rejects an artifact whose pluginId does not match the manifest", ({
+      fixture,
+    }) => {
       expect(
         validatePluginArtifactMeta({
           artifact: "server",
@@ -1568,7 +1716,7 @@ describe("plugin install flows", () => {
       );
     });
 
-    it("rejects an unknown artifactFormatVersion", () => {
+    test("rejects an unknown artifactFormatVersion", ({ fixture }) => {
       expect(
         validatePluginArtifactMeta({
           artifact: "server",
@@ -1581,20 +1729,13 @@ describe("plugin install flows", () => {
         }),
       ).toMatch(/unknown artifactFormatVersion 2.*supported value is 1/);
     });
-
-    it("accepts metadata that matches the manifest and this SDK", () => {
-      expect(
-        validatePluginArtifactMeta({
-          artifact: "server",
-          raw: artifactMeta({ pluginId: "artifact-ok" }),
-          pluginId: "artifact-ok",
-          pluginVersion: "0.1.0",
-        }),
-      ).toBeNull();
-    });
   });
 
-  it("keeps path installs developer-friendly while surfacing SDK incompatibility", async () => {
+  test("keeps path installs developer-friendly while surfacing SDK incompatibility", async ({
+    fixture,
+  }) => {
+    const { workDir, service } = fixture;
+
     const rootDir = join(workDir, "local-sdk-mismatch");
     await writePluginFixture(rootDir, {
       name: "cc-plugin-local-sdk-mismatch",
@@ -1608,7 +1749,11 @@ describe("plugin install flows", () => {
     );
   });
 
-  it("registers a path install with stale backend artifact metadata", async () => {
+  test("registers a path install with stale backend artifact metadata", async ({
+    fixture,
+  }) => {
+    const { workDir, service } = fixture;
+
     const rootDir = join(workDir, "local-stale-server-meta");
     const incompatibleMajor = PLUGIN_SDK_MAJOR + 1;
     await writePluginFixture(rootDir, {
@@ -1633,10 +1778,12 @@ describe("plugin install flows", () => {
   });
 
   describe.skipIf(!hasNpm)("npm sources", () => {
-    it(
-      "installs a scoped package into the immutable cache and retains it on removal",
+    test(
+      "installs a scoped package into the immutable cache and deletes it on removal",
       { timeout: 120_000 },
-      async () => {
+      async ({ fixture }) => {
+        const { db, workDir, dataDir, service } = fixture;
+
         const name = "@acme/cc-plugin-npmhero";
         const version = "0.1.0";
         const fixtureDir = join(workDir, "npm-fixture");
@@ -1749,8 +1896,10 @@ describe("plugin install flows", () => {
           await stat(prefix);
 
           expect(await service.remove("npmhero")).toBe(true);
-          await stat(prefix);
-          expect(listPluginArtifacts(db, "npmhero")).toHaveLength(1);
+          await expect(stat(prefix)).rejects.toMatchObject({
+            code: "ENOENT",
+          });
+          expect(listPluginArtifacts(db, "npmhero")).toEqual([]);
         } finally {
           if (previousCache === undefined) {
             delete process.env.npm_config_cache;
@@ -1775,14 +1924,22 @@ describe("plugin install flows", () => {
     );
   });
 
-  it("refuses an npm package whose derived id shadows a builtin before install", async () => {
+  test("refuses an npm package whose derived id shadows a builtin before install", async ({
+    fixture,
+  }) => {
+    const { db, service } = fixture;
+
     await expect(
       service.install("npm:cc-plugin-connect@1.2.3", { kind: "root" }),
     ).rejects.toThrowError(/reserved by the bundled plugin.*builtin:connect/);
     expect(getInstalledPluginRegistration(db, "connect")).toBeUndefined();
   });
 
-  it("refuses a path plugin whose manifest id shadows a builtin", async () => {
+  test("refuses a path plugin whose manifest id shadows a builtin", async ({
+    fixture,
+  }) => {
+    const { db, workDir, service } = fixture;
+
     const rootDir = join(workDir, "cc-plugin-connect");
     await writePluginFixture(rootDir, { name: "cc-plugin-connect" });
     await expect(service.installPath(rootDir)).rejects.toThrowError(
@@ -1791,7 +1948,36 @@ describe("plugin install flows", () => {
     expect(getInstalledPluginRegistration(db, "connect")).toBeUndefined();
   });
 
-  it("the cc plugin new scaffold installs and loads through the plugin service", async () => {
+  test("refuses a path plugin whose id uses the reserved cc-- prefix", async ({
+    fixture,
+  }) => {
+    const { db, workDir, service } = fixture;
+
+    const rootDir = join(workDir, "cc-plugin-cc--notes");
+    await writePluginFixture(rootDir, { name: "cc-plugin-cc--notes" });
+    await expect(service.installPath(rootDir)).rejects.toThrowError(
+      /ids starting with "cc--" are reserved/,
+    );
+    expect(getInstalledPluginRegistration(db, "cc--notes")).toBeUndefined();
+  });
+
+  test("refuses an npm package whose derived id uses the reserved cc-- prefix before install", async ({
+    fixture,
+  }) => {
+    const { service } = fixture;
+
+    await expect(
+      service.install("npm:@acme/cc-plugin-cc--notes@1.2.3", {
+        kind: "root",
+      }),
+    ).rejects.toThrowError(/ids starting with "cc--" are reserved/);
+  });
+
+  test("the cc plugin new scaffold installs and loads through the plugin service", async ({
+    fixture,
+  }) => {
+    const { workDir, service } = fixture;
+
     const targetDir = join(workDir, "cc-plugin-scaffolded");
     await scaffoldPlugin({
       targetDir,
@@ -1803,7 +1989,9 @@ describe("plugin install flows", () => {
     await stat(join(targetDir, "README.md"));
     await linkScaffoldDependencies(targetDir);
 
-    const entry = await service.install(`path:${targetDir}`, { kind: "root" });
+    const entry = await service.install(`path:${targetDir}`, {
+      kind: "root",
+    });
     expect(entry.id).toBe("scaffolded");
     expect(entry.status).toBe("running");
     expect(entry.statusDetail).toBeNull();

@@ -1,4 +1,8 @@
-import { execFile } from "node:child_process";
+import { experimental_execHostFileCallback as execFile } from "@codythatsme/plugin-sdk/process";
+import {
+  experimental_runVcsProcess as runVcsProcess,
+  type ExperimentalVcsProcessPriority as VcsProcessPriority,
+} from "@codythatsme/plugin-sdk/host";
 import {
   defineRpcContract,
   PluginCliError,
@@ -345,31 +349,49 @@ function describeIgnoredExtraRepos(ignored: string[]): string {
   );
 }
 
+const environmentPullRequestUrlsSchema = z.record(
+  z.string(),
+  z.union([
+    z.object({
+      outcome: z.literal("available"),
+      pullRequest: z.object({ url: z.string() }),
+    }),
+    z.object({ outcome: z.enum(["absent", "unavailable"]) }),
+  ]),
+);
+
 function run(
   file: string,
   args: string[],
   timeoutMs = 30_000,
+  priority: VcsProcessPriority = "background",
 ): Promise<{ stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      file,
-      args,
-      { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (error) {
-          reject(
-            new Error(
-              `${file} ${args.slice(0, 3).join(" ")} failed: ${
-                stderr.trim() || error.message
-              }`,
-            ),
-          );
-        } else {
-          resolve({ stdout, stderr });
-        }
-      },
-    );
-  });
+  return runVcsProcess(
+    file === "git" ? "git" : "gh",
+    args,
+    () =>
+      new Promise((resolve, reject) => {
+        execFile(
+          file,
+          args,
+          { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 },
+          (error, stdout, stderr) => {
+            if (error) {
+              reject(
+                new Error(
+                  `${file} ${args.slice(0, 3).join(" ")} failed: ${
+                    stderr.trim() || error.message
+                  }`,
+                ),
+              );
+            } else {
+              resolve({ stdout, stderr });
+            }
+          },
+        );
+      }),
+    { priority },
+  );
 }
 
 export function parsePaginatedGhApi(raw: string): Record<string, unknown>[] {
@@ -468,7 +490,7 @@ const repositoryListsQuery = `query RepositoryLists($owner: String!, $name: Stri
   }
 }`;
 
-export async function fetchRepoItems(
+async function fetchRepoItems(
   gh: GhRunner,
   repo: string,
 ): Promise<CachedItem[]> {
@@ -563,15 +585,23 @@ export default async function plugin(cc: CcPluginApi) {
     throw needsConfiguration(`GitHub CLI not found. ${GH_HINT}`);
   }
 
-  async function gh(args: string[], timeoutMs?: number): Promise<string> {
+  async function gh(
+    args: string[],
+    timeoutMs?: number,
+    priority: VcsProcessPriority = "interactive",
+  ): Promise<string> {
     const file = await resolveGh();
-    const { stdout } = await run(file, args, timeoutMs);
+    const { stdout } = await run(file, args, timeoutMs, priority);
     return stdout;
   }
 
   async function probeAuth(): Promise<void> {
     try {
-      await gh(["auth", "status", "--hostname", GH_HOST, "--active"], 10_000);
+      await gh(
+        ["auth", "status", "--hostname", GH_HOST, "--active"],
+        10_000,
+        "background",
+      );
       ghState = "ready";
       ghAuthError = null;
       return;
@@ -584,7 +614,7 @@ export default async function plugin(cc: CcPluginApi) {
     }
     let hasCredentials = true;
     try {
-      await gh(["auth", "token", "--hostname", GH_HOST], 5_000);
+      await gh(["auth", "token", "--hostname", GH_HOST], 5_000, "background");
     } catch (error) {
       const message = errorMessage(error);
       hasCredentials = !GH_NO_CREDENTIALS.test(message);
@@ -823,7 +853,10 @@ export default async function plugin(cc: CcPluginApi) {
     let lastFailure = "";
     for (const { repo } of repos) {
       try {
-        const items = await fetchRepoItems(gh, repo);
+        const items = await fetchRepoItems(
+          (args) => gh(args, undefined, "background"),
+          repo,
+        );
         replaceRepoRows(repo, items);
         total += items.length;
       } catch (error) {
@@ -846,8 +879,6 @@ export default async function plugin(cc: CcPluginApi) {
     );
     await cc.storage.kv.set("sync-cursor", {
       lastSyncedAt: new Date().toISOString(),
-      repos: repos.length,
-      items: total,
     });
     if (before !== after) {
       cc.realtime.publish("data-changed", { items: total });
@@ -1060,8 +1091,6 @@ export default async function plugin(cc: CcPluginApi) {
       }
       const cursor = await cc.storage.kv.get<{
         lastSyncedAt: string;
-        repos: number;
-        items: number;
       }>("sync-cursor");
       const repos = await discoverRepos();
       return {
@@ -1430,11 +1459,15 @@ export default async function plugin(cc: CcPluginApi) {
         const thread = await cc.sdk.threads.get({ threadId });
         if (thread?.environmentId) {
           environmentId = thread.environmentId;
-          const result = await cc.sdk.environments.pullRequest({
-            environmentId: thread.environmentId,
+          const rows = await cc.sdk.plugins.callRpc({
+            pluginId: "cc--github-pr-status",
+            method: "pullRequests",
+            input: { keys: [thread.environmentId] },
+            outputSchema: environmentPullRequestUrlsSchema,
           });
+          const result = rows[thread.environmentId];
           const url =
-            result.outcome === "available" ? result.pullRequest.url : null;
+            result?.outcome === "available" ? result.pullRequest.url : null;
           const match =
             typeof url === "string"
               ? url.match(/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/)

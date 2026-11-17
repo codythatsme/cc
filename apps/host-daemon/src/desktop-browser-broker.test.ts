@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,7 +24,6 @@ const tab = {
   threadId: scope.threadId,
   url: "about:blank",
   title: "",
-  profile: { kind: "personal" },
   presentation: "hidden",
   control: null,
 };
@@ -89,7 +89,9 @@ describe("desktop browser broker", () => {
   it("writes a private bound descriptor and removes it at shutdown", async () => {
     const { broker, dataDir } = await setup();
     const path = join(dataDir, DESKTOP_BROWSER_BROKER_DESCRIPTOR_FILE);
-    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+    }
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual(broker.descriptor);
     expect(broker.descriptor.url).toMatch(
       /^ws:\/\/127\.0\.0\.1:\d+\/desktop-browser$/u,
@@ -260,4 +262,17 @@ describe("desktop browser broker", () => {
       broker.request({ type: "desktop.browser.list_tabs", ...scope }),
     ).rejects.toThrow("stale");
   });
+});
+
+it("proves the active broker without exposing its token and retires proofs on disconnect", async () => {
+  const { broker } = await setup();
+  const challenge = "c".repeat(64);
+  expect(broker.prove(challenge)).toEqual({
+    proof: createHmac("sha256", broker.descriptor.token)
+      .update(`cc-desktop-broker:${challenge}`)
+      .digest("hex"),
+  });
+  expect(broker.prove("d".repeat(64))).not.toEqual(broker.prove(challenge));
+  broker.setConnected(false);
+  expect(() => broker.prove(challenge)).toThrow("disconnected");
 });

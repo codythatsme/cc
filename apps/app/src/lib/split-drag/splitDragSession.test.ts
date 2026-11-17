@@ -44,6 +44,7 @@ describe("beginSplitDrag — sidebar gesture arbitration and fallback", () => {
   let originalElementsFromPoint: typeof document.elementsFromPoint;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     paneEl = document.createElement("div");
     paneEl.setAttribute("data-split-pane-id", "pane-1");
     Object.defineProperty(paneEl, "getBoundingClientRect", {
@@ -71,6 +72,8 @@ describe("beginSplitDrag — sidebar gesture arbitration and fallback", () => {
   });
 
   afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
     document.removeEventListener("keydown", escapeListener);
     paneEl.remove();
     document.elementsFromPoint = originalElementsFromPoint;
@@ -188,16 +191,34 @@ describe("beginSplitDrag — sidebar gesture arbitration and fallback", () => {
     sourceEl.remove();
   });
 
-  it("a vertical in-sidebar drag never engages: reorder is untouched, no drop", () => {
-    const config = baseConfig();
-    beginSplitDrag(config);
+  it("swallows the click that completes an engaged drop and leaves no timer pending", () => {
+    const pageClick = vi.fn();
+    document.body.addEventListener("click", pageClick);
+    beginSplitDrag(baseConfig());
+    fireWindowPointer("pointermove", 900, 400);
+    fireWindowPointer("pointerup", 900, 400);
 
-    fireWindowPointer("pointermove", 24, 380);
-    fireWindowPointer("pointermove", 26, 520);
-    fireWindowPointer("pointerup", 26, 520);
+    document.body.click();
+    expect(pageClick).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
 
-    expect(escapeKeydowns).toBe(0);
-    expect(config.onDrop).not.toHaveBeenCalled();
+    document.body.click();
+    expect(pageClick).toHaveBeenCalledOnce();
+    document.body.removeEventListener("click", pageClick);
+  });
+
+  it("stops swallowing clicks 300ms after a release that no click follows", () => {
+    const pageClick = vi.fn();
+    document.body.addEventListener("click", pageClick);
+    beginSplitDrag(baseConfig());
+    fireWindowPointer("pointermove", 900, 400);
+    fireWindowPointer("pointercancel", 900, 400);
+
+    vi.advanceTimersByTime(300);
+    expect(vi.getTimerCount()).toBe(0);
+    document.body.click();
+    expect(pageClick).toHaveBeenCalledOnce();
+    document.body.removeEventListener("click", pageClick);
   });
 
   it("a plain click (press and release, no movement) does not drop", () => {

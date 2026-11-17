@@ -9,7 +9,7 @@ const WORKSPACE_OPEN_TARGET_FALLBACK_LABELS: Record<
 > = {
   "android-studio": "Android Studio",
   antigravity: "Antigravity",
-  bbedit: "CCEdit",
+  bbedit: "BBEdit",
   cursor: "Cursor",
   "default-app": "Default App",
   "devin-desktop": "Devin Desktop",

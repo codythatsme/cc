@@ -17,6 +17,7 @@ import {
 import {
   HOST_DAEMON_PROTOCOL_VERSION,
   HOST_ID_FILE_NAME,
+  type HostPlatform,
 } from "@cc/host-daemon-contract";
 import {
   encodeClientTurnRequestIdNumber,
@@ -37,6 +38,7 @@ import type {
   ThreadEventType,
   ThreadOriginKind,
   ThreadStatus,
+  ThreadParentNotifications,
   ThreadVisibility,
 } from "@cc/domain";
 import type { AppDeps } from "../../src/types.js";
@@ -95,10 +97,10 @@ export function seedHost(
 
 export function seedHostSession(
   deps: Pick<AppDeps, "db" | "hub">,
-  args: { id?: string; name?: string } = {},
+  args: { id?: string; name?: string; platform?: HostPlatform } = {},
 ) {
   const host = seedHost(deps, args);
-  const session = seedSession(deps, host.id);
+  const session = seedSession(deps, host.id, { platform: args.platform });
   return { host, session };
 }
 
@@ -112,7 +114,7 @@ export function seedPrimaryHost(
 export function seedSession(
   deps: Pick<AppDeps, "db" | "hub">,
   hostId: string,
-  options: { instanceId?: string } = {},
+  options: { instanceId?: string; platform?: HostPlatform } = {},
 ) {
   const session = openSession(deps.db, {
     hostId,
@@ -123,7 +125,10 @@ export function seedSession(
     heartbeatIntervalMs: 5_000,
     leaseTimeoutMs: 30_000,
   });
-  deps.hub.recordDaemonSessionPlatform(session.id, "darwin");
+  deps.hub.recordDaemonSessionPlatform(
+    session.id,
+    options.platform ?? "darwin",
+  );
   registerTestHostRpcCapture(deps, { hostId, sessionId: session.id });
   return session;
 }
@@ -208,6 +213,7 @@ export function seedThread(
     originPluginId?: string | null;
     titleFallback?: string | null;
     visibility?: ThreadVisibility;
+    parentNotifications?: ThreadParentNotifications;
   },
 ) {
   return createThread(deps.db, deps.hub, {
@@ -223,6 +229,7 @@ export function seedThread(
     originKind: args.originKind ?? null,
     originPluginId: args.originPluginId ?? null,
     visibility: args.visibility ?? "visible",
+    parentNotifications: args.parentNotifications ?? "auto",
   });
 }
 
@@ -265,7 +272,6 @@ export function seedQueuedMessage(
     permissionMode?: PermissionMode;
     senderThreadId?: string | null;
     serviceTier?: string;
-    /** Defaults to a row with no wait: an ordinary queued message. */
     waitingOn?: QueuedMessageWaitingOn | null;
     sendAt?: number | null;
   },

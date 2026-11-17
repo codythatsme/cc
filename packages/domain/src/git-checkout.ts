@@ -43,7 +43,6 @@ export function isValidGitBranchName(name: GitBranchNameCandidate) {
 export const gitBranchNameSchema = z
   .string()
   .refine(isValidGitBranchName, { message: "Invalid git branch name" });
-export type GitBranchName = z.infer<typeof gitBranchNameSchema>;
 
 export const gitBranchSelectionSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("named"), name: gitBranchNameSchema }),
@@ -133,6 +132,8 @@ export const gitBranchOptionsSchema = z.object({
   remoteBranchesTruncated: z.boolean(),
   selectedBranch: gitBranchRefClassificationSchema.nullable(),
 });
+
+export type GitBranchOptions = z.infer<typeof gitBranchOptionsSchema>;
 
 export const projectSourceCheckoutSchema = gitSourceInspectionSchema.extend(
   gitBranchOptionsSchema.shape,

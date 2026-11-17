@@ -1,3 +1,4 @@
+import { createMobileAppReleaseService } from "../services/install/mobile-app-releases.js";
 import {
   setMachineEnvironmentVariable,
   deleteMachineEnvironmentVariable,
@@ -54,6 +55,7 @@ import {
 import type { ServerAppDeps, ServerRuntimeConfig } from "../types.js";
 import type { PluginService } from "../services/plugins/plugin-service.js";
 import { ApiError } from "../errors.js";
+import { readMultipartFormData } from "./multipart-form-data.js";
 import {
   buildAiServicesView,
   testAiService,
@@ -67,6 +69,10 @@ import {
   listSystemProviderInfos,
   resolveSystemExecutionOptions,
 } from "../services/system/execution-options.js";
+import {
+  providerManagementCatalog,
+  setProviderEnabled,
+} from "../services/system/provider-management.js";
 import { getProviderStates } from "../services/system/provider-states.js";
 import { getProviderUsageLimits } from "../services/system/usage-limits.js";
 import {
@@ -152,6 +158,12 @@ export function registerSystemRoutes(
 
   const themeRoot = resolveThemeRootPath(deps.config.dataDir);
 
+  const mobileAppReleases = createMobileAppReleaseService();
+  get(routes.mobileAppReleases, async (context) => {
+    context.header("cache-control", "no-store");
+    return context.json(await mobileAppReleases());
+  });
+
   get(routes.attention, (context) =>
     context.json({ hasAttention: hasActiveThreadAttention(deps.db) }),
   );
@@ -206,6 +218,8 @@ export function registerSystemRoutes(
       defaultKeybindings: DEFAULT_APP_KEYBINDINGS,
       keybindingOverrides,
       experiments: getExperiments(deps.db),
+      performanceDiagnosticsAvailable:
+        deps.config.performanceDiagnosticsAvailable,
       appearance: await resolveSelectedTheme(
         getStoredThemeId(deps.db),
         getStoredFaviconColor(deps.db),
@@ -253,9 +267,7 @@ export function registerSystemRoutes(
     );
     deps.lifecycleDedupers.providerModelCatalogs.markAllStale();
     deps.hub.notifySystem(["config-changed"]);
-    return context.json(
-      await machineEnvironmentView(deps.db, deps.config.dataDir),
-    );
+    return context.json(await machineEnvironmentView(deps.db));
   });
 
   del(routes.deleteMachineEnvironmentVariable, async (context, payload) => {
@@ -268,13 +280,11 @@ export function registerSystemRoutes(
     await deleteMachineEnvironmentVariable(deps.db, payload.name, null);
     deps.lifecycleDedupers.providerModelCatalogs.markAllStale();
     deps.hub.notifySystem(["config-changed"]);
-    return context.json(
-      await machineEnvironmentView(deps.db, deps.config.dataDir),
-    );
+    return context.json(await machineEnvironmentView(deps.db));
   });
 
   get(routes.machineEnvironment, async (context) =>
-    context.json(await machineEnvironmentView(deps.db, deps.config.dataDir)),
+    context.json(await machineEnvironmentView(deps.db)),
   );
   put(routes.replaceMachineEnvironment, async (context, payload) => {
     if (getGateAuthKind(context) === "machine")
@@ -286,9 +296,7 @@ export function registerSystemRoutes(
     await replaceMachineEnvironment(deps.db, deps.config.dataDir, payload);
     deps.lifecycleDedupers.providerModelCatalogs.markAllStale();
     deps.hub.notifySystem(["config-changed"]);
-    return context.json(
-      await machineEnvironmentView(deps.db, deps.config.dataDir),
-    );
+    return context.json(await machineEnvironmentView(deps.db));
   });
 
   put(routes.generalSettings, (context, payload) => {
@@ -300,8 +308,26 @@ export function registerSystemRoutes(
         : undefined;
     const updatedSettings = appSettingsSchema.parse({
       ...settings,
+      idleProviderSessionTimeoutMinutes:
+        settings.idleProviderSessionTimeoutMinutes === undefined
+          ? current.idleProviderSessionTimeoutMinutes
+          : settings.idleProviderSessionTimeoutMinutes,
       allowFastServiceTier:
         settings.allowFastServiceTier ?? current.allowFastServiceTier,
+      terminalCopyOnSelect:
+        settings.terminalCopyOnSelect ?? current.terminalCopyOnSelect,
+      keepHistoryAfterContextClear:
+        settings.keepHistoryAfterContextClear ??
+        current.keepHistoryAfterContextClear,
+      summarizeShellCommands:
+        settings.summarizeShellCommands ?? current.summarizeShellCommands,
+      confirmThreadArchive:
+        settings.confirmThreadArchive ?? current.confirmThreadArchive,
+      earlyAdopter: settings.earlyAdopter ?? current.earlyAdopter,
+      onboardingCompletedAt:
+        settings.onboardingCompletedAt === undefined
+          ? current.onboardingCompletedAt
+          : settings.onboardingCompletedAt,
       showDiagnosticEvents:
         diagnosticValue === undefined ||
         (showUnhandledProviderEvents !== undefined &&
@@ -314,6 +340,10 @@ export function registerSystemRoutes(
     return context.json(compatibleGeneralSettings());
   });
 
+  get(routes.setupGuide, async (context) => {
+    return context.json({ variant: deps.setupGuideVariant });
+  });
+
   put(routes.keyboardSettings, (context, payload) => {
     setAppKeybindingOverrides(deps.db, payload);
     deps.hub.notifySystem(["config-changed"]);
@@ -321,7 +351,7 @@ export function registerSystemRoutes(
   });
 
   put(routes.experiments, (context, payload) => {
-    setExperiments(deps.db, { ...getExperiments(deps.db), ...payload });
+    setExperiments(deps.db, payload);
     deps.hub.notifySystem(["config-changed"]);
     return context.json(getExperiments(deps.db));
   });
@@ -573,6 +603,21 @@ export function registerSystemRoutes(
     context.json(await listSystemProviderInfos(deps, query)),
   );
 
+  get(routes.providerCatalog, async (context) => {
+    await deps.providerRegistry.whenRegistrationsSettled();
+    return context.json(providerManagementCatalog(deps, pluginService));
+  });
+  put(routes.providerEnabled, async (context, payload) =>
+    context.json(
+      await setProviderEnabled(
+        deps,
+        pluginService,
+        context.req.param("id"),
+        payload.enabled,
+      ),
+    ),
+  );
+
   get(routes.providerLogo, async (context) => {
     const providerId = context.req.param("id");
     const registration = providerId.startsWith("environment:")
@@ -628,7 +673,7 @@ export function registerSystemRoutes(
   );
 
   post(routes.voiceTranscription, async (context) => {
-    const formData = await context.req.formData();
+    const formData = await readMultipartFormData(context.req);
     const file = formData.get("file");
     if (!(file instanceof File)) {
       throw new ApiError(400, "invalid_request", "Audio file is required");
@@ -671,12 +716,69 @@ export function registerSystemRoutes(
     );
   });
 
+  post(routes.scheduleAppUpdate, async (context) => {
+    assertAppUpdateAllowed(context);
+    assertUpdateWhenIdleEnabled(deps.db);
+    return context.json(await deps.appUpdate.schedule());
+  });
+
+  post(routes.cancelScheduledAppUpdate, async (context) => {
+    assertAppUpdateAllowed(context);
+    assertUpdateWhenIdleEnabled(deps.db);
+    return context.json(await deps.appUpdate.cancelScheduled());
+  });
+
+  post(routes.setAppUpdateAuto, async (context, body) => {
+    assertAppUpdateAllowed(context);
+    assertUpdateWhenIdleEnabled(deps.db);
+    return context.json(await deps.appUpdate.setAutoUpdate(body.enabled));
+  });
+
   post(routes.acknowledgeAppUpdate, async (context, body) => {
     assertAppUpdateAllowed(context);
     return context.json(
       await deps.appUpdate.acknowledgeResult({ id: body.id }),
     );
   });
+
+  get(routes.cliCommand, async (context) =>
+    context.json(await deps.cliCommand.getStatus()),
+  );
+
+  post(routes.installCliCommand, async (context) => {
+    assertCliCommandChangeAllowed(context);
+    return context.json(await deps.cliCommand.install());
+  });
+
+  post(routes.removeCliCommand, async (context) => {
+    assertCliCommandChangeAllowed(context);
+    return context.json(await deps.cliCommand.remove());
+  });
+}
+
+function assertCliCommandChangeAllowed(
+  context: Parameters<typeof getGateAuthKind>[0],
+): void {
+  if (getGateAuthKind(context) === "machine") {
+    throw new ApiError(
+      403,
+      "forbidden",
+      "Machine credentials cannot change the cc command on the cc server's computer",
+    );
+  }
+}
+
+const UPDATE_WHEN_IDLE_EXPERIMENT_DISABLED_MESSAGE =
+  'Updating when idle is off. Turn on the "Update when idle" experiment in Settings → Experiments, or run cc settings experiment updateWhenIdle true, then try again.';
+
+function assertUpdateWhenIdleEnabled(db: ServerAppDeps["db"]): void {
+  if (!getExperiments(db).updateWhenIdle) {
+    throw new ApiError(
+      403,
+      "update_when_idle_experiment_disabled",
+      UPDATE_WHEN_IDLE_EXPERIMENT_DISABLED_MESSAGE,
+    );
+  }
 }
 
 function assertAppUpdateAllowed(

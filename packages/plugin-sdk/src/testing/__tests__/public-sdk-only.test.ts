@@ -120,6 +120,96 @@ describe("experimental_scanPublicSdkOnly", () => {
     ]);
   });
 
+  it("reads imports from syntax, not from method names, property calls, comments, strings, or JSX text", () => {
+    plant({
+      "server.ts": [
+        "const f = { import(includeUncertain = false) { return includeUncertain; } };",
+        "class Store { async require(path: string): Promise<void> {} }",
+        "interface Importer { import(estimate: number): void; }",
+        "f.import(estimate);",
+        'f.import("@cc/db");',
+        "store?.require(path);",
+        'const label = { import: "@cc/db", export: 1 };',
+        "const pattern = /from [\"']@cc\\/db[\"']/u;",
+        '// import("@cc/db") or require(name)',
+        '/* export * from "@cc/db"; */',
+        "const text = \"import('@cc/db')\";",
+        'const doc = `require(name) from "@cc/db"`;',
+        "const url = import.meta.url;",
+        "",
+      ].join("\n"),
+      "server.test.ts": [
+        'import { it } from "vitest";',
+        'it("after a confirmed import", () => {});',
+        'it("next test", () => {});',
+        "",
+      ].join("\n"),
+      "app.tsx": [
+        'import "@codythatsme/plugin-sdk/app";',
+        "export function Panel<T,>(props: { items: T[] }) {",
+        "  return (",
+        '    <section title="don\'t import">',
+        '      <p>Can\'t import (beta) from "@cc/db" // or require(it)</p>',
+        "      {props.items.length > 0 ? <List items={props.items} /> : null}",
+        "      <>{/* import(name) */}</>",
+        "    </section>",
+        "  );",
+        "}",
+        "",
+      ].join("\n"),
+    });
+    expect(scanPublicSdkOnly(packageRoot).violations).toEqual([]);
+  });
+
+  it("still reports every real import form, including ones the old text scan read", () => {
+    plant({
+      "server.ts": [
+        'import type { Event } from "@cc/domain";',
+        'import defaultThing, { named } from "yaml";',
+        'import * as ns from "@cc/sdk";',
+        'import "side-effect";',
+        'import legacy = require("@cc/legacy");',
+        'export { thing } from "@cc/reexport";',
+        'export * as all from "@cc/star";',
+        'export type { Shape } from "@cc/types";',
+        'type Lazy = typeof import("@cc/lazy-type");',
+        "const lazy = cond ? import(spec) : null;",
+        'const nested = `${await import("@cc/in-template")}`;',
+        'const viaRequire = [require("@cc/required")];',
+        "",
+      ].join("\n"),
+      "app.tsx": [
+        "export const View = () => (",
+        '  <div onClick={() => import("@cc/from-jsx")}>{require(name)}</div>',
+        ");",
+        "",
+      ].join("\n"),
+    });
+    const violations = scanPublicSdkOnly(packageRoot).violations;
+    const reported = (file: string) =>
+      violations
+        .filter((violation) => violation.file === file)
+        .map(({ specifier, reason }) => `${reason} ${specifier}`);
+    expect(reported("app.tsx")).toEqual([
+      "private-package @cc/from-jsx",
+      "dynamic-specifier name",
+    ]);
+    expect(reported("server.ts")).toEqual([
+      "private-package @cc/domain",
+      "outside-allowlist yaml",
+      "private-package @cc/sdk",
+      "outside-allowlist side-effect",
+      "private-package @cc/legacy",
+      "private-package @cc/reexport",
+      "private-package @cc/star",
+      "private-package @cc/types",
+      "private-package @cc/lazy-type",
+      "dynamic-specifier spec",
+      "private-package @cc/in-template",
+      "private-package @cc/required",
+    ]);
+  });
+
   it("lists @cc/* names from both dependency blocks of package.json", () => {
     plant(
       { "server.ts": "" },

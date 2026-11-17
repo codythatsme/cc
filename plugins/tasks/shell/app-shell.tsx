@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PluginNavPanelProps } from "@codythatsme/plugin-sdk/app";
 import { useProjects } from "./data.js";
 import {
@@ -19,7 +19,7 @@ import { ManagePanel } from "../views/manage/manage-panel.js";
 import { EmptyState } from "../components/empty-state.js";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { TasksRefreshProvider } from "./refresh.js";
+import { observeSharedResize } from "@/lib/shared-resize-observer";
 
 const BOARD_MIN_WIDTH = 448;
 
@@ -49,20 +49,42 @@ function RouteOutlet({
 }) {
   switch (route.kind) {
     case "all":
-      return <ListView projectId={null} />;
+      return <ListView key="all" projectId={null} />;
     case "active":
-      return <ListView projectId={null} activeOnly />;
+      return <ListView key="active" projectId={null} activeOnly />;
     case "manage":
       return <ManagePanel />;
     case "task":
-      return <DetailView taskKey={route.taskKey} />;
+      return <TaskRouteView taskKey={route.taskKey} />;
     case "project":
       return route.view === "board" && boardUsable ? (
         <BoardView projectId={route.projectId} />
       ) : (
-        <ListView projectId={route.projectId} />
+        <ListView key={route.projectId} projectId={route.projectId} />
       );
   }
+}
+
+function TaskRouteView({ taskKey }: { taskKey: string }) {
+  const navigation = useTasksNavigation();
+  const onCanonicalKey = useCallback(
+    (canonicalKey: string) => {
+      if (canonicalKey.toUpperCase() !== taskKey.toUpperCase()) {
+        navigation.go(
+          { kind: "task", taskKey: canonicalKey },
+          { replace: true },
+        );
+      }
+    },
+    [navigation, taskKey],
+  );
+  return (
+    <DetailView
+      key={taskKey}
+      taskKey={taskKey}
+      onCanonicalKey={onCanonicalKey}
+    />
+  );
 }
 
 function resolveRoute(route: TasksRoute): ResolvedTasksRoute {
@@ -92,14 +114,15 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
   useEffect(() => {
     const main = mainRef.current;
     if (!main || typeof ResizeObserver === "undefined") return;
-    const update = () => {
+    const readUsable = () => {
       const mainWidth = main.clientWidth;
-      setBoardUsable(!(mainWidth > 0 && mainWidth < BOARD_MIN_WIDTH));
+      return !(mainWidth > 0 && mainWidth < BOARD_MIN_WIDTH);
     };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(main);
-    return () => observer.disconnect();
+    setBoardUsable(readUsable());
+    return observeSharedResize(main, {
+      read: readUsable,
+      write: setBoardUsable,
+    });
   }, []);
   const projects = useProjects();
 
@@ -194,9 +217,5 @@ function TasksAppShellContent({ subPath }: PluginNavPanelProps) {
 }
 
 export function TasksAppShell(props: PluginNavPanelProps) {
-  return (
-    <TasksRefreshProvider>
-      <TasksAppShellContent {...props} />
-    </TasksRefreshProvider>
-  );
+  return <TasksAppShellContent {...props} />;
 }

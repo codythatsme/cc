@@ -1,9 +1,5 @@
 import { performance } from "node:perf_hooks";
-import {
-  getThread,
-  getThreadEventRewriteGeneration,
-  advanceThreadPruning,
-} from "@cc/db";
+import { getThread, advanceThreadPruning } from "@cc/db";
 import type { ThreadEventType } from "@cc/domain";
 import { roundDurationMs } from "@cc/process-utils";
 import type { AppDeps } from "../../types.js";
@@ -76,11 +72,10 @@ export function pruneThreadEventHistory(
 }
 
 export function pruneThreadEventHistoryBestEffort(
-  deps: Pick<AppDeps, "db" | "logger" | "hub">,
+  deps: Pick<AppDeps, "db" | "logger">,
   args: PruneThreadEventHistoryArgs,
 ): ThreadEventPruningResult | null {
   const startedAt = performance.now();
-  const generation = getThreadEventRewriteGeneration(args.threadId);
   try {
     const result = pruneThreadEventHistory(deps, args);
 
@@ -109,15 +104,11 @@ export function pruneThreadEventHistoryBestEffort(
       "Failed to prune thread event history",
     );
     return null;
-  } finally {
-    if (getThreadEventRewriteGeneration(args.threadId) !== generation) {
-      deps.hub.notifyThread(args.threadId, ["history-rewritten"]);
-    }
   }
 }
 
 export function maybePruneActiveThreadEventHistory(
-  deps: Pick<AppDeps, "db" | "logger" | "hub">,
+  deps: Pick<AppDeps, "db" | "logger">,
   args: MaybePruneActiveThreadEventHistoryArgs,
 ): ThreadEventPruningResult | null {
   const thread = getThread(deps.db, args.threadId);

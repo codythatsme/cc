@@ -22,7 +22,6 @@ const switchThresholdSchema = z
   .max(1, "Must be at most 1.");
 
 export const parentModeSchema = z.enum(["proxy", "isolate"]);
-export type ParentMode = z.infer<typeof parentModeSchema>;
 
 export const accountPoolConfigSchema = z
   .object({
@@ -176,13 +175,20 @@ export const accountSecretSchema = z.discriminatedUnion("kind", [
 
 export type AccountSecret = z.infer<typeof accountSecretSchema>;
 
+export const extraUsageSchema = z
+  .object({
+    status: z.enum(["allowed", "rejected"]),
+    observedAt: z.number().int(),
+    source: z.enum(["header", "usage"]),
+  })
+  .strict();
+
 const quotaFieldsShape = {
-  fiveHourUtilization: z.number().nullable(),
-  fiveHourResetAt: z.number().int().nullable(),
-  fiveHourStatus: z.string().nullable(),
-  sevenDayUtilization: z.number().nullable(),
-  sevenDayResetAt: z.number().int().nullable(),
-  sevenDayStatus: z.string().nullable(),
+  usageRestriction: z
+    .object({ reason: z.string().min(1), resetAt: z.number().int().nullable() })
+    .strict()
+    .nullable(),
+  extraUsage: extraUsageSchema.nullable(),
   representativeClaim: z.string().nullable(),
   familyWeekly: familyWeeklySchema,
   limitWindows: z.array(limitWindowSchema),
@@ -264,19 +270,29 @@ export type PoolStatusReport = z.infer<typeof statusReportSchema>;
 
 export const accountAddInputSchema = z
   .object({
-    provider: providerSchema,
-    source: z.discriminatedUnion("kind", [
-      z.object({ kind: z.literal("import") }).strict(),
-      z
-        .object({ kind: z.literal("api-key"), apiKey: z.string().min(1) })
-        .strict(),
-    ]),
+    provider: z.literal("claude"),
+    apiKey: z.string().min(1),
     label: z.string().min(1).nullable(),
     priority: z.number().int(),
   })
   .strict();
 
 export type AccountAddInput = z.infer<typeof accountAddInputSchema>;
+
+export const loginTargetSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("add"),
+      label: z.string().min(1).nullable(),
+      priority: z.number().int(),
+    })
+    .strict(),
+  z
+    .object({ kind: z.literal("relogin"), accountId: z.string().uuid() })
+    .strict(),
+]);
+
+export type LoginTarget = z.infer<typeof loginTargetSchema>;
 
 export const loginStartSchema = z
   .object({

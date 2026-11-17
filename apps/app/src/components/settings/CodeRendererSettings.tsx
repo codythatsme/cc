@@ -1,12 +1,15 @@
+import { composerRendererProviderAtom } from "@/components/promptbox/composer-provider";
 import {
   diffRendererProviderAtom,
   sourceCodeRendererProviderAtom,
 } from "@/components/code/codeRendererProvider";
-import { usePluginSlots } from "@/lib/plugin-slots";
+import { usePluginSlotKind } from "@/lib/plugin-slots";
 import { ReplacementProviderSetting } from "./ReplacementProviderSetting";
 
 export function CodeRendererSettings() {
-  const { sourceCodeRenderers, diffRenderers } = usePluginSlots();
+  const sourceCodeRenderers = usePluginSlotKind("sourceCodeRenderers");
+  const diffRenderers = usePluginSlotKind("diffRenderers");
+  const composers = usePluginSlotKind("composers");
   return (
     <>
       <ReplacementProviderSetting
@@ -24,6 +27,13 @@ export function CodeRendererSettings() {
         builtInDescription="Unified and split diffs from the cc code theme."
         preferenceAtom={diffRendererProviderAtom}
         slots={diffRenderers}
+      />
+      <ReplacementProviderSetting
+        label="Composer"
+        triggerAriaLabel="Composer"
+        description="The prompt box in threads, the New thread screen, and message editors."
+        preferenceAtom={composerRendererProviderAtom}
+        slots={composers}
       />
     </>
   );

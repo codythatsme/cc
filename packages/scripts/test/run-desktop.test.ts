@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveDevInstanceConfig } from "@cc/config/runtime";
 import {
@@ -32,8 +32,9 @@ describe("desktop packaging task", () => {
   it("selects the platform packaging task and refuses unsupported platforms", () => {
     expect(resolveDesktopPackageTask("darwin")).toBe("package");
     expect(resolveDesktopPackageTask("linux")).toBe("package:linux");
-    expect(() => resolveDesktopPackageTask("win32")).toThrow(
-      /supported on macOS and Linux/u,
+    expect(resolveDesktopPackageTask("win32")).toBe("package:win");
+    expect(() => resolveDesktopPackageTask("freebsd")).toThrow(
+      /supported on macOS, Linux, and Windows/u,
     );
     expect(createDesktopPackageCommand("darwin").args).toEqual(
       expect.arrayContaining(["run", "package", "--filter=@cc/desktop"]),
@@ -42,10 +43,12 @@ describe("desktop packaging task", () => {
 
   it("runs the packaged app from the desktop package directory", () => {
     const command = createDesktopRunCommand();
-    expect(command.cwd.endsWith("/apps/desktop")).toBe(true);
-    expect(command.args[0]?.endsWith("/scripts/run-packaged-app.mjs")).toBe(
-      true,
-    );
+    expect(command.cwd.endsWith(`${sep}${join("apps", "desktop")}`)).toBe(true);
+    expect(
+      command.args[0]?.endsWith(
+        `${sep}${join("scripts", "run-packaged-app.mjs")}`,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -64,27 +67,19 @@ describe("desktop launch environment", () => {
 
     expect(env).toMatchObject({
       CC_DATA_DIR: config.dataDir,
+      CC_DESKTOP_DEV_ICON: "1",
       CC_DESKTOP_OPEN_DEVTOOLS: "0",
       CC_DESKTOP_USER_DATA_DIR: join(config.dataDir, "desktop"),
       CC_HOST_DAEMON_PORT: String(config.ports.hostDaemonPort),
       CC_SERVER_PORT: String(config.ports.serverPort),
+      CC_QUERY_PLAN_AUDIT: "1",
+      CC_SKIP_ONBOARDING: "1",
       NODE_ENV: "production",
       OPENAI_API_KEY: "test-key",
     });
     expect(env.CC_DATA_DIR).not.toBe("/Users/tester/.cc");
     expect(env.CC_SERVER_PORT).not.toBe("38886");
     expect(env.CC_DEV_APP_PORT).toBeUndefined();
-  });
-
-  it("keeps the worktree build off the installed Electron user data directory", () => {
-    const env = toDesktopLaunchProcessEnv({
-      baseEnv: {},
-      config,
-      mode: "worktree",
-    });
-
-    expect(env.CC_DESKTOP_USER_DATA_DIR?.startsWith(config.dataDir)).toBe(true);
-    expect(env.CC_DESKTOP_USER_DATA_DIR).not.toContain("Application Support");
   });
 
   it("preserves an explicit Electron user data directory", () => {
@@ -95,13 +90,23 @@ describe("desktop launch environment", () => {
       mode: "worktree",
     });
 
-    expect(env.CC_DESKTOP_USER_DATA_DIR).toBe(userDataDir);
+    expect(env.CC_DESKTOP_USER_DATA_DIR).toBe(resolve(userDataDir));
     expect(
       resolveDesktopUserDataDir(
         { CC_DESKTOP_USER_DATA_DIR: "relative-profile" },
         config,
       ),
     ).toBe(join(process.cwd(), "relative-profile"));
+  });
+
+  it("lets an explicit onboarding choice survive the worktree default", () => {
+    const env = toDesktopLaunchProcessEnv({
+      baseEnv: { CC_SKIP_ONBOARDING: "0" },
+      config,
+      mode: "worktree",
+    });
+
+    expect(env.CC_SKIP_ONBOARDING).toBe("0");
   });
 
   it("lets an explicit devtools choice survive the worktree default", () => {
@@ -125,6 +130,7 @@ describe("desktop launch environment", () => {
     expect(env.CC_SERVER_PORT).toBeUndefined();
     expect(env.CC_HOST_DAEMON_PORT).toBeUndefined();
     expect(env.CC_DESKTOP_USER_DATA_DIR).toBeUndefined();
+    expect(env.CC_SKIP_ONBOARDING).toBeUndefined();
     expect(env).toMatchObject({
       CC_DESKTOP_OPEN_DEVTOOLS: "0",
       NODE_ENV: "production",

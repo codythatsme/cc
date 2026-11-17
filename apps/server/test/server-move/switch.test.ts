@@ -45,23 +45,27 @@ describe("old server daemon config", () => {
     const backup = await writeOldServerDaemonConfig({
       dataDir,
       headers: { "x-cc-connect-machine": "bbcm_laptop" },
-      serverUrl: "https://laptop.getbb.test",
+      serverUrl: "https://laptop.cc.test",
     });
 
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
       config: { CC_LOG_LEVEL: "debug" },
       customModels: [{ providerId: "codex", model: "gpt-test" }],
       connectMachineId: "machine-1",
-      serverUrl: "https://laptop.getbb.test",
+      serverUrl: "https://laptop.cc.test",
       serverHeaders: { "x-cc-connect-machine": "bbcm_laptop" },
     });
-    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+    }
 
     await restoreOldServerDaemonConfig(backup);
     expect(JSON.parse(await readFile(path, "utf8"))).toEqual(
       JSON.parse(original),
     );
-    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect((await stat(path)).mode & 0o777).toBe(0o600);
+    }
   });
 
   it("omits empty headers and removes a config it created", async () => {
@@ -104,17 +108,6 @@ describe("server moved targets", () => {
     { id: "host-worker", type: "persistent" as const },
     { id: "host-sandbox", type: "ephemeral" as const },
   ];
-
-  it("tells every connected persistent machine except the target in direct mode", () => {
-    expect(
-      listServerMovedTargets({
-        connectedHosts,
-        mode: "direct",
-        sourceServerHostId: "host-old",
-        targetHostId: "host-new",
-      }),
-    ).toEqual(["host-old", "host-worker"]);
-  });
 
   it("tells only the old server's own machine in connect mode", () => {
     expect(

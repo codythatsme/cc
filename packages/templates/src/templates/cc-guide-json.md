@@ -32,7 +32,8 @@ reading fields.
 Shapes
 
 List commands do not share one wrapper. Most print a bare array; a few wrap it.
-Fields beyond those shown exist; these are the ones scripts use.
+Fields beyond those shown exist; these are the ones scripts use. The `--help` of
+the most-parsed commands ends with the same shape.
 
   cc status --json
     {project: {id, name} | null, thread: {id, status, title, parentThreadId, environment: {hostId, display} | null} | null, childThreads: [{id, status, title}] | null, pendingTodos, pluginsNeedingAttention: [{id, status}], dataDir}
@@ -41,13 +42,16 @@ Fields beyond those shown exist; these are the ones scripts use.
     [{id, projectId, environmentId, providerId, title, status, parentThreadId, sectionId, visibility, archivedAt, pinnedAt, createdAt, updatedAt, activity}]    (bare array; title can be null)
 
   cc thread show <id> --json
-    {thread: {id, status, title, projectId, environmentId, parentThreadId, ...}, environment: {id, hostId, path, branchName, ...} | null, pendingTodos}    (thread fields are under .thread)
+    {thread: {id, status, archivedAt, title, projectId, environmentId, parentThreadId, ...}, environment: {id, hostId, path, branchName, ...} | null, pendingTodos}    (thread fields are under .thread; status is the run state, archivedAt is null unless the thread is archived)
 
   cc thread log <id> --json
-    [{id, seq, type, createdAt, threadId, scope, data}]    (bare array of raw events, oldest first; page with --after-seq <seq>)
+    [{id, seq, type, createdAt, threadId, scope, data}]    (bare array of raw events, oldest first; page with --after-seq <seq>); with --message: {message, before, after} of conversation rows
 
   cc thread output <id> --json
     {output}
+
+  cc thread archive <id> --json
+    {ok, threadId, alreadyArchived, archivedAt, archivedThreadIds}    (archivedThreadIds lists only threads this call archived)
 
   cc thread spawn ... --json
     the created thread: {id, status, title, projectId, environmentId, ...}
@@ -63,6 +67,9 @@ Fields beyond those shown exist; these are the ones scripts use.
 
   cc thread search <query> --json
     {active: {total, results}, archived: {total, results}}
+
+  cc prompt-history list --json
+    {entries: [{id, createdAt, input, projectId, threadId, scope}], nextCursor: string | null}
 
   cc thread section list --json
     [{id, name, createdAt, updatedAt}]
@@ -83,7 +90,7 @@ Fields beyond those shown exist; these are the ones scripts use.
     [{id, displayName, available, capabilities, reasoningLevels, serviceTiers}]    (bare array)
 
   cc provider models [providerId] --json
-    [{id, model, displayName, supportedReasoningEfforts, defaultReasoningEffort, isDefault}]    (bare array)
+    [{id, model, displayName, supportedReasoningEfforts, defaultReasoningEffort, supportedServiceTiers?, isDefault}]    (bare array)
 
   cc environment list --json
     [{id, name, projectId, hostId, path, branchName, status, lifecycle}]    (bare array)
@@ -97,8 +104,11 @@ Fields beyond those shown exist; these are the ones scripts use.
   cc terminal output <terminalId> --json
     {chunks: [{seq, dataBase64}], nextSeq, truncated, status, exitCode, closeReason}    (chunk data is base64; status is "exited" once the command has finished)
 
+  cc terminal run --machine <id-or-name> --cwd <path> ... --json
+    {terminalId, hostId, environmentId, cwd, status, observation, exitCode, closeReason, output, truncated, nextSeq}    (observation is "exited", "matched", or "timed-out"; output is plain text with terminal escapes removed, or null once the machine no longer keeps it)
+
   cc terminal wait <terminalId> ... --json
-    {terminalId, matched, nextSeq, exitCode}
+    {terminalId, hostId, environmentId, cwd, status, observation, exitCode, closeReason, output, truncated, nextSeq}    (same shape as terminal run)
 
   cc plugin list --json
     {plugins: [{id, version, enabled, status, source, rootDir}]}    (wrapped in .plugins)

@@ -6,6 +6,7 @@ import type {
 import {
   SplitButton,
   type SplitButtonAction,
+  type SplitButtonMenuAction,
 } from "@/components/ui/split-button.js";
 import { WorkspaceOpenTargetIcon } from "@/components/workspace-open-target/WorkspaceOpenTargetIcon";
 import { useAppCommandShortcut } from "@/components/commands/AppCommandProvider";
@@ -18,6 +19,19 @@ interface ThreadWorkspaceOpenButtonProps {
   onOpenTarget: (targetId: WorkspaceOpenTargetId) => Promise<void>;
   preferredTarget: WorkspaceOpenTarget | null;
   targets: WorkspaceOpenTarget[];
+}
+
+async function runWorkspaceOpen(
+  targetId: WorkspaceOpenTargetId,
+  action: () => Promise<void>,
+  setPendingTargetId: (targetId: WorkspaceOpenTargetId | null) => void,
+): Promise<void> {
+  setPendingTargetId(targetId);
+  try {
+    await action();
+  } finally {
+    setPendingTargetId(null);
+  }
 }
 
 export function ThreadWorkspaceOpenButton({
@@ -37,12 +51,7 @@ export function ThreadWorkspaceOpenButton({
         return;
       }
 
-      setPendingTargetId(target.id);
-      try {
-        await action();
-      } finally {
-        setPendingTargetId(null);
-      }
+      await runWorkspaceOpen(target.id, action, setPendingTargetId);
     },
     [pendingTargetId],
   );
@@ -66,7 +75,8 @@ export function ThreadWorkspaceOpenButton({
       />
     ),
   };
-  const secondaryActions: SplitButtonAction[] = targets.map((target) => ({
+  const secondaryActions: SplitButtonMenuAction[] = targets.map((target) => ({
+    id: target.id,
     label: target.label,
     onSelect: () => {
       void openTarget(target, () => onOpenTarget(target.id));

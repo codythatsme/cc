@@ -1,5 +1,8 @@
 import type { Environment, Thread } from "@cc/domain";
-import type { CreateThreadRequest } from "@cc/server-contract";
+import type {
+  CreateThreadRequest,
+  UnmanagedBranchSpec,
+} from "@cc/server-contract";
 import {
   createHostThread,
   createProject,
@@ -30,7 +33,7 @@ export interface ReadyHostThreadOptions {
   workspace:
     | { type: "managed-worktree" }
     | { type: "personal" }
-    | { path: string | null; type: "unmanaged" };
+    | { branch?: UnmanagedBranchSpec; path: string | null; type: "unmanaged" };
 }
 
 export interface ReadyReuseThreadOptions {

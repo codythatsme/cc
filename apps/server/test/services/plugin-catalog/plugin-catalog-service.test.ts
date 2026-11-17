@@ -2,15 +2,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  createConnection,
   getPluginMarketplace,
   listPluginMarketplaceIcons,
   markInstalledPluginRemoved,
-  migrate,
   upsertPluginMarketplace,
   upsertInstalledPlugin,
   type DbConnection,
+  type PluginSourceIntent,
 } from "@cc/db";
+import { createMigratedConnection } from "@cc/db/testing";
 import {
   CURATED_PLUGIN_MARKETPLACE_NAME,
   ROOT_PLUGIN_SOURCE_SELECTION,
@@ -29,6 +29,7 @@ import {
   CURATED_MARKETPLACE_V2_URL,
 } from "../../../src/services/plugin-catalog/marketplace-manifest.js";
 import { BUNDLED_CURATED_MARKETPLACE } from "../../../src/services/plugin-catalog/curated-marketplace.js";
+import { loadBundledMarketplace } from "../../../src/services/plugin-catalog/bundled-marketplace.js";
 import {
   BUILTIN_PLUGINS,
   BUNDLED_PLUGINS,
@@ -44,6 +45,10 @@ const V2_MANIFEST_URL = CURATED_MARKETPLACE_V2_URL;
 const CUSTOM_V1_MANIFEST_URL =
   "https://marketplace.test/marketplace/v1/marketplace.json";
 const SEED_ENTRY_COUNT = BUNDLED_CURATED_MARKETPLACE.plugins.length;
+const BUNDLED_CATALOG = loadBundledMarketplace(
+  listBundledPluginRegistrations(),
+).catalog;
+const OFFICIAL_ORDER = BUNDLED_CATALOG.collections?.[0]?.pluginIds ?? [];
 
 const VALID_SVG = Buffer.from(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg>',
@@ -90,16 +95,6 @@ function manifestV2(
   };
 }
 
-function jsonResponse(
-  body: unknown,
-  headers: Record<string, string> = {},
-): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { "content-type": "application/json", ...headers },
-  });
-}
-
 describe("plugin catalog service", () => {
   let db: DbConnection;
   let installedNames: string[];
@@ -108,8 +103,7 @@ describe("plugin catalog service", () => {
   let dataDir: string;
 
   beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
+    db = createMigratedConnection();
     installedNames = [];
     installedCatalogEntries = [];
     dataDir = await mkdtemp(join(tmpdir(), "cc-catalog-data-"));
@@ -155,6 +149,61 @@ describe("plugin catalog service", () => {
     });
   }
 
+  function seedReviewedCommunityCatalog(): void {
+    upsertPluginMarketplace(db, {
+      name: "cc-community",
+      sourceKind: "https",
+      manifestUrl: MANIFEST_URL,
+      sourceGitRef: null,
+      sourceGitCommit: null,
+      sourceGitSubdirectory: null,
+      manifestJson: JSON.stringify({
+        schemaVersion: 1,
+        name: "cc-community",
+        displayName: "CC Community",
+        description: "A reviewed community catalog configured by the user.",
+        plugins: [
+          {
+            id: "thread-hover-cards",
+            displayName: "Thread Hover Cards",
+            description:
+              "Preview thread status, the latest agent update, and repository or PR context from the sidebar.",
+            icon: "ZoomIn",
+            tags: ["interface", "threads", "sidebar"],
+            author: { name: "Bersabel Tadesse", github: "brsbl" },
+            source: {
+              git: {
+                url: "https://github.com/brsbl/bb-plugins.git",
+                ref: "30f91fd977ba1ce60532af27a68534464fb62516",
+              },
+            },
+          },
+          {
+            id: "prompt-shaper",
+            displayName: "Prompt Improver",
+            description:
+              "Adds an Improve prompt action to the composer that rewrites a rough draft into a clear prompt.",
+            icon: "AiContentGenerator01",
+            tags: ["agent-interaction", "prompts"],
+            author: { name: "Bersabel Tadesse", github: "brsbl" },
+            source: {
+              git: {
+                url: "https://github.com/brsbl/bb-plugins.git",
+                ref: "1c6bb2e8ad3551466981e7eb027cc4b1f3428cac",
+              },
+            },
+          },
+        ],
+      }),
+      statsJson: null,
+      etag: null,
+      lastModified: null,
+      lastSuccessfulRefreshAt: null,
+      lastAttemptedRefreshAt: null,
+      lastError: null,
+    });
+  }
+
   function seedCommunityCatalog(): void {
     upsertPluginMarketplace(db, {
       name: "cc-community",
@@ -162,6 +211,7 @@ describe("plugin catalog service", () => {
       manifestUrl: MANIFEST_URL,
       sourceGitRef: null,
       sourceGitCommit: null,
+      sourceGitSubdirectory: null,
       manifestJson: JSON.stringify(
         manifest([
           remoteEntry({
@@ -212,6 +262,7 @@ describe("plugin catalog service", () => {
       rootDir: `/bundled/${args.name}`,
       version: "0.0.1",
       enabled: true,
+      enabledFollowsDefault: false,
     });
   }
 
@@ -237,14 +288,11 @@ describe("plugin catalog service", () => {
       icon: "FileText",
       iconUrl: null,
       category: "File Viewers & Editors",
-      screenshots: [],
+      screenshots: BUNDLED_CATALOG.plugins.find(
+        (entry) => entry.id === "simple-notes",
+      )?.screenshots,
       collections: [
-        {
-          id: "cc-official",
-          rank: BUNDLED_PLUGINS.findIndex(
-            (plugin) => plugin.pluginId === "simple-notes",
-          ),
-        },
+        { id: "cc-official", rank: OFFICIAL_ORDER.indexOf("simple-notes") },
       ],
       source: "builtin:docs",
       marketplace: "cc-official",
@@ -253,13 +301,26 @@ describe("plugin catalog service", () => {
       publisherLabel: "CC Official",
       author: { name: "CC", url: null },
       installed: false,
+      installedByDefault: false,
       compatible: true,
+    });
+    expect(
+      Object.fromEntries(
+        results.map((entry) => [entry.entryId, entry.installedByDefault]),
+      ),
+    ).toEqual({
+      ...Object.fromEntries(
+        BUNDLED_PLUGINS.map((plugin) => [plugin.name, plugin.autoInstall]),
+      ),
+      ...Object.fromEntries(
+        BUNDLED_CURATED_MARKETPLACE.plugins.map((entry) => [entry.id, false]),
+      ),
     });
     expect(catalog.collections()).toEqual([
       {
         id: "cc-official",
         displayName: "CC Official",
-        pluginIds: BUNDLED_PLUGINS.map((plugin) => plugin.pluginId),
+        pluginIds: OFFICIAL_ORDER,
       },
     ]);
     for (const category of PLUGIN_CATALOG_CATEGORIES) {
@@ -298,21 +359,14 @@ describe("plugin catalog service", () => {
   });
 
   it("groups a catalog entry by its curated tag", async () => {
-    seedCommunityCatalog();
-    const catalog = service();
-    const [hoverCards] = await catalog.search("thread-hover-cards");
-    expect(hoverCards).toMatchObject({
-      entryId: "thread-hover-cards",
-      pluginId: "thread-hover-cards",
-      category: "Interface",
-      icon: "ZoomIn",
-      iconUrl: null,
-      source:
-        "git:https://github.com/acme/hover-cards.git@30f91fd977ba1ce60532af27a68534464fb62516",
-      installed: false,
-      compatible: true,
-      incompatibleReason: null,
-    });
+    seedReviewedCommunityCatalog();
+    const results = await service().search("");
+    expect(
+      ["thread-hover-cards", "prompt-shaper"].map(
+        (entryId) =>
+          results.find((entry) => entry.entryId === entryId)?.category,
+      ),
+    ).toEqual(["Interface", "Agent Interaction"]);
   });
 
   it("matches queries against entry id, plugin id, manifest text, and tags", async () => {
@@ -345,13 +399,6 @@ describe("plugin catalog service", () => {
       "installation stopped by test",
     );
     expect(installedNames).toEqual(["docs"]);
-  });
-
-  it("rejects unknown catalog entries", async () => {
-    const catalog = service();
-    await expect(
-      catalog.install({ entryId: "does-not-exist" }),
-    ).rejects.toThrow('unknown plugin catalog entry "does-not-exist"');
   });
 
   it("drops entries whose bundled manifest is unreadable", async () => {
@@ -422,6 +469,7 @@ describe("plugin catalog service", () => {
         sourceKind: "https",
         manifestUrl: V1_MANIFEST_URL,
         sourceGitRef: null,
+        sourceGitSubdirectory: null,
         sourceGitCommit: null,
         manifestJson: JSON.stringify(savedManifest),
         statsJson: null,
@@ -461,7 +509,7 @@ describe("plugin catalog service", () => {
             return new Response(null, { status: 404 });
           }
           if (url === V1_MANIFEST_URL) {
-            return jsonResponse(manifest([remoteEntry({ icon: "Zap" })]));
+            return Response.json(manifest([remoteEntry({ icon: "Zap" })]));
           }
           return new Response(null, { status: 404 });
         },
@@ -483,7 +531,7 @@ describe("plugin catalog service", () => {
           requests.push(url);
           if (url === V2_MANIFEST_URL) {
             return v2Available
-              ? jsonResponse(
+              ? Response.json(
                   manifestV2([
                     remoteEntry({ icon: "Zap", category: "security" }),
                   ]),
@@ -491,7 +539,7 @@ describe("plugin catalog service", () => {
               : new Response(null, { status: 404 });
           }
           if (url === V1_MANIFEST_URL) {
-            return jsonResponse(manifest([remoteEntry({ icon: "Zap" })]));
+            return Response.json(manifest([remoteEntry({ icon: "Zap" })]));
           }
           return new Response(null, { status: 404 });
         },
@@ -542,7 +590,7 @@ describe("plugin catalog service", () => {
         marketplaceUrl: CUSTOM_V1_MANIFEST_URL,
         fetch: async (url) => {
           requests.push(url);
-          return jsonResponse(manifest([remoteEntry({ icon: "Zap" })]));
+          return Response.json(manifest([remoteEntry({ icon: "Zap" })]));
         },
       });
 
@@ -556,7 +604,7 @@ describe("plugin catalog service", () => {
       const catalog = service({
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(
+            ? Response.json(
                 manifestV2(
                   [
                     remoteEntry({
@@ -629,13 +677,17 @@ describe("plugin catalog service", () => {
         {
           id: "cc-official",
           displayName: "CC Official",
-          pluginIds: BUNDLED_PLUGINS.map((plugin) => plugin.pluginId),
+          pluginIds: OFFICIAL_ORDER,
         },
         {
           id: "new-and-notable",
           displayName: "New & notable",
           pluginIds: ["widgets"],
         },
+      ]);
+      expect(catalog.categories().map((category) => category.id)).toEqual([
+        "acme-tools",
+        ...PLUGIN_CATALOG_CATEGORIES.map((category) => category.id),
       ]);
     });
 
@@ -646,6 +698,7 @@ describe("plugin catalog service", () => {
         sourceKind: "path",
         manifestUrl: dataDir,
         sourceGitRef: null,
+        sourceGitSubdirectory: null,
         sourceGitCommit: null,
         manifestJson: JSON.stringify(
           manifestV2([remoteEntry({ icon: "Zap" })], {
@@ -673,7 +726,7 @@ describe("plugin catalog service", () => {
         {
           id: "cc-official",
           displayName: "CC Official",
-          pluginIds: BUNDLED_PLUGINS.map((plugin) => plugin.pluginId),
+          pluginIds: OFFICIAL_ORDER,
         },
       ]);
     });
@@ -684,6 +737,7 @@ describe("plugin catalog service", () => {
         sourceKind: "https",
         manifestUrl: MANIFEST_URL,
         sourceGitRef: null,
+        sourceGitSubdirectory: null,
         sourceGitCommit: null,
         manifestJson: JSON.stringify(
           manifestV2([], {
@@ -715,7 +769,7 @@ describe("plugin catalog service", () => {
       ]);
       const fetchImpl: MarketplaceFetch = async (url) => {
         if (url === MANIFEST_URL) {
-          return jsonResponse(
+          return Response.json(
             manifest([
               remoteEntry({
                 id: "raster",
@@ -758,7 +812,9 @@ describe("plugin catalog service", () => {
         if (url === MANIFEST_URL) {
           return requests.filter((request) => request.url === MANIFEST_URL)
             .length === 1
-            ? jsonResponse(manifest([remoteEntry()]), { etag: '"v1"' })
+            ? Response.json(manifest([remoteEntry()]), {
+                headers: { etag: '"v1"' },
+              })
             : new Response(null, { status: 304 });
         }
         return new Response(VALID_SVG, {
@@ -813,7 +869,7 @@ describe("plugin catalog service", () => {
       seedCommunityCatalog();
       const catalog = service({
         fetch: async () =>
-          jsonResponse(manifest([remoteEntry({ id: "Not Valid" })])),
+          Response.json(manifest([remoteEntry({ id: "Not Valid" })])),
       });
       await expect(refreshCuratedMarketplace(catalog, 5_000)).rejects.toThrow(
         /invalid marketplace manifest/,
@@ -847,7 +903,7 @@ describe("plugin catalog service", () => {
     it("refuses a manifest published under another marketplace name", async () => {
       const catalog = service({
         fetch: async () =>
-          jsonResponse({
+          Response.json({
             ...(manifest([remoteEntry()]) as Record<string, unknown>),
             name: "someone-else",
           }),
@@ -885,7 +941,7 @@ describe("plugin catalog service", () => {
         warn: (message) => warnings.push(message),
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(manifest([remoteEntry()]))
+            ? Response.json(manifest([remoteEntry()]))
             : new Response(Buffer.from("<html>not an icon</html>"), {
                 status: 200,
               }),
@@ -905,7 +961,7 @@ describe("plugin catalog service", () => {
         warn: (message) => warnings.push(message),
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(manifest([remoteEntry()]))
+            ? Response.json(manifest([remoteEntry()]))
             : new Response(Buffer.alloc(300 * 1024, 0x41), { status: 200 }),
       });
       await refreshCuratedMarketplace(catalog, 1_000);
@@ -923,7 +979,7 @@ describe("plugin catalog service", () => {
         fetch: async (url) => {
           if (url === MANIFEST_URL) {
             return iconRequests === 0
-              ? jsonResponse(
+              ? Response.json(
                   manifest([
                     remoteEntry(),
                     remoteEntry({
@@ -931,7 +987,7 @@ describe("plugin catalog service", () => {
                       icon: { url: "./icons/gadgets.svg" },
                     }),
                   ]),
-                  { etag: '"v1"' },
+                  { headers: { etag: '"v1"' } },
                 )
               : new Response(null, { status: 304 });
           }
@@ -957,7 +1013,7 @@ describe("plugin catalog service", () => {
       const catalog = service({
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(
+            ? Response.json(
                 manifest([
                   listIcon ? remoteEntry() : remoteEntry({ icon: "Zap" }),
                 ]),
@@ -977,7 +1033,7 @@ describe("plugin catalog service", () => {
         warn: () => {},
         fetch: async (url) => {
           if (url === MANIFEST_URL) {
-            return jsonResponse(
+            return Response.json(
               manifest([remoteEntry({ icon: { url: iconUrl } })]),
             );
           }
@@ -1006,7 +1062,7 @@ describe("plugin catalog service", () => {
       const catalog = service({
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(manifest([remoteEntry()]))
+            ? Response.json(manifest([remoteEntry()]))
             : new Response(VALID_SVG, { status: 200 }),
       });
 
@@ -1028,7 +1084,7 @@ describe("plugin catalog service", () => {
       plugins: Record<string, { installs: number }>,
       generatedAt = "2026-08-21T00:00:00.000Z",
     ): Response {
-      return jsonResponse({ schemaVersion: 1, generatedAt, plugins });
+      return Response.json({ schemaVersion: 1, generatedAt, plugins });
     }
 
     function fetchWith(
@@ -1036,7 +1092,7 @@ describe("plugin catalog service", () => {
       entries: unknown[] = [remoteEntry()],
     ): MarketplaceFetch {
       return async (url) => {
-        if (url === MANIFEST_URL) return jsonResponse(manifest(entries));
+        if (url === MANIFEST_URL) return Response.json(manifest(entries));
         if (url === STATS_URL) return stats();
         return new Response(VALID_SVG, {
           status: 200,
@@ -1085,7 +1141,9 @@ describe("plugin catalog service", () => {
           if (url === MANIFEST_URL) {
             manifestReads += 1;
             return manifestReads === 1
-              ? jsonResponse(manifest([remoteEntry()]), { etag: '"v1"' })
+              ? Response.json(manifest([remoteEntry()]), {
+                  headers: { etag: '"v1"' },
+                })
               : new Response(null, { status: 304 });
           }
           if (url === STATS_URL) {
@@ -1131,7 +1189,7 @@ describe("plugin catalog service", () => {
     it("rejects a malformed sidecar whole rather than counting part of it", async () => {
       const catalog = service({
         fetch: fetchWith(() =>
-          jsonResponse({
+          Response.json({
             schemaVersion: 1,
             generatedAt: "2026-08-21T00:00:00.000Z",
             plugins: { widgets: { installs: -1 } },
@@ -1149,13 +1207,13 @@ describe("plugin catalog service", () => {
       const statsRequests: string[] = [];
       const catalog = service({
         fetch: async (url) => {
-          if (url === MANIFEST_URL) return jsonResponse(manifest([]));
+          if (url === MANIFEST_URL) return Response.json(manifest([]));
           if (url.endsWith("/stats.json")) {
             statsRequests.push(url);
             return statsResponse({ widgets: { installs: 999 } });
           }
           if (url === thirdPartyManifest) {
-            return jsonResponse({
+            return Response.json({
               schemaVersion: 1,
               name: "acme",
               displayName: "Acme",
@@ -1166,7 +1224,10 @@ describe("plugin catalog service", () => {
         },
       });
 
-      await catalog.addMarketplace(thirdPartyManifest);
+      await catalog.addMarketplace({
+        source: thirdPartyManifest,
+        subdirectory: null,
+      });
       await catalog.refreshMarketplaces({ attemptedAt: 2_000 });
       expect((await catalog.search("widgets"))[0]?.installs).toBeNull();
       expect(statsRequests).toEqual([STATS_URL]);
@@ -1178,7 +1239,7 @@ describe("plugin catalog service", () => {
       const catalog = service({
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(manifest([entry]))
+            ? Response.json(manifest([entry]))
             : new Response(VALID_SVG, { status: 200 }),
       });
       await refreshCuratedMarketplace(catalog, 1_000);
@@ -1283,11 +1344,82 @@ describe("plugin catalog service", () => {
         rootDir: "/managed/thread-hover-cards",
         version: "0.1.0",
         enabled: true,
+        enabledFollowsDefault: false,
       });
       expect((await catalog.search("thread-hover-cards"))[0]?.installed).toBe(
         true,
       );
     });
+
+    it.each([
+      {
+        name: "a local checkout",
+        source: "path:/Users/me/git/thread-hover-cards",
+        sourceIntent: {
+          kind: "path",
+          canonicalPath: "/Users/me/git/thread-hover-cards",
+        },
+        installed: false,
+      },
+      {
+        name: "a different git repository",
+        source: "git:https://github.com/someone-else/hover-cards.git@main",
+        sourceIntent: {
+          kind: "git",
+          url: "https://github.com/someone-else/hover-cards.git",
+          subdirectory: null,
+          selector: { kind: "ref", ref: "main", refKind: "branch" },
+        },
+        installed: false,
+      },
+      {
+        name: "the entry's git repository",
+        source: "git:https://github.com/brsbl/bb-plugins@main",
+        sourceIntent: {
+          kind: "git",
+          url: "https://github.com/brsbl/bb-plugins",
+          subdirectory: null,
+          selector: { kind: "ref", ref: "main", refKind: "branch" },
+        },
+        installed: true,
+      },
+    ] satisfies {
+      name: string;
+      source: string;
+      sourceIntent: PluginSourceIntent;
+      installed: boolean;
+    }[])(
+      "reports a direct install from $name with the same id as installed: $installed",
+      async ({ source, sourceIntent, installed }) => {
+        seedReviewedCommunityCatalog();
+        const catalog = service();
+        upsertInstalledPlugin(db, {
+          id: "thread-hover-cards",
+          source,
+          provenance: { kind: "direct" },
+          sourceIntent,
+          exactResolution:
+            sourceIntent.kind === "git"
+              ? { kind: "git", commit: "0".repeat(40) }
+              : { kind: "path" },
+          updateState: {
+            lastCheckAt: null,
+            availableCompatibleVersion: null,
+            newestIncompatibleVersion: null,
+            statusDetail: null,
+          },
+          activeArtifactId: null,
+          rootDir: "/Users/me/git/thread-hover-cards",
+          version: "0.1.0",
+          enabled: true,
+          enabledFollowsDefault: false,
+        });
+        expect((await catalog.search("thread-hover-cards"))[0]).toMatchObject({
+          installed,
+          conflictingInstallSource: installed ? null : source,
+        });
+      },
+    );
   });
 
   describe("catalog limits and trust", () => {
@@ -1298,7 +1430,7 @@ describe("plugin catalog service", () => {
         ),
       );
       const catalog = service({
-        fetch: async () => jsonResponse(largeManifest),
+        fetch: async () => Response.json(largeManifest),
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
@@ -1321,7 +1453,7 @@ describe("plugin catalog service", () => {
       );
       expect(JSON.stringify(largeManifest).length).toBeGreaterThan(1_048_576);
       const catalog = service({
-        fetch: async () => jsonResponse(largeManifest),
+        fetch: async () => Response.json(largeManifest),
       });
 
       await refreshCuratedMarketplace(catalog, 1_000);
@@ -1342,7 +1474,7 @@ describe("plugin catalog service", () => {
       const catalog = service({
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(manifest(entries))
+            ? Response.json(manifest(entries))
             : new Response(bigSvg, {
                 status: 200,
                 headers: { "content-type": "image/svg+xml" },
@@ -1368,7 +1500,7 @@ describe("plugin catalog service", () => {
       );
       const catalog = service({
         fetch: async (url) => {
-          if (url === MANIFEST_URL) return jsonResponse(manifest(entries));
+          if (url === MANIFEST_URL) return Response.json(manifest(entries));
           inFlight += 1;
           peak = Math.max(peak, inFlight);
           await new Promise((resolve) => setTimeout(resolve, 5));
@@ -1392,7 +1524,7 @@ describe("plugin catalog service", () => {
         warn: (message) => warnings.push(message),
         fetch: async (url) => {
           if (url === MANIFEST_URL) {
-            return jsonResponse(
+            return Response.json(
               manifest([
                 remoteEntry({ icon: { url: "https://127.0.0.1/widgets.svg" } }),
               ]),
@@ -1420,7 +1552,7 @@ describe("plugin catalog service", () => {
       const catalog = service({
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(
+            ? Response.json(
                 manifest([
                   remoteEntry({ id: occupied.pluginId }),
                   remoteEntry({ id: "widgets" }),
@@ -1450,7 +1582,7 @@ describe("plugin catalog service", () => {
       const catalog = service({
         fetch: async (url) =>
           url === MANIFEST_URL
-            ? jsonResponse(
+            ? Response.json(
                 manifest([
                   remoteEntry({
                     icon: "ZoomIn",

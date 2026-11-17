@@ -3,13 +3,17 @@ import * as react from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import clsx from "clsx";
 import { Icon } from "@cc/shared-ui/icon";
+import { RUNTIME_SLOT_BY_SPECIFIER } from "@cc/plugin-build/runtime-shims";
 import {
   createPluginFrontendPageLifecycle,
   installPluginRuntime,
-  loadPluginFrontends,
+  loadPluginFrontend,
   type PluginFrontendCandidate,
 } from "./plugin-frontend";
-import { pluginSdkAppImplementation } from "./plugin-sdk-app-impl";
+import {
+  pluginSdkAppImplementation,
+  retiredPluginSdkAppMembers,
+} from "./plugin-sdk-app-impl";
 
 function candidate(
   pluginId: string,
@@ -25,47 +29,13 @@ function candidate(
       sdkMajor: 0,
       sdkVersion: "0.1.0",
       compatible: true,
+      runtimeSlots: [],
       ...overrides,
     },
   };
 }
 
-describe("loadPluginFrontends", () => {
-  it("imports each compatible bundle, links its CSS, and keeps the module namespace", async () => {
-    const moduleA = { default: { kind: "plugin-app" } };
-    const moduleB = { default: { kind: "other-app" } };
-    const importModule = vi
-      .fn()
-      .mockImplementation(async (url: string) =>
-        url.includes("/plugins/a/") ? moduleA : moduleB,
-      );
-    const injectCss = vi.fn();
-
-    const records = await loadPluginFrontends(
-      [candidate("a"), candidate("b", { cssUrl: null })],
-      { importModule, injectCss, warn: vi.fn() },
-    );
-
-    expect(records.get("a")).toEqual({
-      pluginId: "a",
-      status: "loaded",
-      module: moduleA,
-    });
-    expect(records.get("b")).toEqual({
-      pluginId: "b",
-      status: "loaded",
-      module: moduleB,
-    });
-    expect(importModule).toHaveBeenCalledWith(
-      "/api/v1/plugins/a/assets/app.js?h=abc123",
-    );
-    expect(injectCss).toHaveBeenCalledTimes(1);
-    expect(injectCss).toHaveBeenCalledWith(
-      "a",
-      "/api/v1/plugins/a/assets/app.css?h=abc123",
-    );
-  });
-
+describe("loadPluginFrontend", () => {
   it("contains an import failure to its own plugin", async () => {
     const good = { default: {} };
     const importModule = vi.fn().mockImplementation(async (url: string) => {
@@ -76,17 +46,16 @@ describe("loadPluginFrontends", () => {
     });
     const warn = vi.fn();
 
-    const records = await loadPluginFrontends(
-      [candidate("broken"), candidate("fine", { cssUrl: null })],
-      { importModule, injectCss: vi.fn(), warn },
-    );
+    const deps = { importModule, prefetchModule: vi.fn(), warn };
 
-    expect(records.get("broken")).toEqual({
+    expect(await loadPluginFrontend(candidate("broken"), deps)).toEqual({
       pluginId: "broken",
       status: "failed",
       error: "SyntaxError: unexpected token",
     });
-    expect(records.get("fine")).toEqual({
+    expect(
+      await loadPluginFrontend(candidate("fine", { cssUrl: null }), deps),
+    ).toEqual({
       pluginId: "fine",
       status: "loaded",
       module: good,
@@ -97,15 +66,15 @@ describe("loadPluginFrontends", () => {
   });
 
   it("records a bundle that evaluates to a non-module as failed", async () => {
-    const records = await loadPluginFrontends(
-      [candidate("odd", { cssUrl: null })],
+    const record = await loadPluginFrontend(
+      candidate("odd", { cssUrl: null }),
       {
         importModule: async () => undefined,
-        injectCss: vi.fn(),
+        prefetchModule: vi.fn(),
         warn: vi.fn(),
       },
     );
-    expect(records.get("odd")).toMatchObject({
+    expect(record).toMatchObject({
       status: "failed",
       error: expect.stringContaining("module namespace"),
     });
@@ -115,18 +84,16 @@ describe("loadPluginFrontends", () => {
     const importModule = vi.fn();
     const warn = vi.fn();
 
-    const records = await loadPluginFrontends(
-      [
-        candidate("stale", {
-          compatible: false,
-          sdkMajor: 9,
-          sdkVersion: "9.2.0",
-        }),
-      ],
-      { importModule, injectCss: vi.fn(), warn },
+    const record = await loadPluginFrontend(
+      candidate("stale", {
+        compatible: false,
+        sdkMajor: 9,
+        sdkVersion: "9.2.0",
+      }),
+      { importModule, prefetchModule: vi.fn(), warn },
     );
 
-    expect(records.get("stale")).toEqual({
+    expect(record).toEqual({
       pluginId: "stale",
       status: "needs-update",
       sdkMajor: 9,
@@ -140,64 +107,80 @@ describe("loadPluginFrontends", () => {
 });
 
 describe("installPluginRuntime", () => {
+  const LAZY_RUNTIME_SLOTS = new Set(["pierreDiffs", "pierreDiffsReact"]);
   type RuntimeHost = typeof globalThis & { __ccPluginRuntime?: unknown };
 
   afterEach(() => {
     delete (globalThis as RuntimeHost).__ccPluginRuntime;
   });
 
-  it("exposes the app's own runtime modules on every shim slot, exactly once", () => {
+  it("exposes the app's eager runtime modules, exactly once", () => {
     installPluginRuntime();
     const runtime = (globalThis as RuntimeHost).__ccPluginRuntime as Record<
       string,
       unknown
     >;
-    expect(Object.keys(runtime).sort()).toEqual([
-      "classVarianceAuthority",
-      "clsx",
-      "jsxDevRuntime",
-      "jsxRuntime",
-      "pierreDiffs",
-      "pierreDiffsReact",
-      "pluginSdkApp",
-      "questionFormHost",
-      "radixAlertDialog",
-      "radixContextMenu",
-      "radixDialog",
-      "radixDropdownMenu",
-      "radixHoverCard",
-      "radixMenubar",
-      "radixNavigationMenu",
-      "radixPopover",
-      "radixSelect",
-      "radixTooltip",
-      "react",
-      "reactDom",
-      "reactDomClient",
-      "sharedUiIcon",
-      "sonner",
-      "tailwindMerge",
-      "vaul",
-    ]);
+    expect(Object.keys(runtime).sort()).toEqual(
+      [...new Set(Object.values(RUNTIME_SLOT_BY_SPECIFIER))]
+        .filter((slot) => !LAZY_RUNTIME_SLOTS.has(slot))
+        .sort(),
+    );
     expect((runtime.clsx as { default: unknown }).default).toBe(clsx);
     expect((runtime.sharedUiIcon as { Icon: unknown }).Icon).toBe(Icon);
     expect((runtime.react as { useState: unknown }).useState).toBe(
       react.useState,
     );
     expect((runtime.jsxRuntime as { jsx: unknown }).jsx).toBe(jsxRuntime.jsx);
-    expect(runtime.pluginSdkApp).toBe(pluginSdkAppImplementation);
+    expect(runtime.pluginSdkApp).toEqual({
+      ...pluginSdkAppImplementation,
+      experimental_useSidebarThreadPullRequest:
+        retiredPluginSdkAppMembers.experimental_useSidebarThreadPullRequest,
+    });
 
     installPluginRuntime();
     expect((globalThis as RuntimeHost).__ccPluginRuntime).toBe(runtime);
   });
 
-  it("hands plugins every @pierre/diffs/react export, with the diff components gated", async () => {
+  it("provides @pierre/diffs only to bundles that import it, downloading the bundle meanwhile", async () => {
+    const pierreSlots = () =>
+      Object.keys(
+        (globalThis as RuntimeHost).__ccPluginRuntime as Record<
+          string,
+          unknown
+        >,
+      ).filter((slot) => slot.startsWith("pierre"));
+    const slotsAtImport: string[][] = [];
+    const importModule = vi.fn(async () => {
+      slotsAtImport.push(pierreSlots());
+      return { default: {} };
+    });
     installPluginRuntime();
+
+    const prefetchModule = vi.fn((url: string) =>
+      slotsAtImport.push([`prefetch ${url.split("/")[4]}`, ...pierreSlots()]),
+    );
+    await loadPluginFrontend(candidate("plain", { runtimeSlots: ["react"] }), {
+      importModule,
+      prefetchModule,
+      warn: vi.fn(),
+    });
+    await loadPluginFrontend(
+      candidate("differ", { runtimeSlots: ["pierreDiffsReact", "react"] }),
+      { importModule, prefetchModule, warn: vi.fn() },
+    );
+
+    expect(slotsAtImport).toEqual([
+      [],
+      ["prefetch differ"],
+      ["pierreDiffs", "pierreDiffsReact"],
+    ]);
     const runtime = (globalThis as RuntimeHost).__ccPluginRuntime as Record<
       string,
       unknown
     >;
+    const pierreDiffs = await import("@pierre/diffs");
     const pierreDiffsReact = await import("@pierre/diffs/react");
+    expect(runtime.pierreDiffs).toBe(pierreDiffs);
     const slot = runtime.pierreDiffsReact as Record<string, unknown>;
     expect(Object.keys(slot).sort()).toEqual(
       Object.keys(pierreDiffsReact).sort(),

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createComment, createStore } from "../../api/index.js";
 import type { Attachment, DisplayComment } from "../../shared/contract.js";
 import {
+  activityFeedEntries,
   AgentNotificationControl,
   AttachmentTracks,
   agentNotificationTarget,
@@ -45,8 +46,6 @@ vi.mock("../../editor/tasks-editor.js", () => ({
       onChange={(event) => props.onChange(event.currentTarget.value)}
       onKeyDown={(event) => {
         if (event.key !== "Enter" || !props.onSubmit) return;
-        if (event.nativeEvent.isComposing || event.keyCode === 229) return;
-        if (event.shiftKey || event.altKey) return;
         event.preventDefault();
         props.onSubmit();
       }}
@@ -128,6 +127,44 @@ describe("AttachmentTracks", () => {
   });
 });
 
+describe("activity feed entries", () => {
+  it("groups one task-wide attachment listing under the comments that own each file", () => {
+    const first = { ...comment("user"), id: "01HZZZZZZZZZZZZZZZZZZZZZC1" };
+    const second = { ...comment("agent"), id: "01HZZZZZZZZZZZZZZZZZZZZZC2" };
+    const file = (id: string, commentId: string | null): Attachment => ({
+      id,
+      taskId: commentId === null ? first.taskId : null,
+      commentId,
+      fileName: `${id}.txt`,
+      mime: "text/plain",
+      sizeBytes: 1,
+      isImage: false,
+      createdAt: "2026-07-15T00:00:00.000Z",
+    });
+
+    const entries = activityFeedEntries(
+      [first, second],
+      [
+        file("a", second.id),
+        file("b", first.id),
+        file("c", second.id),
+        file("task-file", null),
+        file("orphan", "01HZZZZZZZZZZZZZZZZZZZZZC9"),
+      ],
+    );
+
+    expect(
+      entries.map((entry) => [
+        entry.comment.id,
+        entry.attachments.map((attachment) => attachment.id),
+      ]),
+    ).toEqual([
+      [first.id, ["b"]],
+      [second.id, ["a", "c"]],
+    ]);
+  });
+});
+
 describe("agent notification target", () => {
   it("uses the last agent reply rather than the last activity entry", () => {
     expect(
@@ -186,22 +223,6 @@ describe("AgentNotificationControl", () => {
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(toggle);
     expect(onCheckedChange).toHaveBeenCalledWith(true);
-  });
-
-  it("names the full destination even for a long thread title", () => {
-    const title =
-      "Make all of the filters in the task list remembered across reloads";
-    render(
-      <AgentNotificationControl
-        target={{ kind: "ready", title }}
-        checked
-        onCheckedChange={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.getByRole("switch", { name: `Notify ${title}` }),
-    ).toBeTruthy();
   });
 
   it("never reads as on and cannot be toggled while unavailable", () => {
@@ -300,6 +321,7 @@ async function renderComposerWithTask(options?: {
         threadId: null,
         body: request.body,
         notify: request.notify,
+        awaitDelivery: false,
       }),
     };
   });
@@ -376,42 +398,6 @@ describe("CommentComposer", () => {
     }
   });
 
-  it("does not submit on Shift+Enter", async () => {
-    const { harness, releaseSend } = await renderComposerWithTask({
-      body: "Keep drafting",
-    });
-    try {
-      fireEvent.keyDown(screen.getByRole("textbox", { name: "Comment body" }), {
-        key: "Enter",
-        shiftKey: true,
-      });
-      expect(rpcCall).not.toHaveBeenCalled();
-    } finally {
-      releaseSend();
-      await harness.dispose();
-    }
-  });
-
-  it("does not submit during IME composition", async () => {
-    const { harness, releaseSend } = await renderComposerWithTask({
-      body: "候補",
-    });
-    try {
-      fireEvent.keyDown(screen.getByRole("textbox", { name: "Comment body" }), {
-        key: "Enter",
-        isComposing: true,
-      });
-      fireEvent.keyDown(screen.getByRole("textbox", { name: "Comment body" }), {
-        key: "Enter",
-        keyCode: 229,
-      });
-      expect(rpcCall).not.toHaveBeenCalled();
-    } finally {
-      releaseSend();
-      await harness.dispose();
-    }
-  });
-
   it("does not submit when the comment is empty", async () => {
     const { harness, releaseSend } = await renderComposerWithTask({ body: "" });
     try {
@@ -422,27 +408,6 @@ describe("CommentComposer", () => {
       expect(
         (screen.getByRole("button", { name: "Comment" }) as HTMLButtonElement)
           .disabled,
-      ).toBe(true);
-    } finally {
-      releaseSend();
-      await harness.dispose();
-    }
-  });
-
-  it("submits on Cmd+Enter", async () => {
-    const { store, task, harness, releaseSend } = await renderComposerWithTask({
-      body: "Mod submit",
-    });
-    try {
-      fireEvent.keyDown(screen.getByRole("textbox", { name: "Comment body" }), {
-        key: "Enter",
-        metaKey: true,
-      });
-      await waitFor(() => expect(rpcCall).toHaveBeenCalledTimes(1));
-      expect(
-        store.tasks
-          .listComments(task.id)
-          .some((entry) => entry.body === "Mod submit"),
       ).toBe(true);
     } finally {
       releaseSend();

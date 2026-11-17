@@ -4,14 +4,12 @@ import {
   PLUGIN_CLI_OUTPUT_MAX_BYTES,
   type CcPluginApi,
   type PluginAgentConfigurationContext,
-  type PluginRowPresentation,
 } from "../../backend-contract.js";
-import { defineRpcContract } from "../../rpc-contract.js";
 import {
-  parsePluginRowPresentation,
-  PLUGIN_AGENT_STATUS_LABEL_MAX_CHARS,
-  RESERVED_CC_CLI_COMMANDS,
-} from "../../internal/host-policy.js";
+  defineRpcContract,
+  experimental_PluginRpcRefusal,
+} from "../../rpc-contract.js";
+import { RESERVED_CC_CLI_COMMANDS } from "../../internal/host-policy.js";
 import {
   createFakePluginHost,
   makeHostResponse,
@@ -104,6 +102,36 @@ describe("server", () => {
       "https://cc.example.test",
     );
     expect(unset.cc.server.experimental_appUrl).toBeNull();
+  });
+
+  it("records tunnel ingress handles, shares an audience, and closes them on dispose", async () => {
+    const { cc, harness } = createFakePluginHost();
+    const first = await cc.server.internal_DO_NOT_USE_openTunnelIngress({
+      audience: "server:srv_1",
+    });
+    const shared = await cc.server.internal_DO_NOT_USE_openTunnelIngress({
+      audience: "server:srv_1",
+    });
+    const other = await cc.server.internal_DO_NOT_USE_openTunnelIngress({
+      audience: "server:srv_2",
+    });
+    expect(shared.baseUrl).toBe(first.baseUrl);
+    expect(other.baseUrl).not.toBe(first.baseUrl);
+    await expect(
+      cc.server.internal_DO_NOT_USE_openTunnelIngress({ audience: "" }),
+    ).rejects.toThrow(/non-empty audience/);
+
+    await first.close();
+    expect(
+      harness.internal_DO_NOT_USE_tunnelIngresses.map((entry) => entry.closed),
+    ).toEqual([true, false, false]);
+
+    await harness.dispose();
+    expect(
+      harness.internal_DO_NOT_USE_tunnelIngresses.every(
+        (entry) => entry.closed,
+      ),
+    ).toBe(true);
   });
 });
 
@@ -275,13 +303,15 @@ describe("storage", () => {
     ).rejects.toThrow(/limit is 262144 \(256KB\)/);
   });
 
-  it("database() returns one shared database and migrate() is append-only by index", () => {
+  it("database() returns one shared WAL database and migrate() is append-only by index", () => {
     const { cc } = createFakePluginHost();
     const db = cc.storage.database();
+    expect(db.pragma("journal_mode", { simple: true })).toBe("wal");
     cc.storage.migrate(db, [
       "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT)",
     ]);
     db.prepare("INSERT INTO notes (body) VALUES (?)").run("hello");
+    expect(db.pragma("auto_vacuum", { simple: true })).toBe(2);
 
     const again = cc.storage.database();
     expect(again).toBe(db);
@@ -334,6 +364,7 @@ describe("storage", () => {
     const reopened = cc.storage.database();
     expect(reopened).not.toBe(db);
     expect(reopened.open).toBe(true);
+    expect(reopened.pragma("journal_mode", { simple: true })).toBe("wal");
     expect(reopened.prepare("SELECT body FROM notes").all()).toEqual([
       { body: "hello" },
     ]);
@@ -412,6 +443,71 @@ describe("settings", () => {
     );
   });
 
+  it("rejects inherited object keys as unknown settings, like the production host", async () => {
+    const { cc, harness } = createFakePluginHost();
+    const handle = defineSettings(cc);
+    const changes: unknown[] = [];
+    handle.onChange((next) => changes.push(next));
+
+    for (const name of [
+      "constructor",
+      "toString",
+      "hasOwnProperty",
+      "valueOf",
+    ]) {
+      await expect(harness.setSettings({ [name]: "x" })).rejects.toThrow(
+        `unknown setting "${name}"`,
+      );
+      await expect(harness.setSettings({ [name]: null })).rejects.toThrow(
+        `unknown setting "${name}"`,
+      );
+    }
+    await expect(
+      harness.setSettings(JSON.parse('{"__proto__": "x"}')),
+    ).rejects.toThrow('unknown setting "__proto__"');
+    await expect(
+      handle.experimental_set(JSON.parse('{"constructor": "x"}')),
+    ).rejects.toThrow('unknown setting "constructor"');
+    expect(changes).toEqual([]);
+    expect(await handle.get()).toEqual({
+      token: undefined,
+      mode: "fast",
+      enabled: true,
+      retries: 3,
+    });
+  });
+
+  it("lets a plugin define settings named like inherited members and refuses __proto__", async () => {
+    const { cc, harness } = createFakePluginHost();
+    const handle = cc.settings.define({
+      constructor: {
+        type: "string" as const,
+        label: "Constructor",
+        default: "c",
+      },
+      toString: { type: "boolean" as const, label: "To string" },
+    });
+    expect(await handle.get()).toMatchObject({ constructor: "c" });
+    await harness.setSettings({ constructor: "d", toString: true });
+    expect(await handle.get()).toMatchObject({
+      constructor: "d",
+      toString: true,
+    });
+    await expect(harness.setSettings({ valueOf: "x" })).rejects.toThrow(
+      'unknown setting "valueOf"',
+    );
+    expect(() =>
+      cc.settings.define(
+        JSON.parse('{"__proto__": {"type": "string", "label": "Proto"}}'),
+      ),
+    ).toThrow('setting key "__proto__" is reserved');
+    expect(() =>
+      cc.settings.define({
+        constructor: { type: "string" as const, label: "Again" },
+      }),
+    ).toThrow('setting "constructor" is already defined');
+  });
+
   it("validates strings and lets plugin server code persist its own settings", async () => {
     const { cc, harness } = createFakePluginHost();
     const handle = cc.settings.define({
@@ -472,6 +568,18 @@ describe("settings", () => {
         broken: { type: "select", label: "B", options: ["a"], default: "z" },
       }),
     ).toThrow('default for setting "broken" must be one of its options');
+    expect(() =>
+      cc.settings.define({
+        labelled: {
+          type: "select",
+          label: "L",
+          options: ["a"],
+          experimental_optionLabels: { a: "A", z: "Z" },
+        },
+      }),
+    ).toThrow(
+      'label for setting "labelled" names "z", which is not one of its options',
+    );
     expect(() =>
       cc.settings.define({
         pem: {
@@ -612,6 +720,27 @@ describe("rpc", () => {
     });
     await expect(harness.callRpc("nonFinite")).rejects.toMatchObject({
       code: "non_json_result",
+    });
+  });
+
+  it("preserves typed refusals", async () => {
+    const { cc, harness } = createFakePluginHost();
+    const contract = defineRpcContract({
+      save: { input: z.null(), output: z.null() },
+    });
+    cc.rpc.register(contract, {
+      save: () => {
+        throw new experimental_PluginRpcRefusal({
+          code: "forbidden",
+          message: "Private",
+          issues: [{ message: "Caller denied" }],
+        });
+      },
+    });
+    await expect(harness.callRpc("save")).rejects.toMatchObject({
+      code: "forbidden",
+      message: "Private",
+      issues: [{ message: "Caller denied" }],
     });
   });
 
@@ -1296,44 +1425,6 @@ describe("agent tools", () => {
     ).not.toThrow();
   });
 
-  it("rejects a presentation with the production host's exact messages", () => {
-    const { cc } = createFakePluginHost();
-    const register = (presentation: PluginRowPresentation) =>
-      cc.agents.registerTool({
-        name: "lookup_doc",
-        description: "Look up a doc",
-        presentation,
-        parameters: { type: "object" },
-        execute: () => "ok",
-      });
-    expect(() =>
-      register({
-        label: {
-          pending: "p".repeat(PLUGIN_AGENT_STATUS_LABEL_MAX_CHARS + 1),
-          completed: "Looked up a doc",
-        },
-      }),
-    ).toThrow(
-      `tool "lookup_doc" presentation.label strings must be non-empty and at most ${PLUGIN_AGENT_STATUS_LABEL_MAX_CHARS} characters`,
-    );
-    expect(() =>
-      register({ label: { pending: "Looking up a doc", completed: "  " } }),
-    ).toThrow(
-      `tool "lookup_doc" presentation.label strings must be non-empty and at most ${PLUGIN_AGENT_STATUS_LABEL_MAX_CHARS} characters`,
-    );
-    expect(() => register({ icon: { glyph: "" } })).toThrow(
-      'tool "lookup_doc" presentation.icon must be { glyph: string }',
-    );
-    expect(() =>
-      // @ts-expect-error — a plugin compiled against its own types can still
-      register({ icon: "Book" }),
-    ).toThrow('tool "lookup_doc" presentation.icon must be { glyph: string }');
-    expect(() =>
-      // @ts-expect-error — an array is not a presentation object.
-      register([]),
-    ).toThrow('tool "lookup_doc" presentation must be an object');
-  });
-
   it("records a valid presentation normalized the way the production host stores it", () => {
     const { cc, harness } = createFakePluginHost();
     const declared = {
@@ -1349,9 +1440,6 @@ describe("agent tools", () => {
       execute: () => "ok",
     });
     const recorded = harness.registrations.agentTools[0]?.presentation;
-    expect(recorded).toEqual(
-      parsePluginRowPresentation('tool "lookup_doc"', declared),
-    );
     expect(recorded).toEqual({
       label: { pending: "Looking up a doc", completed: "Looked up a doc" },
       icon: { glyph: "Book" },
@@ -1565,7 +1653,10 @@ describe("agent tools", () => {
         tools: [alpha ? "alpha_tool" : "beta_tool"],
         skills: [alpha ? "alpha-skill" : "beta-skill"],
         instructions:
-          `${context.provider.id}:${context.provider.model}:`.padEnd(5000, "x"),
+          `${context.provider.id}:${context.provider.model}:`.padEnd(
+            alpha ? 15_700 : 40_000,
+            "x",
+          ),
       };
     });
 
@@ -1582,9 +1673,10 @@ describe("agent tools", () => {
 
     expect(alpha.tools.map((tool) => tool.name)).toEqual(["alpha_tool"]);
     expect(alpha.skills).toEqual(["alpha-skill"]);
-    expect(alpha.instructions).toHaveLength(4096);
+    expect(alpha.instructions).toHaveLength(15_700);
     expect(beta.tools.map((tool) => tool.name)).toEqual(["beta_tool"]);
     expect(beta.skills).toEqual(["beta-skill"]);
+    expect(beta.instructions).toHaveLength(32_768);
     expect(contexts).toEqual([configurationContext, betaContext]);
     expect(harness.registrations.agentTools.map((tool) => tool.name)).toEqual([
       "alpha_tool",

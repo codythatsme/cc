@@ -1,3 +1,4 @@
+import { normalize } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   resolveDesktopBridgePath,
@@ -15,7 +16,9 @@ describe("desktop app paths", () => {
     };
 
     expect(resolveDesktopBridgePath({ paths })).toBe(
-      "/Applications/cc.app/Contents/Resources/app.asar.unpacked/dist/cc-app-bridge.mjs",
+      normalize(
+        "/Applications/cc.app/Contents/Resources/app.asar.unpacked/dist/cc-app-bridge.mjs",
+      ),
     );
   });
 
@@ -27,7 +30,9 @@ describe("desktop app paths", () => {
     };
 
     expect(resolveDesktopBridgePath({ paths })).toBe(
-      "/Applications/cc.app/Contents/Resources/app-arm64.asar.unpacked/dist/cc-app-bridge.mjs",
+      normalize(
+        "/Applications/cc.app/Contents/Resources/app-arm64.asar.unpacked/dist/cc-app-bridge.mjs",
+      ),
     );
   });
 
@@ -37,7 +42,9 @@ describe("desktop app paths", () => {
         "/Applications/cc.app/Contents/Resources/app.asar.unpacked/dist/cc-app-bridge.mjs",
       ),
     ).toBe(
-      "/Applications/cc.app/Contents/Resources/app.asar.unpacked/node_modules/cc-app/server/dist/assets/install-machine.sh",
+      normalize(
+        "/Applications/cc.app/Contents/Resources/app.asar.unpacked/node_modules/cc-app/server/dist/assets/install-machine.sh",
+      ),
     );
   });
 
@@ -50,11 +57,14 @@ describe("desktop app paths", () => {
 
     expect(
       resolveDesktopIconPath({
+        devIcon: false,
         packagedIconFileName: "icon-nightly.png",
         paths,
       }),
     ).toBe(
-      "/Applications/cc Nightly.app/Contents/Resources/app.asar/assets/icon-nightly.png",
+      normalize(
+        "/Applications/cc Nightly.app/Contents/Resources/app.asar/assets/icon-nightly.png",
+      ),
     );
   });
 
@@ -67,9 +77,10 @@ describe("desktop app paths", () => {
 
     expect(
       resolveDesktopIconPath({
+        devIcon: true,
         packagedIconFileName: "icon-nightly.png",
         paths,
       }),
-    ).toBe("/checkout/apps/desktop/assets/icon-dev.png");
+    ).toBe(normalize("/checkout/apps/desktop/assets/icon-dev.png"));
   });
 });

@@ -24,6 +24,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@cc/shared-ui/context-menu";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 
 function inPluginScope(children: ReactNode) {
   return (
@@ -56,9 +57,33 @@ describe("usePortalScopeProps", () => {
 
     const scoped = baseElement.querySelectorAll("[data-cc-plugin-root]");
     expect(scoped.length).toBe(2);
+    for (const root of scoped) {
+      expect(root.getAttribute("data-cc-plugin")).toBe("test-plugin");
+    }
     expect(
       baseElement.querySelectorAll("[data-cc-portaled-overlay]").length,
     ).toBe(2);
+  });
+
+  it("keeps a nested plugin portal owned by its nearest React context", () => {
+    const { baseElement } = render(
+      <PluginContext.Provider value="outer-plugin">
+        <div data-cc-plugin="outer-plugin" data-cc-plugin-root="">
+          <PluginContext.Provider value="inner-plugin">
+            {openDialog()}
+          </PluginContext.Provider>
+        </div>
+      </PluginContext.Provider>,
+    );
+
+    const dialog = baseElement.querySelector('[role="dialog"]');
+    expect(dialog?.getAttribute("data-cc-plugin")).toBe("inner-plugin");
+    expect(dialog?.closest('[data-cc-plugin="outer-plugin"]')).toBeNull();
+    const portals = baseElement.querySelectorAll("[data-cc-portaled-overlay]");
+    expect(portals).toHaveLength(2);
+    for (const portal of portals) {
+      expect(portal.getAttribute("data-cc-plugin")).toBe("inner-plugin");
+    }
   });
 
   it("leaves host-tree dialogs unscoped so plugin CSS cannot match them", () => {
@@ -91,6 +116,7 @@ describe("usePortalScopeProps", () => {
     expect(tip).not.toBeNull();
     const scopedTip = baseElement.querySelector("[data-cc-plugin-root]");
     expect(scopedTip).not.toBeNull();
+    expect(scopedTip!.getAttribute("data-cc-plugin")).toBe("test-plugin");
     expect(scopedTip!.getAttribute("data-cc-portaled-overlay")).toBe("");
   });
 
@@ -128,5 +154,27 @@ describe("usePortalScopeProps", () => {
     const menu = baseElement.querySelector('[role="menu"]');
     expect(menu?.getAttribute("data-cc-portaled-overlay")).toBe("");
     expect(menu?.classList.contains("z-[70]")).toBe(true);
+  });
+
+  it.each([
+    ["inside a plugin slot", true],
+    ["in the host tree", false],
+  ])("scopes the image lightbox portal %s by plugin id", (_case, inPlugin) => {
+    const lightbox = (
+      <ImageLightbox
+        imageSrc="/image.png"
+        imageAlt="Image"
+        title="Image preview"
+        onClose={() => {}}
+      />
+    );
+    render(inPlugin ? inPluginScope(lightbox) : lightbox);
+
+    const dialog = screen.getByRole("dialog", { name: "Image preview" });
+    expect(dialog.getAttribute("data-cc-portaled-overlay")).toBe("");
+    expect(dialog.getAttribute("data-cc-plugin")).toBe(
+      inPlugin ? "test-plugin" : null,
+    );
+    expect(dialog.hasAttribute("data-cc-plugin-root")).toBe(inPlugin);
   });
 });

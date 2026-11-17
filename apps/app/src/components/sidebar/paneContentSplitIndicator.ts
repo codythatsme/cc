@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { atom, useAtomValue } from "jotai";
+import { useAtomValue } from "jotai";
+import { selectAtom } from "jotai/utils";
 import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
-import { splitLayoutAtom } from "@/lib/split-layout/atoms";
+import { multiPaneSplitLayoutAtom } from "@/lib/split-layout/atoms";
 import {
   computePaneRects,
   countPanes,
@@ -28,24 +29,6 @@ const NO_INDICATOR: PaneContentSplitIndicator = {
   isOpenInSplit: false,
   miniMap: null,
 };
-
-const NULL_LAYOUT_ATOM = atom<SplitLayout | null>(null);
-
-function useSplitLayoutForIndicator(enabled: boolean): {
-  layout: SplitLayout | null;
-  isCompact: boolean;
-} {
-  const isCompact = useIsCompactViewport();
-  const layout = useAtomValue(
-    enabled && !isCompact ? splitLayoutAtom : NULL_LAYOUT_ATOM,
-  );
-  return { layout, isCompact };
-}
-
-export interface ThreadSplitIndicatorTarget {
-  id: string;
-  projectId: string;
-}
 
 function buildSplitIndicator(
   layout: SplitLayout,
@@ -74,57 +57,79 @@ function buildSplitIndicator(
   };
 }
 
+export function resolvePaneContentSplitIndicator({
+  content,
+  enabled,
+  isCompact,
+  layout,
+}: {
+  content: PaneContent;
+  enabled: boolean;
+  isCompact: boolean;
+  layout: SplitLayout | null;
+}): PaneContentSplitIndicator {
+  if (!enabled || layout === null || isCompact || countPanes(layout.root) < 2) {
+    return NO_INDICATOR;
+  }
+  const pane = findPaneByContent(layout.root, content);
+  if (pane === null) {
+    return NO_INDICATOR;
+  }
+  return buildSplitIndicator(layout, new Set([pane.paneId]));
+}
+
+function areRectsEqual(left: PaneRect, right: PaneRect): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.w === right.w &&
+    left.h === right.h
+  );
+}
+
+function areSplitIndicatorsEqual(
+  left: PaneContentSplitIndicator,
+  right: PaneContentSplitIndicator,
+): boolean {
+  if (left === right) return true;
+  if (left.miniMap === null || right.miniMap === null) {
+    return left.miniMap === right.miniMap;
+  }
+  const rightMiniMap = right.miniMap;
+  return (
+    left.miniMap.length === rightMiniMap.length &&
+    left.miniMap.every((slot, index) => {
+      const other = rightMiniMap[index];
+      return (
+        other !== undefined &&
+        slot.paneId === other.paneId &&
+        slot.isMe === other.isMe &&
+        slot.isFocused === other.isFocused &&
+        areRectsEqual(slot.rect, other.rect)
+      );
+    })
+  );
+}
+
 export function usePaneContentSplitIndicator(
   content: PaneContent,
   enabled: boolean,
 ): PaneContentSplitIndicator {
-  const { layout, isCompact } = useSplitLayoutForIndicator(enabled);
-
-  return useMemo<PaneContentSplitIndicator>(() => {
-    if (
-      !enabled ||
-      layout === null ||
-      isCompact ||
-      countPanes(layout.root) < 2
-    ) {
-      return NO_INDICATOR;
-    }
-    const pane = findPaneByContent(layout.root, content);
-    if (pane === null) {
-      return NO_INDICATOR;
-    }
-    return buildSplitIndicator(layout, new Set([pane.paneId]));
-  }, [content, enabled, isCompact, layout]);
-}
-
-export function useThreadGroupSplitIndicator(
-  threads: readonly ThreadSplitIndicatorTarget[],
-  enabled: boolean,
-): PaneContentSplitIndicator {
-  const { layout, isCompact } = useSplitLayoutForIndicator(enabled);
-
-  return useMemo<PaneContentSplitIndicator>(() => {
-    if (
-      !enabled ||
-      threads.length === 0 ||
-      layout === null ||
-      isCompact ||
-      countPanes(layout.root) < 2
-    ) {
-      return NO_INDICATOR;
-    }
-    const threadKeys = new Set(
-      threads.map((thread) => `${thread.projectId}\0${thread.id}`),
-    );
-    const matchingPaneIds = new Set<string>();
-    for (const pane of listPanes(layout.root)) {
-      if (
-        pane.content.kind === "thread" &&
-        threadKeys.has(`${pane.content.projectId}\0${pane.content.threadId}`)
-      ) {
-        matchingPaneIds.add(pane.paneId);
-      }
-    }
-    return buildSplitIndicator(layout, matchingPaneIds);
-  }, [enabled, isCompact, layout, threads]);
+  const isCompact = useIsCompactViewport();
+  const indicatorAtom = useMemo(
+    () =>
+      selectAtom(
+        multiPaneSplitLayoutAtom,
+        (layout) =>
+          resolvePaneContentSplitIndicator({
+            content,
+            enabled,
+            isCompact,
+            layout,
+          }),
+        areSplitIndicatorsEqual,
+      ),
+    [content, enabled, isCompact],
+  );
+  return useAtomValue(indicatorAtom);
 }

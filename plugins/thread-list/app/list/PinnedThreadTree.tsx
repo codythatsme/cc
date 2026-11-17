@@ -12,11 +12,14 @@ import {
 import {
   useSidebarSortable,
   type SidebarSortableDragBindings,
-} from "../rows/sortableMotion.js";
-import { useSidebarReorderDnd } from "../dnd/useSidebarReorderDnd.js";
-import type {
-  ProjectThreadItem,
-  ProjectThreadNode,
+} from "@/components/ui/sortable-motion";
+import { useSidebarReorderDnd } from "@/components/ui/use-sidebar-reorder-dnd";
+import { SidebarTouchSensor } from "../dnd/sidebarTouchSensor.js";
+import { useSidebarListShown } from "./useSidebarListShown.js";
+import {
+  selectedThreadIdWithin,
+  type ProjectThreadItem,
+  type ProjectThreadNode,
 } from "../model/project-thread-groups.js";
 import {
   useNeighborReorderSortable,
@@ -99,7 +102,6 @@ const PinnedRootItem = memo(function PinnedRootItem({
       selectedThreadId={selectedThreadId}
       collapsedThreadIds={collapsedThreadIds}
       collapsedEnvironmentIds={collapsedEnvironmentIds}
-      variant="section"
       onProjectSelect={onProjectSelect}
       onToggleThreadCollapsed={onToggleThreadCollapsed}
       onToggleEnvironmentCollapsed={onToggleEnvironmentCollapsed}
@@ -123,7 +125,8 @@ const SortablePinnedRootItem = memo(function SortablePinnedRootItem({
     displace,
   });
   const sortableStyle: CSSProperties =
-    props.sectionDnd?.activeThread?.id === getPinnedRootNodeId(node)
+    props.sectionDnd?.activeThread?.id === getPinnedRootNodeId(node) ||
+    props.sectionDnd?.draggedThreadIds?.has(getPinnedRootNodeId(node))
       ? { ...style, opacity: 0.35, pointerEvents: "none" }
       : style;
 
@@ -167,7 +170,7 @@ const PinnedGroupedRootItems = memo(function PinnedGroupedRootItems({
         <PinnedEnvironmentThreadGroupRow
           key={`environment:${item.group.environmentId}`}
           group={item.group}
-          selectedThreadId={selectedThreadId}
+          selectedThreadId={selectedThreadIdWithin(item, selectedThreadId)}
           collapsedThreadIds={collapsedThreadIds}
           collapsedEnvironmentIds={collapsedEnvironmentIds}
           onProjectSelect={onProjectSelect}
@@ -179,7 +182,7 @@ const PinnedGroupedRootItems = memo(function PinnedGroupedRootItems({
     if (item.kind === "section") return null;
     const commonProps = {
       node: item.node,
-      selectedThreadId,
+      selectedThreadId: selectedThreadIdWithin(item, selectedThreadId),
       collapsedThreadIds,
       collapsedEnvironmentIds,
       onProjectSelect,
@@ -238,7 +241,10 @@ export const PinnedThreadTree = memo(function PinnedThreadTree({
     onReorder: handleReorderPinnedRoot,
   });
   const { dndContextProps, consumeClickSuppression, onClickCapture } =
-    useSidebarReorderDnd({ onDragEnd: handleSortableDragEnd });
+    useSidebarReorderDnd({
+      onDragEnd: handleSortableDragEnd,
+      touchSensor: SidebarTouchSensor,
+    });
   const chronologicalRootNodes = useMemo(() => {
     if (!chronologicalDnd) return rootNodes;
     const nodesById = new Map(
@@ -252,15 +258,20 @@ export const PinnedThreadTree = memo(function PinnedThreadTree({
     }
     return orderedNodes;
   }, [chronologicalDnd, rootNodes]);
+  const chronologicalPinnedItemIds = useMemo(
+    () => [...(chronologicalDnd?.pinnedItemIds ?? [])],
+    [chronologicalDnd?.pinnedItemIds],
+  );
   const hasEnvironmentGroups = rootItems.some(
     (item) => item.kind === "environment",
   );
+  const shown = useSidebarListShown();
   const { setNodeRef: setPinnedParentRef } = useDroppable({
     id: PINNED_THREAD_PARENT_KEY,
     disabled: chronologicalDnd === null,
   });
 
-  if (rootItems.length === 0) {
+  if (rootItems.length === 0 || !shown) {
     return null;
   }
 
@@ -273,7 +284,7 @@ export const PinnedThreadTree = memo(function PinnedThreadTree({
         onClickCapture={chronologicalDnd.onClickCapture}
       >
         <SortableContext
-          items={[...chronologicalDnd.pinnedItemIds]}
+          items={chronologicalPinnedItemIds}
           strategy={verticalListSortingStrategy}
         >
           {hasEnvironmentGroups ? (
@@ -295,7 +306,10 @@ export const PinnedThreadTree = memo(function PinnedThreadTree({
                 disabled={chronologicalDnd.pinnedReorderPending}
                 displace={false}
                 sectionDnd={chronologicalDnd}
-                selectedThreadId={selectedThreadId}
+                selectedThreadId={selectedThreadIdWithin(
+                  { kind: "thread", node },
+                  selectedThreadId,
+                )}
                 collapsedThreadIds={collapsedThreadIds}
                 collapsedEnvironmentIds={collapsedEnvironmentIds}
                 onProjectSelect={onProjectSelect}
@@ -337,7 +351,10 @@ export const PinnedThreadTree = memo(function PinnedThreadTree({
                 key={getPinnedRootNodeId(node)}
                 node={node}
                 disabled={standaloneReorderDisabled}
-                selectedThreadId={selectedThreadId}
+                selectedThreadId={selectedThreadIdWithin(
+                  { kind: "thread", node },
+                  selectedThreadId,
+                )}
                 collapsedThreadIds={collapsedThreadIds}
                 collapsedEnvironmentIds={collapsedEnvironmentIds}
                 onProjectSelect={onProjectSelect}
@@ -352,7 +369,10 @@ export const PinnedThreadTree = memo(function PinnedThreadTree({
           <PinnedRootItem
             key={getPinnedRootNodeId(node)}
             node={node}
-            selectedThreadId={selectedThreadId}
+            selectedThreadId={selectedThreadIdWithin(
+              { kind: "thread", node },
+              selectedThreadId,
+            )}
             collapsedThreadIds={collapsedThreadIds}
             collapsedEnvironmentIds={collapsedEnvironmentIds}
             onProjectSelect={onProjectSelect}

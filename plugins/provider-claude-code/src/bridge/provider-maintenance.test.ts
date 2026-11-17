@@ -24,11 +24,10 @@ function missingInstallationStatus() {
 
 describe("Claude Code provider maintenance", () => {
   it("normalizes aggregate and unique model-scoped usage windows", () => {
-    const credentials = {
-      accessToken: "token",
-      expiresAt: null,
-      subscriptionType: "pro",
-      rateLimitTier: "max_5x",
+    const account = {
+      email: "claude@example.com",
+      subscriptionType: "Claude Max",
+      apiProvider: "firstParty" as const,
     };
     expect(
       __testing.normalizeUsage(
@@ -50,13 +49,13 @@ describe("Claude Code provider maintenance", () => {
             },
           ],
         },
-        credentials,
-        "claude@example.com",
+        account,
       ),
     ).toMatchObject({
       status: "ok",
       accountEmail: "claude@example.com",
-      planLabel: "Max (5x)",
+      planLabel: "Max",
+      plan: { id: "max", multiplier: null },
       windows: [
         { label: "Current session", usedPercent: 12 },
         { label: "Weekly limit", usedPercent: 55 },
@@ -70,6 +69,17 @@ describe("Claude Code provider maintenance", () => {
       missingInstallationStatus(),
       "install",
     );
+    if (process.platform === "win32") {
+      expect(run).toMatchObject({
+        available: true,
+        command: { command: "powershell.exe" },
+        verification: { kind: "installed" },
+      });
+      expect(run.available && run.command.args.at(-1)).toContain(
+        "https://claude.ai/install.ps1",
+      );
+      return;
+    }
     expect(run).toMatchObject({
       available: true,
       command: { command: "sh" },

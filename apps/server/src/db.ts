@@ -2,9 +2,14 @@ import { createConnection, ensurePersonalProject, migrate } from "@cc/db";
 import type {
   DbConnection,
   MigrationWarningLogger,
+  QueryPlanExecutionObserver,
   SlowDbQueryLogger,
 } from "@cc/db";
 import type { Logger } from "@cc/logger";
+import {
+  recordCompletedEventLoopWork,
+  runEventLoopWorkSync,
+} from "./services/system/event-loop-work.js";
 import {
   exportLegacyAutomationsForPluginImport,
   hasLegacyAutomationsToExport,
@@ -16,6 +21,9 @@ type InitDbLogger = MigrationWarningLogger &
 
 interface InitDbOptions {
   dataDir?: string;
+  slowQueryThresholdMs?: number | (() => number);
+  slowQueryDiagnosticsEnabled?: () => boolean;
+  queryPlanObserver?: () => QueryPlanExecutionObserver | null;
   logger?: InitDbLogger;
 }
 
@@ -25,22 +33,31 @@ export function initDb(
 ): DbConnection {
   const db = createConnection(databasePath, {
     slowQueryLogger: options.logger,
+    slowQueryThresholdMs: options.slowQueryThresholdMs,
+    slowQueryDiagnosticsEnabled: options.slowQueryDiagnosticsEnabled,
+    queryPlanObserver: options.queryPlanObserver,
+    synchronousWorkTracker: {
+      run: runEventLoopWorkSync,
+      record: recordCompletedEventLoopWork,
+    },
   });
-  if (options.dataDir !== undefined && options.logger !== undefined) {
-    exportLegacyAutomationsForPluginImport({
-      dataDir: options.dataDir,
-      db,
-      logger: options.logger,
-    });
-  } else if (hasLegacyAutomationsToExport(db)) {
-    throw new Error(
-      "Cannot migrate legacy automations without dataDir and logger; refusing to drop kernel automation rows before exporting them for the automations plugin",
-    );
+  try {
+    if (options.dataDir !== undefined && options.logger !== undefined) {
+      exportLegacyAutomationsForPluginImport({
+        dataDir: options.dataDir,
+        db,
+        logger: options.logger,
+      });
+    } else if (hasLegacyAutomationsToExport(db)) {
+      throw new Error(
+        "Cannot migrate legacy automations without dataDir and logger; refusing to drop kernel automation rows before exporting them for the automations plugin",
+      );
+    }
+    migrate(db, { logger: options.logger });
+    ensurePersonalProject(db);
+  } catch (error) {
+    db.$client.close();
+    throw error;
   }
-  migrate(db, {
-    deferDestructiveLegacyCleanup: true,
-    logger: options.logger,
-  });
-  ensurePersonalProject(db);
   return db;
 }

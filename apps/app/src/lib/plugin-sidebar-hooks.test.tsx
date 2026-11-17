@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, renderHook } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  renderHook as renderHookBase,
+} from "@testing-library/react";
 import { getDefaultStore } from "jotai";
 import { PERSONAL_PROJECT_ID, type ThreadListEntry } from "@cc/domain";
 import { getThreadConversationCollapsedAtom } from "@/components/secondary-panel/threadSecondaryPanelAtoms";
@@ -14,7 +18,6 @@ import {
   useSidebarThreadRowStatuses,
   useSidebarThreadShortcut,
   useSidebarThreads,
-  useSidebarThreadEntry,
 } from "./plugin-sidebar-hooks";
 import {
   clearPluginThreadRowStatuses,
@@ -22,6 +25,22 @@ import {
 } from "./plugin-thread-row-status";
 import { useEnvironmentProviders } from "./plugin-sdk-hooks";
 import { SidebarThreadShortcutKeysContext } from "@/components/sidebar/sidebarThreadShortcuts";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { sidebarNavigationQueryKey } from "@/hooks/queries/query-keys";
+
+const renderHook: typeof renderHookBase = (callback, options) => {
+  const queryClient = new QueryClient();
+  if (state.data !== undefined) {
+    queryClient.setQueryData(sidebarNavigationQueryKey(), state.data);
+  }
+  return renderHookBase(callback, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+    ...options,
+  });
+};
 
 const actions = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -264,17 +283,6 @@ describe("sidebar lifecycle selection", () => {
     expect(result.current.threads).toHaveLength(1);
     expect(result.current.experimental_archived?.status).toBe("error");
   });
-
-  it("resolves archived entries for host-owned row actions and status", () => {
-    const archived = makeThreadListEntry({
-      id: "thr_archived",
-      archivedAt: 42,
-    });
-    state.data = payload([]);
-    archiveQuery.data = { pages: [[archived]] };
-    const { result } = renderHook(() => useSidebarThreadEntry(archived.id));
-    expect(result.current).toBe(archived);
-  });
 });
 
 describe("useSidebarThreads sections", () => {
@@ -363,7 +371,10 @@ describe("useSidebarThreadActions", () => {
 
     expect(actions.setRootComposeProjectId).toHaveBeenCalledWith("proj_target");
     expect(actions.navigate).toHaveBeenCalledWith("/", {
-      state: { focusPrompt: true },
+      state: {
+        focusPrompt: true,
+        placement: { sectionId: null, pinned: false },
+      },
     });
   });
 
@@ -380,7 +391,11 @@ describe("useSidebarThreadActions", () => {
 
     expect(actions.setRootComposeProjectId).not.toHaveBeenCalled();
     expect(actions.navigate).toHaveBeenCalledWith("/", {
-      state: { focusPrompt: true, sectionId: "sec_later" },
+      state: {
+        focusPrompt: true,
+        sectionId: "sec_later",
+        placement: { sectionId: "sec_later", pinned: false },
+      },
     });
   });
 
@@ -396,7 +411,10 @@ describe("useSidebarThreadActions", () => {
     });
 
     expect(actions.navigate).toHaveBeenCalledWith("/", {
-      state: { reuseEnvironmentId: "env_1" },
+      state: {
+        reuseEnvironmentId: "env_1",
+        placement: { sectionId: null, pinned: false },
+      },
     });
   });
 
@@ -416,17 +434,37 @@ describe("useSidebarThreadActions", () => {
       state: {
         focusPrompt: true,
         newEnvironmentHostId: "host_homelab",
+        placement: { sectionId: null, pinned: false },
       },
     });
   });
 
-  it("navigates with no router state when no option is set", () => {
+  it("preserves explicit pinned placement over the legacy section", () => {
+    state.data = payload([]);
+    const { result } = renderHook(() => useSidebarThreadActions());
+    act(() =>
+      result.current.openNewThread({
+        sectionId: "sec_old",
+        experimental_placement: { sectionId: "sec_managers", pinned: true },
+      }),
+    );
+    expect(actions.navigate).toHaveBeenCalledWith("/", {
+      state: {
+        sectionId: "sec_old",
+        placement: { sectionId: "sec_managers", pinned: true },
+      },
+    });
+  });
+
+  it("clears placement when opening global new thread", () => {
     state.data = payload([]);
     const { result } = renderHook(() => useSidebarThreadActions());
     act(() => {
       result.current.openNewThread();
     });
-    expect(actions.navigate).toHaveBeenCalledWith("/", undefined);
+    expect(actions.navigate).toHaveBeenCalledWith("/", {
+      state: { placement: { sectionId: null, pinned: false } },
+    });
   });
 
   it("re-expands a collapsed conversation when opening its thread", () => {

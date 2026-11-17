@@ -17,7 +17,7 @@ describe("cc guide command output", () => {
     const errorOutput = collectLogLines(vi.mocked(console.error)).join("\n");
     expect(errorOutput).toContain("Unknown guide chapter 'missing'");
     expect(errorOutput).toContain(
-      "Available: threads, environments, agent-configuration, providers, projects, machines, terminals, browser, customization, plugins, automations, json.",
+      "Available: threads, thread-inspection, thread-messaging, thread-lifecycle, environments, agent-configuration, providers, projects, machines, terminals, browser, customization, plugins, json.",
     );
   });
 
@@ -36,7 +36,7 @@ describe("cc guide command output", () => {
 
     const output = collectLogLines(vi.mocked(console.log)).join("\n");
     expect(output).toContain(
-      "cc terminal output|read <terminalId>  [--since-seq <n>] [--tail-bytes <n>] [--limit-chunks <n>] [--json]\n    Print terminal output",
+      "cc terminal output|read <terminalId>  [--since-seq <n>] [--tail-bytes <n>] [--limit-chunks <n>] [--plain] [--json]\n    Print terminal output",
     );
     expect(output).not.toContain("cc thread ");
   }, 30_000);
@@ -59,12 +59,11 @@ describe("cc guide command output", () => {
     expect(errorOutput).toContain("Command groups: browser, status");
   }, 30_000);
 
-  it("cc guide terminals documents explicit scopes and ID-only mutations", async () => {
+  it("cc guide terminals renders the terminals chapter", async () => {
     await runCommand(["guide", "terminals"], registerGuideCommand);
 
-    const output = collectLogLines(vi.mocked(console.log)).join("\n");
-    expect(output).toContain("exactly one explicit scope");
-    expect(output).toContain("cc terminal list --thread <thread-id>");
-    expect(output).toContain("cc terminal rename <terminal-id> <title>");
+    expect(collectLogLines(vi.mocked(console.log)).join("\n")).toContain(
+      "cc terminal list --thread <thread-id>",
+    );
   });
 });

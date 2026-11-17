@@ -27,9 +27,13 @@ export function SidebarPluginAttentionGlyph({
   className: string;
   onNavigate?: () => void;
 }) {
-  const plugins = pluginsNeedingAttention(
-    usePluginList({ enabled: true }).data?.plugins ?? [],
-  );
+  const pluginList = usePluginList({ enabled: true }).data;
+  const settled =
+    pluginList !== undefined &&
+    !pluginList.plugins.some(
+      (plugin) => plugin.enabled && plugin.status === "starting",
+    );
+  const plugins = pluginsNeedingAttention(pluginList?.plugins ?? []);
   const [acknowledgedKey, setAcknowledgedKey] = useAtom(
     acknowledgedAttentionKeyAtom,
   );
@@ -43,13 +47,15 @@ export function SidebarPluginAttentionGlyph({
         );
 
   useEffect(() => {
-    if (key === null && acknowledgedKey !== null) setAcknowledgedKey(null);
-  }, [key, acknowledgedKey, setAcknowledgedKey]);
+    if (settled && key === null && acknowledgedKey !== null) {
+      setAcknowledgedKey(null);
+    }
+  }, [settled, key, acknowledgedKey, setAcknowledgedKey]);
 
   if (key === null || key === acknowledgedKey) return null;
   const label = pluginAttentionLabel(plugins);
   return (
-    <SidebarMenuItem className="min-w-0">
+    <SidebarMenuItem className="shrink-0">
       <SidebarMenuButton
         asChild
         aria-label={label}

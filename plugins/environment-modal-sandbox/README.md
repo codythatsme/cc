@@ -69,7 +69,7 @@ environment settings.
 | `tokenId`, `tokenSecret` | Required Modal token, entered in secret settings.         |
 | `appName`                | Modal app, default `cc-sandboxes`.                        |
 | `idleMinutes`            | Pause after idle, default 15; 0 disables idle suspension. |
-| Sandbox size presets     | Named CPU and memory reservations for new machines.       |
+| Sandbox size presets     | Named CPU and memory reservations; default 1 CPU, 2 GiB.  |
 | Images                   | Named Dockerfiles or existing Modal image IDs.            |
 
 Use `cc modal account inspect --json` to validate credentials
@@ -167,3 +167,9 @@ compute without deleting the shared cached image. Expired IDs remain recognizabl
 SDK clients use `sdk.plugins.callRpc` with `modalRpcContract`: `image.build({})`,
 `sandbox.run({})`, `sandbox.exec({sandboxId,command})`, and
 `sandbox.stop({sandboxId})`. Build/run incur Modal usage.
+
+Allocation reconciliation removes tracking for sandboxes that Modal confirms are
+missing, including `SandboxWait` gRPC `NOT_FOUND` responses. Other failures retain
+the allocation and persist exponential retry delays from one minute to one hour
+per allocation, so plugin reloads do not restart rapid retries. Successful
+reconciliation resets the delay; other allocations continue to reconcile.

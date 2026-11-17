@@ -1,7 +1,7 @@
+import { jsonValueSchema } from "@cc/domain";
 import { z } from "zod";
 import {
   desktopBrowserImportSelectionSchema,
-  desktopBrowserProfileSchema,
   type DesktopBrowserImportOutcome,
   type DesktopBrowserImportSource,
 } from "@cc/host-daemon-contract";
@@ -170,11 +170,30 @@ export type CcDesktopBrowserTabRef = z.infer<
   typeof ccDesktopBrowserTabRefSchema
 >;
 
+export const ccDesktopBrowserSetThreadDiscardedRequestSchema = z
+  .object({
+    threadId: z.string().min(1),
+    discarded: z.boolean(),
+  })
+  .strict();
+export type CcDesktopBrowserSetThreadDiscardedRequest = z.infer<
+  typeof ccDesktopBrowserSetThreadDiscardedRequestSchema
+>;
+
 export const ccDesktopBrowserStateSchema = z
   .object({
     tabId: z.string().min(1),
     url: z.string().max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH),
     title: z.string().max(CC_DESKTOP_BROWSER_MAX_TITLE_LENGTH).nullable(),
+    faviconUrl: z
+      .string()
+      .max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH)
+      .nullable()
+      .optional(),
+    faviconUrls: z
+      .array(z.string().max(CC_DESKTOP_BROWSER_MAX_URL_LENGTH))
+      .max(8)
+      .optional(),
     isLoading: z.boolean(),
     canGoBack: z.boolean(),
     canGoForward: z.boolean(),
@@ -258,9 +277,6 @@ export const CC_DESKTOP_BROWSER_MAX_PAGE_EXPRESSION_LENGTH = 4_000_000;
 export const CC_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH = 256;
 
 export const ccDesktopBrowserPageWorldSchema = z.enum(["main", "isolated"]);
-export type CcDesktopBrowserPageWorld = z.infer<
-  typeof ccDesktopBrowserPageWorldSchema
->;
 
 export const ccDesktopBrowserEvaluateRequestSchema = z
   .object({
@@ -278,7 +294,7 @@ export type CcDesktopBrowserEvaluateRequest = z.infer<
 >;
 
 export const ccDesktopBrowserEvaluateResultSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), value: z.json() }).strict(),
+  z.object({ ok: z.literal(true), value: jsonValueSchema }).strict(),
   z.object({ ok: z.literal(false), error: z.string() }).strict(),
 ]);
 export type CcDesktopBrowserEvaluateResult = z.infer<
@@ -289,7 +305,7 @@ export const ccDesktopBrowserPageMessageSchema = z
   .object({
     tabId: z.string().min(1),
     channel: z.string().min(1).max(CC_DESKTOP_BROWSER_MAX_PAGE_CHANNEL_LENGTH),
-    data: z.json(),
+    data: jsonValueSchema,
   })
   .strict();
 export type CcDesktopBrowserPageMessage = z.infer<
@@ -318,9 +334,7 @@ export type CcDesktopBrowserFindResultHandler = (
 export type CcDesktopBrowserUnsubscribe = () => void;
 
 export const ccDesktopBrowserImportCookiesRequestSchema =
-  desktopBrowserImportSelectionSchema
-    .extend({ profile: desktopBrowserProfileSchema })
-    .strict();
+  desktopBrowserImportSelectionSchema;
 export type CcDesktopBrowserImportCookiesRequest = z.infer<
   typeof ccDesktopBrowserImportCookiesRequestSchema
 >;
@@ -346,6 +360,8 @@ export interface CcDesktopBrowserApi {
   ): CcDesktopBrowserUnsubscribe;
   attach(request: CcDesktopBrowserAttachRequest): void;
   detach(tabId: string): void;
+  setThreadDiscarded?(request: CcDesktopBrowserSetThreadDiscardedRequest): void;
+  listThreadIdsWithTabs?(): Promise<string[]>;
   navigate(request: CcDesktopBrowserNavigateRequest): void;
   goBack(tabId: string): void;
   goForward(tabId: string): void;

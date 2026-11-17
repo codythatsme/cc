@@ -68,9 +68,13 @@ const UNSCANNED_DIRECTORIES = new Set([
 ]);
 const MAX_SOURCE_SCAN_DEPTH = 12;
 
+type PluginSdkField = "dependencies" | "devDependencies";
+type PluginSdkRelocation = "none" | "moved" | "deduplicated";
+
 interface MigratePluginArgs {
   rootDir: string;
   sdkVersion: string;
+  sdkInDependencies: boolean;
   sdkSpecifier?: string;
   dryRun?: boolean;
 }
@@ -78,7 +82,8 @@ interface MigratePluginArgs {
 export interface PluginPackageLayoutMigration {
   changed: boolean;
   pin: { from: string | null; to: string } | null;
-  movedFromDependencies: boolean;
+  sdkField: PluginSdkField;
+  sdkRelocation: PluginSdkRelocation;
   enginesFloor: { from: string | null; to: string } | null;
   removedPathMaps: string[];
   removedIncludes: string[];
@@ -95,8 +100,9 @@ interface RewrittenSdkImportFile {
 export async function migratePluginToPackageLayout(
   args: MigratePluginArgs,
 ): Promise<PluginPackageLayoutMigration> {
-  const { rootDir, sdkVersion, dryRun = false } = args;
+  const { rootDir, sdkVersion, sdkInDependencies, dryRun = false } = args;
   const manifestPlan = await planManifest(rootDir, sdkVersion, {
+    sdkInDependencies,
     raiseFloor: true,
     sdkSpecifier: args.sdkSpecifier ?? sdkVersion,
     shimmedTypePins: "none",
@@ -114,7 +120,8 @@ export async function migratePluginToPackageLayout(
       typesPlan.removedTypesDir ||
       importPlan.length > 0,
     pin: manifestPlan.pin,
-    movedFromDependencies: manifestPlan.movedFromDependencies,
+    sdkField: manifestPlan.sdkField,
+    sdkRelocation: manifestPlan.sdkRelocation,
     enginesFloor: manifestPlan.enginesFloor,
     removedPathMaps: tsconfigPlan.removedPathMaps,
     removedIncludes: tsconfigPlan.removedIncludes,
@@ -250,6 +257,7 @@ async function assertInsidePlugin(
 interface SetPluginSdkPinArgs {
   rootDir: string;
   sdkVersion: string;
+  sdkInDependencies: boolean;
   sdkSpecifier?: string;
   dryRun?: boolean;
 }
@@ -263,15 +271,17 @@ export interface ShimmedTypePinChange {
 
 interface PluginSdkPinChange {
   pin: { from: string | null; to: string } | null;
-  movedFromDependencies: boolean;
+  sdkField: PluginSdkField;
+  sdkRelocation: PluginSdkRelocation;
   shimmedTypePins: ShimmedTypePinChange[];
 }
 
 export async function setPluginSdkPin(
   args: SetPluginSdkPinArgs,
 ): Promise<PluginSdkPinChange | null> {
-  const { rootDir, sdkVersion, dryRun = false } = args;
+  const { rootDir, sdkVersion, sdkInDependencies, dryRun = false } = args;
   const plan = await planManifest(rootDir, sdkVersion, {
+    sdkInDependencies,
     raiseFloor: false,
     sdkSpecifier: args.sdkSpecifier ?? sdkVersion,
     shimmedTypePins: "declared",
@@ -282,14 +292,16 @@ export async function setPluginSdkPin(
   }
   return {
     pin: plan.pin,
-    movedFromDependencies: plan.movedFromDependencies,
+    sdkField: plan.sdkField,
+    sdkRelocation: plan.sdkRelocation,
     shimmedTypePins: plan.shimmedTypePins,
   };
 }
 
 interface ManifestPlan {
   pin: { from: string | null; to: string } | null;
-  movedFromDependencies: boolean;
+  sdkField: PluginSdkField;
+  sdkRelocation: PluginSdkRelocation;
   shimmedTypePins: ShimmedTypePinChange[];
   enginesFloor: { from: string | null; to: string } | null;
   text: string | null;
@@ -301,6 +313,7 @@ async function planManifest(
   rootDir: string,
   sdkVersion: string,
   options: {
+    sdkInDependencies: boolean;
     raiseFloor: boolean;
     sdkSpecifier: string;
     shimmedTypePins: ShimmedTypePinPolicy;
@@ -329,24 +342,42 @@ async function planManifest(
     throw new Error("package.json is not valid JSON");
   }
 
-  const declaredPin = readSdkPinFrom(manifest);
+  const sdkField: PluginSdkField = options.sdkInDependencies
+    ? "dependencies"
+    : "devDependencies";
+  const otherField: PluginSdkField = options.sdkInDependencies
+    ? "devDependencies"
+    : "dependencies";
+  const declared = asRecord(manifest[sdkField])["@codythatsme/plugin-sdk"];
+  const otherDeclared = asRecord(manifest[otherField])["@codythatsme/plugin-sdk"];
+  const sdkRelocation: PluginSdkRelocation =
+    typeof otherDeclared !== "string"
+      ? "none"
+      : typeof declared === "string"
+        ? "deduplicated"
+        : "moved";
+  const declaredVersion =
+    typeof declared === "string"
+      ? declared
+      : typeof otherDeclared === "string"
+        ? otherDeclared
+        : null;
   const pin =
-    declaredPin.version === options.sdkSpecifier
+    declaredVersion === options.sdkSpecifier
       ? null
-      : { from: declaredPin.version, to: options.sdkSpecifier };
-  const movedFromDependencies = declaredPin.inDependencies;
-  if (pin !== null || movedFromDependencies) {
-    if (movedFromDependencies) {
-      const deps = asRecord(manifest.dependencies);
+      : { from: declaredVersion, to: options.sdkSpecifier };
+  if (pin !== null || sdkRelocation !== "none") {
+    if (sdkRelocation !== "none") {
+      const deps = asRecord(manifest[otherField]);
       delete deps["@codythatsme/plugin-sdk"];
       if (Object.keys(deps).length === 0) {
-        delete manifest.dependencies;
+        delete manifest[otherField];
       } else {
-        manifest.dependencies = deps;
+        manifest[otherField] = deps;
       }
     }
-    manifest.devDependencies = insertDependency(
-      asRecord(manifest.devDependencies),
+    manifest[sdkField] = insertDependency(
+      asRecord(manifest[sdkField]),
       "@codythatsme/plugin-sdk",
       options.sdkSpecifier,
     );
@@ -370,13 +401,14 @@ async function planManifest(
 
   if (
     pin === null &&
-    !movedFromDependencies &&
+    sdkRelocation === "none" &&
     shimmedTypePins.length === 0 &&
     enginesFloor === null
   ) {
     return {
       pin: null,
-      movedFromDependencies: false,
+      sdkField,
+      sdkRelocation: "none",
       shimmedTypePins: [],
       enginesFloor: null,
       text: null,
@@ -384,7 +416,8 @@ async function planManifest(
   }
   return {
     pin,
-    movedFromDependencies,
+    sdkField,
+    sdkRelocation,
     shimmedTypePins,
     enginesFloor,
     text: reserialize(raw, manifest),
@@ -438,19 +471,12 @@ function applyShimmedTypePins(
   return changes;
 }
 
-function readSdkPinFrom(manifest: Record<string, unknown>): {
-  inDependencies: boolean;
-  version: string | null;
-} {
-  const inDependencies =
-    typeof asRecord(manifest.dependencies)["@codythatsme/plugin-sdk"] ===
-    "string";
+function readSdkPinFrom(manifest: Record<string, unknown>): string | null {
   for (const field of ["devDependencies", "dependencies"] as const) {
     const declared = asRecord(manifest[field])["@codythatsme/plugin-sdk"];
-    if (typeof declared === "string")
-      return { inDependencies, version: declared };
+    if (typeof declared === "string") return declared;
   }
-  return { inDependencies, version: null };
+  return null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -620,7 +646,7 @@ async function pathExists(path: string): Promise<boolean> {
 
 async function readDeclaredSdkPin(rootDir: string): Promise<string | null> {
   const manifest = await readJsonFile(join(rootDir, "package.json"));
-  return manifest === null ? null : readSdkPinFrom(manifest).version;
+  return manifest === null ? null : readSdkPinFrom(manifest);
 }
 
 async function tsconfigMapsSdk(rootDir: string): Promise<boolean> {
@@ -1358,7 +1384,8 @@ Run \`cc plugin build\` before publishing git/npm installs. It writes
 \`dist/server.js\` + \`server.meta.json\` and \`app.js\` / \`app.css\` /
 \`app.meta.json\`. Each \`*.meta.json\` stamps SDK major/version,
 \`artifactFormatVersion\`, \`pluginId\`, \`pluginVersion\`, and
-\`builtWith\` so managed installs can verify the artifacts.
+\`builtWith\` so managed installs can verify the artifacts. \`app.meta.json\`
+also lists \`runtimeSlots\`, the shimmed host modules the bundle imports.
 
 ## Store listing
 
@@ -1464,7 +1491,7 @@ export async function scaffoldPlugin(args: ScaffoldPluginArgs): Promise<void> {
         },
         dependencies: {
           ...PLUGIN_STARTER_DEPENDENCIES,
-          zod: "^4.3.6",
+          zod: "^4.6.5",
         },
         devDependencies: {
           "@codythatsme/plugin-sdk": args.sdkSpecifier ?? PLUGIN_SDK_VERSION,

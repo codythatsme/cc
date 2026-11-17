@@ -1,8 +1,8 @@
 import {
+  InlinePendingInteractionContext,
   PendingInteractionShell,
-  type PendingInteractionSourceThread,
 } from "@/components/thread/pending-interactions/PendingInteractionShell";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useContext, useMemo, useState } from "react";
 import { Button } from "@cc/shared-ui/button";
 import type { JsonValue, PendingInteraction } from "@cc/domain";
 import { PluginSlotMount } from "./PluginSlotMount";
@@ -10,7 +10,7 @@ import { Skeleton } from "@cc/shared-ui/skeleton";
 import { resolvePendingInteraction } from "@/lib/plugin-slot-resolvers";
 import { usePluginDisplayName } from "@/lib/plugin-logos";
 import { usePluginFrontendsSettled } from "@/lib/plugin-frontend-boot-state";
-import { usePluginSlots } from "@/lib/plugin-slots";
+import { usePluginSlotKind } from "@/lib/plugin-slots";
 import { useStopThread } from "@/hooks/mutations/thread-runtime-mutations";
 import { sdk } from "@/lib/sdk";
 
@@ -28,18 +28,19 @@ interface PluginPendingInteractionComposerProps {
   >;
   request: PluginPendingInteractionRequest;
   origin: "plugin" | "provider";
-  sourceThread?: PendingInteractionSourceThread;
+  collapsedByDefault: boolean;
 }
 
 export function PluginPendingInteractionComposer({
   interaction,
   request,
   origin,
-  sourceThread,
+  collapsedByDefault,
 }: PluginPendingInteractionComposerProps) {
-  const { pendingInteractions } = usePluginSlots();
+  const pendingInteractions = usePluginSlotKind("pendingInteractions");
   const pluginName = usePluginDisplayName(request.pluginId);
   const pluginsSettled = usePluginFrontendsSettled();
+  const inline = useContext(InlinePendingInteractionContext) !== null;
   const stopThread = useStopThread();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,10 +64,9 @@ export function PluginPendingInteractionComposer({
           value,
         });
       } catch (cause) {
+        setSubmitting(false);
         setError(cause instanceof Error ? cause.message : String(cause));
         throw cause;
-      } finally {
-        setSubmitting(false);
       }
     },
     [interaction.id, interaction.threadId],
@@ -85,10 +85,9 @@ export function PluginPendingInteractionComposer({
         });
       }
     } catch (cause) {
+      setSubmitting(false);
       setError(cause instanceof Error ? cause.message : String(cause));
       throw cause;
-    } finally {
-      setSubmitting(false);
     }
   }, [origin, interaction.id, interaction.threadId, stopThread]);
   const dismissLabel = origin === "plugin" ? "Cancel" : "Stop turn";
@@ -97,18 +96,19 @@ export function PluginPendingInteractionComposer({
     <PendingInteractionShell
       key={interaction.id}
       label={request.title}
-      initiallyExpanded
+      expandedByDefault={!collapsedByDefault}
       errorMessage={error}
-      sourceThread={sourceThread}
       testId="plugin-interaction-shell"
     >
       {() => (
         <>
-          <p className="mb-4 text-xs text-muted-foreground">
-            {origin === "plugin"
-              ? `Requested by ${pluginName}`
-              : `Asked by the agent through ${pluginName}`}
-          </p>
+          {inline ? null : (
+            <p className="mb-4 text-xs text-muted-foreground">
+              {origin === "plugin"
+                ? `Requested by ${pluginName}`
+                : `Asked by the agent through ${pluginName}`}
+            </p>
+          )}
           {slot ? (
             <PluginSlotMount
               pluginId={slot.pluginId}
@@ -130,7 +130,7 @@ export function PluginPendingInteractionComposer({
                 </div>
               }
             >
-              <fieldset disabled={submitting}>
+              <fieldset disabled={submitting} className="min-w-0">
                 <slot.component
                   interaction={{
                     id: interaction.id,

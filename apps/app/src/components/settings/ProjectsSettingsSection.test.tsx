@@ -131,7 +131,7 @@ const projects: SidebarProjectFixture[] = [
   {
     id: "proj_pierre",
     name: "pierre",
-    gitRemoteUrl: "https://github.com/get-cc/pierre.git",
+    gitRemoteUrl: "https://github.com/codythatsme/pierre.git",
     hostIds: ["host_remote"],
     threadCount: 1,
   },
@@ -255,8 +255,8 @@ describe("formatGitRemote", () => {
     expect(formatGitRemote("git@github.com:codythatsme/cc.git")).toBe(
       "github.com/codythatsme/cc",
     );
-    expect(formatGitRemote("https://github.com/get-cc/pierre.git")).toBe(
-      "github.com/get-cc/pierre",
+    expect(formatGitRemote("https://github.com/codythatsme/pierre.git")).toBe(
+      "github.com/codythatsme/pierre",
     );
   });
 
@@ -273,7 +273,7 @@ describe("ProjectsSettingsSection", () => {
 
     expect(await screen.findByText("cc")).toBeDefined();
     expect(screen.getByText("github.com/codythatsme/cc")).toBeDefined();
-    expect(screen.getByText("2 of 2 machines")).toBeDefined();
+    expect(await screen.findByText("2 of 2 machines")).toBeDefined();
     expect(screen.getByText("3 threads")).toBeDefined();
     expect(screen.getByText("1 of 2 machines")).toBeDefined();
     expect(screen.getByText("No git remote")).toBeDefined();

@@ -15,28 +15,90 @@ that need the singleton personal project use
 
 **Area map.** Every area below is reachable from `cc.sdk`. This lists the
 methods, not their arguments — read the bundled `cc-plugin-sdk.d.ts` for exact
-signatures (see "Looking up the exact API").
+signatures (see "Looking up the exact API" in distribution.md).
 
-| Area             | Methods                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `threads`        | `list` `get` `search` `spawn` `fork` `getPluginMetadata` `updatePluginMetadata` `send` `editMessage` `resolveMentions` `update` `delete` `stop` `compact` `wait` `open` `output` `timeline` `conversationOutline` `promptHistory` `archive` `archiveAll` `unarchive` `pin` `unpin` `reorderPinned` `markRead` `markUnread` `childSummary` `paneAction` `timelineTurnSummaryDetails` `storageFiles` `storageLocation` `storagePaths` `cancelPlan` `clearGoal` `defaultExecutionOptions`; sub-areas `events` (`list` `wait`), `interactions` (`get` `list` `cancel` `resolve` `respond`), `queuedMessages` (`create` `list` `update` `delete` `send` `reorder` `setGroupBoundary`), `tabs` (`get` `update`) |
-| `threadSections` | `list` `create` `update` `delete`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `projects`       | `list` `get` `create` `update` `delete` `reorder` `paths` `files` `fileContent` `branches` `commands` `defaultExecutionOptions` `promptHistory` `sidebarBootstrap`; sub-areas `attachments` (`upload` `read` `copy`), `sources` (`add` `update` `delete`)                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `environments`   | `list` `listProviders` `get` `update` `delete` `status` `paths` `commit` `archiveThreads` `diff` `diffFile` `diffFiles` `diffBranches` `diffPatch` `pullRequest` `markPullRequestDraft` `markPullRequestReady` `mergePullRequest`                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `hosts`          | `create` `list` `listProviders` `get` `update` `delete` `directory` `pathsExist` `pickFolder` `cloneDefaultPath` `createJoinCode` (deprecated; use `experimental_create` and `experimental_getEnrollmentCommand`) `suspend` `resume` `retryCleanup` `retryUpdate` `providerCliStatus` `installProviderCli`                                                                                                                                                                                                                                                                                                                                                                                                |
-| `files`          | `read` `write` `list` `listPaths` `mkdir` `move` `remove` `createPreview`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `terminals`      | `list` `create` `get` `input` `output` `resize` `rename` `restart` `close`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `providers`      | `list` `models`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `skills`         | `list` `listFiles` `getContent` `update` `remove`; sub-area `registry` (`search` `entries` `get` `detail` `install` `repositoryStars`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `plugins`        | `list` `install` `remove` `enable` `disable` `reload` `token` `callRpc` `getSource` `getSettings` `updateSettings` `checkUpdates` `listUpdateResults` `applyUpdate`; sub-area `catalog` (`search` `status` `installPlan` `install`); sub-area `marketplaces` (`add` `list` `refresh` `remove`)                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `theme`          | `get` `catalog` `set`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `status`         | `get`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `system`         | `version` `config` `reloadConfig` `attention` `usageLimits` `executionOptions` `providerStates` `transcribeVoice` `updateGeneralSettings` `updateKeyboardSettings` `updateExperiments` `cliSkillsStatus` `installCliSkills` `appUpdate` `applyAppUpdate` `acknowledgeAppUpdate`                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `guide`          | `render` (the `cc guide` text; local, no request)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+- `threads`: `list` `listRunning` `count` `get` `search` `spawn` `fork`
+  `send` `retry` `message` `editMessage` `resolveMentions` `update` `delete`
+  `stop` `compact` `clearContext` `wait` `open` `output` `timeline` `context`
+  `conversationOutline` `promptHistory` `archive` `archiveAll` `unarchive`
+  `pin` `unpin` `reorderPinned` `markRead` `markUnread` `childSummary`
+  `paneAction` `timelineTurnSummaryDetails` `storageFiles` `storageLocation`
+  `storagePaths` `cancelPlan` `clearGoal` `defaultExecutionOptions`
+  `restoreEnvironment` `getPluginMetadata` `updatePluginMetadata`
+  `experimental_listPluginMetadata` `experimental_listAncestors`
+  `experimental_listDescendants` `experimental_listCascade`
+  `experimental_regenerateTitle` `experimental_headState`; sub-areas `events` (`list` `wait`),
+  `interactions` (`get` `list` `cancel` `resolve` `respond`), `queue`
+  (`list`), `queuedMessages` (`create` `list` `update` `delete` `send`
+  `reorder` `setGroupBoundary` `experimental_holdForEdit`
+  `experimental_releaseEditHold`; `update` takes any of `input`, `sendAt`,
+  `model`, `reasoningLevel`, `permissionMode`, `serviceTier`),
+  `tabs` (`get` `update`)
+- `threadSections`: `list` `create` `update` `delete`
+- `projects`: `list` `get` `create` `update` `delete` `reorder` `paths`
+  `files` `fileContent` `branches` `commands` `defaultExecutionOptions`
+  `promptHistory` `sidebarBootstrap` `machineEnvironment`
+  `replaceMachineEnvironment` `setMachineEnvironmentVariable`
+  `deleteMachineEnvironmentVariable`; sub-areas `attachments` (`upload` `read`
+  `copy`), `sources` (`add` `update` `delete`)
+- `experimental_promptHistory`: `list`
+- `environments`: `list` `listProviders` `get` `update` `delete` `paths`
+  `commit` `archiveThreads` `experimental_cleanup`
+- `hosts`: `list` `get` `update` `delete` `directory` `pathsExist`
+  `pickFolder` `cloneDefaultPath` `providerCliStatus` `installProviderCli`
+  `experimental_startProviderCliInstall` `retryUpdate`
+  `experimental_listProviders` `experimental_create`
+  `experimental_getEnrollmentCommand` `experimental_reconnect`
+  `experimental_suspend` `experimental_resume` `experimental_retryCleanup`
+  `experimental_reconcile` `experimental_deleteOldServerCopy`
+  `experimental_discoverRepos`; sub-area `experimental_providerCliInstallJobs`
+  (`list` `get` `wait`), and the
+  deprecated `createJoinCode` (machine creation and suspension are in
+  backend-machines.md)
+- `files`: `read` `write` `list` `listPaths` `mkdir` `move` `remove`
+  `createPreview`
+- `terminals`: `list` `create` `get` `input` `output` `resize` `rename`
+  `restart` `close`
+- `providers`: `list` `models` `catalog` `setEnabled`
+- `skills`: `list` `listFiles` `getContent` `update` `remove`; sub-area
+  `registry` (`search` `entries` `get` `detail` `install` `repositoryStars`)
+- `plugins`: `list` `install` `remove` `enable` `disable` `reload` `token`
+  `callRpc` `getSource` `getSettings` `updateSettings` `checkUpdates`
+  `listUpdateResults` `applyUpdate` `experimental_startUpdate`
+  `experimental_discoverRpc` `experimental_getSafeMode`
+  `experimental_setSafeMode` `experimental_pruneCache`; sub-areas `catalog`
+  (`search` `status` `installPlan` `install`), `marketplaces` (`add` `list`
+  `refresh` `remove`), `experimental_updateJobs` (`list` `get`)
+- `theme`: `get` `catalog` `resolve` `set`
+- `status`: `get`
+- `system`: `version` `config` `reloadConfig` `attention` `usageLimits`
+  `executionOptions` `providerStates` `transcribeVoice` `aiServices`
+  `setAiServiceSelection` `testAiService` `updateGeneralSettings`
+  `updateKeyboardSettings` `updateExperiments` `cliSkillsStatus`
+  `installCliSkills` `machineEnvironment` `replaceMachineEnvironment`
+  `setMachineEnvironmentVariable` `deleteMachineEnvironmentVariable`
+  `mobileAppDownloads` `mobileAppReleases` `appUpdate` `applyAppUpdate`
+  `acknowledgeAppUpdate` `experimental_cliCommand`
+  `experimental_installCliCommand` `experimental_removeCliCommand`
+  sub-area `uiPreferences` (`list` `set` `reset`)
+- `experimental_desktopBrowsers`: `listInstances` `listTabs` `createTab`
+  `acquireControl` `openConnection` `releaseControl` `revealTab` `closeTab`
+  `captureTab` `listImportSources` `importCookies` `subscribe`
+- `experimental_server`: `checkMove` `startMove` `moveStatus` `cancelMove`
+  `export`
+- `subscribe` — realtime entity-change subscriptions (below)
+- `guide`: `render` (the `cc guide` text; local, no request)
 
 Prefer your own `cc.settings` and `cc.storage` over `sdk.system` and
 `sdk.plugins` for your plugin's own configuration. The `system` and `plugins`
 areas write app-wide state that the user owns.
+
+`threads.experimental_regenerateTitle({ threadId })` replaces a thread's title
+with one the thread-title AI service writes from its first task message,
+latest user messages, and the agent's latest replies, in the task's language:
+the thread menu's Regenerate title action. The service may keep the current
+title when it still fits. It rejects and keeps the title when no title service
+is available or generation fails.
 
 ```ts
 const thread = await cc.sdk.threads.spawn({
@@ -48,6 +110,32 @@ const thread = await cc.sdk.threads.spawn({
   pluginMetadata: { issueKey: "ENG-42", requestedBy: "automation" },
 });
 ```
+
+### Calling another plugin's RPC
+
+`cc.sdk.plugins.callRpc({ pluginId, method, input, outputSchema })` calls
+another plugin's `cc.rpc` handler. Each handler receives a context whose
+`experimental_caller` is `{ kind: "plugin", pluginId }` for a call through a
+loaded plugin's own `cc.sdk.plugins.callRpc`, verified with a per-load token
+only the server holds, and `{ kind: "client" }` for everything else: the app,
+CLI, agents, and cc. Tests set it with
+`harness.callRpc(method, input, { experimental_caller })`.
+
+```ts
+handOver(input, { experimental_caller: caller }) {
+  if (caller.kind !== "plugin" || caller.pluginId !== "connect") {
+    throw new Error("only the connect plugin can call handOver");
+  }
+  return handOver(input);
+},
+```
+
+The context's `experimental_signal` aborts when the caller stops waiting
+(its HTTP request disconnects) or when this plugin generation is reloaded,
+disabled or removed. Pass it to long work and stop when it aborts.
+`cc.sdk.plugins.callRpc` gives up after 75 seconds, which disconnects the
+request and aborts the handler's signal; build longer operations as a job the
+caller polls.
 
 ### Thread plugin metadata
 
@@ -70,8 +158,9 @@ const child = await cc.sdk.threads.fork({
 });
 ```
 
-`PluginCcSdk` is the plugin-bound SDK type. Its `getPluginMetadata` and
-`updatePluginMetadata` calls default to the current plugin's ID. Pass `pluginId`
+`PluginCcSdk` is the plugin-bound SDK type. Its `getPluginMetadata`,
+`updatePluginMetadata`, and `experimental_listPluginMetadata` calls default to
+the current plugin's ID. Pass `pluginId`
 explicitly to read or update another namespace. It must be a plugin ID:
 lowercase letters, digits, and dashes. Namespace IDs are not ownership or
 authorization boundaries.
@@ -82,6 +171,33 @@ values must be plain JSON objects. The SDK rejects invalid input before sending
 any request, including a seed or `set` that is over 256 KiB on its own; raw
 HTTP clients get HTTP 400 for it. A patch whose merged namespace would exceed
 the limit fails with HTTP 413 and leaves the namespace unchanged.
+`threads.experimental_listPluginMetadata({ threadIds })` reads one namespace
+for 1–200 threads in one request, archived and deleted threads included, and
+omits threads without it.
+
+### Thread trees
+
+`cc.sdk.threads.experimental_listAncestors({ threadIds })` returns each thread's
+ancestor ids from its parent up to the root, and
+`cc.sdk.threads.experimental_listDescendants({ threadIds })` every thread below
+it, children first (1–200 ids per call), leaving out archived and hidden ones
+unless you pass `includeArchived` or `includeHidden`.
+`cc.sdk.threads.experimental_listCascade({ threadIds, action })` returns, for
+`action` `"archive"` or `"delete"`, the visible threads that archiving or
+deleting each thread would also affect, following the same parent and
+lifecycle-owner links the action does. Pair them with
+`experimental_listPluginMetadata` to read a setting that a parent applies to its
+subtree. `cc.events.on("experimental_thread.parentChanged", handler)` fires after
+a thread moves to a new parent or loses its parent (a `threads.update` of
+`parentThreadId`, or core releasing an archived thread's children) with `thread`
+and `previousParentThreadId`. Threads below it move with it and get no event of
+their own. Push notifications uses all three: a parent's level limits every
+thread below it.
+
+`cc.events.on("experimental_thread.read", handler)` fires with `thread` after a
+thread becomes read: a client opened it or marked it read, or the user sent it
+a turn. Marking a thread unread does not fire it, and a thread that was already
+read can fire it again when a client re-marks it, so keep the handler cheap.
 
 Every `cc.agents.configure` callback receives its plugin's current namespace as
 a deep-frozen snapshot at top-level `context.pluginMetadata`, or `{}` when it
@@ -137,12 +253,20 @@ const timeline = await cc.sdk.threads.timeline({ threadId });
 await cc.sdk.threads.update({ threadId, title: "Fix the flaky test" });
 ```
 
-`threads.list` filters on `projectId`, `environmentId`, `parentThreadId`, `sourceThreadId`,
-`sectionId`, `originKind`, `originPluginId`, `archived`, `unsectioned`,
-`hasParent`, and `includeHidden`, and it pages with `limit` and `offset`.
+`threads.list` filters on `projectId`, `environmentId`, `hostId`,
+`parentThreadId`, `sourceThreadId`, `sectionId`, `originKind`,
+`originPluginId`, `archived`, `unsectioned`, `hasParent`, and `includeHidden`,
+and it pages with `limit` and `offset`. `threadIds` (at most 200) narrows it to
+those threads and leaves out unknown or deleted IDs, so it also answers which
+of a set of threads still exist.
 `threads.update` writes `title`, `sectionId`, `parentThreadId`, `model`,
 `reasoningLevel`, and `visibility`. Use `threads.timeline` (or
 `threads.output` for the last assistant text) to read a thread's messages.
+To read a thread's current to-dos, slash commands, session options, extension
+states, plan prompt mode, model fallback, or context usage, use
+`threads.experimental_headState({ threadId })`: it reads their latest stored
+state without building a timeline window, so it stays cheap on threads with
+long turns.
 For raw history, `threads.events.list` defaults to ascending order and supports
 exclusive `afterSeq` / `beforeSeq` cursors, `order: "asc" | "desc"`, and a
 non-empty typed `types` array. Combine `order: "desc"` with `beforeSeq` to page
@@ -202,6 +326,12 @@ it the right save path even locally):
 const file = await cc.sdk.files.read({ path: "/home/me/notes/todo.md" });
 // → { content, contentEncoding, sha256, sizeBytes, modifiedAtMs?, ... }
 
+const atHead = await cc.sdk.files.read({
+  path: "/home/me/repo/src/app.ts",
+  rootPath: "/home/me/repo",
+  ref: "HEAD", // read the file at a git revision; requires rootPath
+});
+
 const saved = await cc.sdk.files.write({
   path: "/home/me/notes/todo.md",
   rootPath: "/home/me/notes", // optional: confine writes beneath this root
@@ -215,9 +345,11 @@ if (saved.outcome === "conflict") {
 }
 ```
 
-For `cc.sdk.files`, `hostId` is optional and defaults to the server machine
-(`primaryHostId` from `cc.sdk.system.config()`).
-Other SDK areas define their own routing rules.
+For `cc.sdk.files`, `hostId` is optional and defaults to the server machine:
+`primaryHostId` from `cc.sdk.system.config()`, the server's local enrolled
+host. It is `null` when that identity is not initialized or its host record is
+missing or destroyed, and it never falls back to a remote machine. Other SDK
+areas define their own routing rules.
 `cc.sdk.files.list({ path, query?, limit? })` is a recursive fuzzy file
 listing under a directory. Writes cap at 25 MB and return
 `{ outcome: "written", sha256, sizeBytes }`.
@@ -229,9 +361,8 @@ mimeType? })`; `clientFile` accepts `Uint8Array`, `ArrayBuffer`, `Blob`, or a
 File-like value (bare bytes/Blob require `filename`). The SDK sends multipart
 bytes and returns the stable uploaded-attachment DTO whose relative `path` can
 be used in `localFile`/`localImage` prompt input. Read an existing attachment
-with `cc.sdk.projects.attachments.read({ projectId, path })`. Image MIME types
-cap at 10 MB and other files at 25 MB. There is no attachment list or
-per-attachment remove operation.
+with `cc.sdk.projects.attachments.read({ projectId, path })`. Uploads cap at
+35 MB per file. There is no attachment list or per-attachment remove operation.
 
 For filesystem-backed products that need a tree or mutations,
 `cc.sdk.files.listPaths({ path, includeFiles, includeDirectories, ... })`
@@ -258,20 +389,8 @@ serve browser assets from that confined host root. This is the preferred
 transport for plugin images and sandboxed HTML with sibling-relative assets;
 preview URLs expire and never reveal the host id or absolute root.
 
-## Standalone machines
-
-`cc.sdk.hosts.experimental_listProviders({ projectId? })` discovers machine providers and their
-input schemas; its optional `projectId` only resolves the environment row shown
-for a project. `cc.sdk.hosts.experimental_create({ machineProviderId, inputs, key?, wait?, signal? })`
-returns a public Host; a machine belongs to no project, and `inputs: null` is
-for a provider that accepts no inputs. Supply a stable key for
-idempotent retries. The default waits until active; `wait: false` returns the
-creating host for polling with `get`. Creation does not create an environment or a thread.
-`cc.sdk.hosts.experimental_suspend({ hostId })` and `resume({ hostId })` require the provider's
-paired suspend/resume operations. They return the updated public Host with HTTP
-202 once the tracked operation starts; read its lifecycle state for completion.
-`retryCleanup({ hostId })` retries failed
-provider teardown. `get({ hostId })` additionally returns nullable
-`connectMachineId` from trusted gate metadata for legacy access revocation;
-Connect now persists its revocation identity during acquire, before enrollment.
-Host lists do not expose that detail.
+Caller-gated RPC handlers can throw `new experimental_PluginRpcRefusal({
+code: "forbidden", message: "Only the connect plugin can call this method" })`
+from `@codythatsme/plugin-sdk`. `cc.sdk.plugins.callRpc` rejects with a `CcHttpError`
+whose `code` is `forbidden` and `status` is 403. See `backend-events.md` for
+the refusal codes, optional validation issues and mutation rollback behavior.

@@ -9,7 +9,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { createPortal } from "react-dom";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter } from "react-router-dom";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThreadActionsProvider } from "@/components/thread/ThreadActionsProvider";
@@ -28,13 +28,10 @@ import {
 import { resetAllCrashedPluginSlotsForTest } from "./PluginSlotMount";
 import { PluginAppOverlays } from "./PluginAppOverlays";
 import { makePluginRegistrationSet as registrationSet } from "@/test/fixtures/plugins";
+import { LocationProbe } from "@/test/location-probe";
 
 vi.mock("@/components/dialogs/ThreadDeleteDialog", () => ({
   ThreadDeleteDialog: () => null,
-}));
-
-vi.mock("@/components/dialogs/ThreadRenameDialog", () => ({
-  ThreadRenameDialog: () => null,
 }));
 
 vi.mock("@/hooks/mutations/thread-state-mutations", () => {
@@ -59,27 +56,19 @@ vi.mock("@/hooks/queries/host-queries", () => ({
   useHosts: () => ({ data: [] }),
 }));
 
-vi.mock("@/hooks/queries/sidebar-navigation-query", () => ({
-  useSidebarNavigation: () => ({
-    data: {
-      personalProject: { id: "personal", name: "Personal", threads: [] },
-      projects: [],
-    },
-    isError: false,
-  }),
+vi.mock("@/hooks/queries/system-queries", () => ({
+  useSystemConfig: () => ({ data: undefined }),
 }));
 
-function LocationProbe() {
-  return <div data-testid="location">{useLocation().pathname}</div>;
-}
+const useSidebarThreadActions =
+  pluginSdkAppImplementation.experimental_useSidebarThreadActions;
 
 function PortaledProbe() {
   const context = useCcContext();
   const navigate = useCcNavigate();
   const rpc = useRpc();
   const settings = useSettings();
-  const sidebarThreadActions =
-    pluginSdkAppImplementation.experimental_useSidebarThreadActions();
+  const sidebarThreadActions = useSidebarThreadActions();
   const [rpcResult, setRpcResult] = useState("idle");
 
   return (

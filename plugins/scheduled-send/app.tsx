@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -14,49 +13,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ScheduleTimeFields } from "@/components/ui/schedule-time-fields";
 import {
   definePluginApp,
   useComposer,
-  useComposerView,
-  type ComposerView,
-  type PluginComposerScope,
+  type ComposerSendMenuItem,
+  type PluginComposerApi,
 } from "@codythatsme/plugin-sdk/app";
 import {
   DEFAULT_SCHEDULE_PRESET_ID,
-  MAX_SCHEDULE_AHEAD_MS,
   defaultCustomSchedule,
-  formatDateInputValue,
   formatScheduleTime,
-  formatScheduleTimeZone,
-  isSchedulePresetId,
-  listSchedulePresets,
-  parseCustomScheduleTime,
+  isScheduleOptionId,
+  resolveScheduleOption,
   type CustomScheduleFields,
-  type SchedulePresetId,
-  type ScheduleTimeParse,
-} from "./schedule-time.js";
-
-export function composerScopeKey(scope: PluginComposerScope): string {
-  switch (scope.kind) {
-    case "thread":
-      return `thread:${scope.threadId}`;
-    case "queued-message":
-      return `queued-message:${scope.queuedMessageId}`;
-    case "side-chat":
-      return `side-chat:${scope.tabId}`;
-    case "new-thread":
-      return `new-thread:${scope.projectId ?? ""}`;
-  }
-}
+  type ScheduleOptionId,
+} from "@/lib/schedule-time";
 
 const listeners = new Set<() => void>();
 let openScopeKey: string | null = null;
@@ -72,9 +44,9 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-export function openSendLater(view: ComposerView): boolean {
-  if (view.draft.isEmpty) return false;
-  openScopeKey = composerScopeKey(view.scope);
+export function openSendLater(composer: PluginComposerApi): boolean {
+  if (composer.isEmpty) return false;
+  openScopeKey = composer.key;
   notify();
   return true;
 }
@@ -98,37 +70,57 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const CUSTOM_SCHEDULE_OPTION_ID = "custom";
-type ScheduleOptionId = SchedulePresetId | typeof CUSTOM_SCHEDULE_OPTION_ID;
+const SCHEDULE_SELECTION_STORAGE_KEY = "cc:scheduled-send:selection:v1";
 
-function isScheduleOptionId(value: string): value is ScheduleOptionId {
-  return value === CUSTOM_SCHEDULE_OPTION_ID || isSchedulePresetId(value);
+function readScheduleSelection(now: number): {
+  optionId: ScheduleOptionId;
+  custom: CustomScheduleFields;
+} {
+  const fallback = {
+    optionId: DEFAULT_SCHEDULE_PRESET_ID,
+    custom: defaultCustomSchedule(now),
+  };
+  try {
+    const stored = localStorage.getItem(SCHEDULE_SELECTION_STORAGE_KEY);
+    if (stored === null) return fallback;
+    const value: unknown = JSON.parse(stored);
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("optionId" in value) ||
+      typeof value.optionId !== "string" ||
+      !isScheduleOptionId(value.optionId) ||
+      !("date" in value) ||
+      typeof value.date !== "string" ||
+      !("time" in value) ||
+      typeof value.time !== "string"
+    )
+      return fallback;
+    const custom = { date: value.date, time: value.time };
+    return resolveScheduleOption(value.optionId, custom, now).ok
+      ? { optionId: value.optionId, custom }
+      : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function resolveScheduleOption(
+function rememberScheduleSelection(
   optionId: ScheduleOptionId,
   custom: CustomScheduleFields,
-  now: number,
-): ScheduleTimeParse {
-  if (optionId === CUSTOM_SCHEDULE_OPTION_ID) {
-    return parseCustomScheduleTime(custom, now);
-  }
-  const preset = listSchedulePresets(now).find(
-    (candidate) => candidate.id === optionId,
-  );
-  return preset === undefined
-    ? { ok: false, message: "That option has passed. Choose another time." }
-    : { ok: true, at: preset.at };
+): void {
+  try {
+    localStorage.setItem(
+      SCHEDULE_SELECTION_STORAGE_KEY,
+      JSON.stringify({ optionId, ...custom }),
+    );
+  } catch {}
 }
 
 function SendLaterPicker() {
   const composer = useComposer();
-  const view = useComposerView();
-  const scopeKey = composerScopeKey(view.scope);
-  const isOpen = useSendLaterOpen(scopeKey);
-  const whenId = useId();
-  const customDateId = useId();
-  const customTimeId = useId();
+  const isEmpty = composer.isEmpty;
+  const isOpen = useSendLaterOpen(composer.key);
   const [selectedOption, setSelectedOption] = useState<ScheduleOptionId>(
     DEFAULT_SCHEDULE_PRESET_ID,
   );
@@ -143,16 +135,17 @@ function SendLaterPicker() {
     if (!isOpen) return;
     const openedAt = Date.now();
     setNow(openedAt);
-    setSelectedOption(DEFAULT_SCHEDULE_PRESET_ID);
-    setCustom(defaultCustomSchedule(openedAt));
+    const selection = readScheduleSelection(openedAt);
+    setSelectedOption(selection.optionId);
+    setCustom(selection.custom);
     setError(null);
     const interval = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(interval);
   }, [isOpen]);
 
   useEffect(() => {
-    if (isOpen && view.draft.isEmpty) closeSendLater();
-  }, [isOpen, view.draft.isEmpty]);
+    if (isOpen && isEmpty) closeSendLater();
+  }, [isEmpty, isOpen]);
 
   async function schedule(at: number): Promise<void> {
     if (at <= Date.now()) {
@@ -162,7 +155,10 @@ function SendLaterPicker() {
     setBusy(true);
     setError(null);
     try {
-      await composer.experimental_submit({ sendAt: at });
+      await composer.submit({
+        experimental_mode: "queue-if-active",
+        sendAt: at,
+      });
       closeSendLater();
       toast.success(`Sending ${formatScheduleTime(at, Date.now())}`);
     } catch (scheduleError: unknown) {
@@ -181,9 +177,7 @@ function SendLaterPicker() {
     void schedule(resolved.at);
   }
 
-  const presets = listSchedulePresets(now);
   const preview = resolveScheduleOption(selectedOption, custom, now);
-  const visibleError = error ?? (preview.ok ? null : preview.message);
 
   return (
     <Dialog
@@ -196,7 +190,7 @@ function SendLaterPicker() {
         <DialogHeader>
           <DialogTitle>Send later</DialogTitle>
           <DialogDescription>
-            {view.scope.kind === "new-thread"
+            {composer.scope.kind === "new-thread"
               ? "Choose when this thread should start. It will use the model and environment selected in the composer."
               : "Choose when this message should send."}
           </DialogDescription>
@@ -208,91 +202,23 @@ function SendLaterPicker() {
             submitSelection();
           }}
         >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={whenId}>When</Label>
-            <Select
-              disabled={busy}
-              onValueChange={(value) => {
-                if (!isScheduleOptionId(value)) return;
-                setSelectedOption(value);
-                setError(null);
-              }}
-              value={selectedOption}
-            >
-              <SelectTrigger aria-label="When to send" id={whenId}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {presets.map((preset) => (
-                  <SelectItem key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-                <SelectItem value={CUSTOM_SCHEDULE_OPTION_ID}>
-                  Custom date and time
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {selectedOption === CUSTOM_SCHEDULE_OPTION_ID ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={customDateId}>Date</Label>
-                <Input
-                  disabled={busy}
-                  id={customDateId}
-                  max={formatDateInputValue(now + MAX_SCHEDULE_AHEAD_MS)}
-                  min={formatDateInputValue(now)}
-                  onChange={(event) => {
-                    setCustom((current) => ({
-                      ...current,
-                      date: event.target.value,
-                    }));
-                    setError(null);
-                  }}
-                  type="date"
-                  value={custom.date}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor={customTimeId}>Time</Label>
-                <Input
-                  disabled={busy}
-                  id={customTimeId}
-                  onChange={(event) => {
-                    setCustom((current) => ({
-                      ...current,
-                      time: event.target.value,
-                    }));
-                    setError(null);
-                  }}
-                  type="time"
-                  value={custom.time}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {preview.ok ? (
-            <div
-              aria-live="polite"
-              className="rounded-md bg-muted/50 px-3 py-2"
-            >
-              <p className="font-medium">
-                Sends {formatScheduleTime(preview.at, now)}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {formatScheduleTimeZone(preview.at)}
-              </p>
-            </div>
-          ) : null}
-
-          {visibleError === null ? null : (
-            <p className="text-destructive" role="alert">
-              {visibleError}
-            </p>
-          )}
+          <ScheduleTimeFields
+            custom={custom}
+            disabled={busy}
+            error={error}
+            now={now}
+            onCustomChange={(next) => {
+              setCustom(next);
+              rememberScheduleSelection(selectedOption, next);
+              setError(null);
+            }}
+            onOptionChange={(next) => {
+              setSelectedOption(next);
+              rememberScheduleSelection(next, custom);
+              setError(null);
+            }}
+            optionId={selectedOption}
+          />
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
@@ -313,26 +239,26 @@ function SendLaterPicker() {
   );
 }
 
+const sendLater: ComposerSendMenuItem = {
+  id: "send-later",
+  label: "Send later…",
+  icon: "Calendar",
+  description: "Schedule the current draft to send at a time you pick.",
+  disabled: (composer) => composer.isSubmittingBlocked,
+  run: ({ composer }) => {
+    if (!openSendLater(composer)) {
+      toast.error("Nothing to schedule", {
+        description: "Type a message first, then choose Send later.",
+      });
+    }
+  },
+};
+
 export default definePluginApp((app) => {
   app.composer.customize({
     id: "send-later",
     scopes: ["thread", "new-thread"],
-    plusMenu: [
-      {
-        id: "send-later",
-        label: "Send later…",
-        icon: "Calendar",
-        description: "Schedule the current draft to send at a time you pick.",
-        disabled: (view) => view.draft.isEmpty || view.run.isSubmitting,
-        run: ({ view }) => {
-          if (!openSendLater(view)) {
-            toast.error("Nothing to schedule", {
-              description: "Type a message first, then choose Send later.",
-            });
-          }
-        },
-      },
-    ],
+    sendMenu: [sendLater],
     banners: [{ id: "send-later", chrome: "bare", component: SendLaterPicker }],
   });
 });

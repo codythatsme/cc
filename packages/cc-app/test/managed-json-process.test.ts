@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { ccAppManagedEnvFileSchema } from "@cc/config/cc-app-managed-config";
 import { readFile } from "node:fs/promises";
 import { mutateManagedJsonFile } from "@cc/config/managed-json-file";
@@ -16,16 +16,47 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 const observer = join(packageRoot, "test/fixtures/managed-json-observer.cjs");
-const entry = join(packageRoot, "src/bin/cc-app.ts");
+let fixtureRoot: string;
+let entry: string;
 const enrollmentEntry = join(
   packageRoot,
   "test/fixtures/machine-enrollment-process.mjs",
 );
 const cleanups: Array<() => void | Promise<void>> = [];
+
+beforeAll(() => {
+  fixtureRoot = mkdtempSync(join(packageRoot, ".managed-json-cli-"));
+  entry = join(fixtureRoot, "cc-app.mjs");
+  execFileSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `
+import { buildNodeEsmEntry } from ${JSON.stringify(new URL("../../../scripts/build-utils.mjs", import.meta.url).href)};
+await buildNodeEsmEntry({
+  cleanDist: false,
+  entryPoint: process.argv[1],
+  outfile: process.argv[2],
+  packageRoot: process.argv[3],
+  sourcemap: false,
+});
+`,
+      join(packageRoot, "src/bin/cc-app.ts"),
+      entry,
+      packageRoot,
+    ],
+    { timeout: 30_000 },
+  );
+}, 30_000);
+
+afterAll(() => {
+  if (fixtureRoot) rmSync(fixtureRoot, { recursive: true, force: true });
+});
 
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
@@ -65,9 +96,9 @@ function start(
     [
       "--require",
       observer,
-      "--conditions=source",
-      "--import",
-      "tsx",
+      ...(controls.entry === undefined
+        ? []
+        : ["--conditions=source", "--import", "tsx"]),
       ...processArgs,
     ],
     {
@@ -166,6 +197,7 @@ async function compete(
 
 function cleanAndPrivate(dir: string, kind: string) {
   expect(readdirSync(dir).filter((file) => file.endsWith(".tmp"))).toEqual([]);
+  if (process.platform === "win32") return;
   expect(statSync(join(dir, `${kind}.json`)).mode & 0o777).toBe(0o600);
   expect(statSync(join(dir, `.${kind}.json.lock`)).mode & 0o777).toBe(0o600);
 }
@@ -208,9 +240,6 @@ describe("managed JSON CLI process transactions", options, () => {
                   },
                   customModels: [
                     { providerId: "future-provider", model: "synthetic" },
-                  ],
-                  customAcpAgents: [
-                    { id: "synthetic", command: "missing-synthetic-command" },
                   ],
                 }
               : {};
@@ -304,7 +333,7 @@ describe("managed JSON CLI process transactions", options, () => {
         expect(read(path)).toEqual({
           [kind]: { [a]: va, ...(stage === "after-rename" ? { [b]: vb } : {}) },
         });
-        if (stage === "after-write")
+        if (stage === "after-write" && process.platform !== "win32")
           expect(statSync(join(dir, `.${kind}.json.tmp`)).mode & 0o777).toBe(
             0o600,
           );
@@ -380,7 +409,7 @@ describe("managed JSON CLI process transactions", options, () => {
     const lockInode = statSync(lockPath).ino;
     const old = new Date(0);
     utimesSync(lockPath, old, old);
-    owner.child.kill("SIGSTOP");
+    if (process.platform !== "win32") owner.child.kill("SIGSTOP");
     const contender = start(dir, ["env", "unset", "SYNTHETIC_A"]);
     await contender.event("blocked");
     const result = await contender.done;
@@ -390,7 +419,7 @@ describe("managed JSON CLI process transactions", options, () => {
     expect(statSync(lockPath).ino).toBe(lockInode);
     expect(existsSync(join(dir, ".env.json.tmp"))).toBe(true);
     expect(read(path)).toEqual({ env: { SYNTHETIC_A: "synthetic" } });
-    owner.child.kill("SIGCONT");
+    if (process.platform !== "win32") owner.child.kill("SIGCONT");
     owner.release();
     await success(owner);
     await success(start(dir, ["env", "unset", "SYNTHETIC_A"]));

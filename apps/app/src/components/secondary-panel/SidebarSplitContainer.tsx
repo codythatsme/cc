@@ -61,9 +61,11 @@ import {
   type SidebarTabPlacement,
   type SidebarTabGroup,
 } from "./sidebarSplitLayout";
-import type { SecondaryPanelTabReorderRequest } from "./secondaryPanelTab";
+import {
+  PANEL_TAB_DRAG_DISTANCE_PX,
+  type SecondaryPanelTabReorderRequest,
+} from "./secondaryPanelTab";
 
-const PANE_DRAG_ENGAGE_DISTANCE_PX = 7;
 const PANE_EDGE_EPSILON = 1e-9;
 type SidebarSplitResizeCursor = "col-resize" | "row-resize";
 
@@ -313,9 +315,9 @@ export function SidebarSplitContainer({
   const selectTab = useCallback(
     (paneId: string, tabId: string) => {
       commitState((current) => selectSidebarTab(current, paneId, tabId));
-      if (tabId !== activeTabId) onActivateTab(tabId);
+      onActivateTab(tabId);
     },
-    [activeTabId, commitState, onActivateTab],
+    [commitState, onActivateTab],
   );
 
   const navigateTab = (direction: -1 | 1, origin: EventTarget | null) => {
@@ -373,7 +375,9 @@ export function SidebarSplitContainer({
     next?.scrollIntoView({ block: "nearest" });
     return true;
   };
-  useAppCommandHandler("panel.previousNewTabItem", () => navigateNewTabItem(-1));
+  useAppCommandHandler("panel.previousNewTabItem", () =>
+    navigateNewTabItem(-1),
+  );
   useAppCommandHandler("panel.nextNewTabItem", () => navigateNewTabItem(1));
 
   const focusPane = useCallback(
@@ -499,7 +503,7 @@ export function SidebarSplitContainer({
         shouldEngage: (x, y) => {
           const dx = x - startX;
           const dy = y - startY;
-          if (Math.hypot(dx, dy) <= PANE_DRAG_ENGAGE_DISTANCE_PX) return false;
+          if (Math.hypot(dx, dy) <= PANEL_TAB_DRAG_DISTANCE_PX) return false;
           return (
             Math.abs(dy) > Math.abs(dx) ||
             chromeRect === null ||
@@ -579,23 +583,26 @@ export function SidebarSplitContainer({
     if (group === null) return null;
     return (
       <div ref={containerRef} className="flex min-h-0 flex-1 flex-col">
-        {renderPane({
-          group,
-          isFocused: true,
-          isLeftEdge: true,
-          isMaximized: isFullScreen,
-          isTopRow: true,
-          onBeginTabDrag: (tabId, event) =>
-            beginTabDrag(firstPane.paneId, tabId, event),
-          onReorderTab: (request) => reorderTab(firstPane.paneId, request),
-          onFocusPane: () => focusPane(firstPane.paneId),
-          onRemoveSplit: undefined,
-          onMoveActiveTabToSide: moveActiveTabHandler(firstPane.paneId),
-          onSelectTab: (tabId) => selectTab(firstPane.paneId, tabId),
-          onToggleMaximize: onToggleFullScreen,
-          paneId: firstPane.paneId,
-          showOuterControls: true,
-        })}
+        <SidebarSplitSinglePane
+          renderPane={renderPane}
+          args={{
+            group,
+            isFocused: true,
+            isLeftEdge: true,
+            isMaximized: isFullScreen,
+            isTopRow: true,
+            onBeginTabDrag: (tabId, event) =>
+              beginTabDrag(firstPane.paneId, tabId, event),
+            onReorderTab: (request) => reorderTab(firstPane.paneId, request),
+            onFocusPane: () => focusPane(firstPane.paneId),
+            onRemoveSplit: undefined,
+            onMoveActiveTabToSide: moveActiveTabHandler(firstPane.paneId),
+            onSelectTab: (tabId) => selectTab(firstPane.paneId, tabId),
+            onToggleMaximize: onToggleFullScreen,
+            paneId: firstPane.paneId,
+            showOuterControls: true,
+          }}
+        />
       </div>
     );
   }
@@ -738,6 +745,18 @@ interface SidebarSplitLeafProps {
   rect: { h: number; w: number; x: number; y: number };
   renderPane: (args: SidebarSplitPaneRenderArgs) => ReactNode;
   state: SidebarSplitState;
+}
+
+interface SidebarSplitSinglePaneProps {
+  args: SidebarSplitPaneRenderArgs;
+  renderPane: (args: SidebarSplitPaneRenderArgs) => ReactNode;
+}
+
+function SidebarSplitSinglePane({
+  args,
+  renderPane,
+}: SidebarSplitSinglePaneProps) {
+  return renderPane(args);
 }
 
 function SidebarSplitLeaf(props: SidebarSplitLeafProps) {

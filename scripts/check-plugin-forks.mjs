@@ -15,6 +15,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { SHIMMED_TYPE_PACKAGES } from "../packages/plugin-build/src/runtime-shims.mjs";
+import { affectedPluginForks } from "./lib/ci-plugin-forks.mjs";
 import {
   forkPluginPackageJson,
   forkPluginTsconfig,
@@ -26,13 +27,16 @@ import {
 const run = promisify(execFile);
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const USAGE =
-  "Usage: node scripts/check-plugin-forks.mjs [plugins/<name> ...] [--keep] [--concurrency=<n>]\n\n" +
+  "Usage: node scripts/check-plugin-forks.mjs [plugins/<name> ...] [--keep] [--concurrency=<n>] [--changed-from=<sha>] [--shard=<index>/<count>] [--list]\n\n" +
   "Copies each forkable built-in plugin (scripts/forkable-plugins.json) out of\n" +
   "the monorepo the way a fork would: the component registry items its @/\n" +
   "imports name are written into the copy, and it installs published packages\n" +
   "plus a packed @codythatsme/plugin-sdk. Then it runs the copy's typecheck, tests,\n" +
   "and `cc plugin build`. Plugins run --concurrency at a time (default: up to\n" +
-  "4), and every failure is reported at the end.";
+  "4), and every failure is reported at the end. --changed-from selects changed\n" +
+  "plugins only when every changed file belongs to a forkable plugin; shared or\n" +
+  "unknown changes run all plugins. --shard partitions the selection across\n" +
+  "runners (one-based index). --list prints the shard selection as JSON.";
 const COPY_EXCLUDED = new Set([
   "node_modules",
   "dist",
@@ -46,6 +50,17 @@ if (args.includes("--help")) {
   process.exit(0);
 }
 const keep = args.includes("--keep");
+for (const arg of args) {
+  if (
+    arg.startsWith("--") &&
+    !["--keep", "--list"].includes(arg) &&
+    !arg.startsWith("--concurrency=") &&
+    !arg.startsWith("--changed-from=") &&
+    !arg.startsWith("--shard=")
+  ) {
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+}
 const concurrencyArg = args.find((arg) => arg.startsWith("--concurrency="));
 const concurrency =
   concurrencyArg === undefined
@@ -59,14 +74,49 @@ const forkable = JSON.parse(
   await readFile(join(repoRoot, "scripts", "forkable-plugins.json"), "utf8"),
 ).plugins;
 const requested = args.filter((arg) => !arg.startsWith("--"));
-const pluginDirs = requested.length > 0 ? requested : forkable;
-for (const pluginDir of pluginDirs) {
+const changedFrom = args
+  .find((arg) => arg.startsWith("--changed-from="))
+  ?.slice("--changed-from=".length);
+if (changedFrom !== undefined && requested.length > 0) {
+  throw new Error("Use plugin directories or --changed-from, not both.");
+}
+const selectedPluginDirs =
+  requested.length > 0
+    ? requested
+    : affectedPluginForks(repoRoot, changedFrom, forkable);
+const shardArg = args.find((arg) => arg.startsWith("--shard="));
+let pluginDirs = selectedPluginDirs;
+if (shardArg !== undefined) {
+  const match = /^--shard=([1-9]\d*)\/([1-9]\d*)$/u.exec(shardArg);
+  const index = Number(match?.[1]);
+  const count = Number(match?.[2]);
+  if (
+    !Number.isSafeInteger(index) ||
+    !Number.isSafeInteger(count) ||
+    index > count
+  ) {
+    throw new Error("--shard requires an index/count with 1 <= index <= count");
+  }
+  pluginDirs = selectedPluginDirs.filter(
+    (_, position) => position % count === index - 1,
+  );
+}
+for (const pluginDir of selectedPluginDirs) {
   if (!forkable.includes(pluginDir)) {
     console.error(
       `${pluginDir} is not listed in scripts/forkable-plugins.json\n\n${USAGE}`,
     );
     process.exit(1);
   }
+}
+
+if (args.includes("--list")) {
+  console.log(JSON.stringify(pluginDirs));
+  process.exit(0);
+}
+if (pluginDirs.length === 0) {
+  console.log("No changed forkable plugins.");
+  process.exit(0);
 }
 
 async function step(log, label, command, commandArgs, options = {}) {
@@ -82,8 +132,11 @@ async function step(log, label, command, commandArgs, options = {}) {
     return result.stdout;
   } catch (error) {
     log.push(`  ${label} … failed`);
-    throw new Error(
-      `${label} failed: ${command} ${commandArgs.join(" ")}\n${error.stdout ?? ""}${error.stderr ?? ""}`,
+    throw Object.assign(
+      new Error(
+        `${label} failed: ${command} ${commandArgs.join(" ")}\n${error.stdout ?? ""}${error.stderr ?? ""}`,
+      ),
+      { stage: label },
     );
   }
 }
@@ -201,7 +254,7 @@ async function checkPlugin(pluginDir, workDir, sdkTarball, log) {
     await readFile(join(source, "package.json"), "utf8"),
   );
   const forked = forkPluginPackageJson(manifest, {
-    sdkSpecifier: `file:${sdkTarball}`,
+    sdkSpecifier: `file:../${basename(sdkTarball)}`,
     workspaceBinsByPackage: await workspaceBinsFor(pluginDir, manifest),
     registryDependencies: registry.packages,
   });
@@ -223,9 +276,23 @@ async function checkPlugin(pluginDir, workDir, sdkTarball, log) {
 
   await step(
     log,
-    "npm install",
+    "dependency resolution",
     "npm",
-    ["install", "--no-audit", "--no-fund", "--legacy-peer-deps"],
+    [
+      "install",
+      "--package-lock-only",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      "--legacy-peer-deps",
+    ],
+    { cwd: target },
+  );
+  await step(
+    log,
+    "locked dependency install",
+    "npm",
+    ["ci", "--no-audit", "--no-fund", "--legacy-peer-deps"],
     { cwd: target },
   );
   await step(log, "typecheck", "npm", ["run", "typecheck"], { cwd: target });
@@ -250,6 +317,10 @@ async function checkPlugin(pluginDir, workDir, sdkTarball, log) {
 }
 
 const workDir = await mkdtemp(join(tmpdir(), "cc-plugin-fork-"));
+const evidenceDir =
+  process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_TEMP
+    ? join(process.env.RUNNER_TEMP, "plugin-fork-evidence")
+    : null;
 if (!relative(repoRoot, workDir).startsWith("..")) {
   console.error(`${workDir} is inside the repository; set TMPDIR elsewhere`);
   process.exit(1);
@@ -284,8 +355,21 @@ try {
     ),
   );
   const sdkTarball = join(workDir, packed[0].filename);
-  const queue = [...pluginDirs];
+  if (evidenceDir !== null) {
+    await mkdir(evidenceDir, { recursive: true });
+    await cp(sdkTarball, join(evidenceDir, basename(sdkTarball)));
+  }
+  const longRunningPlugins = new Set([
+    "plugins/provider-pi",
+    "plugins/tasks",
+    "plugins/provider-codex",
+  ]);
+  const queue = [...pluginDirs].sort(
+    (a, b) =>
+      Number(longRunningPlugins.has(b)) - Number(longRunningPlugins.has(a)),
+  );
   const failures = [];
+  const results = [];
   await Promise.all(
     Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
       for (
@@ -294,16 +378,40 @@ try {
         pluginDir = queue.shift()
       ) {
         const log = [];
+        let stage = "success";
         console.log(`Checking ${pluginDir} …`);
         try {
           await checkPlugin(pluginDir, workDir, sdkTarball, log);
         } catch (error) {
           failures.push({ pluginDir, error });
+          stage =
+            typeof error?.stage === "string"
+              ? error.stage
+              : "fork preparation or artifact validation";
         }
+        results.push({ pluginDir, stage });
         console.log(`\n${pluginDir}\n${log.join("\n")}`);
       }
     }),
   );
+  if (evidenceDir !== null) {
+    for (const result of results) {
+      const target = join(evidenceDir, basename(result.pluginDir));
+      await mkdir(target, { recursive: true });
+      for (const name of ["package.json", "package-lock.json"]) {
+        await cp(
+          join(workDir, basename(result.pluginDir), name),
+          join(target, name),
+        ).catch((error) => {
+          if (error.code !== "ENOENT") throw error;
+        });
+      }
+      await writeFile(
+        join(target, "result.json"),
+        `${JSON.stringify(result, null, 2)}\n`,
+      );
+    }
+  }
   if (failures.length > 0) {
     failed = true;
     for (const { pluginDir, error } of failures) {

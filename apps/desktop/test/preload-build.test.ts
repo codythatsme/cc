@@ -131,11 +131,8 @@ async function startDesktopSmokeServer(
           pluginThemes: [],
           dataDir: args.dataDir,
           experiments: {
-            changelogPreview: false,
-            legacyJitiPluginLoader: false,
-            mobileApp: false,
             serverMove: false,
-            sidebarProgressiveDisclosure: false,
+            performanceDiagnostics: false,
           },
           featureFlags: {
             placeholder: false,
@@ -433,7 +430,13 @@ describe("desktop build", () => {
           })}`,
         ).toBeNull();
 
-        for (const scenario of ["custom", "connect", "fatal"]) {
+        for (const scenario of [
+          "fatal",
+          "attached",
+          "crashed",
+          "custom",
+          "connect",
+        ]) {
           const retryProfile = join(smokeRoot, `retry-${scenario}`);
           await mkdir(retryProfile);
           let reportReady: (result: PreloadReadyResult) => void = () => {};

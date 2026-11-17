@@ -1,3 +1,9 @@
+import {
+  ccDesktopServerChoicesSchema,
+  MACOS_TRAFFIC_LIGHT_INSET_PX,
+  MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
+  type CcDesktopServerChoice,
+} from "@cc/desktop-contract";
 import { contextBridge, ipcRenderer, webFrame } from "electron";
 import { appCommandIdSchema, type AppCommandId } from "@cc/domain";
 import {
@@ -18,6 +24,7 @@ import {
   ccDesktopBrowserControlStateSchema,
   ccDesktopBrowserRevealRequestSchema,
   type CcDesktopBrowserControlState,
+  type CcDesktopClipboardContent,
   type CcDesktopBrowserRevealRequest,
   ccDesktopInfoSchema,
   ccDesktopWindowStateSchema,
@@ -32,6 +39,7 @@ import {
   type CcDesktopBrowserFocusHandler,
   type CcDesktopBrowserSnapshotHandler,
   type CcDesktopBrowserStateHandler,
+  type CcDesktopBrowserState,
   type CcDesktopBrowserUnsubscribe,
   type CcDesktopBrowserViewBounds,
   type CcDesktopCloseWindowRequestHandler,
@@ -50,7 +58,9 @@ import {
   CC_DESKTOP_INFO_CHANGED_CHANNEL,
   CC_DESKTOP_INSTALL_UPDATE_CHANNEL,
   CC_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL,
+  CC_DESKTOP_OPEN_APPLICATION_URL_CHANNEL,
   CC_DESKTOP_SET_THEME_CHANNEL,
+  CC_DESKTOP_ZOOM_CHANGED_CHANNEL,
   CC_DESKTOP_ZOOM_COMMAND_CHANNEL,
 } from "./desktop-update-ipc.js";
 import {
@@ -61,6 +71,8 @@ import {
   CC_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL,
   CC_DESKTOP_BROWSER_REVEAL_CHANNEL,
   CC_DESKTOP_BROWSER_DETACH_CHANNEL,
+  CC_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL,
+  CC_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL,
   CC_DESKTOP_BROWSER_FOCUS_CHANNEL,
   CC_DESKTOP_BROWSER_FOCUSED_CHANNEL,
   CC_DESKTOP_BROWSER_FIND_IN_PAGE_CHANNEL,
@@ -85,16 +97,23 @@ import {
   CC_DESKTOP_BROWSER_PAGE_MESSAGE_CHANNEL,
 } from "./desktop-browser-ipc.js";
 import {
+  CC_DESKTOP_GET_SERVER_CHOICES_CHANNEL,
+  CC_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL,
+  CC_DESKTOP_SELECT_SERVER_CHANNEL,
   CC_DESKTOP_APP_COMMAND_CHANNEL,
   CC_DESKTOP_OPEN_WINDOW_FIND_CHANNEL,
+  CC_DESKTOP_RELOAD_WINDOW_CHANNEL,
   CC_DESKTOP_SET_SPLIT_NAVIGATION_ENABLED_CHANNEL,
   CC_DESKTOP_CLOSE_WINDOW_REQUEST_CHANNEL,
   CC_DESKTOP_CLOSE_WINDOW_RESPONSE_CHANNEL,
+  CC_DESKTOP_FOCUS_WINDOW_CHANNEL,
+  CC_DESKTOP_SET_ATTENTION_THREADS_CHANNEL,
   CC_DESKTOP_GET_WINDOW_STATE_CHANNEL,
   CC_DESKTOP_OPEN_NEW_TAB_CHANNEL,
   CC_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL,
   CC_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL,
   CC_DESKTOP_WINDOW_STATE_CHANGED_CHANNEL,
+  CC_DESKTOP_WRITE_CLIPBOARD_CHANNEL,
 } from "./desktop-window-command-ipc.js";
 import {
   getDesktopVersion,
@@ -121,6 +140,9 @@ function createInitialDesktopWindowState(): CcDesktopWindowState {
   };
 }
 
+const serverChoiceListeners = new Set<
+  (choices: CcDesktopServerChoice[]) => void
+>();
 const listeners = new Set<CcDesktopInfoChangeHandler>();
 const appCommandListeners = new Set<CcDesktopAppCommandHandler>();
 const windowStateListeners = new Set<CcDesktopWindowStateChangeHandler>();
@@ -190,6 +212,15 @@ async function invokeInstallUpdate(): Promise<void> {
 }
 
 const browserStateListeners = new Set<CcDesktopBrowserStateHandler>();
+const browserStates = new Map<string, CcDesktopBrowserState>();
+browserStateListeners.add((state) => {
+  browserStates.delete(state.tabId);
+  browserStates.set(state.tabId, state);
+  if (browserStates.size > 100) {
+    const oldest = browserStates.keys().next().value;
+    if (oldest !== undefined) browserStates.delete(oldest);
+  }
+});
 const browserControlListeners = new Set<
   (state: CcDesktopBrowserControlState) => void
 >();
@@ -210,12 +241,18 @@ const openNewTabListeners = new Set<CcDesktopOpenNewTabHandler>();
 const zoomListeners = new Set<CcDesktopZoomChangeHandler>();
 let lastZoomFactor = webFrame.getZoomFactor();
 
+function publishZoomFactor(factor: number): void {
+  document.documentElement.style.setProperty("--cc-zoom", String(factor));
+  ipcRenderer.send(CC_DESKTOP_ZOOM_CHANGED_CHANNEL);
+}
+
 function notifyZoomChangeIfChanged(): void {
   const zoomFactor = webFrame.getZoomFactor();
   if (zoomFactor === lastZoomFactor) {
     return;
   }
   lastZoomFactor = zoomFactor;
+  publishZoomFactor(zoomFactor);
   for (const listener of zoomListeners) {
     listener(zoomFactor);
   }
@@ -226,6 +263,12 @@ function addListener<T>(listeners: Set<T>, listener: T): () => void {
   return () => {
     listeners.delete(listener);
   };
+}
+
+async function listServerChoices(): Promise<CcDesktopServerChoice[]> {
+  return ccDesktopServerChoicesSchema.parse(
+    await ipcRenderer.invoke(CC_DESKTOP_GET_SERVER_CHOICES_CHANNEL),
+  );
 }
 
 function forwardParsed<T>(
@@ -303,6 +346,18 @@ const ccBrowserApi: CcDesktopBrowserApi = {
   detach(tabId): void {
     ipcRenderer.send(CC_DESKTOP_BROWSER_DETACH_CHANNEL, { tabId });
   },
+  setThreadDiscarded(request): void {
+    ipcRenderer.send(CC_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL, request);
+  },
+  async listThreadIdsWithTabs() {
+    return z
+      .array(z.string().min(1))
+      .parse(
+        await ipcRenderer.invoke(
+          CC_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL,
+        ),
+      );
+  },
   navigate(request): void {
     ipcRenderer.send(CC_DESKTOP_BROWSER_NAVIGATE_CHANNEL, request);
   },
@@ -337,7 +392,9 @@ const ccBrowserApi: CcDesktopBrowserApi = {
     );
   },
   onState(listener): CcDesktopBrowserUnsubscribe {
-    return addListener(browserStateListeners, listener);
+    const unsubscribe = addListener(browserStateListeners, listener);
+    for (const state of browserStates.values()) listener(state);
+    return unsubscribe;
   },
   onOpenTab(listener): CcDesktopBrowserUnsubscribe {
     return addListener(browserOpenTabListeners, listener);
@@ -382,6 +439,14 @@ const ccBrowserApi: CcDesktopBrowserApi = {
 
 const ccDesktopApi: CcDesktopApi = {
   browser: ccBrowserApi,
+  getServerChoices: listServerChoices,
+  listServerChoices,
+  onServerChoicesChange(listener) {
+    return addListener(serverChoiceListeners, listener);
+  },
+  selectServer(id) {
+    ipcRenderer.send(CC_DESKTOP_SELECT_SERVER_CHANNEL, id);
+  },
   get lastCheckedAt() {
     return currentInfo.lastCheckedAt;
   },
@@ -391,6 +456,8 @@ const ccDesktopApi: CcDesktopApi = {
   get pendingVersion() {
     return currentInfo.pendingVersion;
   },
+  macosTrafficLightInset: MACOS_TRAFFIC_LIGHT_INSET_PX,
+  macosTrafficLightTopInset: MACOS_TRAFFIC_LIGHT_TOP_INSET_PX,
   platform: resolveCcDesktopPlatform(process.platform),
   get serverDaemonLogsAvailable() {
     return currentInfo.serverDaemonLogsAvailable;
@@ -407,6 +474,12 @@ const ccDesktopApi: CcDesktopApi = {
   },
   getInfo() {
     return invokeDesktopInfo(CC_DESKTOP_GET_INFO_CHANNEL);
+  },
+  setAttentionThreads(threads) {
+    ipcRenderer.send(CC_DESKTOP_SET_ATTENTION_THREADS_CHANNEL, threads);
+  },
+  focusWindow() {
+    ipcRenderer.send(CC_DESKTOP_FOCUS_WINDOW_CHANNEL);
   },
   getWindowState() {
     return invokeDesktopWindowState();
@@ -445,11 +518,17 @@ const ccDesktopApi: CcDesktopApi = {
   async openDataDirectory(): Promise<void> {
     await ipcRenderer.invoke(CC_DESKTOP_OPEN_DATA_DIRECTORY_CHANNEL);
   },
+  async openApplicationUrl(url: string): Promise<void> {
+    await ipcRenderer.invoke(CC_DESKTOP_OPEN_APPLICATION_URL_CHANNEL, url);
+  },
   openExternalUrl(url: string): void {
     ipcRenderer.send(CC_DESKTOP_OPEN_EXTERNAL_URL_CHANNEL, url);
   },
   async openServerDaemonLogs(): Promise<void> {
     await ipcRenderer.invoke(CC_DESKTOP_OPEN_SERVER_DAEMON_LOGS_CHANNEL);
+  },
+  reloadWindow(): void {
+    ipcRenderer.send(CC_DESKTOP_RELOAD_WINDOW_CHANNEL);
   },
   setSplitNavigationEnabled(
     enabled: boolean,
@@ -464,7 +543,16 @@ const ccDesktopApi: CcDesktopApi = {
   setTheme(theme: CcDesktopTheme): void {
     ipcRenderer.send(CC_DESKTOP_SET_THEME_CHANNEL, theme);
   },
+  async writeClipboard(content: CcDesktopClipboardContent): Promise<void> {
+    await ipcRenderer.invoke(CC_DESKTOP_WRITE_CLIPBOARD_CHANNEL, content);
+  },
 };
+
+forwardParsed(
+  CC_DESKTOP_SERVER_CHOICES_CHANGED_CHANNEL,
+  ccDesktopServerChoicesSchema,
+  serverChoiceListeners,
+);
 
 ipcRenderer.on(CC_DESKTOP_INFO_CHANGED_CHANNEL, (_event, payload: unknown) => {
   applyDesktopInfoPayload(payload);
@@ -561,6 +649,7 @@ forwardParsed(
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   window.addEventListener("resize", notifyZoomChangeIfChanged);
   window.addEventListener("DOMContentLoaded", () => {
+    publishZoomFactor(webFrame.getZoomFactor());
     for (const button of document.querySelectorAll<HTMLElement>(
       "[data-startup-action]",
     )) {

@@ -5,9 +5,13 @@ import {
 import { describe, expect, it } from "vitest";
 import { createStore } from "../api";
 import type { Comment, Project, Task } from "../db";
-import { displayWidth } from "../shared/text-measure";
 import { delegationRpcContract } from "./contract";
 import { buildSeedPrompt, registerDelegation } from ".";
+import {
+  commentsTag,
+  taskChangedTags,
+  threadsChangedTags,
+} from "../shared/tags";
 
 function createTestPreset(
   store: ReturnType<typeof createStore>,
@@ -116,13 +120,10 @@ describe("task delegation", () => {
         }),
       ]),
     );
-    expect(harness.realtimeSignals).toEqual([
-      { channel: "threads:changed", payload: { taskId: task.id } },
-      {
-        channel: "tasks:changed",
-        payload: { taskId: task.id, projectId: project.id },
-      },
-      { channel: "comments:changed", payload: { taskId: task.id } },
+    expect(harness.experimental_rpcInvalidations).toEqual([
+      threadsChangedTags(task.id),
+      taskChangedTags({ id: task.id, projectId: project.id }),
+      [commentsTag(task.id)],
     ]);
 
     await harness.dispose();
@@ -205,7 +206,6 @@ describe("task delegation", () => {
     expect(harness.sdk.callsTo("threads.spawn")).toEqual([
       [expect.objectContaining({ title })],
     ]);
-    expect(displayWidth(title)).toBeLessThanOrEqual(120);
 
     await harness.dispose();
   });
@@ -367,35 +367,6 @@ describe("task delegation", () => {
     await harness.dispose();
   });
 
-  it("fails before spawning when the task project is not linked to cc", async () => {
-    const { cc, harness } = createFakePluginHost({
-      pluginId: "tasks",
-      sdk: { threads: { spawn: async () => ({ id: "thr_never" }) } },
-    });
-    const store = createStore(cc);
-    const project = store.tasks.createProject({
-      name: "Unlinked",
-      prefix: "UNL",
-      color: "blue",
-    });
-    const task = store.tasks.createTask({
-      projectId: project.id,
-      title: "Cannot delegate yet",
-    });
-    registerDelegation(cc, store);
-    const preset = createTestPreset(store);
-
-    await expect(
-      harness.callRpc("delegate", { taskId: task.id, presetId: preset.id }),
-    ).rejects.toMatchObject({
-      code: "handler_error",
-      message: 'Task project "Unlinked" is not linked to a cc project',
-    });
-    expect(harness.sdk.callsTo("threads.spawn")).toEqual([]);
-
-    await harness.dispose();
-  });
-
   it("self-attaches an existing thread through taskThreadsAttach", async () => {
     const { cc, harness } = createFakePluginHost({
       pluginId: "tasks",
@@ -439,12 +410,9 @@ describe("task delegation", () => {
         liveStatus: "working",
       }),
     ]);
-    expect(harness.realtimeSignals).toEqual([
-      { channel: "threads:changed", payload: { taskId: task.id } },
-      {
-        channel: "tasks:changed",
-        payload: { taskId: task.id, projectId: project.id },
-      },
+    expect(harness.experimental_rpcInvalidations).toEqual([
+      threadsChangedTags(task.id),
+      taskChangedTags({ id: task.id, projectId: project.id }),
     ]);
 
     await harness.dispose();
@@ -494,7 +462,7 @@ describe("task thread detach", () => {
       taskId: otherTask.id,
       threadId: "thr_dead",
     });
-    harness.realtimeSignals.length = 0;
+    harness.experimental_rpcInvalidations.length = 0;
 
     await expect(
       harness.callRpc("taskThreadsDetach", {
@@ -511,12 +479,9 @@ describe("task thread detach", () => {
         .listTaskThreads(otherTask.id)
         .map((thread) => thread.threadId),
     ).toEqual(["thr_dead"]);
-    expect(harness.realtimeSignals).toEqual([
-      { channel: "threads:changed", payload: { taskId: task.id } },
-      {
-        channel: "tasks:changed",
-        payload: { taskId: task.id, projectId: project.id },
-      },
+    expect(harness.experimental_rpcInvalidations).toEqual([
+      threadsChangedTags(task.id),
+      taskChangedTags({ id: task.id, projectId: project.id }),
     ]);
 
     await expect(

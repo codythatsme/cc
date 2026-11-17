@@ -1,3 +1,4 @@
+import { hostToolchain } from "@cc/process-utils";
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import { loadHostDaemonStartConfig } from "@cc/config/host-daemon";
@@ -19,8 +20,8 @@ import { loadHostIdentity, persistHostId } from "./identity.js";
 import { acquireDaemonLock } from "./lock.js";
 import { resolveHostDaemonLocalApiConfig } from "./local-api-config.js";
 import {
-  createUserShellPathResolver,
   prepareRuntimeShellEnv,
+  resolvePowerShellExecutionPolicyDefault,
   resolveCcExecutablePathInDirectory,
   resolveLocalCcExecutablePath,
 } from "./runtime-shell-env.js";
@@ -33,11 +34,11 @@ import {
 interface StartHostDaemonOptions {
   enrollKey?: string;
   hostId?: string;
-  hostName?: string;
   ccExecutableDirectory?: string;
   bridgeBundleDir?: string;
   serverHeaders?: Record<string, string>;
   autoUpdate?: boolean;
+  supervised?: boolean;
 }
 
 export async function startHostDaemon(
@@ -75,7 +76,6 @@ export async function startHostDaemon(
     const identity = await loadHostIdentity({
       dataDir,
       providedHostId: options.hostId,
-      providedHostName: options.hostName,
     });
     const instanceId = randomUUID();
     const serverUrl = resolveServerUrl({
@@ -151,15 +151,18 @@ export async function startHostDaemon(
       }),
     );
     const hostWatcher = createHostWatcher();
-    const resolveUserShellPath = createUserShellPathResolver();
-    const resolveRuntimeShellEnv = async () =>
-      prepareRuntimeShellEnv({
+    const resolveRuntimeShellEnv = async () => {
+      await hostToolchain.refresh();
+      return prepareRuntimeShellEnv({
         ccExecutableDirectory,
         ccExecutablePath,
         hostDaemonPort: localApiConfig.port,
-        inheritedPath: (await resolveUserShellPath()) ?? process.env.PATH,
+        inheritedPath: hostToolchain.environment().PATH,
+        powershellExecutionPolicy:
+          await resolvePowerShellExecutionPolicyDefault(),
         serverUrl: machineAuthProxy?.serverUrl ?? serverUrl,
       });
+    };
     const runtimeShellEnv = await resolveRuntimeShellEnv();
     const runtimeShellEnvResolvedAtMs = Date.now();
     app = await createHostDaemonApp({
@@ -168,6 +171,7 @@ export async function startHostDaemon(
       hostKey,
       serverHeaders: options.serverHeaders,
       autoUpdate: options.autoUpdate,
+      supervised: options.supervised,
       bridgeBundleDir: options.bridgeBundleDir,
       hostId: identity.hostId,
       hostName: identity.hostName,

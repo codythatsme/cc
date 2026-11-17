@@ -5,6 +5,7 @@ export * from "./common.js";
 export * from "./errors.js";
 export * from "./public-api.js";
 export * from "./thread-timeline.js";
+export * from "./thread-timeline-delta.js";
 
 export { typedRoutes } from "@cc/hono-typed-routes";
 
@@ -19,8 +20,6 @@ export type {
   ChangedMessage,
   ClientMessage,
   RealtimeSubscriptionTarget,
-  ThreadChangeKind,
-  ThreadChangedMessage,
 } from "@cc/domain";
 
 export * from "./api/machine-environment.js";

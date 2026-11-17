@@ -203,7 +203,7 @@ export function AiServicesSettingsSection() {
   return (
     <SettingsSection
       title="AI services"
-      description="Choose which plugin writes thread titles, commit messages, and voice transcripts. Automatic uses the services cc ships, in order; a service you pick is never swapped for another."
+      description="Choose services for thread titles, commit messages, and voice input. Automatic prefers cc cloud, then other available services. A service you choose stays selected."
     >
       <div className="space-y-5">
         {AI_TASK_ROWS.map((row) => {
@@ -246,7 +246,8 @@ export function AiServicesSettingsSection() {
                 if (selection === null) return;
                 setTestResults((current) => {
                   if (testTask === null) return current;
-                  const { [testTask]: _cleared, ...rest } = current;
+                  const rest = { ...current };
+                  delete rest[testTask];
                   return rest;
                 });
                 select.mutate({ task: row.task, selection });

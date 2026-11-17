@@ -1,17 +1,15 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { isBackgroundAgentTaskType } from "@cc/domain";
 import type { TimelineWorkflowWorkRow } from "@cc/server-contract";
-import { useResizeObserver } from "usehooks-ts";
-import { AnimatedBody } from "@/components/promptbox/banner/AnimatedBody";
 import {
   PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
   PROMPT_STACK_CARD_ROW_HEIGHT,
   PromptStackCard,
-  PromptStackCardChevron,
 } from "@/components/promptbox/banner/PromptStackCard";
 import { LiveDurationText } from "@/components/thread/timeline/LiveDurationText";
 import { Icon } from "@cc/shared-ui/icon";
 import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
+import { observeSharedResize } from "@cc/shared-ui/lib/shared-resize-observer";
 import {
   activityIconClass,
   activityMetaClass,
@@ -19,6 +17,13 @@ import {
   activityTextClass,
 } from "@cc/shared-ui/activity-row-styles";
 import { cn } from "@cc/shared-ui/lib/utils";
+import {
+  PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
+  PromptStackCountSlot,
+  PromptStackHoverChevron,
+  useDisclosureFocusHandoff,
+  AnimatedDisclosureBody,
+} from "@cc/shared-ui/prompt-stack-disclosure";
 
 const BODY_ID = "thread-background-commands-card-body";
 const TOGGLE_ID = "thread-background-commands-card-toggle";
@@ -157,25 +162,33 @@ interface ThreadBackgroundCommandsCardProps {
   onToggle: () => void;
 }
 
+function readIsCompactCard(width: number): boolean | null {
+  return width > 0 ? isCompactPromptShellWidth(width) : null;
+}
+
 export function ThreadBackgroundCommandsCard({
   commands,
   isExpanded,
   onToggle,
 }: ThreadBackgroundCommandsCardProps) {
   const isCompactViewport = useIsCompactViewport();
-  const cardRef = useRef<HTMLElement>(null!);
+  const cardRef = useRef<HTMLElement>(null);
   const [isCompactCard, setIsCompactCard] = useState<boolean | null>(null);
-  useResizeObserver({
-    ref: cardRef,
-    box: "border-box",
-    onResize: ({ width }) => {
-      if (width === undefined) return;
-      const nextIsCompact = isCompactPromptShellWidth(width);
-      setIsCompactCard((previous) =>
-        previous === nextIsCompact ? previous : nextIsCompact,
-      );
-    },
-  });
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (card === null || typeof ResizeObserver === "undefined") return;
+    setIsCompactCard(readIsCompactCard(card.getBoundingClientRect().width));
+    return observeSharedResize(card, {
+      read: (entry) =>
+        readIsCompactCard(
+          entry?.borderBoxSize?.[0]?.inlineSize ??
+            card.getBoundingClientRect().width,
+        ),
+      write: setIsCompactCard,
+    });
+  }, []);
+  const { triggerRef, collapseRef, onTriggerClick, onCollapseClick } =
+    useDisclosureFocusHandoff(isExpanded, onToggle);
   const primary = commands[0];
   if (!primary) {
     return null;
@@ -208,10 +221,14 @@ export function ThreadBackgroundCommandsCard({
                 ? compactLabel
                 : backgroundActivityAriaLabel(primary, groupLabel)
             }
-            onClick={onToggle}
+            ref={triggerRef}
+            onClick={onTriggerClick}
             className={activityRowClass(
               "active",
-              PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
+              cn(
+                PROMPT_STACK_CARD_HEADER_BUTTON_CLASS,
+                PROMPT_STACK_DISCLOSURE_TRIGGER_CLASS,
+              ),
             )}
           >
             <Icon
@@ -220,21 +237,18 @@ export function ThreadBackgroundCommandsCard({
               aria-hidden="true"
             />
             {useCompactSummary ? (
-              <span className="min-w-0 flex-1 truncate text-left font-medium">
-                {compactLabel}
-              </span>
+              <>
+                <span className="min-w-0 flex-1 truncate text-left font-medium">
+                  {compactLabel}
+                </span>
+                <PromptStackHoverChevron isExpanded={isExpanded} />
+              </>
             ) : (
               <>
                 <BackgroundActivitySummary row={primary} showDuration={false} />
-                <span className={activityMetaClass("active", "shrink-0")}>
-                  +{others.length} more
-                </span>
+                <PromptStackCountSlot count={commands.length} />
               </>
             )}
-            <PromptStackCardChevron
-              isExpanded={isExpanded}
-              className={activityIconClass("active")}
-            />
           </button>
         ) : (
           <div
@@ -254,11 +268,14 @@ export function ThreadBackgroundCommandsCard({
         )}
       </div>
       {canExpand ? (
-        <AnimatedBody
+        <AnimatedDisclosureBody
           id={BODY_ID}
           labelledBy={TOGGLE_ID}
           isExpanded={isExpanded}
           collapsedBorder="none"
+          collapseLabel={`Collapse ${groupLabel.toLowerCase()}`}
+          collapseRef={collapseRef}
+          onCollapse={onCollapseClick}
         >
           <div className="flex flex-col gap-0.5 py-1">
             {expandedRows.map((row) => {
@@ -272,17 +289,17 @@ export function ThreadBackgroundCommandsCard({
                     useCompactSummary ? "items-start" : "items-center",
                   )}
                 >
-                  <Icon
-                    name={display.icon}
-                    className="size-3.5 shrink-0 text-muted-foreground/60"
-                    aria-hidden="true"
-                  />
+                  <span className="flex h-[1lh] shrink-0 items-center">
+                    <Icon
+                      name={display.icon}
+                      className="size-3.5 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
+                  </span>
                   <span
                     className={cn(
                       "min-w-0 flex-1 text-muted-foreground",
-                      useCompactSummary
-                        ? "whitespace-normal [overflow-wrap:anywhere]"
-                        : "truncate",
+                      useCompactSummary ? "line-clamp-2 break-all" : "truncate",
                     )}
                     title={row.description}
                   >
@@ -305,7 +322,7 @@ export function ThreadBackgroundCommandsCard({
               );
             })}
           </div>
-        </AnimatedBody>
+        </AnimatedDisclosureBody>
       ) : null}
     </PromptStackCard>
   );

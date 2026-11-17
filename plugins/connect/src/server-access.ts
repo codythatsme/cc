@@ -1,10 +1,54 @@
 import type { CcPluginApi } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
-import { lookupMachineCode } from "./machine-code.js";
-import type { ConnectTunnel } from "./tunnel.js";
-import { fetchMachineCode } from "./machine-code.js";
-import { revokeMachine } from "./revoke-machine.js";
-import { redeemMachineCode } from "./redeem.js";
+import type { HostedConnectApi } from "./hosted.js";
+import { redeemMachineCode } from "./machine-code.js";
+
+export type ServerAccessCloud = Pick<
+  HostedConnectApi,
+  "createMachineCode" | "lookupMachineCode" | "revokeMachine"
+> & {
+  redeemMachineCode: typeof redeemMachineCode;
+};
+
+export function createServerAccessCloud(
+  hosted: HostedConnectApi,
+): ServerAccessCloud {
+  return {
+    createMachineCode: (signal) => hosted.createMachineCode(signal),
+    lookupMachineCode: (code, signal) => hosted.lookupMachineCode(code, signal),
+    revokeMachine: (machineId, signal) =>
+      hosted.revokeMachine(machineId, signal),
+    redeemMachineCode,
+  };
+}
+
+export const HOST_NAME_LOOKUP_TIMEOUT_MS = 2_000;
+
+async function lookupHostName(
+  cc: CcPluginApi,
+  hostId: string,
+  signal: AbortSignal,
+): Promise<string | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const giveUp = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), HOST_NAME_LOOKUP_TIMEOUT_MS);
+    onAbort = () => resolve(null);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    const host = await Promise.race([
+      cc.sdk.hosts.get({ hostId }).catch(() => null),
+      giveUp,
+    ]);
+    return host?.name.trim() || null;
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
+const SIGN_IN_REQUIRED = "Sign in to your cc account to use cc connect";
 
 const grantSchema = z.object({
   connectMachineId: z.string().min(1),
@@ -17,10 +61,10 @@ const grantSchema = z.object({
 
 export function createServerAccessRecheck(
   cc: CcPluginApi,
-): (status: { paired: boolean; url: string | null }) => void {
+): (status: { paired: boolean; enabled: boolean; url: string | null }) => void {
   let last: string | null = null;
   return (status) => {
-    const signature = `${status.paired}:${status.url ?? ""}`;
+    const signature = `${status.paired}:${status.enabled}:${status.url ?? ""}`;
     const changed = last !== null && last !== signature;
     last = signature;
     if (changed) cc.experimental_serverAccess.recheck();
@@ -37,11 +81,12 @@ function grantKey(hostId: string): string {
 
 export async function registerServerAccess(
   cc: CcPluginApi,
-  tunnel: {
-    getCredential: ConnectTunnel["getCredential"];
-    status(): { paired: boolean; url: string | null };
+  deps: {
+    cloud: ServerAccessCloud;
+    status(): { paired: boolean; enabled: boolean; url: string | null };
   },
 ) {
+  const { cloud } = deps;
   const intentSchema = z.object({
     key: z.string(),
     hostId: z.string(),
@@ -66,20 +111,19 @@ export async function registerServerAccess(
     const raw = await cc.storage.kv.get<unknown>(grantKey(hostId));
     return raw === undefined ? undefined : stateSchema.parse(raw);
   }
+  function requireSignedIn(action: string): void {
+    if (!deps.status().paired) throw new Error(`${SIGN_IN_REQUIRED} ${action}`);
+  }
   async function reconcile(
     intent: z.infer<typeof intentSchema>,
     signal: AbortSignal,
   ) {
-    const credential = tunnel.getCredential();
-    if (!credential)
-      throw new Error(
-        "Pair this cc instance with cc connect to revoke machine access",
-      );
+    requireSignedIn("to revoke machine access");
     try {
-      const status = await lookupMachineCode(credential, intent.code, signal);
+      const status = await cloud.lookupMachineCode(intent.code, signal);
       if (status.consumed && !status.machineId)
         throw new Error("Device identity unavailable");
-      if (status.machineId) await revokeMachine(credential, status.machineId);
+      if (status.machineId) await cloud.revokeMachine(status.machineId, signal);
       return status.consumed;
     } catch {
       signal.throwIfAborted();
@@ -93,25 +137,27 @@ export async function registerServerAccess(
     displayName: "cc connect",
     description: "Use a private connect service address.",
     availability: () => {
-      const status = tunnel.status();
-      return status.paired
-        ? {
-            status: "available",
-            ...(status.url ? { serverUrl: status.url } : {}),
-          }
-        : {
-            status: "setup-required",
-            message: "Pair this cc instance with cc connect",
-          };
+      const status = deps.status();
+      if (!status.paired) {
+        return { status: "setup-required", message: SIGN_IN_REQUIRED };
+      }
+      if (!status.enabled) {
+        return {
+          status: "setup-required",
+          message: "Turn on remote access with cc connect on",
+        };
+      }
+      return {
+        status: "available",
+        ...(status.url ? { serverUrl: status.url } : {}),
+      };
     },
     acquire({ key, hostId, signal }) {
       return serialized(async () => {
         signal.throwIfAborted();
         const existing = await load(hostId);
         if (existing && "result" in existing) return existing.result.grant;
-        const credential = tunnel.getCredential();
-        if (!credential)
-          throw new Error("Pair this cc instance with cc connect");
+        requireSignedIn("to add machines");
         let intent = existing?.intent;
         if (intent) {
           const reconciliation = await reconcile(intent, signal);
@@ -120,7 +166,7 @@ export async function registerServerAccess(
             intent = undefined;
         }
         if (!intent) {
-          const code = await fetchMachineCode(credential, signal);
+          const code = await cloud.createMachineCode(signal);
           intent = {
             key,
             hostId,
@@ -133,12 +179,14 @@ export async function registerServerAccess(
         await cc.storage.kv.set(grantKey(hostId), { intent });
         signal.throwIfAborted();
         const pending = intent;
-        const redeemed = await redeemMachineCode({ ...pending, signal }).catch(
-          () => {
+        const deviceName = await lookupHostName(cc, hostId, signal);
+        signal.throwIfAborted();
+        const redeemed = await cloud
+          .redeemMachineCode({ ...pending, deviceName, signal })
+          .catch(() => {
             signal.throwIfAborted();
             return null;
-          },
-        );
+          });
         if (redeemed === null)
           return acquisitionFailure(
             "Cloud device may need dashboard revocation: interrupted machine access acquisition",
@@ -170,12 +218,8 @@ export async function registerServerAccess(
               "Machine access acquisition is still unsettled; cleanup will retry after redemption or code expiry",
             );
         } else {
-          const credential = tunnel.getCredential();
-          if (!credential)
-            throw new Error(
-              "Pair this cc instance with cc connect to revoke machine access",
-            );
-          await revokeMachine(credential, stored.result.connectMachineId);
+          requireSignedIn("to revoke machine access");
+          await cloud.revokeMachine(stored.result.connectMachineId);
         }
         await cc.storage.kv.delete(grantKey(hostId));
       });

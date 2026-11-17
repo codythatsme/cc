@@ -6,10 +6,13 @@ import {
 import { createDeferredPromise } from "@cc/test-helpers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as mentions from "../../src/services/plugins/plugin-mentions.js";
-import * as commands from "../../src/services/threads/thread-commands.js";
 import { queueParentSystemMessage } from "../../src/services/threads/parent-system-messages.js";
 import { sendNextQueuedMessageIfPresent } from "../../src/services/threads/queued-messages.js";
-import { registerHostRpcResponder } from "../helpers/host-rpc.js";
+import {
+  type HostRpcHandlerResult,
+  registerHostRpcResponder,
+  EMPTY_WORKSPACE_AGENT_CONTEXT,
+} from "../helpers/host-rpc.js";
 import { textInput } from "../helpers/prompt-input.js";
 import {
   seedEnvironment,
@@ -52,7 +55,7 @@ function registerResponder(
   return registerHostRpcResponder(harness, {
     hostId: fixture.host.id,
     sessionId: fixture.session.id,
-    handle: async ({ command }) => {
+    handle: async ({ command }): Promise<HostRpcHandlerResult> => {
       switch (command.type) {
         case "thread.stop":
           await stop();
@@ -63,11 +66,9 @@ function registerResponder(
             result: { providerThreadId: "provider-after-clear" },
           };
         case "turn.submit":
-          return { ok: true, result: { appliedAs: "new-turn" } };
-        case "host.list_files":
-          return { ok: true, result: { files: [], truncated: false } };
-        case "host.read_file":
-          return { ok: false, errorCode: "ENOENT", errorMessage: "Missing" };
+          return { ok: true, result: { trace: { spans: [] } } };
+        case "host.read_workspace_agent_context":
+          return { ok: true, result: EMPTY_WORKSPACE_AGENT_CONTEXT };
         default:
           throw new Error(`Unexpected command: ${command.type}`);
       }
@@ -90,24 +91,15 @@ describe("context clear dispatch races", () => {
             threadId: thread.id,
             content: textInput("Queued follow-up"),
           });
-          vi.spyOn(
-            mentions,
-            "resolvePluginMentionContextInputs",
-          ).mockImplementationOnce(async () => {
-            entered.resolve();
-            await release.promise;
-            return [];
-          });
-        } else {
-          const buildExecutionOptions = commands.buildExecutionOptions;
-          vi.spyOn(commands, "buildExecutionOptions").mockImplementationOnce(
-            async (...args) => {
-              entered.resolve();
-              await release.promise;
-              return buildExecutionOptions(...args);
-            },
-          );
         }
+        vi.spyOn(
+          mentions,
+          "resolvePluginMentionContextInputs",
+        ).mockImplementationOnce(async () => {
+          entered.resolve();
+          await release.promise;
+          return [];
+        });
         const sending =
           source === "queue"
             ? sendNextQueuedMessageIfPresent(harness.deps, {

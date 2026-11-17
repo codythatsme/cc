@@ -1,10 +1,36 @@
-import path from "node:path";
+import {
+  getHostPathSegments,
+  isHostPathWithin,
+  joinHostPath,
+} from "@cc/domain";
 import { PLUGIN_PROCESS_DATA_KINDS } from "@cc/process-utils";
 
 const LEGACY_WORKSPACE_ROOT_NAMES = ["worktrees", "personal-workspaces"];
 
-function isInside(root: string, candidate: string): boolean {
-  return candidate === root || candidate.startsWith(`${root}/`);
+function isInsideDataDirChild(args: {
+  dataDir: string;
+  name: string;
+  path: string;
+}): boolean {
+  const rootPath = joinHostPath({
+    rootPath: args.dataDir,
+    relativePath: args.name,
+  });
+  return (
+    rootPath !== null &&
+    isHostPathWithin({ rootPath, candidatePath: args.path })
+  );
+}
+
+export function isThreadStoragePath(args: {
+  dataDir: string;
+  path: string;
+}): boolean {
+  return isInsideDataDirChild({
+    dataDir: args.dataDir,
+    name: "thread-storage",
+    path: args.path,
+  });
 }
 
 export function isCcManagedWorkspacePath(args: {
@@ -13,16 +39,24 @@ export function isCcManagedWorkspacePath(args: {
 }): boolean {
   if (
     LEGACY_WORKSPACE_ROOT_NAMES.some((name) =>
-      isInside(path.posix.join(args.dataDir, name), args.path),
+      isInsideDataDirChild({ dataDir: args.dataDir, name, path: args.path }),
     )
   ) {
     return true;
   }
-  const pluginsRoot = path.posix.join(args.dataDir, "plugins");
-  if (!args.path.startsWith(`${pluginsRoot}/`)) return false;
-  const [pluginSegment, kind] = args.path
-    .slice(pluginsRoot.length + 1)
-    .split("/");
+  if (
+    !isInsideDataDirChild({
+      dataDir: args.dataDir,
+      name: "plugins",
+      path: args.path,
+    })
+  ) {
+    return false;
+  }
+  const pluginsDepth = (getHostPathSegments(args.dataDir)?.length ?? 0) + 1;
+  const [pluginSegment, kind] = (getHostPathSegments(args.path) ?? []).slice(
+    pluginsDepth,
+  );
   return (
     pluginSegment !== undefined &&
     pluginSegment.length > 0 &&

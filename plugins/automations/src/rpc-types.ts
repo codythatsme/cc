@@ -16,24 +16,14 @@ import {
 
 export {
   AUTOMATION_RUNS_LIMIT_MAX,
-  AUTOMATION_SCRIPT_TIMEOUT_DEFAULT_MS,
   AUTOMATION_SCRIPT_TIMEOUT_MAX_MS,
 } from "./limits.js";
 
 export const permissionModeSchema = z.enum(["accept-edits", "auto", "full"]);
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
-export const reasoningLevelSchema = z.enum([
-  "none",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "ultracode",
-  "max",
-  "ultra",
-]);
+export const reasoningLevelSchema = z.string().min(1);
 export type ReasoningLevel = z.infer<typeof reasoningLevelSchema>;
-export const serviceTierSchema = z.enum(["default", "fast"]);
+export const serviceTierSchema = z.string().min(1);
 export type ServiceTier = z.infer<typeof serviceTierSchema>;
 
 export const unmanagedBranchSpecSchema = z.discriminatedUnion("kind", [
@@ -178,6 +168,12 @@ const automationAgentExecutionSchema = z
   })
   .strict();
 
+const automationScriptTimeoutMsSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(AUTOMATION_SCRIPT_TIMEOUT_MAX_MS);
+
 const automationScriptExecutionFields = {
   mode: z.literal("script"),
   script: z.string().min(1).max(AUTOMATION_SCRIPT_MAX_LENGTH).optional(),
@@ -187,12 +183,9 @@ const automationScriptExecutionFields = {
     .max(AUTOMATION_SCRIPT_FILE_MAX_LENGTH)
     .optional(),
   interpreter: automationScriptInterpreterSchema.optional(),
-  timeoutMs: z
-    .number()
-    .int()
-    .positive()
-    .max(AUTOMATION_SCRIPT_TIMEOUT_MAX_MS)
-    .default(AUTOMATION_SCRIPT_TIMEOUT_DEFAULT_MS),
+  timeoutMs: automationScriptTimeoutMsSchema.default(
+    AUTOMATION_SCRIPT_TIMEOUT_DEFAULT_MS,
+  ),
   env: z.record(z.string(), z.string()).optional(),
 };
 
@@ -211,7 +204,9 @@ const storedAutomationScriptExecutionSchema = z
   .strict()
   .transform((execution) => ({
     ...execution,
-    workingDirectory: execution.workingDirectory ?? { type: "automation-storage" as const },
+    workingDirectory: execution.workingDirectory ?? {
+      type: "automation-storage" as const,
+    },
   }));
 
 const automationScriptExecutionRequestSchema = z
@@ -324,9 +319,30 @@ export type AgentExecutionUpdate = z.infer<typeof agentExecutionUpdateSchema>;
 
 const scriptExecutionUpdateSchema = z
   .object({
-    workingDirectory: automationScriptWorkingDirectorySchema,
+    script: automationScriptExecutionFields.script,
+    scriptFile: automationScriptExecutionFields.scriptFile,
+    interpreter: automationScriptExecutionFields.interpreter,
+    timeoutMs: automationScriptTimeoutMsSchema.optional(),
+    env: automationScriptExecutionFields.env,
+    workingDirectory: automationScriptWorkingDirectorySchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) =>
+      value.script !== undefined ||
+      value.interpreter !== undefined ||
+      value.timeoutMs !== undefined ||
+      value.env !== undefined ||
+      value.workingDirectory !== undefined,
+    { message: "at least one script execution field is required" },
+  )
+  .refine(
+    (value) => value.scriptFile === undefined || value.script !== undefined,
+    {
+      message: "scriptFile names new script content and requires script",
+      path: ["scriptFile"],
+    },
+  );
 export type ScriptExecutionUpdate = z.infer<typeof scriptExecutionUpdateSchema>;
 
 export const automationResponseSchema = z
@@ -362,9 +378,6 @@ export const legacyEmptyPromptAutomationResponseSchema =
   automationResponseSchema.extend({
     execution: legacyEmptyPromptAgentExecutionSchema,
   });
-export type LegacyEmptyPromptAutomationResponse = z.infer<
-  typeof legacyEmptyPromptAutomationResponseSchema
->;
 
 const invalidStoredAutomationReadProblemSchema = z
   .object({
@@ -422,9 +435,11 @@ export const projectAutomationInputSchema = z
   })
   .strict();
 
-export const listAutomationsInputSchema = z
-  .object({ projectId: z.string().min(1) })
-  .strict();
+export const listAutomationsInputSchema = z.union([
+  z.object({ projectId: z.string().min(1) }).strict(),
+  z.object({ targetThreadId: z.string().min(1) }).strict(),
+]);
+export type ListAutomationsInput = z.infer<typeof listAutomationsInputSchema>;
 
 export const createAutomationInputSchema = z
   .object({
@@ -500,9 +515,6 @@ export type ResolvedAutomationRunsInput = z.output<
 >;
 
 export const automationListResponseSchema = z.array(automationReadResultSchema);
-export type AutomationListResponse = z.infer<
-  typeof automationListResponseSchema
->;
 
 export const automationRunListResponseSchema = z
   .object({

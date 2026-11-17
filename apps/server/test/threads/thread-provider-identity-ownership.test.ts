@@ -1,4 +1,4 @@
-import { listEvents, listQueuedThreadMessages } from "@cc/db";
+import { listQueuedThreadMessages } from "@cc/db";
 import { threadScope, turnScope, type PromptInput } from "@cc/domain";
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../src/errors.js";
@@ -8,7 +8,11 @@ import {
   listQueuedThreadCommands,
   waitForQueuedCommand,
 } from "../helpers/commands.js";
-import { registerHostRpcResponder } from "../helpers/host-rpc.js";
+import {
+  type HostRpcHandlerResult,
+  registerHostRpcResponder,
+  EMPTY_WORKSPACE_AGENT_CONTEXT,
+} from "../helpers/host-rpc.js";
 import { textInput } from "../helpers/prompt-input.js";
 import {
   seedEnvironment,
@@ -21,6 +25,7 @@ import {
   seedThreadRuntimeState,
 } from "../helpers/seed.js";
 import { withTestHarness, type TestAppHarness } from "../helpers/test-app.js";
+import { listEvents } from "@cc/db/testing";
 
 const OWN_SESSION = "session-alpha";
 const FOREIGN_SESSION = "session-beta";
@@ -158,6 +163,7 @@ async function sendUserMessage(
   },
 ): Promise<void> {
   await sendThreadMessage(harness.deps, {
+    originPluginId: null,
     environment: args.environment,
     payload: {
       input: args.input ?? textInput("continue"),
@@ -313,7 +319,7 @@ describe("provider session ownership on dispatch", () => {
       const responder = registerHostRpcResponder(harness, {
         hostId: host.id,
         sessionId: session.id,
-        handle: ({ command }) => {
+        handle: ({ command }): HostRpcHandlerResult => {
           switch (command.type) {
             case "thread.stop":
               return { ok: true, result: { providerCheckpointId: null } };
@@ -323,15 +329,9 @@ describe("provider session ownership on dispatch", () => {
                 result: { providerThreadId: "session-fresh" },
               };
             case "turn.submit":
-              return { ok: true, result: { appliedAs: "new-turn" } };
-            case "host.list_files":
-              return { ok: true, result: { files: [], truncated: false } };
-            case "host.read_file":
-              return {
-                ok: false,
-                errorCode: "ENOENT",
-                errorMessage: "Missing",
-              };
+              return { ok: true, result: { trace: { spans: [] } } };
+            case "host.read_workspace_agent_context":
+              return { ok: true, result: EMPTY_WORKSPACE_AGENT_CONTEXT };
             default:
               throw new Error(`Unexpected command: ${command.type}`);
           }

@@ -1,6 +1,13 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
-import { projects, environmentVariables, upsertHost, updateHost } from "@cc/db";
+import {
+  environmentVariables,
+  getAppSettings,
+  projects,
+  setAppSettings,
+  updateHost,
+  upsertHost,
+} from "@cc/db";
 import { createCcSdk } from "@cc/sdk/core";
 import { createHttpTransport } from "@cc/sdk/node";
 import { describe, expect, it, vi } from "vitest";
@@ -23,6 +30,10 @@ describe("machine environment settings", () => {
       ]);
     try {
       await withTestHarness(async (harness) => {
+        setAppSettings(harness.db, {
+          ...getAppSettings(harness.db),
+          machineGitCredentialsEnabled: true,
+        });
         const sdk = createCcSdk({
           transport: createHttpTransport({
             baseUrl: "http://localhost",
@@ -65,10 +76,15 @@ describe("machine environment settings", () => {
           "GH_TOKEN",
         );
         await expect(stat(path)).rejects.toMatchObject({ code: "ENOENT" });
-        expect(
-          (await stat(join(harness.config.dataDir, "machine-environment-key")))
-            .mode & 0o777,
-        ).toBe(0o600);
+        if (process.platform !== "win32") {
+          expect(
+            (
+              await stat(
+                join(harness.config.dataDir, "machine-environment-key"),
+              )
+            ).mode & 0o777,
+          ).toBe(0o600);
+        }
         expect(
           JSON.stringify(harness.db.select().from(environmentVariables).all()),
         ).not.toContain("test-region");

@@ -29,7 +29,11 @@ import {
   reloadPlugin,
   type PluginListItem,
 } from "@/hooks/queries/plugin-settings-queries";
-import { usePluginSlots, type PluginSlotSnapshot } from "@/lib/plugin-slots";
+import {
+  usePluginSlotKind,
+  usePluginSlots,
+  type PluginSlotSnapshot,
+} from "@/lib/plugin-slots";
 import {
   getPluginConfigurationRoutePath,
   getPluginPanelRoutePath,
@@ -199,9 +203,24 @@ function pluginAppSurfaceItems(
       : []),
     ...namedSlotItems(
       pluginId,
-      slots.navPanels,
+      slots.navPanels.filter(
+        (panel) => panel.experimental_hideFromNavigation !== true,
+      ),
       "nav",
       "Adds a page to the app sidebar.",
+      (panel) =>
+        getPluginPanelRoutePath({
+          pluginId,
+          path: panel.path,
+        }),
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.navPanels.filter(
+        (panel) => panel.experimental_hideFromNavigation === true,
+      ),
+      "nav",
+      "Adds a page the plugin opens itself, outside navigation.",
       (panel) =>
         getPluginPanelRoutePath({
           pluginId,
@@ -233,14 +252,7 @@ function pluginAppSurfaceItems(
       pluginId,
       slots.experimentalSidebarNavigations,
       "sidebar-navigation",
-      "Can replace the sidebar navigation controls; configured in Appearance.",
-      () => getSettingsRoutePath("appearance"),
-    ),
-    ...namedSlotItems(
-      pluginId,
-      slots.experimentalSidebarHeaders,
-      "sidebar-header",
-      "Can add controls beside the sidebar toggle; configured in Appearance.",
+      "Can draw the sidebar navigation; configured in Appearance.",
       () => getSettingsRoutePath("appearance"),
     ),
     ...namedSlotItems(
@@ -254,6 +266,13 @@ function pluginAppSurfaceItems(
       slots.diffRenderers,
       "diff-renderer",
       "Replaces how diffs are displayed everywhere in the app.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.composers,
+      "composer",
+      "Can replace the thread composer; configured in Appearance.",
+      () => getSettingsRoutePath("appearance"),
     ),
     ...namedSlotItems(
       pluginId,
@@ -299,6 +318,60 @@ function pluginAppSurfaceItems(
     ),
     ...namedSlotItems(
       pluginId,
+      slots.threadContextSegments,
+      "thread-context",
+      "Adds context beside a thread's composer.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadRowMetadata,
+      "thread-row-item",
+      "Adds an item to each thread row in the sidebar.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadInfoRows,
+      "thread-info-row",
+      "Adds a row to the thread Info tab.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadInfoSections,
+      "thread-info-section",
+      "Adds a section to the thread Info tab.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadHeaderRows,
+      "thread-header-row",
+      "Adds a row under the thread header.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadHeaderTitles,
+      "thread-header-title",
+      "Replaces the thread title in the thread header.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadContextCardRows,
+      "thread-context-card-row",
+      "Adds a row to the thread context card.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadContextCardSections,
+      "thread-context-card-section",
+      "Adds a section to the thread context card.",
+    ),
+    ...namedSlotItems(
+      pluginId,
+      slots.threadActions,
+      "thread-action",
+      "Adds an action to thread menus.",
+    ),
+    ...namedSlotItems(
+      pluginId,
       slots.browserToolbarActions,
       "browser-toolbar",
       "Adds an action to Browser tab toolbars.",
@@ -312,6 +385,14 @@ function pluginAppSurfaceItems(
             action.id,
             undefined,
             "Adds an action beside the thread composer.",
+          ),
+        ),
+        ...(slot.experimental_popups ?? []).map((popup) =>
+          namedSurface(
+            `composer:${slot.id}:popup:${popup.id}`,
+            popup.id,
+            popup.label,
+            "Opens plugin content beside the composer, sharing the mention menu's placement.",
           ),
         ),
         ...(slot.banners ?? []).map((banner) =>
@@ -349,14 +430,19 @@ function pluginAppSurfaceItems(
           "Opens supported files in a plugin-provided viewer.",
           getSettingsRoutePath("files"),
         ),
-        detail: (
-          <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-            <span>Opens these files in a plugin-provided viewer:</span>
-            <span className="font-mono">
-              {slot.extensions.map((extension) => `.${extension}`).join(", ")}
+        detail:
+          slot.extensions.length === 0 ? (
+            <span>
+              Opens files the plugin shows in a plugin-provided viewer.
             </span>
-          </span>
-        ),
+          ) : (
+            <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+              <span>Opens these files in a plugin-provided viewer:</span>
+              <span className="font-mono">
+                {slot.extensions.map((extension) => `.${extension}`).join(", ")}
+              </span>
+            </span>
+          ),
       })),
     ...slots.messageDirectives
       .filter((slot) => slot.pluginId === pluginId)
@@ -364,6 +450,14 @@ function pluginAppSurfaceItems(
         key: `directive:${slot.id}`,
         label: `::${slot.id}`,
         detail: "Renders plugin-provided content inside thread messages.",
+        mono: true,
+      })),
+    ...slots.codeFenceRenderers
+      .filter((slot) => slot.pluginId === pluginId)
+      .map((slot) => ({
+        key: `code-fence:${slot.id}`,
+        label: slot.languages.map((language) => `\`\`\`${language}`).join(", "),
+        detail: "Renders these fenced code blocks inside assistant messages.",
         mono: true,
       })),
   ];
@@ -523,7 +617,7 @@ function PluginRuntimeStatusAlert({
   onReload: () => void;
   reloadPending: boolean;
 }) {
-  const { settingsSections } = usePluginSlots();
+  const settingsSections = usePluginSlotKind("settingsSections");
   const hasSettingsPage =
     plugin.hasSettings ||
     settingsSections.some((section) => section.pluginId === plugin.id);
@@ -622,7 +716,7 @@ export function PluginHealthBanner({
 
 export function PluginServices({ plugin }: { plugin: PluginListItem }) {
   return (
-    <div className="max-w-full overflow-hidden rounded-lg border border-border bg-card align-top">
+    <div className="@container/plugin-detail max-w-full overflow-hidden rounded-lg border border-border bg-card align-top">
       <table
         aria-label="Background services"
         className="w-full max-w-full table-fixed border-collapse text-left"

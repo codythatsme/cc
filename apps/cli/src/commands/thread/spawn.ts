@@ -3,10 +3,11 @@ import {
   jsonValueSchema,
   PERSONAL_PROJECT_ID,
   threadVisibilitySchema,
-  type GitBranchSelection,
   type EnvironmentMachineSelection,
   type Thread,
+  type ThreadParentNotifications,
   type JsonValue,
+  type GitBranchSelection,
 } from "@cc/domain";
 import type { CreateThreadEnvironmentArgs } from "@cc/server-contract";
 import { action, CliUsageError } from "../../action.js";
@@ -32,10 +33,14 @@ import {
   parsePermissionMode,
   buildPromptInputs,
   uploadClientAttachmentInputs,
+  PARENT_NOTIFICATIONS_HELP,
   PERMISSION_MODE_HELP,
   PLAN_HELP,
+  parseParentNotifications,
   parseServiceTier,
+  SERVICE_TIER_HELP,
 } from "./helpers.js";
+import { parseSpawnSessionOptions } from "./session-state.js";
 import { SEND_AT_HELP, parseSendAt } from "./send-time.js";
 
 const PROVIDER_HELP =
@@ -58,6 +63,7 @@ interface ThreadSpawnCommandOptions {
   title?: string;
   lifecycleOwnerThread?: string;
   serviceTier?: string;
+  option?: string[];
   permissionMode?: string;
   plan?: boolean;
   parentSelf?: boolean;
@@ -68,15 +74,23 @@ interface ThreadSpawnCommandOptions {
   file?: string[];
   image?: string[];
   section?: string;
+  pinned?: boolean;
   originKind?: string;
   sourceThread?: string;
   sourceSeqEnd?: string;
   visibility?: string;
+  parentNotifications?: string;
   sendAt?: string;
 }
 
 export function looksLikePath(value: string): boolean {
-  return value.includes("/") || value.startsWith(".") || value.startsWith("~");
+  return (
+    value.includes("/") ||
+    value.includes("\\") ||
+    /^[A-Za-z]:/u.test(value) ||
+    value.startsWith(".") ||
+    value.startsWith("~")
+  );
 }
 
 export function requireHostId(hostId: string | null): string {
@@ -336,7 +350,7 @@ export function registerSpawnCommand(
     )
     .option(
       "--base-branch <branch>",
-      "Exact Git ref; omit for cc's project default (use origin/<branch> for a remote ref)",
+      "Base branch or ref; a named branch uses origin/<name> unless local has commits it lacks (use refs/heads/<name> to force local)",
     )
     .option(
       "--machine <id-or-name>",
@@ -360,10 +374,15 @@ export function registerSpawnCommand(
     )
     .option(
       "--reasoning-level <level>",
-      "Reasoning level: low, medium, high, xhigh, max (provider-dependent)",
+      "Reasoning level id the model lists: low, medium, high, xhigh, max, or a provider-specific id",
     )
     .option("--title <title>", "Thread title")
-    .option("--service-tier <tier>", "Service tier: fast or default")
+    .option("--service-tier <tier>", SERVICE_TIER_HELP)
+    .option(
+      "--option <option=value>",
+      "Choose a value for an option the provider's model lists (see cc provider models); use true or false for an on/off option (repeatable)",
+      (value: string, previous: string[] = []) => [...previous, value],
+    )
     .option("--permission-mode <mode>", PERMISSION_MODE_HELP)
     .option("--plan", PLAN_HELP)
     .option(
@@ -379,10 +398,12 @@ export function registerSpawnCommand(
       [],
     )
     .option("--section <id>", "Create the thread in a section")
+    .option("--pinned", "Create the thread in Pinned")
     .option(
       "--visibility <visibility>",
       "Thread visibility: visible or hidden (a child inherits its parent)",
     )
+    .option("--parent-notifications <value>", PARENT_NOTIFICATIONS_HELP)
     .option(
       "--environment-provider <id>",
       "Run on an environment provider by id (list them with `cc environment providers`)",
@@ -535,11 +556,15 @@ export function registerSpawnCommand(
             });
         const reasoningLevel = parseReasoningLevel(opts.reasoningLevel);
         const serviceTier = parseServiceTier(opts.serviceTier);
+        const sessionOptions = parseSpawnSessionOptions(opts.option ?? []);
         const permissionMode = parsePermissionMode(opts.permissionMode);
         const visibility =
           opts.visibility === undefined
             ? undefined
             : threadVisibilitySchema.parse(opts.visibility);
+        const parentNotifications = parseParentNotifications(
+          opts.parentNotifications,
+        );
         const parentThreadId = resolveSpawnParentThreadId({
           parentSelf: opts.parentSelf,
           parentThread: opts.parentThread,
@@ -583,16 +608,24 @@ export function registerSpawnCommand(
             ...(reasoningLevel ? { reasoningLevel } : {}),
             ...(opts.title ? { title: opts.title } : {}),
             ...(serviceTier ? { serviceTier } : {}),
+            ...(Object.keys(sessionOptions).length > 0
+              ? { sessionOptions }
+              : {}),
             ...(permissionMode ? { permissionMode } : {}),
             ...(visibility ? { visibility } : {}),
             environment,
             startedOnBehalfOf: null,
             originKind: opts.originKind ?? null,
             ...(parentThreadId ? { parentThreadId } : {}),
+            ...(process.env.CC_THREAD_ID
+              ? { senderThreadId: process.env.CC_THREAD_ID }
+              : {}),
+            ...(parentNotifications ? { parentNotifications } : {}),
             ...(opts.lifecycleOwnerThread !== undefined
               ? { lifecycleOwnerThreadId: opts.lifecycleOwnerThread }
               : {}),
             ...(opts.section ? { sectionId: opts.section } : {}),
+            ...(opts.pinned ? { pinned: true } : {}),
             ...(opts.sourceThread ? { sourceThreadId: opts.sourceThread } : {}),
             ...(sourceSeqEnd !== undefined ? { sourceSeqEnd } : {}),
             ...(sendAt !== undefined ? { sendAt } : {}),
@@ -614,11 +647,24 @@ export function registerSpawnCommand(
           thread.parentThreadId &&
           thread.parentThreadId === resolveContextThreadId()
         ) {
-          console.log("You will be notified when this thread is done.");
+          console.log(parentNotificationsPromise(thread.parentNotifications));
         }
         printThread(thread);
       }),
     );
+}
+
+function parentNotificationsPromise(
+  parentNotifications: ThreadParentNotifications,
+): string {
+  switch (parentNotifications) {
+    case "auto":
+      return "You will be notified when this thread is done.";
+    case "stuck":
+      return "You will be notified only if this thread fails, is interrupted, or is blocked.";
+    case "off":
+      return "You will not be notified about this thread.";
+  }
 }
 
 function printThread(thread: Thread): void {

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { RETIRED_PLUGIN_SUCCESSORS } from "@cc/domain";
 
 export interface BundledPluginDefinition {
   name: string;
@@ -20,6 +21,8 @@ interface ResolveBuiltinPluginRootPathArgs {
 
 export const BUILTIN_PLUGINS_DIRECTORY_NAME = "builtin-plugins";
 
+export const BUILTIN_PLUGIN_ID_PREFIX = "cc--";
+
 const ACCOUNT_POOL_PARENT_URL_ENV = "CC_ACCOUNT_POOL_PARENT_URL";
 
 export function accountPoolDefaultEnabled(
@@ -32,6 +35,11 @@ export function accountPoolDefaultEnabled(
 const REPO_PLUGINS_DIRECTORY_NAME = "plugins";
 
 export const BUILTIN_PLUGINS = [
+  {
+    name: "storage-retention",
+    pluginId: "cc--storage-retention",
+    defaultEnabled: false,
+  },
   {
     name: "cc-guide",
     pluginId: "cc-guide",
@@ -53,9 +61,24 @@ export const BUILTIN_PLUGINS = [
     defaultEnabled: true,
   },
   {
+    name: "cc-account",
+    pluginId: "cc-account",
+    defaultEnabled: true,
+  },
+  {
+    name: "cc-ai",
+    pluginId: "cc-ai",
+    defaultEnabled: true,
+  },
+  {
     name: "connect",
     pluginId: "connect",
     defaultEnabled: true,
+  },
+  {
+    name: "connect-next",
+    pluginId: "cc--connect-next",
+    defaultEnabled: false,
   },
   {
     name: "environment-project-checkout",
@@ -114,7 +137,7 @@ export const BUILTIN_PLUGINS = [
   },
   {
     name: "provider-usage",
-    pluginId: "provider-usage",
+    pluginId: "cc--provider-usage",
     defaultEnabled: true,
   },
   {
@@ -143,6 +166,16 @@ export const BUILTIN_PLUGINS = [
     defaultEnabled: true,
   },
   {
+    name: "git",
+    pluginId: "cc--git",
+    defaultEnabled: true,
+  },
+  {
+    name: "github-pr-status",
+    pluginId: "cc--github-pr-status",
+    defaultEnabled: true,
+  },
+  {
     name: "secrets",
     pluginId: "secrets",
     defaultEnabled: true,
@@ -161,6 +194,16 @@ export const BUILTIN_PLUGINS = [
     name: "navigation",
     pluginId: "navigation",
     defaultEnabled: true,
+  },
+  {
+    name: "prompt-library",
+    pluginId: "cc--prompt-library",
+    defaultEnabled: false,
+  },
+  {
+    name: "mcp",
+    pluginId: "cc--mcp",
+    defaultEnabled: false,
   },
   {
     name: "scheduled-send",
@@ -186,6 +229,16 @@ export const BUILTIN_PLUGINS = [
     name: "workflows",
     pluginId: "workflows",
     defaultEnabled: false,
+  },
+  {
+    name: "composer",
+    pluginId: "cc--composer",
+    defaultEnabled: true,
+  },
+  {
+    name: "github-star",
+    pluginId: "cc--github-star",
+    defaultEnabled: true,
   },
 ].map((plugin): BundledPluginDefinition => ({
   ...plugin,
@@ -233,15 +286,31 @@ export const OFFICIAL_PLUGINS = [
   autoInstall: false,
 }));
 
-export const AUTOMATIC_AI_SERVICE_PLUGIN_IDS: readonly string[] = [
-  "provider-codex",
-  "cc-ai",
-];
-
 export const BUNDLED_PLUGINS: readonly BundledPluginDefinition[] = [
   ...BUILTIN_PLUGINS,
   ...OFFICIAL_PLUGINS,
 ];
+
+export interface RetiredBundledPlugin {
+  pluginId: string;
+  successorPluginId: string;
+  carriedSettings: readonly string[];
+}
+
+const RETIRED_PLUGIN_CARRIED_SETTINGS: Readonly<
+  Record<string, readonly string[]>
+> = {
+  "cc--provider-acp-next": ["customAgents"],
+};
+
+export const RETIRED_BUNDLED_PLUGINS: readonly RetiredBundledPlugin[] =
+  Object.entries(RETIRED_PLUGIN_SUCCESSORS).map(
+    ([pluginId, successorPluginId]) => ({
+      pluginId,
+      successorPluginId,
+      carriedSettings: RETIRED_PLUGIN_CARRIED_SETTINGS[pluginId] ?? [],
+    }),
+  );
 
 const builtinPluginsModuleDir = path.dirname(fileURLToPath(import.meta.url));
 

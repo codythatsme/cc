@@ -12,6 +12,9 @@ A workflow puts deterministic control flow around normal CC worker threads. The
 script can fan out work, pipeline stages, verify results, and return structured
 data. Worker threads retain normal workspace tools and permissions.
 
+The plugin is disabled on fresh installations; `cc plugin enable workflows`
+turns it on. `cc workflows` commands must run from a CC project thread.
+
 ## Start safely
 
 1. Inspect the task and repository before you choose the work list.
@@ -38,7 +41,7 @@ Do not guess model identifiers or partial selection tuples.
 - Read references/orchestration.md when you design pipelines, barriers,
   verification, panels, loops, or other quality controls.
 - Read references/runs.md when you validate, start, inspect, stop, or resume a
-  workflow.
+  workflow, or change the plugin's run limits.
 
 ## Minimal source
 

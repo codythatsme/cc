@@ -1,6 +1,6 @@
 # Core command index
 
-This index lists every command path that the core CLI registers, including aliases: `thread get|view|status` run `thread show`, `thread message|send` run `thread tell`, `thread messages|timeline` run `thread log`, `thread create|new` run `thread spawn`, `terminal read` runs `terminal output`, `plugin uninstall` runs `plugin remove`, and `environment get` runs `environment show`. At the top level `cc host`, `cc hosts`, and `cc machines` run `cc machine`, `cc env` runs `cc environment`, and the plurals `threads`, `projects`, `terminals`, `providers`, `plugins`, and `skills` run their singular command, unless a plugin registers that name. `cc guide commands <group>` prints a group's commands with every option on one page. Read the task-specific reference before you use a command. Check live help for flags and defaults.
+This index lists every command path that the core CLI registers, including aliases: `thread get|view|status` run `thread show`, `thread message|send` run `thread tell`, `thread messages|timeline` run `thread log`, `thread create|new` run `thread spawn`, `terminal read` runs `terminal output`, `plugin uninstall` runs `plugin remove`, and `environment get` runs `environment show`. At the top level `cc host`, `cc hosts`, and `cc machines` run `cc machine`, `cc env` runs `cc environment`, and the plurals `threads`, `projects`, `terminals`, `providers`, `plugins`, and `skills` run their singular command, unless a plugin registers that name. `cc guide commands <group>` prints a group's commands with every option on one page. Check live help for flags and defaults.
 
 ## status
 
@@ -10,11 +10,17 @@ This index lists every command path that the core CLI registers, including alias
 
 - `cc settings`
 - `cc settings show`
+- `cc settings mobile-app`
 - `cc settings ai-services`
 - `cc settings ai-services show`
 - `cc settings ai-services set`
 - `cc settings ai-services test`
+- `cc settings cli-command`
+- `cc settings cli-command show`
+- `cc settings cli-command install`
+- `cc settings cli-command remove`
 - `cc settings general`
+- `cc settings replay-onboarding`
 - `cc settings completed-turns`
 - `cc settings experiment`
 - `cc settings keyboard`
@@ -31,6 +37,8 @@ This index lists every command path that the core CLI registers, including alias
 - `cc settings version`
 - `cc settings reload`
 
+`cc settings usage` accepts `--refresh` to fetch fresh provider usage.
+
 ## project
 
 - `cc project`
@@ -42,6 +50,7 @@ This index lists every command path that the core CLI registers, including alias
 - `cc project attachment upload`
 - `cc project attachment download`
 - `cc project list`
+- `cc project discover`
 - `cc project history`
 - `cc project reorder`
 - `cc project branches`
@@ -54,21 +63,20 @@ This index lists every command path that the core CLI registers, including alias
 - `cc project update`
 - `cc project delete`
 
-`cc project show <id>` accepts `proj_personal` to inspect Personal.
+## prompt-history
+
+- `cc prompt-history`
+- `cc prompt-history list`
 
 ## provider
 
 - `cc provider`
 - `cc provider list`
+- `cc provider enable`
+- `cc provider disable`
 - `cc provider models`
 
-## manager
-
-- `cc manager`
-- `cc manager hire`
-- `cc manager list`
-- `cc manager status`
-- `cc manager delete`
+Use `--selected-model <model-id>` to discover its reasoning choices and include selected-only entries.
 
 ## machine
 
@@ -94,12 +102,6 @@ This index lists every command path that the core CLI registers, including alias
 - `cc machine provider-cli status`
 - `cc machine provider-cli install`
 
-`cc thread spawn --new-machine <provider-id>` creates a machine for a new
-environment and requires `--environment-provider <id>`. For a composed option,
-use `--environment-provider modal-sandbox` alone. `--machine-inputs <json>`
-configures the machine with optional configured `preset` and `image` names;
-`--environment-inputs <json>` configures the workspace. Neither carries secrets.
-
 ## server
 
 - `cc server`
@@ -113,14 +115,6 @@ configures the machine with optional configured `preset` and `image` names;
 - `cc server delete-old-copy`
 - `cc server install-machine-service`
 
-`move`, `move status`, `move cancel`, and `export` call the running server.
-Server moves are experimental; agents run `move` (without `--check`),
-`move cancel`, and `unlock` only after the user explicitly confirms.
-`import`, `unlock`, `allow-connect`, and `delete-old-copy` act on a local data
-directory (`--data-dir`, else `CC_DATA_DIR`, else `~/.cc`) and never call a
-server. `install-machine-service` acts on the same local data directory after a
-move and downloads the new server's cc-app package for its service.
-
 ## updates
 
 - `cc updates`
@@ -129,6 +123,8 @@ move and downloads the new server's cc-app package for its service.
 - `cc updates app`
 - `cc updates app status`
 - `cc updates app apply`
+- `cc updates app cancel`
+- `cc updates app auto`
 - `cc updates app dismiss`
 
 ## terminal
@@ -137,6 +133,7 @@ move and downloads the new server's cc-app package for its service.
 - `cc terminal list`
 - `cc terminal create`
 - `cc terminal start`
+- `cc terminal run`
 - `cc terminal show`
 - `cc terminal attach`
 - `cc terminal send`
@@ -196,6 +193,7 @@ move and downloads the new server's cc-app package for its service.
 - `cc thread restore-environment`
 - `cc thread pin`
 - `cc thread unpin`
+- `cc thread regenerate-title`
 - `cc thread delete`
 - `cc thread edit-message`
 - `cc thread tell`
@@ -205,6 +203,8 @@ move and downloads the new server's cc-app package for its service.
 - `cc thread stop`
 - `cc thread compact`
 - `cc thread context`
+- `cc thread commands`
+- `cc thread options`
 - `cc thread clear`
 - `cc thread cancel-plan`
 - `cc thread clear-goal`
@@ -223,23 +223,13 @@ move and downloads the new server's cc-app package for its service.
 - `cc environment providers`
 - `cc environment list`
 - `cc environment delete`
+- `cc environment cleanup`
 - `cc environment show`
 - `cc environment get`
-- `cc environment status`
-- `cc environment branches`
 - `cc environment paths`
-- `cc environment diff`
-- `cc environment diff-files`
-- `cc environment diff-file`
-- `cc environment diff-patch`
 - `cc environment update`
 - `cc environment commit`
 - `cc environment archive-threads`
-- `cc environment pull-request`
-- `cc environment pull-request show`
-- `cc environment pull-request ready`
-- `cc environment pull-request draft`
-- `cc environment pull-request merge`
 
 ## file
 
@@ -271,8 +261,11 @@ move and downloads the new server's cc-app package for its service.
 - `cc plugin list`
 - `cc plugin source`
 - `cc plugin install`
+- `cc plugin install-jobs`
+- `cc plugin cancel-install`
 - `cc plugin outdated`
 - `cc plugin update`
+- `cc plugin update-jobs`
 - `cc plugin new`
 - `cc plugin types`
 - `cc plugin migrate`
@@ -286,6 +279,7 @@ move and downloads the new server's cc-app package for its service.
 - `cc plugin enable`
 - `cc plugin disable`
 - `cc plugin safe-mode`
+- `cc plugin prune`
 - `cc plugin config`
 - `cc plugin token`
 - `cc plugin run`
@@ -325,8 +319,6 @@ move and downloads the new server's cc-app package for its service.
 - `cc diagnostics`
 - `cc diagnostics cli-errors`
 
-`cc diagnostics cli-errors` tallies the failed `cc` invocations recorded in `<data dir>/logs/cli-errors.jsonl` on this machine. It records the command path, the error code, and the unknown command or flag, never argument values. `CC_CLI_ERROR_LOG=0` turns recording off.
-
 ## voice
 
 - `cc voice`
@@ -347,14 +339,3 @@ move and downloads the new server's cc-app package for its service.
 - `cc browser watch`
 - `cc browser import-sources`
 - `cc browser import-cookies`
-
-Machine lists and name/ID selectors include machines still being created. Machine creation is durable: `create --no-wait` returns the creating host ID. `machine show <host-id>` reads progress and `machine remove <host-id>` cancels it. SIGINT only stops following.
-
-Machine environment: `cc machine env list`, `cc machine env set NAME`
-(value from stdin), and `cc machine env unset NAME`; all accept `--project <id>` for project overrides and `--json`. Omit `--project` for global settings.
-
-Standalone `cc machine create` machines remain until explicitly removed.
-
-To enroll an existing machine, run `cc machine create --provider manual`, then
-run its printed enrollment command on the target. The CLI waits until the daemon
-connects. With `--no-wait`, it returns the creating host ID immediately.

@@ -1,4 +1,4 @@
-import { getThread, listEvents } from "@cc/db";
+import { getThread } from "@cc/db";
 import { afterEach, expect, it, vi } from "vitest";
 import { dispatchTurnDuringReprovision } from "../../src/services/threads/thread-turn-dispatch.js";
 import { readThreadProvisionContext } from "../../src/services/threads/thread-startup-store.js";
@@ -11,6 +11,7 @@ import {
   seedThread,
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
+import { listEvents } from "@cc/db/testing";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -51,6 +52,7 @@ it("leaves reprovision unstarted when dispatch admission rejects the request", a
 
     await expect(
       dispatchTurnDuringReprovision({
+        originPluginId: null,
         deps: harness.deps,
         environment,
         execution,

@@ -6,6 +6,7 @@ import type {
   WorkflowProgressSnapshot,
 } from "@cc/domain";
 import { ThreadWorkflowCard } from "./ThreadWorkflowCard";
+import { ThreadWorkflowStack } from "./ThreadWorkflowStack";
 import { workflowRow } from "@/test/fixtures/thread-timeline-rows";
 import { StoryCard, StoryRow } from "../../../../.ladle/story-card";
 import { FauxComposer, ResponsiveStage } from "./banner-story-stages";
@@ -245,6 +246,7 @@ function CollapsedWorkflowPreview() {
 
 function AutoAdvancePreview() {
   const [activePhase, setActivePhase] = useState(3);
+  const [startedAt, setStartedAt] = useState(() => Date.now() - 1_472_000);
   const [expanded, setExpanded] = useState(true);
   const workflow = useMemo(
     () =>
@@ -254,7 +256,7 @@ function AutoAdvancePreview() {
         taskStatus: "running",
         workflowName: "cc-repo-wide-audit",
         description: "Audit the entire repository across forty phases",
-        startedAt: Date.now() - 1_472_000,
+        startedAt,
         workflow: buildManyPhasesSnapshot(40, activePhase),
         usage: {
           totalTokens: 4_210_000,
@@ -262,13 +264,16 @@ function AutoAdvancePreview() {
           durationMs: 1_472_000,
         },
       }),
-    [activePhase],
+    [activePhase, startedAt],
   );
   return (
     <div className="flex flex-col gap-2">
       <button
         type="button"
-        onClick={() => setActivePhase((p) => Math.min(40, p + 1))}
+        onClick={() => {
+          setActivePhase((p) => Math.min(40, p + 1));
+          setStartedAt(Date.now() - 1_472_000);
+        }}
         className="self-start rounded-md border border-border px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-state-hover"
       >
         Advance to phase {Math.min(40, activePhase + 1)}
@@ -309,23 +314,68 @@ export function Overview() {
   );
 }
 
+function ToggleableStack({
+  workflows,
+}: {
+  workflows: readonly (typeof runningWorkflow)[];
+}) {
+  const [isStackExpanded, setIsStackExpanded] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  return (
+    <ThreadWorkflowStack
+      workflows={workflows}
+      isStackExpanded={isStackExpanded}
+      onToggleStack={() => setIsStackExpanded((value) => !value)}
+      expandedWorkflowIds={expandedIds}
+      onToggleWorkflow={(id) =>
+        setExpandedIds((current) => {
+          const next = new Set(current);
+          if (!next.delete(id)) next.add(id);
+          return next;
+        })
+      }
+    />
+  );
+}
+
+const concurrentWorkflows = [
+  secondRunningWorkflow,
+  runningWorkflow,
+  {
+    ...secondRunningWorkflow,
+    id: "thr_fixture:workflow:balance:running-2",
+    workflowName: "cc-balance-pass-2",
+  },
+  {
+    ...runningWorkflow,
+    id: "thr_fixture:workflow:investigation:running-2",
+    workflowName: "cc-plugin-investigation-2",
+  },
+];
+
 export function ConcurrentWorkflows() {
   return (
     <StoryCard>
       <StoryRow
         label="two running"
-        hint="one card per running workflow, newest first; each expands independently"
+        hint="two or more running workflows auto-collapse into a stack: the newest card in front with a total count and peeking edges; tapping it fans out into individual cards with an up chevron below them to restack"
       >
         <ResponsiveStage>
           <div className="flex flex-col gap-2">
-            <ToggleableCard
-              workflow={secondRunningWorkflow}
-              initialExpanded={false}
-            />
-            <ToggleableCard
-              workflow={runningWorkflow}
-              initialExpanded={false}
-            />
+            <ToggleableStack workflows={concurrentWorkflows.slice(0, 2)} />
+            <FauxComposer />
+          </div>
+        </ResponsiveStage>
+      </StoryRow>
+      <StoryRow
+        label="four running"
+        hint="at most two peeking edges, however many workflows are running"
+      >
+        <ResponsiveStage>
+          <div className="flex flex-col gap-2">
+            <ToggleableStack workflows={concurrentWorkflows} />
             <FauxComposer />
           </div>
         </ResponsiveStage>

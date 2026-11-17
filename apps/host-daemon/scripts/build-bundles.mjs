@@ -101,6 +101,10 @@ async function main() {
   const outputTitleCommandPath = resolve(packageRoot, "dist", "title");
   await copyFile(titleCommandPath, outputTitleCommandPath);
   await chmod(outputTitleCommandPath, 0o755);
+  await writeFile(
+    resolve(packageRoot, "dist", "cc.cmd"),
+    '@echo off\r\nnode "%~dp0bb" %*\r\n',
+  );
 }
 
 void main().catch((error) => {

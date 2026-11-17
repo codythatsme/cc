@@ -1,3 +1,4 @@
+import { makePanelController } from "../testing/fixtures.js";
 import { describe, expect, it, vi } from "vitest";
 import type {
   PluginAppBuilder,
@@ -57,7 +58,7 @@ describe("app.commands.register", () => {
 
   it.each(entryPoints)(
     "preserves callbacks through the %s entry point",
-    (entryPoint) => {
+    async (entryPoint) => {
       const run = vi.fn();
       const isAvailable = vi.fn(() => true);
       const collected = collectPluginAppRegistrations({
@@ -74,11 +75,16 @@ describe("app.commands.register", () => {
       const context = {
         threadId: "thread-1",
         projectId: "project-1",
-        openPanel: vi.fn(() => true),
+        experimental_panel: makePanelController({
+          openTab: vi.fn(() => true),
+          toggleTab: vi.fn(() => true),
+          close: vi.fn(() => true),
+        }),
       };
       const command = collected.commandPaletteActions[0]!;
+      if (command.target !== "app") throw new Error("expected an app command");
       expect(command.isAvailable?.(context)).toBe(true);
-      command.run(context);
+      await command.run(context);
       expect(isAvailable).toHaveBeenCalledWith(context);
       expect(run).toHaveBeenCalledWith(context);
       expect(collected.commandPaletteActions).toHaveLength(1);
@@ -101,6 +107,50 @@ describe("app.commands.register", () => {
           };
           register(app, first, command);
           register(app, second, command);
+        },
+      }),
+    ).toThrow(/duplicate/i);
+  });
+
+  it("collects composer commands in the shared command namespace", () => {
+    const run = vi.fn();
+    const collected = collectPluginAppRegistrations({
+      __ccPluginApp: true,
+      setup(app) {
+        app.composer.experimental_registerCommand({
+          id: "search",
+          title: "Search prompts",
+          defaultShortcut: { key: "r", control: true },
+          run,
+        });
+      },
+    });
+    expect(collected.commandPaletteActions).toEqual([
+      {
+        target: "composer",
+        id: "search",
+        title: "Search prompts",
+        defaultShortcut: {
+          key: "r",
+          mod: false,
+          meta: false,
+          control: true,
+          alt: false,
+          shift: false,
+        },
+        run,
+      },
+    ]);
+    expect(() =>
+      collectPluginAppRegistrations({
+        __ccPluginApp: true,
+        setup(app) {
+          app.commands.register({ id: "search", title: "Search", run() {} });
+          app.composer.experimental_registerCommand({
+            id: "search",
+            title: "Search prompts",
+            run() {},
+          });
         },
       }),
     ).toThrow(/duplicate/i);

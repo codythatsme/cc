@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@cc/shared-ui/dialog";
-import { ConfirmDeleteDialog } from "@/components/dialogs/ConfirmDeleteDialog";
+import { ConfirmDeleteDialog } from "@cc/shared-ui/confirm-delete-dialog";
 import { appToast } from "@/components/ui/app-toast";
 import {
   SettingsRow,

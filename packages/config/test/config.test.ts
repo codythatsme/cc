@@ -78,7 +78,7 @@ describe("common config", () => {
         },
         homeDir: "/Users/tester",
       }).CC_DATA_DIR,
-    ).toBe("/Users/tester/.cc");
+    ).toBe(path.normalize("/Users/tester/.cc"));
   });
 
   it("requires repoRoot or CC_DATA_DIR for development data dir resolution", () => {
@@ -104,7 +104,7 @@ describe("common config", () => {
         homeDir,
         repoRoot,
       }).CC_DATA_DIR,
-    ).toBe("/Users/tester/.cc-dev/src-cc-70ebaf992199");
+    ).toBe(path.normalize("/Users/tester/.cc-dev/src-cc-70ebaf992199"));
   });
 
   it("expands home-directory overrides for CC_DATA_DIR", () => {
@@ -117,6 +117,20 @@ describe("common config", () => {
       }).CC_DATA_DIR,
     ).toBe(path.join(os.homedir(), "custom-cc"));
   });
+
+  it.runIf(process.platform === "win32")(
+    "expands a home-directory override written with a backslash on Windows",
+    () => {
+      expect(
+        loadCommonConfig({
+          env: {
+            CC_DATA_DIR: "~\\custom-cc",
+            NODE_ENV: "production",
+          },
+        }).CC_DATA_DIR,
+      ).toBe(path.join(os.homedir(), "custom-cc"));
+    },
+  );
 
   it("rejects whitespace-only CC_DATA_DIR overrides", () => {
     expect(() =>
@@ -177,7 +191,7 @@ describe("data-dir helpers", () => {
         mode: "dev",
         repoRoot,
       }),
-    ).toBe("/Users/tester/.cc-dev/src-cc-70ebaf992199");
+    ).toBe(path.normalize("/Users/tester/.cc-dev/src-cc-70ebaf992199"));
   });
 
   it("keeps the legacy fallback label for degenerate checkout labels", () => {
@@ -188,7 +202,7 @@ describe("data-dir helpers", () => {
         mode: "dev",
         repoRoot: "/Users/tester/---",
       }),
-    ).toBe("/Users/tester/.cc-dev/worktree-41987f975862");
+    ).toBe(path.normalize("/Users/tester/.cc-dev/worktree-41987f975862"));
   });
 });
 
@@ -292,17 +306,66 @@ describe("consumer-specific config", () => {
       }),
     });
 
+    expect(serverConfig.CC_PERF_DIAGNOSTICS).toBe(false);
     expect(serverConfig.CC_SERVER_PORT).toBe(4444);
     expect(serverConfig.CC_HOST_DAEMON_PORT).toBe(5555);
-    expect(serverConfig.databasePath).toBe("/tmp/cc-data/cc.db");
+    expect(serverConfig.databasePath).toBe(path.resolve("/tmp/cc-data/cc.db"));
     expect(serverConfig.CC_APP_URL).toBe("");
     expect(serverConfig.CC_APP_SURFACE).toBe("web");
     expect(serverConfig.CC_APP_VERSION).toBe("0.0.0-dev");
     expect(serverConfig.CC_EXTERNAL_URL).toBe("");
+    expect(serverConfig.CC_CONNECT_GATE_KEYS_URL).toBe(
+      "https://cc.example.invalid/.well-known/cc-connect-gate-keys.json",
+    );
     expect(serverConfig.featureFlags).toEqual({
       placeholder: false,
       timelineWindowEventBudget: 1_500,
     });
+  });
+
+  it("reads and validates the connect gate keys URL override", () => {
+    expect(
+      loadServerConfig({
+        env: createServerRuntimeEnv({
+          CC_CONNECT_GATE_KEYS_URL: "http://127.0.0.1:9999/keys.json",
+        }),
+      }).CC_CONNECT_GATE_KEYS_URL,
+    ).toBe("http://127.0.0.1:9999/keys.json");
+    expect(() =>
+      loadServerConfig({
+        env: createServerRuntimeEnv({ CC_CONNECT_GATE_KEYS_URL: "" }),
+      }),
+    ).toThrow("CC_CONNECT_GATE_KEYS_URL");
+  });
+
+  it("validates the opt-in performance diagnostics setting", () => {
+    expect(
+      loadServerConfig({
+        env: createServerRuntimeEnv({ CC_PERF_DIAGNOSTICS: "1" }),
+      }).CC_PERF_DIAGNOSTICS,
+    ).toBe(true);
+    expect(() =>
+      loadServerConfig({
+        env: createServerRuntimeEnv({ CC_PERF_DIAGNOSTICS: "typo" }),
+      }),
+    ).toThrow("CC_PERF_DIAGNOSTICS must be a boolean");
+  });
+
+  it("reads the optional setup guide variant override", () => {
+    expect(
+      loadServerConfig({ env: createServerRuntimeEnv({}) })
+        .CC_SETUP_GUIDE_VARIANT,
+    ).toBeUndefined();
+    expect(
+      loadServerConfig({
+        env: createServerRuntimeEnv({ CC_SETUP_GUIDE_VARIANT: "new" }),
+      }).CC_SETUP_GUIDE_VARIANT,
+    ).toBe("new");
+    expect(() =>
+      loadServerConfig({
+        env: createServerRuntimeEnv({ CC_SETUP_GUIDE_VARIANT: "redesign" }),
+      }),
+    ).toThrow("CC_SETUP_GUIDE_VARIANT must be one of control, new");
   });
 
   it("carries the launcher's server launch id only when it is set", () => {
@@ -477,7 +540,9 @@ describe("consumer-specific config", () => {
       },
     });
 
-    expect(databaseConfig.databasePath).toBe("/tmp/cc-data/cc.db");
+    expect(databaseConfig.databasePath).toBe(
+      path.resolve("/tmp/cc-data/cc.db"),
+    );
   });
 
   it("requires a valid server URL for the daemon and CLI", () => {
@@ -553,7 +618,7 @@ describe("consumer-specific config", () => {
       },
     });
 
-    expect(hostDaemonConfig.CC_DATA_DIR).toBe("/tmp/cc-data");
+    expect(hostDaemonConfig.CC_DATA_DIR).toBe(path.resolve("/tmp/cc-data"));
     expect(hostDaemonConfig.CC_SERVER_URL).toBe("http://localhost:9999");
     expect(hostDaemonConfig.CC_HOST_DAEMON_PORT).toBe(3999);
   });
@@ -568,7 +633,7 @@ describe("consumer-specific config", () => {
       },
     });
 
-    expect(hostDaemonStartConfig.dataDir).toBe("/tmp/cc-data");
+    expect(hostDaemonStartConfig.dataDir).toBe(path.resolve("/tmp/cc-data"));
     expect(hostDaemonStartConfig.connectionConfig.CC_SERVER_URL).toBe(
       "http://localhost:9999",
     );
@@ -717,7 +782,6 @@ describe("consumer-specific config", () => {
         CC_HOST_ENROLL_KEY: " enroll-token ",
         CC_HOST_DAEMON_AUTO_UPDATE: "true",
         CC_HOST_ID: " host-123 ",
-        CC_HOST_NAME: " host-123 ",
       },
     });
 
@@ -727,7 +791,6 @@ describe("consumer-specific config", () => {
       CC_HOST_ENROLL_KEY: "enroll-token",
       CC_HOST_DAEMON_AUTO_UPDATE: true,
       CC_HOST_ID: "host-123",
-      CC_HOST_NAME: "host-123",
     });
   });
 
@@ -737,7 +800,6 @@ describe("consumer-specific config", () => {
         CC_BRIDGE_DIR: "",
         CC_CLI_DIR: "   ",
         CC_HOST_ENROLL_KEY: " ",
-        CC_HOST_NAME: "",
       },
     });
 

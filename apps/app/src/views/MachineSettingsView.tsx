@@ -82,6 +82,7 @@ const PLATFORM_LABELS: Record<HostPlatform, string | null> = {
   darwin: "macOS",
   linux: "Linux",
   wsl: "WSL",
+  win32: "Windows",
   unknown: null,
 };
 
@@ -261,6 +262,7 @@ export function MachineSettingsHeader({
 export function MachineSettingsView() {
   const { hostId } = useParams<{ hostId: string }>();
   const navigate = useNavigate();
+  const [openedAt] = useState(Date.now);
   const hostsQuery = useHosts();
   const { providers: machineProviders } = useSystemMachineProviders();
   const systemConfig = useSystemConfig();
@@ -340,7 +342,7 @@ export function MachineSettingsView() {
     });
   }, [machine?.providerStatus, providerRoster]);
 
-  const now = Date.now();
+  const now = Math.max(openedAt, hostsQuery.dataUpdatedAt);
   const platformLabel =
     host !== null &&
     host.id === localDaemonHostId &&
@@ -454,7 +456,7 @@ export function MachineSettingsView() {
               ) : (
                 <>
                   {installedProviders.length > 0 ? (
-                    <span className="flex min-w-0 flex-wrap items-center justify-start gap-x-3 gap-y-1 sm:justify-end">
+                    <span className="flex min-w-0 flex-wrap items-center justify-start gap-x-3 gap-y-1 @min-[36rem]/settings:justify-end">
                       {installedProviders.map((entry) => (
                         <span
                           key={entry.providerId}
@@ -607,7 +609,7 @@ export function MachineSettingsView() {
       <MachineRemoveDialog
         target={removeOpen ? host : null}
         onOpenChange={setRemoveOpen}
-        onRemoved={() => navigate(getSettingsRoutePath("machines"))}
+        onRemoved={() => void navigate(getSettingsRoutePath("machines"))}
       />
 
       <MachineReconnectDialog

@@ -16,7 +16,7 @@ export default function plugin(cc: CcPluginApi) {
       type: "boolean",
       label: "Disable provider subagents",
       description:
-        "Hide Claude Code's native Task tool so agents use cc for delegation.",
+        "Hide Claude Code's native subagent tools so agents use cc for delegation. Changes restart Claude before the next turn, preserving the conversation.",
       default: false,
     },
     workflowsDisabled: {
@@ -25,11 +25,46 @@ export default function plugin(cc: CcPluginApi) {
       description: "Hide Claude Code's native Workflow tool for cc threads.",
       default: false,
     },
+    disable1MContext: {
+      type: "boolean",
+      label: "Disable 1M context",
+      description:
+        "Disable the 1M-token context window for Claude Code threads. Applies on the next turn.",
+      default: false,
+    },
     chromeEnabled: {
       type: "boolean",
       label: "Claude in Chrome",
       description:
         "Start Claude Code with the Claude in Chrome browser tools. Needs the Chrome extension and a claude.ai login on the host.",
+      default: false,
+    },
+    artifactsEnabled: {
+      type: "boolean",
+      label: "Claude Artifacts",
+      description:
+        "Give Claude Code its Artifact tools to read, publish, and edit claude.ai artifacts. Claude may publish private pages to claude.ai without asking. Needs a claude.ai login on the host. Applies on the next turn.",
+      default: false,
+    },
+    sandboxEnabled: {
+      type: "boolean",
+      label: "Claude Code sandbox",
+      description:
+        "Run Bash commands in Claude Code's sandbox in Accept Edits and Approve for me modes. Turn off to use Claude Code's own command approvals and sandbox settings instead.",
+      default: true,
+    },
+    fullAccessApprovalsEnabled: {
+      type: "boolean",
+      label: "Approvals in Full Access",
+      description:
+        "Show Claude Code's own approval prompts in Full Access: permissions.ask rules, PreToolUse hooks that answer ask, and Claude Code's built-in safety checks. Off approves every request, so unattended threads never wait. Applies on the next turn.",
+      default: false,
+    },
+    commandDescriptionsEnabled: {
+      type: "boolean",
+      label: "Command descriptions",
+      description:
+        "Title Bash command rows with Claude's short description of the command instead of the command itself. Approval prompts still show the command. Takes effect from each thread's next message; existing rows keep their titles.",
       default: false,
     },
   });
@@ -82,6 +117,7 @@ export default function plugin(cc: CcPluginApi) {
     ],
     composerActions: ["plan"],
     completedTurnDisplay: "flat",
+    internal_DO_NOT_USE_guidedSignIn: true,
     env: {
       passthrough: ["CC_CLAUDE_CODE_EXECUTABLE", "CLAUDE_CODE_OAUTH_TOKEN"],
     },
@@ -92,6 +128,13 @@ export default function plugin(cc: CcPluginApi) {
         providerSubagentsEnabled: context.settings.subagentsDisabled !== true,
         workflowsEnabled: context.settings.workflowsDisabled !== true,
         chromeEnabled: context.settings.chromeEnabled === true,
+        disable1MContext: context.settings.disable1MContext === true,
+        artifactsEnabled: context.settings.artifactsEnabled === true,
+        sandboxEnabled: context.settings.sandboxEnabled !== false,
+        fullAccessApprovalsEnabled:
+          context.settings.fullAccessApprovalsEnabled === true,
+        commandDescriptionsEnabled:
+          context.settings.commandDescriptionsEnabled === true,
         ...(context.promptMode === "plan"
           ? { claudeCodePermissionMode: "plan" }
           : {}),

@@ -7,6 +7,10 @@ export const CC_DESKTOP_BROWSER_RELEASE_CONTROL_CHANNEL =
   "cc-desktop:browser:release-control";
 export const CC_DESKTOP_BROWSER_REVEAL_CHANNEL = "cc-desktop:browser:reveal";
 export const CC_DESKTOP_BROWSER_DETACH_CHANNEL = "cc-desktop:browser:detach";
+export const CC_DESKTOP_BROWSER_SET_THREAD_DISCARDED_CHANNEL =
+  "cc-desktop:browser:set-thread-discarded";
+export const CC_DESKTOP_BROWSER_LIST_THREADS_WITH_TABS_CHANNEL =
+  "cc-desktop:browser:list-threads-with-tabs";
 export const CC_DESKTOP_BROWSER_NAVIGATE_CHANNEL =
   "cc-desktop:browser:navigate";
 export const CC_DESKTOP_BROWSER_GO_BACK_CHANNEL = "cc-desktop:browser:go-back";

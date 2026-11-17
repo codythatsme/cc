@@ -2,20 +2,18 @@ import { createHash, randomBytes } from "node:crypto";
 import {
   chmod,
   mkdir,
-  mkdtemp,
   readdir,
   readFile,
-  rm,
   stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { Header } from "tar/header";
 import type { EntryTypeName } from "tar/types";
-import { afterEach, describe, expect, it } from "vitest";
+import { makeTempDir } from "@cc/test-helpers";
+import { describe, expect, it } from "vitest";
 import {
   extractServerArchive,
   SERVER_ARCHIVE_VERSION,
@@ -25,22 +23,6 @@ import {
   type ServerArchiveSourceFile,
   writeServerArchive,
 } from "../src/index.js";
-
-const tempDirs: string[] = [];
-
-async function makeTempDir(): Promise<string> {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "cc-server-archive-"));
-  tempDirs.push(tempDir);
-  return tempDir;
-}
-
-afterEach(async () => {
-  await Promise.all(
-    tempDirs
-      .splice(0)
-      .map((tempDir) => rm(tempDir, { force: true, recursive: true })),
-  );
-});
 
 const MANIFEST_INPUT: ServerArchiveManifestInput = {
   createdAt: Date.UTC(2026, 8, 15, 12, 0, 0),
@@ -72,6 +54,11 @@ async function createSourceTree(): Promise<SourceTree> {
       archivePath: `plugins/npm/${longSegment}/${longSegment}/${longSegment}/bin/tool`,
       body: Buffer.from("#!/bin/sh\necho hi\n"),
       mode: 0o755,
+    },
+    {
+      archivePath: `attachments/proj_test/${"long-attachment-name-".repeat(6)}.svg`,
+      body: Buffer.from("<svg/>"),
+      mode: 0o644,
     },
     {
       archivePath: "attachments/café/übersicht.txt",
@@ -222,7 +209,9 @@ describe("writeServerArchive and extractServerArchive", () => {
     expect(archiveBytes.subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
     expect(written.sizeBytes).toBe(archiveBytes.length);
     expect(written.sha256).toBe(sha256(archiveBytes));
-    expect((await stat(outPath)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect((await stat(outPath)).mode & 0o777).toBe(0o600);
+    }
     expect(await readdir(path.dirname(outPath))).toEqual(["server.tar.gz"]);
     expect(written.manifest.entries).toEqual(
       tree.files.map((file) => {
@@ -246,9 +235,14 @@ describe("writeServerArchive and extractServerArchive", () => {
     const toolPath = path.join(
       destinationDir,
       "files",
-      ...(tree.files[3]?.archivePath ?? "").split("/"),
+      ...(
+        tree.files.find((file) => file.archivePath.endsWith("/bin/tool"))
+          ?.archivePath ?? ""
+      ).split("/"),
     );
-    expect((await stat(toolPath)).mode & 0o100).toBe(0o100);
+    if (process.platform !== "win32") {
+      expect((await stat(toolPath)).mode & 0o100).toBe(0o100);
+    }
   });
 
   it("refuses symbolic link sources and unsafe or conflicting archive paths", async () => {

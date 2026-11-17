@@ -1,5 +1,10 @@
 import { createNodeCcSdk, type CcSdk } from "@cc/sdk/node";
+import {
+  CALLER_THREAD_HEADER_NAME,
+  CLI_REQUEST_HEADER_NAME,
+} from "@cc/config/app-surface";
 import type { Dispatcher } from "undici";
+import { resolveContextThreadId } from "./context-env.js";
 
 type CliRequestInit = RequestInit & { dispatcher?: Dispatcher };
 
@@ -10,6 +15,26 @@ export function cliFetch(
   return fetch(input, init);
 }
 
-export function createCliCcSdk(baseUrl: string): CcSdk {
-  return createNodeCcSdk({ baseUrl, fetch: cliFetch });
+function cliSdkFetch(timeoutMs: number | undefined): typeof cliFetch {
+  return (input, init) => {
+    const headers = new Headers(init?.headers);
+    headers.set(CLI_REQUEST_HEADER_NAME, "1");
+    const callerThreadId = resolveContextThreadId();
+    if (callerThreadId !== undefined) {
+      headers.set(CALLER_THREAD_HEADER_NAME, callerThreadId);
+    }
+    if (timeoutMs === undefined) return cliFetch(input, { ...init, headers });
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    return cliFetch(input, {
+      ...init,
+      headers,
+      signal: init?.signal
+        ? AbortSignal.any([init.signal, timeoutSignal])
+        : timeoutSignal,
+    });
+  };
+}
+
+export function createCliCcSdk(baseUrl: string, timeoutMs?: number): CcSdk {
+  return createNodeCcSdk({ baseUrl, fetch: cliSdkFetch(timeoutMs) });
 }

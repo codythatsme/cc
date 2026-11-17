@@ -1,5 +1,5 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderMarkPng } from "./brand-artwork.mjs";
@@ -28,12 +28,23 @@ const mismatches = [];
 
 async function writeOrCheck(fileName, content) {
   const filePath = join(publicDir, fileName);
-  if (!checkOnly) {
-    await writeFile(filePath, content);
+  const existing = await readFile(filePath).catch((error) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  if (existing?.equals(content)) return;
+  if (checkOnly) {
+    mismatches.push(fileName);
     return;
   }
-  if (!existsSync(filePath) || !(await readFile(filePath)).equals(content)) {
-    mismatches.push(fileName);
+  // Write through a temporary file so a concurrent --check never reads a
+  // partially written icon.
+  const temporaryPath = `${filePath}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporaryPath, content);
+    await rename(temporaryPath, filePath);
+  } finally {
+    await rm(temporaryPath, { force: true });
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Icon } from "@cc/shared-ui/icon";
 import { Button } from "@cc/shared-ui/button";
@@ -7,6 +7,10 @@ import { useNavigate } from "react-router-dom";
 import { appToast } from "@/components/ui/app-toast";
 import { invalidatePluginList } from "@/hooks/cache-owners/plugin-cache-owner";
 import { searchPluginCatalog } from "@/hooks/queries/plugin-catalog-queries";
+import {
+  isActivePluginInstallJob,
+  usePluginInstallJob,
+} from "@/hooks/queries/plugin-install-job-queries";
 import {
   pluginListQueryOptions,
   setPluginEnabled,
@@ -23,6 +27,19 @@ export function OpenPluginGuideButton() {
   const [installTarget, setInstallTarget] = useState<AddPluginInitial | null>(
     null,
   );
+  const [installJobId, setInstallJobId] = useState<string | null>(null);
+  const [succeededJobId, setSucceededJobId] = useState<string | null>(null);
+  const installJob = usePluginInstallJob(installJobId);
+  if (installJob !== null && !isActivePluginInstallJob(installJob)) {
+    setInstallJobId(null);
+    if (installJob.state === "succeeded") setSucceededJobId(installJob.id);
+  }
+  const openGuide = useEffectEvent(() => {
+    void navigate(PLUGIN_GUIDE_PATH);
+  });
+  useEffect(() => {
+    if (succeededJobId !== null) openGuide();
+  }, [succeededJobId]);
   const open = useMutation({
     meta: { showErrorToast: false },
     mutationFn: async () => {
@@ -69,7 +86,7 @@ export function OpenPluginGuideButton() {
         onClick={() =>
           open.mutate(undefined, {
             onSuccess: (initial) => {
-              if (initial === null) navigate(PLUGIN_GUIDE_PATH);
+              if (initial === null) void navigate(PLUGIN_GUIDE_PATH);
               else setInstallTarget(initial);
             },
           })
@@ -88,7 +105,7 @@ export function OpenPluginGuideButton() {
         onOpenChange={(isOpen) => {
           if (!isOpen) setInstallTarget(null);
         }}
-        onInstalled={() => navigate(PLUGIN_GUIDE_PATH)}
+        onInstallStarted={(job) => setInstallJobId(job.id)}
       />
     </>
   );

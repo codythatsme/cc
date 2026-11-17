@@ -3,7 +3,6 @@ import type {
   SystemMessageKind,
   SystemMessageSubject,
 } from "@cc/domain";
-import type { TimelineTitleLink } from "@cc/thread-view";
 import type { TimelineRow } from "@cc/server-contract";
 import type { ReactNode } from "react";
 import { ConversationMessageContent } from "@/components/thread/timeline/ConversationMessageContent";
@@ -17,15 +16,6 @@ export default {
 
 function TimelineStage({ children }: { children: ReactNode }) {
   return <div className="w-full max-w-[760px]">{children}</div>;
-}
-
-function resolveThreadLink(link: TimelineTitleLink): string | null {
-  switch (link.kind) {
-    case "thread":
-      return `/projects/proj_demo/threads/${link.threadId}`;
-    default:
-      return null;
-  }
 }
 
 const acceptedMessage = {
@@ -94,6 +84,23 @@ const SYSTEM_ROWS: readonly SystemRowFixture[] = [
     text: "Migrate sessions table was unassigned from you.",
   },
   {
+    label: "ownership-batch",
+    hint: "several children assigned or unassigned within one window — count in the title, threads in the body",
+    systemMessageKind: "ownership-batch",
+    systemMessageSubject: { kind: "thread-batch", count: 3 },
+    text: "These threads are now children of this thread:\n\n- Migrate sessions table\n\nThese threads are no longer children of this thread:\n\n- Codex worker\n- Rebuild threaded comments from main",
+  },
+  {
+    label: "environment-directory-updated (title-only)",
+    hint: "next turn started automatically after update_environment_directory",
+    systemMessageKind: "environment-directory-updated",
+    systemMessageSubject: {
+      kind: "directory",
+      path: "/Users/demo/code/app-worktrees/session-migration",
+    },
+    text: "This thread now runs in `/Users/demo/code/app-worktrees/session-migration`. Continue the task from your previous turn in this directory.",
+  },
+  {
     label: "child-needs-attention",
     hint: "child blocked on a pending interaction",
     systemMessageKind: "child-needs-attention",
@@ -156,14 +163,13 @@ export function Overview() {
             <ConversationMessageContent
               role="user"
               initiator="system"
-              originKind={null}
               senderThreadId={null}
               senderThreadTitle={null}
               senderIsPluginSideChat={false}
-              resolveSegmentLinkHref={resolveThreadLink}
               systemMessageKind={row.systemMessageKind}
               systemMessageSubject={row.systemMessageSubject}
               text={row.text}
+              timestamp={0}
               attachments={null}
               mentions={row.mentions ?? []}
               projectId="proj_demo"
@@ -180,14 +186,13 @@ export function Overview() {
           <ConversationMessageContent
             role="user"
             initiator="agent"
-            originKind={null}
             senderThreadId="thr_worker2"
             senderThreadTitle="Worker 2"
             senderIsPluginSideChat={false}
-            resolveSegmentLinkHref={resolveThreadLink}
             systemMessageKind="unlabeled"
             systemMessageSubject={null}
             text="Can you take the migration step from here? I've finished the schema changes and pushed to the branch."
+            timestamp={0}
             attachments={null}
             mentions={[]}
             projectId="proj_demo"
@@ -203,14 +208,13 @@ export function Overview() {
           <ConversationMessageContent
             role="user"
             initiator="system"
-            originKind={null}
             senderThreadId={null}
             senderThreadTitle={null}
             senderIsPluginSideChat={false}
-            resolveSegmentLinkHref={resolveThreadLink}
             systemMessageKind="unlabeled"
             systemMessageSubject={null}
             text="A system message persisted before the taxonomy existed."
+            timestamp={0}
             attachments={null}
             mentions={[]}
             projectId="proj_demo"
@@ -233,14 +237,13 @@ export function ClippedAgentMessage() {
           <ConversationMessageContent
             role="user"
             initiator="agent"
-            originKind={null}
             senderThreadId="thr_host_hermes"
             senderThreadTitle="Host Hermes on Flue"
             senderIsPluginSideChat={false}
-            resolveSegmentLinkHref={resolveThreadLink}
             systemMessageKind="unlabeled"
             systemMessageSubject={null}
             text="TEST RESULT refines the diagnosis — RULE OUT eviction. A fire-and-forget direct POST with no wait parameter and no client-held stream should still render the complete report after expansion, including the exact follow-up checks the other agent already ran."
+            timestamp={0}
             attachments={null}
             mentions={[]}
             projectId="proj_demo"
@@ -288,6 +291,32 @@ const MARKDOWN_ROWS: readonly {
     }),
   },
   {
+    label: "child-completed — wide table",
+    hint: "the table starts at the text column and breaks out to the right only, clear of the rail",
+    row: conversationRow({
+      id: "md_child_completed_table",
+      role: "user",
+      initiator: "system",
+      systemMessageKind: "child-completed",
+      systemMessageSubject: {
+        kind: "thread",
+        threadId: "thr_child4",
+        threadName: "Parity fixes: tasks",
+      },
+      text: [
+        "I fixed all tasks findings in one commit.",
+        "",
+        "| Finding | Fix | Test |",
+        "| - | - | - |",
+        "| Board: a failed batch of rows silently drops cards | Inline error with Retry above the partial board; the list view uses the same data hook, so it gets the same banner | `views/live-refresh.test.tsx` › shows a failed row batch above the partial board and recovers on Retry |",
+        "| Window focus no longer refreshes PRs | The task detail refreshes its PR read on window `focus` | `live-refresh.test.tsx` › refreshes pull requests when the window regains focus |",
+        "| Renaming a project prefix unmounts the detail and loses the unsaved title | When the key lookup turns null after it had found the task, the detail keeps the task and follows `getTask` by id | `live-refresh.test.tsx` › keeps an edited task mounted when its project prefix is renamed |",
+        "",
+        "Things you may want to review: the shared test server helper.",
+      ].join("\n"),
+    }),
+  },
+  {
     label: "child-needs-attention — markdown body",
     hint: "bold + ordered list render; the title carries the icon and link",
     row: conversationRow({
@@ -320,7 +349,6 @@ export function MarkdownBody() {
             <ThreadTimelineRows
               projectId="proj_demo"
               threadRuntimeDisplayStatus="idle"
-              workspaceRootPath={undefined}
               initialExpanded={new Set([row.id])}
               timelineRows={[row]}
             />

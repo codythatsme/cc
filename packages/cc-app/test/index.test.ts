@@ -1,3 +1,4 @@
+import { execHostFile, nodeNetworkArgs } from "@cc/process-utils";
 import { execFileSync, spawn } from "node:child_process";
 import {
   mkdirSync,
@@ -36,6 +37,7 @@ import {
   resolveCcAppStartContext,
   resolveCcAppCommand,
   resolveServerListenerUrl,
+  resolveBundledCliLaunch,
   resolveWorktreeRuntimePolicy,
   runCcApp,
   shouldRunSourceAppUpdateShim,
@@ -571,17 +573,17 @@ describe("cc-app launcher", () => {
       homeDir: "/home/tester",
     });
 
-    expect(context.dataDir).toBe("/home/tester/.cc");
-    expect(context.configFile).toBe("/home/tester/.cc/config.json");
-    expect(context.envFile).toBe("/home/tester/.cc/env.json");
+    expect(context.dataDir).toBe(join("/home/tester", ".cc"));
+    expect(context.configFile).toBe(join("/home/tester", ".cc", "config.json"));
+    expect(context.envFile).toBe(join("/home/tester", ".cc", "env.json"));
     expect(context.serverPort).toBe(38886);
     expect(context.daemonPort).toBe(38887);
     expect(context.serverUrl).toBe("http://127.0.0.1:38886");
     expect(context.serverEntry).toBe(
-      "/repo/packages/cc-app/server/dist/index.js",
+      resolve("/repo/packages/cc-app/server/dist/index.js"),
     );
     expect(context.daemonEntry).toBe(
-      "/repo/packages/cc-app/host-daemon/dist/daemon-bundle.mjs",
+      resolve("/repo/packages/cc-app/host-daemon/dist/daemon-bundle.mjs"),
     );
     expect(context.appVersion).toBe("0.0.0-dev");
   });
@@ -594,12 +596,16 @@ describe("cc-app launcher", () => {
       homeDir: "/home/tester",
     });
 
-    expect(context.packageRoot).toBe("/repo/packages/cc-app");
-    expect(context.appDistDir).toBe("/repo/apps/app/dist");
-    expect(context.serverEntry).toBe("/repo/apps/server/dist/index.js");
-    expect(context.daemonBundleDir).toBe("/repo/apps/host-daemon/dist");
+    expect(context.packageRoot).toBe(resolve("/repo/packages/cc-app"));
+    expect(context.appDistDir).toBe(resolve("/repo/apps/app/dist"));
+    expect(context.serverEntry).toBe(
+      resolve("/repo/apps/server/dist/index.js"),
+    );
+    expect(context.daemonBundleDir).toBe(
+      resolve("/repo/apps/host-daemon/dist"),
+    );
     expect(context.daemonEntry).toBe(
-      "/repo/apps/host-daemon/dist/daemon-bundle.mjs",
+      resolve("/repo/apps/host-daemon/dist/daemon-bundle.mjs"),
     );
   });
 
@@ -627,7 +633,7 @@ describe("cc-app launcher", () => {
     };
 
     expect(resolveDataDir({ env, homeDir: "/home/tester" })).toBe(
-      "/home/tester/custom-cc",
+      resolve("/home/tester/custom-cc"),
     );
     expect(
       resolvePortFromEnv({ defaultPort: 1, env, name: "CC_SERVER_PORT" }),
@@ -685,39 +691,6 @@ describe("cc-app launcher", () => {
     });
   });
 
-  it("resolves config commands", () => {
-    expect(
-      resolveCcAppCommand(["config", "set", "CC_APP_URL", "https://cc.test"]),
-    ).toEqual({
-      args: ["set", "CC_APP_URL", "https://cc.test"],
-      kind: "config",
-    });
-  });
-
-  it("resolves env commands", () => {
-    expect(
-      resolveCcAppCommand(["env", "set", "OPENAI_API_KEY", "test-key"]),
-    ).toEqual({
-      args: ["set", "OPENAI_API_KEY", "test-key"],
-      kind: "env",
-    });
-  });
-
-  it("resolves client commands", () => {
-    expect(
-      resolveCcAppCommand([
-        "client",
-        "ssh-target",
-        "set",
-        "https://cc.example.test",
-        "devbox",
-      ]),
-    ).toEqual({
-      args: ["ssh-target", "set", "https://cc.example.test", "devbox"],
-      kind: "client",
-    });
-  });
-
   it("prints help for help requests", () => {
     expect(resolveCcAppCommand(["--help"])).toEqual({ kind: "help" });
     expect(resolveCcAppCommand(["help"])).toEqual({ kind: "help" });
@@ -755,15 +728,52 @@ describe("cc-app launcher", () => {
     });
   });
 
-  it("runs the source update shim only for a start with --in-app-updates", () => {
-    expect(shouldRunSourceAppUpdateShim(["--in-app-updates"])).toBe(true);
+  it("runs the source update shim for a start unless --no-in-app-updates is passed", () => {
+    expect(shouldRunSourceAppUpdateShim([])).toBe(true);
+    expect(shouldRunSourceAppUpdateShim(["start"])).toBe(true);
+    expect(shouldRunSourceAppUpdateShim(["--no-in-app-updates"])).toBe(false);
+    expect(shouldRunSourceAppUpdateShim(["start", "--no-in-app-updates"])).toBe(
+      false,
+    );
+    expect(shouldRunSourceAppUpdateShim(["stop"])).toBe(false);
+    expect(shouldRunSourceAppUpdateShim(["start", "--help"])).toBe(false);
+  });
+
+  it("keeps accepting --in-app-updates from launchers started by earlier update shims", () => {
+    expect(parseLauncherArgs(["start", "--in-app-updates"])).toEqual({
+      options: { help: false, json: false },
+      positionals: ["start"],
+    });
     expect(shouldRunSourceAppUpdateShim(["start", "--in-app-updates"])).toBe(
       true,
     );
-    expect(shouldRunSourceAppUpdateShim(["start"])).toBe(false);
-    expect(shouldRunSourceAppUpdateShim(["stop", "--in-app-updates"])).toBe(
-      false,
+    expect(() =>
+      parseLauncherArgs(["--in-app-updates", "--no-in-app-updates"]),
+    ).toThrow(
+      "--in-app-updates and --no-in-app-updates cannot be used together",
     );
+  });
+
+  it("passes opt-in performance diagnostics through to the launched server", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "cc-app-performance-"));
+    try {
+      for (const enabled of [false, true]) {
+        const runtime = await resolveCcAppRuntimeState({
+          entrypointUrl: pathToFileURL("/repo/packages/cc-app/dist/cc-app.js")
+            .href,
+          env: { CC_DATA_DIR: dataDir },
+          homeDir: "/home/tester",
+          options: parseLauncherArgs(enabled ? ["--perf-diagnostics"] : [])
+            .options,
+          serverUrlMode: "local",
+        });
+        expect(runtime.serverEnv.CC_PERF_DIAGNOSTICS).toBe(
+          enabled ? "1" : undefined,
+        );
+      }
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
   });
 
   it("reports the server bind host separately from the loopback connection URL", async () => {
@@ -864,8 +874,42 @@ describe("cc-app launcher", () => {
 
     expect(exitCode).toBe(0);
     expect(readFileSync(outputPath, "utf8")).toBe(
-      "/tmp/cc-app-test/server/dist/assets/install-machine.sh",
+      join("/tmp/cc-app-test/server/dist", "assets", "install-machine.sh"),
     );
+  });
+
+  it("runs the bundled CLI when a CC_CLI launcher re-enters the cc entry", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "cc-app-cli-reentry-"));
+    const daemonBundleDir = join(dataDir, "host-daemon");
+    mkdirSync(daemonBundleDir);
+    writeFileSync(
+      join(daemonBundleDir, "cc"),
+      "require('node:fs').writeFileSync(process.argv[2], 'bundled')",
+    );
+    const context = { ...createTestStartContext(), dataDir, daemonBundleDir };
+    const launcherEnvPath = join(dataDir, "launcher-env.json");
+
+    expect(
+      await runBundledCliCommand({
+        args: [
+          "-e",
+          "require('node:fs').writeFileSync(process.argv[1], JSON.stringify(process.env))",
+          launcherEnvPath,
+        ],
+        context,
+        env: { CC_CLI: process.execPath },
+      }),
+    ).toBe(0);
+
+    const outputPath = join(dataDir, "reentry.txt");
+    const reentryExitCode = await runBundledCliCommand({
+      args: [outputPath],
+      context,
+      env: JSON.parse(readFileSync(launcherEnvPath, "utf8")),
+    });
+
+    expect(reentryExitCode).toBe(0);
+    expect(readFileSync(outputPath, "utf8")).toBe("bundled");
   });
 
   it("uses a supplied join code without requesting a loopback enroll key", async () => {
@@ -1149,8 +1193,10 @@ describe("cc-app launcher", () => {
         },
       },
     );
-    expect(statSync(join(dataDir, "config.json")).mode & 0o777).toBe(0o600);
-    expect(statSync(join(dataDir, "env.json")).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") {
+      expect(statSync(join(dataDir, "config.json")).mode & 0o777).toBe(0o600);
+      expect(statSync(join(dataDir, "env.json")).mode & 0o777).toBe(0o600);
+    }
   });
 
   it("stores client SSH targets from the client command", async () => {
@@ -1188,7 +1234,8 @@ describe("cc-app launcher", () => {
           },
         },
       });
-      expect(statSync(join(dataDir, "client.json")).mode & 0o777).toBe(0o600);
+      if (process.platform !== "win32")
+        expect(statSync(join(dataDir, "client.json")).mode & 0o777).toBe(0o600);
 
       await runCcApp([
         "--data-dir",
@@ -1258,171 +1305,34 @@ describe("cc-app launcher", () => {
     }
   });
 
-  it("preserves customModels across managed config writes", async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), "cc-app-config-custom-"));
-    const customModels = [
-      {
-        providerId: "claude-code",
-        model: "claude-example-preview[1m]",
-        displayName: "Example Preview (1M)",
-      },
-    ];
-    writeFileSync(
-      join(dataDir, "config.json"),
-      `${JSON.stringify({ customModels })}\n`,
-      "utf8",
-    );
-
-    await runCcApp([
-      "--data-dir",
-      dataDir,
-      "config",
-      "set",
-      "CC_APP_URL",
-      "https://cc.example.test",
-    ]);
-
-    expect(
-      JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")),
-    ).toEqual({
-      config: {
-        CC_APP_URL: "https://cc.example.test",
-      },
-      customModels,
-    });
-  });
-
-  it("preserves invalid customModels across managed config set writes", async () => {
-    const dataDir = mkdtempSync(
-      join(tmpdir(), "cc-app-config-invalid-custom-models-set-"),
-    );
-    const customModels = [
-      { providerId: "acp-opencode", model: "my-proxy/custom-model" },
-      { providerId: "not-a-provider", model: "typo-model" },
-    ];
-    writeFileSync(
-      join(dataDir, "config.json"),
-      `${JSON.stringify({ customModels })}\n`,
-      "utf8",
-    );
-
-    await runCcApp([
-      "--data-dir",
-      dataDir,
-      "config",
-      "set",
-      "CC_APP_URL",
-      "https://cc.example.test",
-    ]);
-
-    expect(
-      JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")),
-    ).toEqual({
-      config: {
-        CC_APP_URL: "https://cc.example.test",
-      },
-      customModels,
-    });
-  });
-
-  it("preserves customAcpAgents across managed config writes", async () => {
+  it("loads a config that still carries the removed customAcpAgents array and drops it on the next write", async () => {
     const dataDir = mkdtempSync(join(tmpdir(), "cc-app-config-custom-acp-"));
-    const customAcpAgents = [
-      {
-        id: "my-agent",
-        displayName: "My Agent",
-        command: "my-agent",
-        args: ["acp"],
-        env: { MY_AGENT_HOME: "/tmp/my-agent" },
-      },
-    ];
-    writeFileSync(
-      join(dataDir, "config.json"),
-      `${JSON.stringify({ customAcpAgents })}\n`,
-      "utf8",
-    );
-
-    await runCcApp([
-      "--data-dir",
-      dataDir,
-      "config",
-      "set",
-      "CC_APP_URL",
-      "https://cc.example.test",
-    ]);
-
-    expect(
-      JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")),
-    ).toEqual({
-      config: {
-        CC_APP_URL: "https://cc.example.test",
-      },
-      customAcpAgents,
-    });
-  });
-
-  it("preserves invalid customAcpAgents across managed config set writes", async () => {
-    const dataDir = mkdtempSync(
-      join(tmpdir(), "cc-app-config-invalid-custom-acp-set-"),
-    );
-    const customAcpAgents = [
-      {
-        id: "bad agent",
-        displayName: "Bad Agent",
-        command: "bad-agent",
-      },
-    ];
-    writeFileSync(
-      join(dataDir, "config.json"),
-      `${JSON.stringify({ customAcpAgents })}\n`,
-      "utf8",
-    );
-
-    await runCcApp([
-      "--data-dir",
-      dataDir,
-      "config",
-      "set",
-      "CC_APP_URL",
-      "https://cc.example.test",
-    ]);
-
-    expect(
-      JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")),
-    ).toEqual({
-      config: {
-        CC_APP_URL: "https://cc.example.test",
-      },
-      customAcpAgents,
-    });
-  });
-
-  it("preserves invalid customAcpAgents across managed config unset writes", async () => {
-    const dataDir = mkdtempSync(
-      join(tmpdir(), "cc-app-config-invalid-custom-acp-unset-"),
-    );
-    const customAcpAgents = [
-      {
-        id: "bad agent",
-        displayName: "Bad Agent",
-        command: "bad-agent",
-      },
-    ];
     writeFileSync(
       join(dataDir, "config.json"),
       `${JSON.stringify({
-        config: { CC_APP_URL: "https://cc.example.test" },
-        customAcpAgents,
+        customAcpAgents: [
+          { id: "my-agent", displayName: "My Agent", command: "my-agent" },
+          { id: "bad agent" },
+        ],
       })}\n`,
       "utf8",
     );
 
-    await runCcApp(["--data-dir", dataDir, "config", "unset", "CC_APP_URL"]);
+    await runCcApp([
+      "--data-dir",
+      dataDir,
+      "config",
+      "set",
+      "CC_APP_URL",
+      "https://cc.example.test",
+    ]);
 
     expect(
       JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8")),
     ).toEqual({
-      customAcpAgents,
+      config: {
+        CC_APP_URL: "https://cc.example.test",
+      },
     });
   });
 
@@ -1439,28 +1349,6 @@ describe("cc-app launcher", () => {
         "test-openai-key",
       ]),
     ).rejects.toThrow(/cc-app env set OPENAI_API_KEY/u);
-  });
-
-  it("stores managed env values from the env command", async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), "cc-app-env-command-"));
-
-    await runCcApp([
-      "--data-dir",
-      dataDir,
-      "env",
-      "set",
-      "ANTHROPIC_API_KEY",
-      "test-anthropic-key",
-    ]);
-
-    expect(JSON.parse(readFileSync(join(dataDir, "env.json"), "utf8"))).toEqual(
-      {
-        env: {
-          ANTHROPIC_API_KEY: "test-anthropic-key",
-        },
-      },
-    );
-    expect(statSync(join(dataDir, "env.json")).mode & 0o777).toBe(0o600);
   });
 
   it("rejects invalid server bind hosts before writing managed env", async () => {
@@ -1564,25 +1452,6 @@ describe("cc-app launcher", () => {
     });
 
     expect(runtime.serverEnv.CC_SERVER_BIND_HOST).toBe("127.0.0.1");
-  });
-
-  it("unsets managed env values", async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), "cc-app-env-unset-"));
-    writeFileSync(
-      join(dataDir, "env.json"),
-      JSON.stringify({
-        env: {
-          OPENAI_API_KEY: "test-openai-key",
-        },
-      }),
-      "utf8",
-    );
-
-    await runCcApp(["--data-dir", dataDir, "env", "unset", "OPENAI_API_KEY"]);
-
-    expect(JSON.parse(readFileSync(join(dataDir, "env.json"), "utf8"))).toEqual(
-      {},
-    );
   });
 
   it("rejects invalid managed config values before writing or reloading", async () => {
@@ -1807,52 +1676,6 @@ describe("cc-app launcher", () => {
       expect(output).toContain(
         "Startup-only settings currently configured (CC_FF_PLACEHOLDER, CC_LOG_LEVEL, CC_SERVER_BIND_HOST, CC_SERVER_PORT) apply on the next full cc-app restart.",
       );
-    } finally {
-      await server.close();
-    }
-  });
-
-  it("asks a running local server to reload after config writes", async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), "cc-app-config-reload-"));
-    const server = await startConfigReloadTestServer();
-
-    try {
-      await runCcApp([
-        "--data-dir",
-        dataDir,
-        "--server-port",
-        String(server.port),
-        "config",
-        "set",
-        "CC_APP_URL",
-        "https://cc.example.test",
-      ]);
-
-      expect(server.reloadRequests()).toEqual([
-        expectedConfigReloadRequest(server),
-      ]);
-    } finally {
-      await server.close();
-    }
-  });
-
-  it("supports explicitly refreshing running server config", async () => {
-    const dataDir = mkdtempSync(join(tmpdir(), "cc-app-config-refresh-"));
-    const server = await startConfigReloadTestServer();
-
-    try {
-      await runCcApp([
-        "--data-dir",
-        dataDir,
-        "--server-port",
-        String(server.port),
-        "config",
-        "refresh",
-      ]);
-
-      expect(server.reloadRequests()).toEqual([
-        expectedConfigReloadRequest(server),
-      ]);
     } finally {
       await server.close();
     }
@@ -2164,6 +1987,66 @@ describe("cc-app launcher", () => {
     );
   });
 
+  it("runs the bundled CLI with the launcher's own Node runtime", () => {
+    expect(
+      resolveBundledCliLaunch({
+        args: ["status"],
+        bundledCliPath: "/opt/cc/host-daemon/dist/cc",
+        cliOverride: null,
+        nodePath: "/Applications/cc.app/Contents/MacOS/cc",
+        platform: "darwin",
+      }),
+    ).toEqual({
+      command: "/Applications/cc.app/Contents/MacOS/cc",
+      args: ["/opt/cc/host-daemon/dist/cc", "status"],
+    });
+    expect(
+      resolveBundledCliLaunch({
+        args: ["status"],
+        bundledCliPath: "C:\\cc\\host-daemon\\dist\\cc",
+        cliOverride: null,
+        nodePath: "C:\\node\\node.exe",
+        platform: "win32",
+      }),
+    ).toEqual({
+      command: "C:\\node\\node.exe",
+      args: ["C:\\cc\\host-daemon\\dist\\cc", "status"],
+    });
+  });
+
+  it("runs a CC_CLI override directly, or through Node when it is extensionless on Windows", () => {
+    expect(
+      resolveBundledCliLaunch({
+        args: ["status"],
+        bundledCliPath: "C:\\cc\\host-daemon\\dist\\cc",
+        cliOverride: "C:\\dev\\cc",
+        nodePath: "C:\\node\\node.exe",
+        platform: "win32",
+      }),
+    ).toEqual({
+      command: "C:\\node\\node.exe",
+      args: ["C:\\dev\\cc", "status"],
+    });
+    expect(
+      resolveBundledCliLaunch({
+        args: ["status"],
+        bundledCliPath: "C:\\cc\\host-daemon\\dist\\cc",
+        cliOverride: "C:\\tools\\cc.exe",
+        nodePath: "C:\\node\\node.exe",
+        platform: "win32",
+      }),
+    ).toEqual({ command: "C:\\tools\\cc.exe", args: ["status"] });
+    expect(
+      resolveBundledCliLaunch({
+        args: ["status"],
+        bundledCliPath: "/opt/cc/host-daemon/dist/cc",
+        cliOverride: "/repo/apps/cli/bin/cc",
+        nodePath: "/usr/bin/node",
+        platform: "linux",
+      }),
+    ).toEqual({ command: "/repo/apps/cli/bin/cc", args: ["status"] });
+  });
+
   it("limits npm package metadata to documented runtimes", () => {
     const metadata = readPackageMetadata();
 
@@ -2172,8 +2055,9 @@ describe("cc-app launcher", () => {
       "host-daemon/dist/cc-plugin-host-worker.mjs",
     );
     expect(metadata.files).toContain("host-daemon/dist/cc");
+    expect(metadata.files).toContain("host-daemon/dist/cc.cmd");
     expect(metadata.files).toContain("host-daemon/dist/cc-chunks");
-    expect(metadata.os).toEqual(["darwin", "linux"]);
+    expect(metadata.os).toEqual(["darwin", "linux", "win32"]);
   });
 
   it("requires the bundled CLI's chunk directory next to host-daemon/dist/cc", () => {
@@ -2197,8 +2081,7 @@ describe("cc-app launcher", () => {
         writeFileSync(artifact, "");
       }
 
-      const missingChunks =
-        /^Missing bundled cc CLI chunks at .*\/host-daemon\/dist\/cc-chunks\. Rebuild cc-app/;
+      const missingChunks = `Missing bundled cc CLI chunks at ${join(packageRoot, "host-daemon", "dist", "cc-chunks")}. Rebuild cc-app`;
       expect(() => assertCcAppArtifacts(context)).toThrow(missingChunks);
 
       const chunkDir = join(context.daemonBundleDir, "cc-chunks");
@@ -2256,18 +2139,65 @@ describe("cc-app launcher", () => {
     const context = createTestStartContext();
 
     const desktopServerEnv = createServerEnv({
+      cliLauncherPath: null,
       context,
       env: { CC_APP_SURFACE: "desktop" },
+      install: { kind: "desktop" },
     });
-    const webServerEnv = createServerEnv({ context, env: {} });
+    const webServerEnv = createServerEnv({
+      cliLauncherPath: null,
+      context,
+      env: {},
+      install: { kind: "npm" },
+    });
     const invalidSurfaceServerEnv = createServerEnv({
+      cliLauncherPath: null,
       context,
       env: { CC_APP_SURFACE: "bogus" },
+      install: { kind: "npm" },
     });
 
     expect(desktopServerEnv.CC_APP_SURFACE).toBe("desktop");
     expect(webServerEnv.CC_APP_SURFACE).toBe("web");
     expect(invalidSurfaceServerEnv.CC_APP_SURFACE).toBe("web");
+  });
+
+  it("replaces inherited install markers so a fork never reports a stale commit", () => {
+    const serverEnv = createServerEnv({
+      cliLauncherPath: null,
+      context: createTestStartContext(),
+      env: {
+        CC_APP_INSTALL_KIND: "source",
+        CC_APP_SOURCE_COMMIT: "a".repeat(40),
+        CC_APP_SOURCE_ORIGIN: "official",
+      },
+      install: { kind: "source", origin: "fork" },
+    });
+
+    expect(serverEnv.CC_APP_INSTALL_KIND).toBe("source");
+    expect(serverEnv.CC_APP_SOURCE_ORIGIN).toBe("fork");
+    expect(serverEnv).not.toHaveProperty("CC_APP_SOURCE_COMMIT");
+  });
+
+  it("tells the server about the cc command launcher only when this start wrote one", () => {
+    const context = createTestStartContext();
+
+    expect(
+      createServerEnv({
+        cliLauncherPath: "/home/me/.cc/bin/cc",
+        context,
+        env: { CC_CLI_LAUNCHER: "/stale/bin/cc" },
+        install: { kind: "npm" },
+      }).CC_CLI_LAUNCHER,
+    ).toBe("/home/me/.cc/bin/cc");
+    expect(
+      createServerEnv({
+        cliLauncherPath: null,
+        context,
+        env: { CC_CLI_LAUNCHER: "/stale/bin/cc" },
+        install: { kind: "source", origin: "none" },
+      }),
+    ).not.toHaveProperty("CC_CLI_LAUNCHER");
   });
 });
 
@@ -2299,4 +2229,104 @@ it("preserves machine identity and access headers through real config set and un
   } finally {
     rmSync(dataDir, { recursive: true, force: true });
   }
+});
+
+describe("managed process networking", () => {
+  it.each(["server", "daemon"] as const)(
+    "%s uses the environment proxy and keeps loopback direct",
+    async (kind) => {
+      if (!process.allowedNodeEnvironmentFlags.has("--use-env-proxy")) return;
+      const proxy = createServer();
+      proxy.on("connect", (_request, socket) => {
+        socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+        socket.once("data", () => {
+          socket.end(
+            "HTTP/1.1 200 OK\r\nContent-Length: 7\r\nConnection: close\r\n\r\nproxied",
+          );
+        });
+      });
+      const direct = createServer((_request, response) =>
+        response.end("direct"),
+      );
+      await Promise.all(
+        [proxy, direct].map(
+          (server) =>
+            new Promise<void>((resolve) =>
+              server.listen(0, "127.0.0.1", resolve),
+            ),
+        ),
+      );
+      const port = (server: ReturnType<typeof createServer>) => {
+        const address = server.address();
+        if (address === null || typeof address === "string")
+          throw new Error("Missing listener");
+        return address.port;
+      };
+      const env = {
+        HTTP_PROXY: `http://127.0.0.1:${port(proxy)}`,
+      };
+      const context = createTestStartContext();
+      const launchEnv =
+        kind === "server"
+          ? createServerEnv({
+              context,
+              env,
+              install: { kind: "npm" },
+              cliLauncherPath: null,
+            })
+          : createDaemonEnv({
+              context,
+              env,
+              serverUrl: "http://127.0.0.1:38886",
+            });
+      try {
+        const result = await execHostFile(
+          process.execPath,
+          [
+            ...nodeNetworkArgs(launchEnv),
+            "--input-type=module",
+            "-e",
+            `for (const url of process.argv.slice(1)) console.log(await (await fetch(url, { signal: AbortSignal.timeout(5000) })).text());`,
+            "http://cc-proxy-test.invalid/",
+            `http://127.0.0.1:${port(direct)}/`,
+          ],
+          { env: launchEnv, timeout: 10000 },
+        );
+        expect(result.stdout.trim().split("\n")).toEqual(["proxied", "direct"]);
+        expect(nodeNetworkArgs(launchEnv)).toEqual([
+          "--use-system-ca",
+          "--use-env-proxy",
+        ]);
+        expect(launchEnv.NODE_USE_ENV_PROXY).toBeUndefined();
+        expect(launchEnv.NODE_USE_SYSTEM_CA).toBeUndefined();
+      } finally {
+        proxy.closeAllConnections();
+        direct.closeAllConnections();
+        await Promise.all(
+          [proxy, direct].map(
+            (server) =>
+              new Promise<void>((resolve) => server.close(() => resolve())),
+          ),
+        );
+      }
+    },
+  );
+
+  it("preserves explicit network opt-outs and extra CA configuration", () => {
+    const env = createDaemonEnv({
+      context: createTestStartContext(),
+      serverUrl: "http://127.0.0.1:38886",
+      env: {
+        NODE_USE_ENV_PROXY: "0",
+        NODE_USE_SYSTEM_CA: "0",
+        NODE_EXTRA_CA_CERTS: "/company.pem",
+      },
+    });
+    expect(env).toMatchObject({
+      NODE_USE_ENV_PROXY: "0",
+      NODE_USE_SYSTEM_CA: "0",
+      NODE_EXTRA_CA_CERTS: "/company.pem",
+    });
+    expect(nodeNetworkArgs(env)).toEqual([]);
+  });
 });

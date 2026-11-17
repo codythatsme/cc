@@ -1,8 +1,18 @@
 # @cc/desktop
 
-macOS and Linux Electron shell for cc. The desktop app loads the existing cc
+macOS, Linux, and Windows Electron shell for cc. The desktop app loads the existing cc
 web UI and uses the packaged `cc-app` launcher for server and host-daemon
 lifecycle.
+
+## Browser address interaction checks
+
+Run `pnpm exec turbo run smoke:browser-address --filter=@cc/desktop` from the
+repository root. On Linux, run it under `xvfb-run -a` or an active display.
+The smoke test mounts the production address input beside a real Electron
+`WebContentsView`, checks repeated focus transfers, first and second clicks,
+drag selection, keyboard focus, and replacing the selected URL by typing.
+It uses a temporary profile and removes it when finished. It needs no running
+CC server or user data. CI runs it alongside the desktop tests.
 
 ## Development
 
@@ -46,13 +56,52 @@ Node runtime:
 pnpm exec turbo run start --filter=@cc/desktop
 ```
 
-Electron is pinned to `44.3.0`. macOS builds require macOS 13 (Ventura) or
+Electron is pinned to `44.9.3`. macOS builds require macOS 13 (Ventura) or
 newer. The bundled `cc-app` runtime uses `better-sqlite3@13.0.3`, whose N-API
 binaries work with Electron without an ABI-specific rebuild. The packaging
 hook opens an in-memory database with Electron before accepting the packaged
 SQLite module; older ABI-specific modules still use the prebuild fallback.
 
+macOS notifications require a signed application. Unsigned local and CI artifact
+builds cannot display macOS notifications. Published releases use the existing
+signing and notarization workflow.
+
+The shipped Linux x64 SQLite prebuild requires glibc 2.34 or newer and
+libstdc++ with `GLIBCXX_3.4.29` support (GCC 11 or newer).
+
+The AppImage packaging patch exposes its bundled legacy `libnotify` only as
+`libnotify.so`. Electron first tries the system's versioned library names, so
+libnotify 0.7.10 or newer can supply notification activation tokens on Wayland.
+If no versioned system library loads, Electron can still use the bundled
+unversioned fallback for notifications. Older libraries keep their existing
+notification behavior but cannot forward activation tokens.
+
+Electron downloads its development runtime lazily; the desktop test command
+installs it before starting parallel workers.
+
+The macOS bundle declares macOS 13 as its minimum. The release feed generator
+writes the corresponding Darwin kernel minimum, 22.0.0, into both JSON and YAML
+update feeds. Run it before publishing release artifacts so older Macs reject
+incompatible updates.
+
+## Window state
+
+Window position, normal size, maximized/fullscreen state, and zoom are saved in
+`window-state.json` in Electron's user-data directory. Geometry changes save after
+500 ms of inactivity, and closing a window flushes immediately. A crash can lose
+changes still within that debounce interval. Writes replace the file atomically.
+Closing one of several windows removes it from the next launch; closing the final
+window keeps its state for Dock reopening and the next launch. Quitting with
+multiple windows open restores those windows individually. Zoom is one app-wide
+value because Chromium shares zoom across windows on the same origin: zoom
+commands apply to every window, new windows open at it, it saves immediately,
+and it survives reloads and server switches.
+
 ## Validation
+
+The built-in browser allows file downloads using Electron's native save dialog.
+Files are saved on the machine running the desktop app, including downloads
+initiated in desktop browser automation tabs.
 
 ```bash
 pnpm exec turbo run typecheck --filter=@cc/desktop --filter=cc-app
@@ -94,9 +143,10 @@ that the collector never selected. The explicit file set enters both ASAR's
 file index and its unpacked resources before signing.
 
 Packaging runs an offline npm smoke check in `afterPack`, before signing or
-publishing. This requires a native target host (macOS arm64 or Linux x64).
-`smoke:packaged` repeats it against the resulting artifact. To run only npm
-verification without opening a desktop window:
+publishing. This requires a native target host (macOS arm64, Linux x64, or
+Windows x64). `smoke:packaged` then verifies the resulting app opens and its
+desktop preload bridge works. To rerun npm verification independently without
+opening a desktop window:
 
 ```bash
 pnpm exec turbo run smoke:packaged-npm --filter=@cc/desktop
@@ -118,6 +168,37 @@ before and after to reject bundle mutations. Fixtures are removed afterward.
 The cc-app tarball smoke covers a different packaging pipeline and cannot
 detect Electron artifact omissions. A source build or `npm --version` alone
 does not verify a desktop plugin dependency install.
+
+### Windows (NSIS, x64)
+
+Windows packaging needs a Windows x64 host; `afterPack` refuses to cross-build
+because it verifies the packaged native modules by loading them. From the repo
+root, install with `pnpm install --frozen-lockfile --ignore-scripts`, then build
+an unpacked app, an installer, or smoke test the current packaged output with:
+
+```powershell
+pnpm exec turbo run package:win --filter=@cc/desktop
+pnpm exec turbo run desktop:build:win --filter=@cc/desktop
+pnpm exec turbo run smoke:packaged --filter=@cc/desktop
+```
+
+`desktop:build:win` writes `release/cc-<version>-x64.exe`, a one-click per-user
+NSIS installer that installs to `%LOCALAPPDATA%\Programs\cc` (`cc-nightly` on
+the nightly channel) without elevation, plus `latest.yml` for electron-updater.
+Without a signing certificate the installer is unsigned, so Windows SmartScreen
+warns before running it. electron-builder signs it when `WIN_CSC_LINK` (a
+base64 `.pfx`) and `WIN_CSC_KEY_PASSWORD` are set; the release workflows pass
+them from the `WINDOWS_CERTIFICATE_PFX` and `WINDOWS_CERTIFICATE_PASSWORD`
+secrets.
+
+`afterPack` copies `@parcel/watcher-win32-x64` into the package when
+electron-builder leaves it out and loads it with the packaged Electron; without
+it the file watcher cannot start.
+
+Windows builds check `desktop-version-windows.json` for new versions and
+install them with electron-updater from `latest.yml` (`nightly.yml` on the
+nightly channel). The update downloads in the background and the installer runs
+silently when the app quits or when the user chooses Relaunch.
 
 ### Linux (AppImage, x64)
 
@@ -208,20 +289,24 @@ release; use `scripts/bump-version.mjs` so both files move together.
 The desktop release tag uses the locked version: `desktop-v<version>` for
 immutable releases and `desktop-latest` for the moving pointer.
 
-`build-desktop.yml` builds macOS and Linux in parallel jobs, then publishes
-both from one job. The moving release resets all of its assets on each publish,
-so a single publisher is what keeps one platform from deleting the other's
-binaries. Each platform has its own update feed file inside the same release
+`build-desktop.yml` builds macOS, Linux, and Windows in parallel jobs, then
+publishes all three from one job. `publish-cc-app.yml` calls it for both the
+stable release and the nightly channel; dispatching it directly builds
+artifacts without publishing. The moving release resets all of its assets
+on each publish, so a single publisher is what keeps one platform from deleting
+another's binaries. Each platform has its own update feed file inside the same release
 tag:
 
-| Platform | Artifacts              | electron-updater metadata | Version feed                 |
-| -------- | ---------------------- | ------------------------- | ---------------------------- |
-| macOS    | `.dmg`, `.zip` (arm64) | `latest-mac.yml`          | `desktop-version.json`       |
-| Linux    | `.AppImage` (x64)      | `latest-linux.yml`        | `desktop-version-linux.json` |
+| Platform | Artifacts              | electron-updater metadata | Version feed                   |
+| -------- | ---------------------- | ------------------------- | ------------------------------ |
+| macOS    | `.dmg`, `.zip` (arm64) | `latest-mac.yml`          | `desktop-version.json`         |
+| Linux    | `.AppImage` (x64)      | `latest-linux.yml`        | `desktop-version-linux.json`   |
+| Windows  | `.exe` installer (x64) | `latest.yml`              | `desktop-version-windows.json` |
 
 macOS keeps the unsuffixed feed name because released macOS builds already
-request it. Linux artifacts are unsigned; only the macOS binaries wait on the
-Apple signing secrets.
+request it. Linux artifacts are unsigned, and the Windows installer is unsigned
+unless the Windows certificate secrets are configured; only the macOS binaries
+wait on the Apple signing secrets.
 
 ## Nightly channel
 
@@ -246,9 +331,12 @@ The nightly desktop is a separate installation:
 - bundle identifier: `io.github.codythatsme.cc.nightly`
 - Linux binary name: `cc-nightly`, so it never shadows stable `cc` on PATH
 - app/update release: `desktop-nightly`
-- update metadata: `nightly-mac.yml` and `nightly-linux.yml`
-- version feeds: `desktop-version.json` (macOS) and
-  `desktop-version-linux.json` (Linux)
+- Windows install directory: `%LOCALAPPDATA%\Programs\cc-nightly`
+- update metadata: `nightly-mac.yml`, `nightly-linux.yml`, and `nightly.yml`
+  (Windows)
+- version feeds: `desktop-version.json` (macOS),
+  `desktop-version-linux.json` (Linux), and `desktop-version-windows.json`
+  (Windows)
 - icon: `assets/icon-nightly.icns` and `assets/icon-nightly.png`
 
 Download it from
@@ -348,8 +436,24 @@ Use the View menu to toggle DevTools. To open them automatically on launch, set
 CC_DESKTOP_OPEN_DEVTOOLS=1 apps/desktop/release/mac-arm64/cc.app/Contents/MacOS/cc
 ```
 
-When the desktop app spawns `cc-app`, server and daemon logs land under
-`~/.cc/logs/` or `$CC_DATA_DIR/logs/` when `CC_DATA_DIR` is set.
+Unpackaged runs use `assets/icon-dev.png` for the Dock and window icon. Set
+`CC_DESKTOP_DEV_ICON=1` to use it in a packaged build too; `pnpm
+desktop:worktree` sets it. The bundle's own icon in Finder is unchanged.
+
+Desktop main-process logs are written immediately to `desktop.log` under
+`~/.cc/logs/` or `$CC_DATA_DIR/logs/` when `CC_DATA_DIR` is set, including
+updater, Connect, and startup failures from launches without a terminal.
+Logs append across launches and rotate at 10 MiB into `desktop.1.log` through
+`desktop.4.log`. When cc-app exits, its captured output is saved
+with the error. Logging failures fall back to stderr without interrupting
+startup.
+
+**View → Local Logs** shows desktop, server, and daemon logs on macOS, Windows,
+and Linux, including when attached to an existing server or startup fails.
+These are files in this computer's selected data directory; connecting to a
+remote server does not fetch its logs. Use **Open Logs Folder** to inspect
+rotated files. Scripts and agents can read the same files from the data
+directory.
 
 To verify attach-if-found manually, start a compatible cc first, then launch the
 desktop app:
@@ -369,15 +473,90 @@ recovery path for those cases.
 
 Use **cc → Desktop Settings → Server → Add Server…** to save and switch to
 another machine's HTTP(S) cc server URL. **Window → Server** opens the same
-menu. Saved URLs remain in the menu across restarts; adding an existing URL
+menu. Both native dialogs accept an optional friendly name (up to 64 characters).
+The menu shows that name, or the URL hostname and port when unnamed. Saved URLs
+remain in the menu across restarts; adding an existing URL
 selects it without creating a duplicate. **This Mac** on macOS or **This
 Computer** on Linux switches back to the built-in server without removing
 saved entries.
 
-**Set Server URL…** edits the last selected custom server. Clearing its URL removes
-that entry and switches an active custom target to the built-in server. Other
+**Edit Server…** edits the currently selected custom or Connect server and is
+disabled for **This Mac** / **This Computer**. For a Connect server it changes
+only the name; the address comes from the cc account and is read-only. For a
+custom server, clearing its URL removes
+that entry and, with Show This Mac/Computer checked, switches an active custom
+target to the built-in server. Other
 saved servers and Connect discovery remain available. Existing single-server preferences are
 loaded automatically into the saved list in `<userData>/server-target.json`.
+
+Changing only the name refreshes the menu without switching servers or reloading
+windows, even when another target is active. Clearing the name restores the
+hostname fallback. Editing a URL keeps the entry's position and supplied name.
+Editing into an already saved URL removes the old entry and selects the existing
+entry, preserving the destination's name and position. Adding an existing URL
+with no name keeps its name; supplying a name updates it.
+
+Names are stored alongside the saved URLs in
+`<userData>/server-target.json` as `customServerNames`, keyed by normalized URL.
+Existing unnamed saved servers still load. The name field is omitted when no
+saved server has a name, keeping unnamed settings compatible with older builds.
+Builds with tolerant saved-server parsing (#5286) load the URLs but drop names when rewriting preferences; older
+builds with strict parsing can reject the added field on rollback. Invalid names
+do not discard saved URLs, and names for absent URLs are ignored and pruned on
+the next save.
+
+Connect servers owned by your cc account appear in the menu by name, or by
+URL hostname when unnamed, like custom servers. Their names are stored in `server-target.json` as
+`connectServerNames`, keyed by handle, and are kept while discovery is
+unavailable. A saved custom URL that is an account server's address is replaced
+by that account server at startup, after discovery, and after Add/Edit Server.
+Its name moves to the account server unless that server is already named. If
+the replaced URL was selected, the app switches to the account server and
+reloads its windows once.
+
+Connect discovery tries the built-in server, then a stored machine credential,
+then the cc account sign-in. When none of these load the servers and the app
+has no credential or account sign-in, the Server menu offers **Sign in to cc
+Connect…** above **Add Server…**. If cc Connect rejected the credentials, the
+item is **Sign in to cc Connect again…**. Other failures add no menu row; the
+menu keeps the servers from the last successful load, and the app logs the
+reason as `connect server sync skipped (<reason>)`. The sign-in item opens
+cc account sign-in in a desktop window, the same window as **Reconnect** below,
+from any selected server, including **This Mac** / **This Computer**. Once the
+new account session arrives, the window closes and the app reloads the
+account's servers into the menu. Without a known Connect server, the app signs
+in at `https://cc.example.invalid`. Development builds use `CC_DEV_CONNECT_BASE_URL`
+when it is valid.
+
+The app command palette lists **Switch to <server>** for each inactive choice
+from this same Server menu, including Connect discovery. Palette list requests
+use the menu's discovery refresh policy (at most once per minute, with the
+existing ten-minute background refresh). The optional `window.ccDesktop`
+`getServerChoices`, `onServerChoicesChange`, and `selectServer` methods expose
+only `{id, name, active}`; custom server IDs are opaque hashes. Selection is
+validated against native choices and runs the menu's existing authentication,
+window navigation, and runtime lifecycle. Older desktop shells omit these actions.
+
+Desktop Settings → Server → **Show This Mac** (or **Show This Computer** off macOS)
+defaults to checked and is disabled while This Mac/Computer is selected.
+Unchecking hides the built-in server from server choices
+while another server is active and alternatives exist. It stays listed when
+active or when it is the only choice. This setting does not stop the local
+runtime or change the active server.
+
+The desktop stores `showBuiltinServer: false` in `<userData>/server-target.json`;
+missing means shown, and saving the default omits the field. Other top-level
+metadata is preserved. This is a desktop-local preference, with no server
+settings CLI/SDK endpoint. Builds with tolerant readers ignore the field and
+may drop it on save; older strict readers can reject the whole file, so keep a
+backup before rolling back to a build predating the tolerant-reader fix #5286.
+
+When a custom URL is removed while the built-in server is hidden, an active
+custom target switches to the first remaining custom URL in saved order, then
+the saved Connect server, then a discovered Connect server in handle order,
+and finally the built-in server if no alternative exists. With the checkbox
+checked, removing an active custom target still switches to the built-in server.
+The native menus, renderer Server popup, and app palette use the same choices.
 
 ### Server moves
 

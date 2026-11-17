@@ -10,16 +10,21 @@ import {
 const marketplaceRoute = getRouteApi("/marketplace_");
 
 export const Route = createFileRoute("/marketplace_/$pluginId")({
-  loader: async ({ params, parentMatchPromise }) => {
+  loader: async ({ params, location, parentMatchPromise }) => {
     const { loaderData: marketplace } = await parentMatchPromise;
-    return marketplacePluginRouteEntry(marketplace, params.pluginId);
+    return marketplacePluginRouteEntry(
+      marketplace,
+      params.pluginId,
+      location.pathname,
+    );
   },
   head: ({ loaderData, params }) => {
     const entry = loaderData;
     const title = entry
       ? `${entry.displayName} — cc Plugin Marketplace`
       : "Plugin Marketplace — cc";
-    const description = entry?.description ?? "Find community plugins for cc.";
+    const description =
+      entry?.description ?? "Find built-in and community plugins for cc.";
     const path = `/marketplace/${encodeURIComponent(params.pluginId)}`;
     return {
       meta: [
@@ -40,7 +45,6 @@ export const Route = createFileRoute("/marketplace_/$pluginId")({
             : undefined,
         ),
       ],
-      links: [{ rel: "canonical", href: `https://cc.example.invalid${path}` }],
     };
   },
   component: MarketplaceDetailRoute,

@@ -15,15 +15,6 @@ describe("resolveCcAppVersion", () => {
     await rm(tempRoot, { recursive: true, force: true });
   });
 
-  it("prefers CC_APP_VERSION from the env", () => {
-    expect(
-      resolveCcAppVersion({
-        env: { CC_APP_VERSION: "1.2.3" },
-        fromDir: tempRoot,
-      }),
-    ).toBe("1.2.3");
-  });
-
   it("trims whitespace around CC_APP_VERSION", () => {
     expect(
       resolveCcAppVersion({

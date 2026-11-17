@@ -12,6 +12,7 @@ import type {
   SystemAppUpdateResult,
   SystemAppUpdateStatus,
 } from "@cc/server-contract";
+import { CcHttpError } from "@cc/sdk/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { appToast } from "@/components/ui/app-toast";
 import { systemAppUpdateQueryKey } from "@/hooks/queries/query-keys";
@@ -54,7 +55,10 @@ function status(
     blocked: null,
     current: { commit: null, version: "1.1.0" },
     lastResult: null,
+    autoUpdate: false,
+    availableSkipped: false,
     runningThreadCount: 0,
+    scheduled: null,
     support: { kind: "supported", mode: "npm" },
     ...overrides,
   };
@@ -158,6 +162,7 @@ describe("AppUpdateHost", () => {
         activity: {
           phase: "restarting",
           startedAt: "2026-09-23T00:00:00.000Z",
+          targetCommit: null,
           targetVersion: "1.2.0",
         },
       }),
@@ -182,6 +187,26 @@ describe("AppUpdateHost", () => {
     expect(appToast.success).not.toHaveBeenCalled();
     expect(appToast.error).not.toHaveBeenCalled();
     expect(document.querySelector("[data-app-update-overlay]")).toBeNull();
+  });
+
+  it("shows the source restart commit when no update check is cached", async () => {
+    vi.mocked(sdk.system.appUpdate).mockResolvedValue(
+      status({
+        activity: {
+          phase: "restarting",
+          startedAt: "2026-10-05T00:00:00.000Z",
+          targetCommit: "9f4ee4d0b712345678901234567890123456789012",
+          targetVersion: "0.45.0",
+        },
+        current: { commit: "f7c33a2c3a", version: "0.45.0" },
+        support: { kind: "supported", mode: "source" },
+      }),
+    );
+
+    renderHost();
+
+    expect(await screen.findByText("Updating cc to 9f4ee4d")).toBeDefined();
+    expect(screen.queryByText("Updating cc to 0.45.0")).toBeNull();
   });
 
   it("reloads the page once the server comes back on a new revision", async () => {
@@ -210,6 +235,7 @@ describe("AppUpdateHost", () => {
         activity: {
           phase: "restarting",
           startedAt: "2026-09-23T00:00:00.000Z",
+          targetCommit: null,
           targetVersion: "1.2.0",
         },
       }),
@@ -247,5 +273,40 @@ describe("AppUpdateHost", () => {
       );
     });
     expect(screen.getByRole("dialog")).toBeDefined();
+  });
+
+  it("shows the server's reason without the HTTP status when dismissing is refused", async () => {
+    const failed = result({
+      message: "Server failed to start",
+      outcome: "failed",
+    });
+    vi.mocked(sdk.system.appUpdate).mockResolvedValue(
+      status({ lastResult: failed }),
+    );
+    vi.mocked(sdk.system.acknowledgeAppUpdate).mockRejectedValue(
+      new CcHttpError({
+        status: 409,
+        code: "app_update_rejected",
+        message: "The cc-app launcher did not respond.",
+        body: {
+          code: "app_update_rejected",
+          message: "The cc-app launcher did not respond.",
+        },
+      }),
+    );
+    renderHost();
+    await waitFor(() => expect(appToast.error).toHaveBeenCalled());
+
+    act(() => openAppUpdateResultDetails(failed));
+    fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
+
+    await waitFor(() => {
+      expect(appToast.error).toHaveBeenCalledWith(
+        "Couldn't dismiss the update result",
+        expect.objectContaining({
+          description: "The cc-app launcher did not respond.",
+        }),
+      );
+    });
   });
 });

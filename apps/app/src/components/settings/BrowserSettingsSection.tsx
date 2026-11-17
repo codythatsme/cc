@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { ExpandableText } from "@cc/shared-ui/expandable-text";
+import { useEffect, useState } from "react";
 import type { CcDesktopBrowserApi } from "@cc/desktop-contract";
 import {
   DESKTOP_BROWSER_IMPORT_FAILURE_COPY,
@@ -47,6 +48,44 @@ function localStorageOrNull(): Storage | null {
     return typeof window === "undefined" ? null : window.localStorage;
   } catch {
     return null;
+  }
+}
+
+function markSourcesLoading(current: SourcesState): SourcesState {
+  return current.status === "ready" ? current : { status: "loading" };
+}
+
+function loadImportSources(
+  desktopBrowser: CcDesktopBrowserApi | null,
+  setState: (state: SourcesState) => void,
+  setNow: (now: number) => void,
+): void {
+  if (!desktopBrowser?.listImportSources) return;
+  desktopBrowser
+    .listImportSources()
+    .then((result) => {
+      setNow(Date.now());
+      setState({ status: "ready", sources: result.sources });
+    })
+    .catch((error: unknown) =>
+      setState({
+        status: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not check installed browsers.",
+      }),
+    );
+}
+
+function writeBrowserImportRecords(records: BrowserImportRecords): void {
+  const storage = localStorageOrNull();
+  if (storage === null) return;
+  const serialized = JSON.stringify(records);
+  try {
+    storage.setItem(BROWSER_IMPORT_RECORDS_STORAGE_KEY, serialized);
+  } catch {
+    return;
   }
 }
 
@@ -101,9 +140,13 @@ function BrowserRow({
               {presentation.status}
             </span>
             {presentation.details.map((detail) => (
-              <span key={detail} className="min-w-0 truncate">
+              <ExpandableText
+                key={detail}
+                expandLabel="Show details"
+                className="min-w-0"
+              >
                 {detail}
-              </span>
+              </ExpandableText>
             ))}
           </div>
         </div>
@@ -139,47 +182,35 @@ export function BrowserSettingsSectionContent({
   const [pendingSourceIds, setPendingSourceIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [now, setNow] = useState(() => Date.now());
   const anyPending = pendingSourceIds.size > 0;
+  const [sourcesFor, setSourcesFor] = useState(desktopBrowser);
+  if (sourcesFor !== desktopBrowser) {
+    setSourcesFor(desktopBrowser);
+    if (desktopBrowser?.listImportSources) setState(markSourcesLoading);
+  }
 
-  const refresh = useCallback(() => {
+  const refresh = () => {
     if (!desktopBrowser?.listImportSources) return;
-    setState((current) =>
-      current.status === "ready" ? current : { status: "loading" },
-    );
-    desktopBrowser
-      .listImportSources()
-      .then((result) => setState({ status: "ready", sources: result.sources }))
-      .catch((error: unknown) =>
-        setState({
-          status: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Could not check installed browsers.",
-        }),
-      );
-  }, [desktopBrowser]);
+    setState(markSourcesLoading);
+    loadImportSources(desktopBrowser, setState, setNow);
+  };
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    loadImportSources(desktopBrowser, setState, setNow);
+  }, [desktopBrowser]);
 
   const recordImport = (
     source: DesktopBrowserImportSource,
     profileName: string,
     outcome: DesktopBrowserImportOutcome & { ok: true },
   ) => {
-    const record = recordFromOutcome(outcome, profileName, Date.now());
+    const importedAt = Date.now();
+    const record = recordFromOutcome(outcome, profileName, importedAt);
+    setNow(importedAt);
     setRecords((current) => {
       const next: BrowserImportRecords = { ...current, [source.id]: record };
-      try {
-        localStorageOrNull()?.setItem(
-          BROWSER_IMPORT_RECORDS_STORAGE_KEY,
-          JSON.stringify(next),
-        );
-      } catch {
-        return next;
-      }
+      writeBrowserImportRecords(next);
       return next;
     });
     appToast.success(
@@ -200,7 +231,6 @@ export function BrowserSettingsSectionContent({
       .importCookies({
         sourceId: source.id,
         sourceProfileDirectory: profile.directory,
-        profile: { kind: "personal" },
       })
       .then((outcome) => {
         if (outcome.ok) {
@@ -228,7 +258,6 @@ export function BrowserSettingsSectionContent({
   };
 
   const listed = state.status === "ready" ? listedSources(state.sources) : [];
-  const now = Date.now();
 
   return (
     <>

@@ -7,7 +7,6 @@
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "io.github.codythatsme.cc.mobile",
       "supportsTablet": true,
@@ -31,6 +30,7 @@
     },
     "android": {
       "package": "io.github.codythatsme.cc.mobile",
+      "permissions": ["android.permission.MODIFY_AUDIO_SETTINGS"],
       "adaptiveIcon": {
         "backgroundColor": "#f1ede5",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -43,25 +43,32 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/with-selection-accent",
+      "./plugins/with-push-consent",
       "expo-router",
       "expo-secure-store",
       "expo-image",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/splash-logo.png",
+          "imageWidth": 88,
           "backgroundColor": "#f1ede5",
           "dark": {
-            "image": "./assets/splash-icon-dark.png",
+            "image": "./assets/splash-logo-dark.png",
             "backgroundColor": "#28292a"
+          },
+          "android": {
+            "dark": {
+              "backgroundColor": "#28292a"
+            }
           }
         }
       ],
       [
         "expo-notifications",
         {
-          "icon": "./assets/android-icon-monochrome.png",
+          "icon": "./assets/android-notification-icon.png",
           "color": "#000000",
           "defaultChannel": "threads"
         }

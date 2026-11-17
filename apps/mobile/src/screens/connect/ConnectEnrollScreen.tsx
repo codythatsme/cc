@@ -16,6 +16,7 @@ import {
   type EnrollmentFailure,
   type EnrollmentTargetInput,
 } from "@/data/connect";
+import { describeThisDevice } from "@/lib/device-label";
 import type { SessionState } from "@/lib/session";
 import { useTheme } from "@/theme";
 import { Button, GroupedRow, Icon, Input, Spinner, Text, toast } from "@/ui";
@@ -94,6 +95,7 @@ export function ConnectEnrollScreen() {
       const redeemed = await redeemEnrollment({
         apexUrl: target.apexUrl,
         code: target.code,
+        deviceName: describeThisDevice(),
         label: reauth?.label,
       });
       setPhase({ kind: "saving" });
@@ -172,13 +174,13 @@ export function ConnectEnrollScreen() {
           </Stack.Toolbar>
         ) : null}
         <GroupedScreen testID="connect-enrolled-screen">
-          <SettingsSection footnote="This phone is now a device on your connect service account. You can revoke it any time in the dashboard under Machines.">
+          <SettingsSection footnote="Manage this phone’s access in your connect service → Machines.">
             <View
               className="flex-row items-center gap-3 px-4 py-3"
               testID="connect-enrolled-card"
             >
               <Icon
-                name="CircleCheck"
+                name="CircleCheckFilled"
                 symbol="checkmark.circle.fill"
                 size={28}
                 color={colors.green}
@@ -236,8 +238,8 @@ export function ConnectEnrollScreen() {
         <SettingsSection
           footnote={
             reauth
-              ? "This phone's access was revoked or has expired. Generate a new pairing code on the server and enter it here; your saved server keeps its place."
-              : "Pair this phone with your cc server through your connect service. Generate a code in cc Settings → Remote access → Add mobile device, or run `cc connect machine-code`."
+              ? "Generate a new pairing code on the server to reconnect this phone. Your saved server keeps its place."
+              : "Pair this phone with your cc server through your connect service. Generate a code in cc Settings → Mobile → Add mobile device, or run `cc connect machine-code`."
           }
         >
           <GroupedRow
@@ -442,7 +444,7 @@ function SessionStatusLine({ session }: { session: SessionState | null }) {
             tone="success"
             testID="connect-session-authenticated"
           >
-            Signed in. Session renews automatically.
+            Signed in
           </Text>
         </View>
       );
@@ -454,7 +456,7 @@ function SessionStatusLine({ session }: { session: SessionState | null }) {
           selectable
           testID="connect-session-auth-required"
         >
-          cc connect rejected the new credential: {session.detail}
+          cc connect could not sign this phone in. Try pairing with a new code.
         </Text>
       );
     case "error":

@@ -24,6 +24,7 @@ import {
   type AddPluginInitial,
 } from "@/components/plugin/management/AddPluginDialog";
 import { BrowsePluginsTab } from "@/components/plugin/management/BrowsePluginsTab";
+import { PluginAttentionBanner } from "@/components/plugin/management/PluginAttentionBanner";
 import { InstalledPluginsTab } from "@/components/plugin/management/InstalledPluginsTab";
 import { PluginAuthorPage } from "@/components/plugin/management/PluginAuthorPage";
 import {
@@ -44,6 +45,7 @@ import {
 } from "./management/plugin-browse-discovery";
 import { PLUGINS_INSTALLED_DESCRIPTION } from "@/components/plugin/plugins-collection-copy";
 import { usePluginList } from "@/hooks/queries/plugin-settings-queries";
+import { pluginDetailLocation } from "@/components/plugin/plugin-detail-key";
 import {
   getPluginDetailRoutePath,
   getRootComposeRoutePath,
@@ -168,10 +170,11 @@ export function PluginsOverview({
           Number(left.publisherLabel === null) -
           Number(right.publisherLabel === null);
         if (publisherResult !== 0) return publisherResult;
-        return (
-          (left.name ?? left.id).localeCompare(right.name ?? right.id) ||
-          left.id.localeCompare(right.id)
+        const nameResult = (left.name ?? left.id).localeCompare(
+          right.name ?? right.id,
         );
+        if (nameResult !== 0) return nameResult;
+        return left.id.localeCompare(right.id);
       });
   }, [
     installedEntries,
@@ -187,7 +190,7 @@ export function PluginsOverview({
   });
 
   const startCreatePlugin = (prompt?: string) => {
-    navigate(getRootComposeRoutePath(), {
+    void navigate(getRootComposeRoutePath(), {
       state: {
         focusPrompt: true,
         initialPrompt: prompt ?? CREATE_PLUGIN_PROMPT,
@@ -213,12 +216,11 @@ export function PluginsOverview({
 
   const openPlugin =
     onOpenPlugin ??
-    ((pluginId: string) =>
+    ((detailKey: string) =>
       navigate(
-        getPluginDetailRoutePath({
-          pluginId,
-          view: activeMode === "installed" ? "installed" : undefined,
-        }),
+        activeMode === "installed"
+          ? getPluginDetailRoutePath({ pluginId: detailKey, view: "installed" })
+          : pluginDetailLocation(detailKey, ""),
       ));
   let content: ReactNode;
   if (activeMode === "browse") {
@@ -269,6 +271,7 @@ export function PluginsOverview({
         }
       >
         <div className={cn("space-y-3", TOOLS_PAGE_BAND_CLASSES)}>
+          <PluginAttentionBanner plugins={plugins} onOpenPlugin={openPlugin} />
           {listQuery.isError ? (
             <ResourceListState
               state="error"

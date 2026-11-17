@@ -73,7 +73,7 @@ describe("plugin marketplace author identity", () => {
     );
     const githubName = entry(
       "first",
-      { name: "CC", github: "get-cc", url: "https://cc.dev" },
+      { name: "CC", github: "codythatsme", url: "https://cc.dev" },
       "github-name",
     );
     const key = pluginMarketplaceAuthorKey(selected);

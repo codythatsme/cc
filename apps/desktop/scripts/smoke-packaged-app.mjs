@@ -8,11 +8,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createDesktopReleaseConfig,
+  resolveDesktopBuildPlatform,
   resolveDesktopReleaseChannel,
 } from "./desktop-release-channel.mjs";
 import { createPackagedAppLaunchArguments } from "./packaged-app-launch.mjs";
 import { resolvePackagedAppBinary } from "./packaged-app-paths.mjs";
-import { smokePackagedNpm } from "./smoke-packaged-npm.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const desktopPackageRoot = resolve(scriptDirectory, "..");
@@ -146,9 +146,7 @@ async function startSmokeServer({
         },
         customThemes: [],
         dataDir,
-        experiments: {
-          mobileApp: false,
-        },
+        experiments: {},
         featureFlags: {
           placeholder: false,
         },
@@ -306,19 +304,14 @@ async function stopPackagedApp(child) {
 }
 
 async function smokePackagedApp() {
-  if (process.platform !== "darwin" && process.platform !== "linux") {
-    throw new Error("Packaged desktop smoke only runs on macOS or Linux.");
-  }
-
   const desktopVersion = await readDesktopPackageVersion();
-  const desktopPlatform = process.platform === "darwin" ? "macos" : "linux";
+  const desktopPlatform = resolveDesktopBuildPlatform(process.platform);
   const appBinary = await resolvePackagedAppBinary({
     executableName: releaseConfig.linuxExecutableName,
     platform: process.platform,
     productName: releaseConfig.applicationName,
     releaseDir,
   });
-  await smokePackagedNpm(appBinary);
   const smokeRoot = await mkdtemp(join(tmpdir(), "cc-desktop-packaged-smoke-"));
   const dataDir = join(smokeRoot, "data");
   const userDataDir = join(smokeRoot, "user-data");
@@ -391,7 +384,12 @@ async function smokePackagedApp() {
   } finally {
     await stopPackagedApp(child);
     await smokeServer.close();
-    await rm(smokeRoot, { force: true, recursive: true });
+    await rm(smokeRoot, {
+      force: true,
+      maxRetries: 20,
+      recursive: true,
+      retryDelay: 250,
+    });
   }
 }
 

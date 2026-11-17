@@ -24,10 +24,7 @@ branch. Under the hood it's `git worktree add` plus some bookkeeping:
 - It lives at
   `<CC_DATA_DIR>/plugins/environment-git-worktree/host-data/worktrees/<thread-id>/<repo-name>`
   — for example, `~/.cc/plugins/environment-git-worktree/host-data/worktrees/thr_abc.../myrepo`.
-- Once every thread using the environment is deleted, cc cleans the worktree up
-  (`git worktree remove --force`). Archiving the last thread starts a
-  five-minute grace period instead, so unarchiving within it keeps the
-  worktree; after it elapses the worktree is removed the same way.
+- cc removes it once no thread uses it; see [Cleanup](#cleanup).
 
 Worktrees are created by cc's built-in **Worktree** plugin, which is enabled by
 default. Disabling it in Settings → Installed plugins leaves existing worktrees alone
@@ -50,6 +47,11 @@ pnpm cc thread spawn \
 
 Omit `--base-branch` for cc's smart default. Explicit values are exact:
 `main` is local and `origin/main` is remote.
+
+New worktree branches start at the selected base without tracking it as an
+upstream, even when Git's `branch.autoSetupMerge` is enabled. Publish with
+`git push -u origin HEAD` to set the upstream to the task's remote branch.
+Reusing an existing branch preserves its upstream configuration.
 
 ## Copy local files with `.worktreeinclude`
 
@@ -112,8 +114,9 @@ Contract:
   transcript in the app.
 - A non-zero exit, a signal, or a timeout (15 minutes) fails provisioning and
   the thread doesn't start.
-- POSIX only — supported on macOS, Linux, and WSL2. Native Windows isn't
-  supported; cc reports that POSIX shell scripts are unsupported on Windows.
+- A bash script on every platform. On native Windows cc runs it with the bash
+  that Git for Windows installs and fails with a message naming Git for Windows
+  when there is none.
 
 ## Cleanup
 
@@ -124,10 +127,8 @@ worktree it made and removes the ones nothing is using:
 - Archiving the last thread starts a five-minute grace period. Unarchive a
   thread within it and the worktree is kept; let it elapse and the worktree
   goes.
-- Archiving is not an instant stop. For 30 seconds an archived thread keeps its
-  terminals, and one that is mid-turn keeps running, so Undo on the archive
-  toast — or an unarchive within those 30 seconds — picks up exactly where it
-  was. After that cc stops the thread and closes its terminals.
+- An archived thread keeps running for 30 seconds so Undo can restore it;
+  see `cc guide thread-lifecycle`.
 
 Removal runs `.cc-env-teardown.sh` inside the worktree first, then stops
 every process whose working directory is inside the worktree — the agent's
@@ -135,10 +136,20 @@ provider process, its background jobs (dev servers, MCP servers, `nohup`
 jobs), and any process you started there yourself, such as a shell you `cd`'d
 into the worktree or an editor terminal. Each process gets `SIGTERM`, then
 `SIGKILL` after a short grace period. Then `git worktree remove --force` runs
-and the directory is deleted. The branch is left behind, so work you committed
-to it survives the worktree. If you want to keep uncommitted work, commit and
-push (or open a PR) from inside the worktree before letting the thread go, and
-move your own shells out of the worktree first if you want to keep them.
+and the directory is deleted.
+
+cc then deletes the branch it created for the worktree, but only when nothing
+would be lost: no other worktree has it checked out, and every commit on it is
+on a remote, a tag, or the base it started from, or the branch was
+squash-merged into that base. Otherwise the branch is kept, so work you
+committed but never pushed survives the worktree, even if another local branch
+also has it. Branches you check out or create yourself
+inside a worktree are never deleted, and neither are the branches of worktrees
+cc did not create. Restoring an archived thread whose branch was deleted
+recreates it from the remote branch when one exists, or from the base. If you
+want to keep uncommitted work, commit and push (or open a PR) from inside the
+worktree before letting the thread go, and move your own shells out of the
+worktree first if you want to keep them.
 
 ## Run teardown with `.cc-env-teardown.sh`
 
@@ -164,15 +175,12 @@ Contract:
 - A non-zero exit, a signal, or a timeout reports a failure. It never stops cc
   from removing the worktree.
 - The script receives the same sanitized environment as the setup script.
-- POSIX only — supported on macOS, Linux, and WSL2. Native Windows isn't
-  supported; cc reports that POSIX shell scripts are unsupported on Windows.
+- A bash script on every platform. On native Windows cc runs it with the bash
+  that Git for Windows installs and fails with a message naming Git for Windows
+  when there is none.
 
-Hook operation IDs and their started/finished state are saved per launch attempt.
-After a server restart, cc reconciles the original daemon operation instead of
-starting setup again. If an RPC disconnects, cleanup cancels the operation and
-waits for its process group to terminate before releasing the path. An
-unreachable daemon leaves cleanup pending for retry. Durable daemon cancellation
-records resolve never-started operations and prevent delayed execution.
+A server restart does not rerun a hook that already started. An unreachable
+daemon leaves cleanup pending for retry.
 
 ## If something isn't working
 
@@ -201,11 +209,7 @@ checkout. `.cc-env-setup.sh` must succeed before the environment is ready.
 is reported but does not prevent removal. A user-maintained checkout attached to
 CC remains unowned and runs neither hook.
 
-Fresh machine clones do not apply `.worktreeinclude`: no local source checkout
-exists on the new host. Supply local files and secrets through core Machine
-environment settings. Keep the repo hook's cache/no-op logic in the repository;
-Modal's stored Dockerfile recipe contains image-build instructions only.
-
-Restoring a machine filesystem does not rerun `.cc-env-setup.sh`. Setup runs when core first creates an owned environment. Fresh machine clones do not apply `.worktreeinclude`; supply local files and secrets through Machine environment settings.
-
-Thread startup does not validate workspace fingerprints, probe agent authentication, or automatically install agent CLIs.
+Fresh machine clones do not apply `.worktreeinclude`, because the new host has
+no local source checkout; supply local files and secrets through Machine
+environment settings. Restoring a machine filesystem does not rerun
+`.cc-env-setup.sh`.

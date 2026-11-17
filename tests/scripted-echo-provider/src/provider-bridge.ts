@@ -54,6 +54,9 @@ export const scriptedEchoOptionsSchema = z
   .object({
     startDelayMs: z.number().int().nonnegative().optional(),
     turnStartResponseDelayMs: z.number().int().nonnegative().optional(),
+    turnStartErrorAfterMs: z.number().int().nonnegative().optional(),
+    steerResponseDelayMs: z.number().int().nonnegative().optional(),
+    steerFindsNewTurn: z.boolean().optional(),
     answerStartWithoutIdentity: z.boolean().optional(),
     identityAfterResponse: z.boolean().optional(),
     identityNotificationsBeforeTurn: z
@@ -253,6 +256,7 @@ interface TurnPlan {
   recoverNowKind: ProviderRecoveryHint["kind"] | null;
   backgroundTask: boolean;
   settleBackgroundTasks: boolean;
+  stream: { chunks: number; intervalMs: number } | null;
 }
 
 function promptText(input: readonly PromptInput[]): string {
@@ -277,6 +281,7 @@ function parseTurnPlan(inputText: string): TurnPlan {
   const approvalKind =
     APPROVAL_KINDS.find((kind) => kind === approvalMatch?.[1]) ?? null;
   const holdMatch = /(?:^|\s)hold_turn(?:\s|$)/u.exec(inputText);
+  const streamMatch = /(?:^|\s)stream:(\d+):(\d+)(?:\s|$)/u.exec(inputText);
   const failMatch = /(?:^|\s)fail_turn:([^\s]+)(?:\s|$)/u.exec(inputText);
   const prestartFailMatch = /(?:^|\s)prestart_fail:([^\s]+)(?:\s|$)/u.exec(
     inputText,
@@ -303,6 +308,13 @@ function parseTurnPlan(inputText: string): TurnPlan {
     toolName: toolMatch?.[1] ?? null,
     toolTurnResolved: unresolvedToolMatch === null,
     holdTurn: holdMatch !== null,
+    stream:
+      streamMatch?.[1] === undefined || streamMatch[2] === undefined
+        ? null
+        : {
+            chunks: Number(streamMatch[1]),
+            intervalMs: Number(streamMatch[2]),
+          },
     failure:
       failureText === undefined
         ? null
@@ -396,6 +408,7 @@ function userQuestionPayload(requestId: JsonRpcId): PendingInteractionPayload {
           },
         ],
         allowFreeText: true,
+        required: true,
       },
     ],
   };
@@ -472,6 +485,7 @@ function openBackgroundTask(session: Session, providerTurnId: string): void {
         status: "pending",
         taskStatus: "running",
         skipTranscript: false,
+        foreground: false,
       },
       providerTurnId,
     },
@@ -499,6 +513,7 @@ function settleBackgroundTasks(session: Session): void {
         status: "completed",
         taskStatus: "completed",
         skipTranscript: false,
+        foreground: false,
       },
     })),
   );
@@ -517,6 +532,62 @@ function scheduleCompletion(
     completeTurn(session, "completed", responseText);
     emitRecoveryHint(session.threadId, recoverKind);
   }, delayMs);
+}
+
+function streamCompletion(
+  session: Session,
+  stream: { chunks: number; intervalMs: number },
+): void {
+  const turn = session.activeTurn;
+  if (turn === null) {
+    return;
+  }
+  const { providerTurnId } = turn;
+  session.messageCount += 1;
+  const key = { providerItemId: `msg-${session.messageCount}` };
+  emitDeltas(session.threadId, [
+    {
+      kind: "item.open",
+      key,
+      item: { type: "agentMessage", text: "" },
+      providerTurnId,
+    },
+  ]);
+  let sent = 0;
+  let text = "";
+  const step = () => {
+    if (session.activeTurn !== turn) {
+      return;
+    }
+    if (sent === stream.chunks) {
+      clearActiveTurn(session);
+      emitDeltas(session.threadId, [
+        {
+          kind: "item.textClose",
+          key,
+          channel: "agentMessage",
+          text,
+          providerTurnId,
+        },
+        { kind: "turn.boundary", status: "completed", providerTurnId },
+      ]);
+      return;
+    }
+    sent += 1;
+    const chunk = `Streamed chunk ${sent}.\n`;
+    text += chunk;
+    emitDeltas(session.threadId, [
+      {
+        kind: "item.textDelta",
+        key,
+        channel: "agentMessage",
+        text: chunk,
+        providerTurnId,
+      },
+    ]);
+    turn.timer = setTimeout(step, stream.intervalMs);
+  };
+  turn.timer = setTimeout(step, stream.intervalMs);
 }
 
 function beginTurn(args: {
@@ -614,7 +685,6 @@ function beginTurn(args: {
           plan.approvalKind,
           `approval-${providerTurnId}`,
         ),
-        providerNativeIds: true,
       },
     );
     pendingReplies.set(requestId, {
@@ -637,7 +707,6 @@ function beginTurn(args: {
         threadId: session.threadId,
         turnId: providerTurnId,
         payload: userQuestionPayload(requestId),
-        providerNativeIds: true,
       },
     });
     pendingReplies.set(requestId, {
@@ -655,7 +724,6 @@ function beginTurn(args: {
       callId: `call-${session.turnCount}`,
       tool: plan.toolName,
       arguments: {},
-      providerNativeIds: true,
     });
     pendingReplies.set(requestId, {
       kind: "tool",
@@ -663,6 +731,10 @@ function beginTurn(args: {
       toolName: plan.toolName,
       delayMs: plan.delayMs,
     });
+    return;
+  }
+  if (plan.stream !== null) {
+    streamCompletion(session, plan.stream);
     return;
   }
   scheduleCompletion(
@@ -876,6 +948,7 @@ const MODEL_LIST = {
       model: "fake-model",
       displayName: "Fake Model",
       description: "Fake model for integration and runtime tests",
+      reasoningDiscovery: "known",
       supportedReasoningEfforts: [
         { reasoningEffort: "medium", description: "Medium" },
       ],
@@ -1078,6 +1151,14 @@ const handlers: Record<string, RequestHandler> = {
     logProcessStep(
       `turn/start:${process.pid}:${parsed.data.threadId}:${promptText(parsed.data.input)}`,
     );
+    const errorAfterMs = session.options.turnStartErrorAfterMs;
+    if (errorAfterMs !== undefined) {
+      setTimeout(
+        () => io.sendError(id, -32000, "The provider lost the turn start"),
+        errorAfterMs,
+      );
+      return;
+    }
     const responseDelayMs = session.options.turnStartResponseDelayMs;
     if (responseDelayMs === undefined) {
       io.sendResult(id, {});
@@ -1120,14 +1201,40 @@ const handlers: Record<string, RequestHandler> = {
       });
       return;
     }
-    emitDeltas(session.threadId, [
-      {
-        kind: "input.accepted",
-        clientRequestId: parsed.data.clientRequestId,
-        providerTurnId: session.activeTurn.providerTurnId,
-      },
-    ]);
-    io.sendResult(id, {});
+    if (options.steerFindsNewTurn === true) {
+      completeTurn(session, "completed", "finished before the steer");
+      session.turnCount += 1;
+      const newTurnId = `turn-${session.turnCount}`;
+      session.activeTurn = { providerTurnId: newTurnId, timer: null };
+      emitDeltas(session.threadId, [
+        { kind: "turn.open", providerTurnId: newTurnId },
+      ]);
+      const message = `expected active turn id \`${parsed.data.expectedTurnId}\` but found \`${newTurnId}\``;
+      io.sendError(id, BRIDGE_JSON_RPC_ERRORS.NO_ACTIVE_TURN, message, {
+        recovery: {
+          kind: "staleTurn",
+          message,
+          retryable: false,
+        } satisfies ProviderRecoveryHint,
+      });
+      return;
+    }
+    const providerTurnId = session.activeTurn.providerTurnId;
+    const acceptSteer = (): void => {
+      emitDeltas(session.threadId, [
+        {
+          kind: "input.accepted",
+          clientRequestId: parsed.data.clientRequestId,
+          providerTurnId,
+        },
+      ]);
+      io.sendResult(id, {});
+    };
+    if (options.steerResponseDelayMs === undefined) {
+      acceptSteer();
+      return;
+    }
+    setTimeout(acceptSteer, options.steerResponseDelayMs);
   },
 
   [BRIDGE_REQUEST_METHODS.threadStop]: (id, params) => {

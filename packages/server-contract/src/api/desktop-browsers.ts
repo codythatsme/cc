@@ -1,7 +1,8 @@
 import {
+  desktopBrowserBrokerChallengeSchema,
+  desktopBrowserBrokerProofSchema,
   desktopBrowserImportSelectionSchema,
   desktopBrowserNavigationUrlSchema,
-  desktopBrowserProfileSchema,
 } from "@cc/host-daemon-contract";
 import { z } from "zod";
 
@@ -10,6 +11,18 @@ const id = z.string().min(1).max(256);
 export const desktopBrowserHostRequestSchema = z
   .object({ hostId: id })
   .strict();
+export const desktopBrowserBrokerProofRequestSchema =
+  desktopBrowserHostRequestSchema
+    .extend({
+      challenge: desktopBrowserBrokerChallengeSchema,
+    })
+    .strict();
+export type DesktopBrowserBrokerProofRequest = z.infer<
+  typeof desktopBrowserBrokerProofRequestSchema
+>;
+export type DesktopBrowserBrokerProof = z.infer<
+  typeof desktopBrowserBrokerProofSchema
+>;
 export const desktopBrowserScopeSchema = desktopBrowserHostRequestSchema
   .extend({
     instanceId: id,
@@ -37,7 +50,6 @@ export const desktopBrowserAcquireRequestSchema = desktopBrowserScopeSchema
       .refine((ids) => new Set(ids).size === ids.length),
     controllerLabel: z.string().trim().min(1).max(100),
     ttlMs: z.number().int().min(1000).max(1800000).default(300000),
-    allowPersonal: z.boolean().default(false),
   })
   .strict();
 export const desktopBrowserLeaseRequestSchema = desktopBrowserScopeSchema
@@ -49,10 +61,7 @@ export const desktopBrowserInstanceRequestSchema =
     .strict();
 export const desktopBrowserImportCookiesRequestSchema =
   desktopBrowserInstanceRequestSchema
-    .extend({
-      ...desktopBrowserImportSelectionSchema.shape,
-      profile: desktopBrowserProfileSchema.default({ kind: "personal" }),
-    })
+    .extend(desktopBrowserImportSelectionSchema.shape)
     .strict();
 
 export type ExperimentalDesktopBrowserHostRequest = z.infer<

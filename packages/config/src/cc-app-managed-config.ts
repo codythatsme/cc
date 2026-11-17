@@ -1,9 +1,5 @@
 import { join } from "node:path";
-import {
-  acpNativeReasoningSchema,
-  acpReasoningCliSchema,
-  providerNativeSkillRootsSchema,
-} from "@cc/domain";
+import { providerNativeSkillRootsSchema } from "@cc/domain";
 import { z } from "zod";
 
 const BUNDLED_PROVIDER_IDS = [
@@ -12,10 +8,6 @@ const BUNDLED_PROVIDER_IDS = [
   "pi",
   "acp-cursor",
 ] as const;
-
-const RESERVED_ACP_PROVIDER_IDS: ReadonlySet<string> = new Set(
-  BUNDLED_PROVIDER_IDS,
-);
 
 const CC_APP_CONFIG_FILE_NAME = "config.json";
 const CC_APP_ENV_FILE_NAME = "env.json";
@@ -37,8 +29,9 @@ export const REMOVED_AI_SERVICE_CONFIG_MESSAGE =
   "CC_INFERENCE, CC_INFERENCE_FALLBACK, and CC_TRANSCRIPTION were removed. Choose AI services in Settings → AI services or with `cc settings ai-services set <task> <automatic|off|service>`.";
 
 export const PORTABLE_ENV_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/u;
-const CUSTOM_ACP_AGENT_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/u;
-const CUSTOM_ACP_AGENT_LOGO_PATTERN = /\.(?:svg|png|webp)$/iu;
+const REMOVED_CUSTOM_ACP_AGENTS_CONFIG_KEY = "customAcpAgents";
+const REMOVED_CUSTOM_ACP_AGENTS_MESSAGE =
+  "customAcpAgents in config.json is no longer read. Declare the agents with `cc plugin config provider-acp set customAgents '<json>'`.";
 
 interface CcAppManagedConfigWarningLogger {
   warn(fields: Record<string, unknown>, message: string): void;
@@ -77,62 +70,9 @@ const ccAppManagedEnvConfigSchema = z.record(
   z.string(),
 );
 
-export function formatCustomAcpAgentProviderId(id: string): string {
-  return `acp-${id}`;
-}
-
-const customAcpAgentModelCliSchema = z
-  .object({
-    listArgs: z.array(z.string()).default([]),
-    selectFlag: z.string().min(1).optional(),
-    primaryModels: z.array(z.string()).default([]),
-  })
-  .strict()
-  .transform((modelCli) =>
-    modelCli.listArgs.length > 0 ? modelCli : undefined,
-  );
-
-const customAcpAgentSchema = z
-  .object({
-    id: z.string().regex(CUSTOM_ACP_AGENT_ID_PATTERN),
-    displayName: z.string().min(1),
-    command: z.string().min(1),
-    logo: z
-      .string()
-      .min(1)
-      .regex(
-        CUSTOM_ACP_AGENT_LOGO_PATTERN,
-        "Custom ACP agent logo must be an .svg, .png, or .webp file.",
-      )
-      .optional(),
-    args: z.array(z.string()).default([]),
-    env: z.record(ccAppManagedEnvNameSchema, z.string()).default({}),
-    cwd: z.string().min(1).optional(),
-    modelCli: customAcpAgentModelCliSchema.optional(),
-    reasoningCli: acpReasoningCliSchema.optional(),
-    nativeReasoning: acpNativeReasoningSchema.optional(),
-    nativeSkillRoots: providerNativeSkillRootsSchema.optional(),
-    supportsManualCompaction: z.boolean().default(false),
-  })
-  .strict()
-  .superRefine((agent, context) => {
-    const providerId = formatCustomAcpAgentProviderId(agent.id);
-    if (RESERVED_ACP_PROVIDER_IDS.has(providerId)) {
-      context.addIssue({
-        code: "custom",
-        message: `Custom ACP agent id "${agent.id}" resolves to built-in provider "${providerId}".`,
-        path: ["id"],
-      });
-    }
-  })
-  .transform(({ modelCli, ...agent }) => {
-    return modelCli === undefined ? agent : { ...agent, modelCli };
-  });
-
 const ccAppManagedConfigBoundarySchema = z
   .object({
     config: ccAppManagedConfigValuesSchema.optional(),
-    customAcpAgents: z.array(z.unknown()).optional(),
     customModels: z.array(z.unknown()).optional(),
     sharedSkillRoots: providerNativeSkillRootsSchema.optional(),
     serverHeaders: z.record(z.string(), z.string()).optional(),
@@ -151,61 +91,15 @@ export const ccAppManagedEnvFileSchema = z
 export type CcAppManagedConfigValues = z.infer<
   typeof ccAppManagedConfigValuesSchema
 >;
-export type CustomAcpAgent = z.infer<typeof customAcpAgentSchema>;
 export type CustomProviderModel = z.infer<typeof customProviderModelSchema>;
 export type CcAppManagedConfig = Omit<
   z.infer<typeof ccAppManagedConfigBoundarySchema>,
-  "customAcpAgents" | "customModels"
+  "customModels"
 > & {
-  customAcpAgents?: CustomAcpAgent[];
   customModels?: CustomProviderModel[];
 };
 export type CcAppManagedEnvConfig = z.infer<typeof ccAppManagedEnvConfigSchema>;
 export type CcAppManagedEnvFile = z.infer<typeof ccAppManagedEnvFileSchema>;
-
-function warnInvalidCustomAcpAgent(
-  logger: CcAppManagedConfigWarningLogger | undefined,
-  fields: Record<string, unknown>,
-): void {
-  logger?.warn(fields, "Ignoring invalid custom ACP agent config entry");
-}
-
-function parseCustomAcpAgents(
-  entries: readonly unknown[] | undefined,
-  options: ParseCcAppManagedConfigOptions,
-): CustomAcpAgent[] | undefined {
-  if (entries === undefined) {
-    return undefined;
-  }
-
-  const agents: CustomAcpAgent[] = [];
-  const seenProviderIds = new Set<string>();
-  for (const [index, entry] of entries.entries()) {
-    const result = customAcpAgentSchema.safeParse(entry);
-    if (!result.success) {
-      warnInvalidCustomAcpAgent(options.logger, {
-        error: result.error.message,
-        index,
-      });
-      continue;
-    }
-
-    const providerId = formatCustomAcpAgentProviderId(result.data.id);
-    if (seenProviderIds.has(providerId)) {
-      warnInvalidCustomAcpAgent(options.logger, {
-        error: `Duplicate custom ACP agent provider id "${providerId}".`,
-        index,
-        providerId,
-      });
-      continue;
-    }
-
-    seenProviderIds.add(providerId);
-    agents.push(result.data);
-  }
-
-  return agents;
-}
 
 function parseCustomModels(
   entries: readonly unknown[] | undefined,
@@ -251,21 +145,42 @@ function withoutRemovedAiServiceConfig(
   };
 }
 
+function withoutRemovedCustomAcpAgents(
+  rawConfig: unknown,
+  options: ParseCcAppManagedConfigOptions,
+): unknown {
+  if (
+    typeof rawConfig !== "object" ||
+    rawConfig === null ||
+    !Object.hasOwn(rawConfig, REMOVED_CUSTOM_ACP_AGENTS_CONFIG_KEY)
+  ) {
+    return rawConfig;
+  }
+  options.logger?.warn(
+    { key: REMOVED_CUSTOM_ACP_AGENTS_CONFIG_KEY },
+    REMOVED_CUSTOM_ACP_AGENTS_MESSAGE,
+  );
+  return Object.fromEntries(
+    Object.entries(rawConfig).filter(
+      ([key]) => key !== REMOVED_CUSTOM_ACP_AGENTS_CONFIG_KEY,
+    ),
+  );
+}
+
 export function parseCcAppManagedConfig(
   rawConfig: unknown,
   options: ParseCcAppManagedConfigOptions = {},
 ): CcAppManagedConfig {
   const parsed = ccAppManagedConfigBoundarySchema.parse(
-    withoutRemovedAiServiceConfig(rawConfig, options),
+    withoutRemovedCustomAcpAgents(
+      withoutRemovedAiServiceConfig(rawConfig, options),
+      options,
+    ),
   );
-  const customAcpAgents = parseCustomAcpAgents(parsed.customAcpAgents, options);
   const customModels = parseCustomModels(parsed.customModels, options);
   const config: CcAppManagedConfig = {};
   if (parsed.config !== undefined) {
     config.config = parsed.config;
-  }
-  if (customAcpAgents !== undefined) {
-    config.customAcpAgents = customAcpAgents;
   }
   if (customModels !== undefined) {
     config.customModels = customModels;

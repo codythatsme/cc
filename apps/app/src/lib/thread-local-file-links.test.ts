@@ -1,55 +1,57 @@
 import { describe, expect, it } from "vitest";
+import type { FilePreviewLineRange } from "@cc/client-core";
+import type { WorkspaceOpenTargetId } from "@cc/host-daemon-contract";
 import { resolveThreadLocalFileLink } from "./thread-local-file-links";
+
+const WORKSPACE = { environmentId: "env_one", rootPath: "/Users/me/project" };
+const STORAGE = {
+  threadId: "thr_one",
+  rootPath: "/Users/me/.cc/thread-storage/thr_one",
+};
+
+function resolve(
+  path: string,
+  overrides: Partial<Parameters<typeof resolveThreadLocalFileLink>[0]> & {
+    lineRange?: FilePreviewLineRange | null;
+    openTargetId?: WorkspaceOpenTargetId | null;
+  } = {},
+) {
+  const { lineRange = null, openTargetId = null, ...args } = overrides;
+  return resolveThreadLocalFileLink({
+    fileOpenTargetIds: [],
+    hostId: "host_one",
+    threadStorage: null,
+    workspace: WORKSPACE,
+    ...args,
+    link: { lineRange, openTargetId, path },
+  });
+}
 
 describe("resolveThreadLocalFileLink", () => {
   it("leaves app routes as normal navigation", () => {
-    expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: true,
-        link: {
-          lineRange: null,
-          path: "/projects/proj_gyz9przugq/threads/thr_rq7r4uv8zg",
-        },
-        threadStorageRootPath: null,
-        workspaceRootPath: "/Users/me/project",
-      }),
-    ).toEqual({
-      kind: "app-route",
-    });
+    expect(resolve("/projects/proj_gyz9przugq/threads/thr_rq7r4uv8zg")).toEqual(
+      { kind: "app-route" },
+    );
   });
 
   it("opens host file links when there is no ready local workspace", () => {
     expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: true,
-        link: {
-          lineRange: null,
+      resolve("/Users/me/project/src/file.ts", { workspace: null }),
+    ).toEqual({
+      kind: "preview",
+      options: {
+        target: {
+          kind: "host",
+          hostId: "host_one",
           path: "/Users/me/project/src/file.ts",
         },
-        threadStorageRootPath: null,
-        workspaceRootPath: null,
-      }),
-    ).toEqual({
-      kind: "open-host-path",
-      request: {
-        lineRange: null,
-        path: "/Users/me/project/src/file.ts",
+        location: null,
       },
     });
   });
 
-  it("rejects file links when host-file context is unavailable", () => {
-    expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: false,
-        link: {
-          lineRange: { startLineNumber: 12, endLineNumber: 14 },
-          path: "/Users/me/.ssh/id_rsa",
-        },
-        threadStorageRootPath: null,
-        workspaceRootPath: "/Users/me/project",
-      }),
-    ).toEqual({
+  it("rejects file links when the thread has no machine", () => {
+    expect(resolve("/Users/me/.ssh/id_rsa", { hostId: null })).toEqual({
       description:
         "Thread file links are only available when the thread has an environment.",
       kind: "error",
@@ -58,58 +60,60 @@ describe("resolveThreadLocalFileLink", () => {
 
   it("opens paths outside the workspace root as host files", () => {
     expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: true,
-        link: {
-          lineRange: { startLineNumber: 12, endLineNumber: 14 },
-          path: "/Users/me/.ssh/id_rsa",
-        },
-        threadStorageRootPath: null,
-        workspaceRootPath: "/Users/me/project",
+      resolve("/Users/me/.ssh/id_rsa", {
+        lineRange: { startLineNumber: 12, endLineNumber: 14 },
       }),
     ).toEqual({
-      kind: "open-host-path",
-      request: {
-        lineRange: { startLineNumber: 12, endLineNumber: 14 },
-        path: "/Users/me/.ssh/id_rsa",
+      kind: "preview",
+      options: {
+        target: {
+          kind: "host",
+          hostId: "host_one",
+          path: "/Users/me/.ssh/id_rsa",
+        },
+        location: { kind: "range", startLine: 12, endLine: 14 },
       },
     });
   });
 
   it("normalizes paths before checking workspace containment", () => {
     expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: true,
-        link: {
-          lineRange: { startLineNumber: 12, endLineNumber: 14 },
-          path: "/Users/me/project/src/../src/file.ts",
-        },
-        threadStorageRootPath: null,
-        workspaceRootPath: "/Users/me/project/",
+      resolve("/Users/me/project/src/../src/file.ts", {
+        workspace: { environmentId: "env_one", rootPath: "/Users/me/project/" },
       }),
     ).toEqual({
-      kind: "open-workspace-path",
-      request: {
-        lineRange: { startLineNumber: 12, endLineNumber: 14 },
-        path: "/Users/me/project/src/file.ts",
-        relativePath: "src/file.ts",
-        workspaceRootPath: "/Users/me/project",
+      kind: "preview",
+      options: {
+        target: {
+          kind: "workspace",
+          environmentId: "env_one",
+          path: "src/file.ts",
+        },
+        location: null,
+      },
+    });
+  });
+
+  it("opens a Windows path inside the workspace in any spelling", () => {
+    expect(
+      resolve("c:/src/Repo/packages/app/file.ts", {
+        workspace: { environmentId: "env_one", rootPath: "C:\\src\\repo" },
+      }),
+    ).toEqual({
+      kind: "preview",
+      options: {
+        target: {
+          kind: "workspace",
+          environmentId: "env_one",
+          path: "packages/app/file.ts",
+        },
+        location: null,
       },
     });
   });
 
   it("rejects relative file links", () => {
-    expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: true,
-        link: {
-          lineRange: { startLineNumber: 7, endLineNumber: 7 },
-          path: "apps/app/src/main.tsx",
-        },
-        threadStorageRootPath: null,
-        workspaceRootPath: "/Users/me/project",
-      }),
-    ).toEqual({
+    expect(resolve("apps/app/src/main.tsx")).toEqual({
       description: "Thread file links must use absolute file paths.",
       kind: "error",
     });
@@ -117,45 +121,59 @@ describe("resolveThreadLocalFileLink", () => {
 
   it("does not mistake deeper filesystem paths for project routes", () => {
     expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: true,
-        link: {
-          lineRange: null,
-          path: "/projects/my-repo/src/file.ts",
-        },
-        threadStorageRootPath: null,
-        workspaceRootPath: "/projects/my-repo",
+      resolve("/projects/my-repo/src/file.ts", {
+        workspace: { environmentId: "env_one", rootPath: "/projects/my-repo" },
       }),
-    ).toEqual({
-      kind: "open-workspace-path",
-      request: {
-        lineRange: null,
-        path: "/projects/my-repo/src/file.ts",
-        relativePath: "src/file.ts",
-        workspaceRootPath: "/projects/my-repo",
-      },
+    ).toMatchObject({
+      kind: "preview",
+      options: { target: { kind: "workspace", path: "src/file.ts" } },
     });
   });
 
   it("opens paths inside the known thread storage root as storage files", () => {
     expect(
-      resolveThreadLocalFileLink({
-        hostFileLinksAvailable: true,
-        link: {
-          lineRange: { startLineNumber: 4, endLineNumber: 6 },
-          path: "/Users/me/.cc/thread-storage/thr_one/reports/preview.html",
-        },
-        threadStorageRootPath: "/Users/me/.cc/thread-storage/thr_one",
-        workspaceRootPath: "/Users/me/project",
+      resolve(`${STORAGE.rootPath}/reports/preview.html`, {
+        lineRange: { startLineNumber: 4, endLineNumber: 6 },
+        threadStorage: STORAGE,
       }),
     ).toEqual({
-      kind: "open-thread-storage-path",
-      request: {
-        lineRange: { startLineNumber: 4, endLineNumber: 6 },
-        path: "/Users/me/.cc/thread-storage/thr_one/reports/preview.html",
-        relativePath: "reports/preview.html",
-        threadStorageRootPath: "/Users/me/.cc/thread-storage/thr_one",
+      kind: "preview",
+      options: {
+        target: {
+          kind: "thread-storage",
+          threadId: "thr_one",
+          path: "reports/preview.html",
+        },
+        location: { kind: "range", startLine: 4, endLine: 6 },
       },
+    });
+  });
+
+  it("opens editor links in the editor they name when it is available", () => {
+    const editorLink = {
+      lineRange: { startLineNumber: 12, endLineNumber: 12 },
+      openTargetId: "devin-desktop" as const,
+    };
+
+    expect(
+      resolve("/Users/me/project/src/../review.diff", {
+        ...editorLink,
+        fileOpenTargetIds: ["vscode", "devin-desktop"],
+      }),
+    ).toEqual({
+      kind: "open-in-target",
+      lineRange: { startLineNumber: 12, endLineNumber: 12 },
+      path: "/Users/me/project/review.diff",
+      targetId: "devin-desktop",
+    });
+    expect(
+      resolve("/Users/me/project/src/../review.diff", {
+        ...editorLink,
+        fileOpenTargetIds: ["vscode"],
+      }),
+    ).toMatchObject({
+      kind: "preview",
+      options: { target: { kind: "workspace", path: "review.diff" } },
     });
   });
 });

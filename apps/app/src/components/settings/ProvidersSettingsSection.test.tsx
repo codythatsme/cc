@@ -3,11 +3,14 @@
 import {
   cleanup,
   fireEvent,
-  render,
+  render as renderView,
   screen,
   within,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SystemProviderCatalogEntry } from "@cc/server-contract";
 import type { ProviderInfo } from "@cc/domain";
 import { defaultAppSettings } from "@cc/domain";
 import { makeProviderInfo } from "@cc/test-helpers/domain-fixtures";
@@ -18,11 +21,29 @@ import {
 
 const mocks = vi.hoisted(() => ({
   providers: [] as ProviderInfo[],
+  catalog: [] as SystemProviderCatalogEntry[],
+  setEnabled: vi.fn(),
 }));
 
 vi.mock("@/hooks/queries/system-queries", () => ({
   useSystemProviders: () => ({ data: mocks.providers, isPending: false }),
+  useSystemProviderCatalog: () => ({ data: mocks.catalog, isPending: false }),
 }));
+
+vi.mock("@/hooks/mutations/provider-mutations", () => ({
+  useSetProviderEnabled: () => ({ mutate: mocks.setEnabled, isPending: false }),
+}));
+
+function render(ui: ReactElement) {
+  return renderView(<MemoryRouter>{ui}</MemoryRouter>);
+}
+
+function openActions(name: string) {
+  fireEvent.keyDown(
+    screen.getByRole("button", { name: `Actions for ${name}` }),
+    { key: "Enter" },
+  );
+}
 
 function provider(id: string, displayName: string): ProviderInfo {
   return makeProviderInfo({
@@ -42,7 +63,11 @@ function provider(id: string, displayName: string): ProviderInfo {
   });
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mocks.catalog = [];
+  mocks.setEnabled.mockClear();
+});
 
 describe("ProvidersSettingsSection", () => {
   it("shows the server-wide fast tier setting and saves changes", () => {
@@ -57,14 +82,82 @@ describe("ProvidersSettingsSection", () => {
     );
 
     const control = screen.getByRole("switch", {
-      name: "Allow fast service tier",
+      name: "Allow faster service tiers",
     });
     expect(control.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(control);
     expect(onChange).toHaveBeenCalledWith({
-      ...defaultAppSettings,
       allowFastServiceTier: true,
     });
+  });
+
+  it.each([
+    [0, "ASAP"],
+    [5, "5 minutes"],
+    [60, "60 minutes"],
+  ] as const)(
+    "saves the idle session timeout %s from the menu",
+    (minutes, label) => {
+      mocks.providers = [];
+      const onChange = vi.fn();
+      const { unmount } = render(
+        <ProvidersSettingsSection
+          disabled={false}
+          generalSettings={defaultAppSettings}
+          onGeneralSettingsChange={onChange}
+        />,
+      );
+      const trigger = screen.getByRole("button", {
+        name: "Release idle agent sessions",
+      });
+      expect(trigger.textContent).toBe("30 minutes");
+      fireEvent.keyDown(trigger, { key: "Enter" });
+      expect(
+        screen.getAllByRole("menuitem").map((item) => item.textContent),
+      ).toEqual([
+        "ASAP",
+        "5 minutes",
+        "10 minutes",
+        "30 minutes (default)",
+        "60 minutes",
+      ]);
+      fireEvent.click(screen.getByRole("menuitem", { name: label }));
+      expect(onChange).toHaveBeenCalledWith({
+        idleProviderSessionTimeoutMinutes: minutes,
+      });
+      unmount();
+
+      render(
+        <ProvidersSettingsSection
+          disabled={false}
+          generalSettings={{
+            ...defaultAppSettings,
+            idleProviderSessionTimeoutMinutes: minutes,
+          }}
+          onGeneralSettingsChange={onChange}
+        />,
+      );
+      expect(
+        screen.getByRole("button", { name: "Release idle agent sessions" })
+          .textContent,
+      ).toContain(label);
+    },
+  );
+
+  it("disables the idle session timeout while settings load", () => {
+    mocks.providers = [];
+    render(
+      <ProvidersSettingsSection
+        disabled
+        generalSettings={defaultAppSettings}
+        onGeneralSettingsChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "Release idle agent sessions" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
   });
 
   it("shows reorder handles and writes the default as a user setting", () => {
@@ -102,11 +195,9 @@ describe("ProvidersSettingsSection", () => {
       "group/provider-row",
     );
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Make default" })[1]!,
-    );
+    openActions("Gamma");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Default" }));
     expect(onChange).toHaveBeenLastCalledWith({
-      ...defaultAppSettings,
       defaultProviderId: "gamma",
     });
   });
@@ -124,13 +215,12 @@ describe("ProvidersSettingsSection", () => {
       />,
     );
     expect(screen.getByText("Unavailable")).toBeTruthy();
+    openActions("Beta");
     expect(
-      (
-        screen.getByRole("button", {
-          name: "Make default",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+      screen
+        .getByRole("menuitemcheckbox", { name: "Default" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
   });
 
   it("shows each provider's finished turn display and stores only overrides", () => {
@@ -170,7 +260,7 @@ describe("ProvidersSettingsSection", () => {
     ).toBeTruthy();
     expect(
       within(configuration).getByRole("switch", {
-        name: "Allow fast service tier",
+        name: "Allow faster service tiers",
       }),
     ).toBeTruthy();
     expect(
@@ -183,7 +273,6 @@ describe("ProvidersSettingsSection", () => {
 
     fireEvent.click(claudeSwitch);
     expect(onChange).toHaveBeenLastCalledWith({
-      ...defaultAppSettings,
       providerCompletedTurnDisplay: {
         codex: "flat",
         "claude-code": "collapse",
@@ -192,8 +281,57 @@ describe("ProvidersSettingsSection", () => {
 
     fireEvent.click(codexSwitch);
     expect(onChange).toHaveBeenLastCalledWith({
-      ...defaultAppSettings,
       providerCompletedTurnDisplay: {},
+    });
+  });
+
+  it("keeps a provider with a disabled plugin visible and enables it without navigating away", () => {
+    mocks.providers = [provider("codex", "Codex")];
+    mocks.catalog = [
+      {
+        id: "claude-code",
+        displayName: "Claude Code",
+        pluginId: "provider-claude-code",
+        pluginName: "Claude Code provider",
+        pluginEnabled: false,
+        enabled: true,
+        available: false,
+        logoUrl: "/claude.svg",
+        info: null,
+      },
+    ];
+    render(
+      <ProvidersSettingsSection
+        disabled={false}
+        generalSettings={defaultAppSettings}
+        onGeneralSettingsChange={vi.fn()}
+      />,
+    );
+    const section = screen
+      .getByRole("heading", { name: "Providers" })
+      .closest("section")!;
+    expect(
+      within(section)
+        .getAllByText(/^(Codex|Claude Code)$/)
+        .map((row) => row.textContent),
+    ).toEqual(["Codex", "Claude Code"]);
+    expect(
+      screen.queryByRole("button", { name: "Reorder Claude Code" }),
+    ).toBeNull();
+    expect(
+      section.querySelector('[data-provider-logo="/claude.svg"]'),
+    ).not.toBeNull();
+    openActions("Claude Code");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Enable" }));
+    expect(mocks.setEnabled).toHaveBeenCalledWith({
+      providerId: "claude-code",
+      enabled: true,
+    });
+    openActions("Codex");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Disable" }));
+    expect(mocks.setEnabled).toHaveBeenCalledWith({
+      providerId: "codex",
+      enabled: false,
     });
   });
 

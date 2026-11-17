@@ -4,12 +4,14 @@ import { getCcDesktopInfo } from "@/lib/cc-desktop";
 
 interface RootComposePanelCommandHandlersProps {
   isFocused: boolean;
+  isOpen: boolean;
   onClose: () => boolean;
   onToggle: () => void;
 }
 
 export function RootComposePanelCommandHandlers({
   isFocused,
+  isOpen,
   onClose,
   onToggle,
 }: RootComposePanelCommandHandlersProps) {

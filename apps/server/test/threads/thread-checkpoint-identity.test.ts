@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { createScriptedEchoRuntime } from "@cc/agent-runtime/test";
-import { getThread, listEvents } from "@cc/db";
+import { getThread } from "@cc/db";
 import type { PromptInput, ThreadEvent } from "@cc/domain";
 import { groupHostDaemonEvents } from "@cc/host-daemon-contract";
 import { describe, expect, it, vi } from "vitest";
@@ -18,6 +18,7 @@ import {
   seedThread,
 } from "../helpers/seed.js";
 import { withTestHarness } from "../helpers/test-app.js";
+import { listEvents } from "@cc/db/testing";
 
 const bridgePath = fileURLToPath(
   new URL(
@@ -124,6 +125,7 @@ describe("checkpoint identity through runtime, ingestion, and editing", () => {
             const input: PromptInput[] = [{ type: "text", text, mentions: [] }];
             const request = appendClientTurnEvent(harness.deps, {
               type: "client/turn/requested",
+              originPluginId: null,
               threadId: source.id,
               environmentId: environment.id,
               execution,

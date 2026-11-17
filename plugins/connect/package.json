@@ -1,18 +1,18 @@
 {
   "name": "cc-plugin-connect",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Remote access through a connect service you operate. Configure CC_CONNECT_BASE_URL or pair with an explicit server URL.",
   "engines": {
     "cc": ">=0.0",
-    "ccPluginSdk": ">=0.4.102"
+    "ccPluginSdk": ">=0.6.131"
   },
   "cc": {
-    "name": "Remote access",
+    "name": "cc connect",
     "description": "Remote access through a connect service you operate. Configure CC_CONNECT_BASE_URL or pair with an explicit server URL.",
     "branding": {
-      "icon": "Smartphone"
+      "icon": "ComputerCloud"
     },
     "server": "./src/server.ts",
     "app": "./app.tsx"
@@ -21,37 +21,37 @@
     "cc-plugin"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsrs --noEmit",
+    "lint:type-aware": "oxlint -c ../../.oxlintrc.type-aware.json",
     "test": "vitest run --config vitest.config.ts",
     "prepare:bundled": "cc-plugin-build prepare-bundled"
   },
   "dependencies": {
     "@cc/connect-client": "workspace:*",
+    "@cc/domain": "workspace:*",
     "@cc/shared-ui": "workspace:*",
     "@cc/tunnel-client": "workspace:*",
     "@cc/tunnel-contract": "workspace:*",
-    "@radix-ui/react-slot": "^1.3.0",
+    "cc-plugin-cc-account": "workspace:*",
     "qrcode": "^1.5.4",
-    "ws": "^8.18.0",
-    "zod": "^4.3.6"
+    "ws": "^8.22.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@cc/plugin-build": "workspace:*",
     "@codythatsme/plugin-sdk": "workspace:*",
-    "@radix-ui/react-dialog": "^1.1.19",
-    "@testing-library/react": "^16.3.2",
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.0.0",
-    "@types/qrcode": "^1.5.5",
-    "@types/react": "^19.0.0",
-    "@types/ws": "^8.18.1",
-    "better-sqlite3": "12.10.0",
-    "jsdom": "^29.0.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "@testing-library/react": "^16.3.3",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.20.5",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/ws": "^8.18.2",
+    "better-sqlite3": "12.11.1",
+    "jsdom": "^29.1.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "typescript-7": "npm:typescript@^7.0.2",
-    "vaul": "^1.1.2",
-    "vitest": "^4.1.1"
+    "vitest": "^4.1.12"
   }
 }

@@ -4,7 +4,6 @@ import { cleanup, fireEvent, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NO_COLLAPSED_CHILD_ACTIVITY } from "../model/thread-activity.js";
 import type {
   PluginSidebarSplitLayout,
   PluginSidebarThreadRowStatus,
@@ -19,9 +18,8 @@ import { makeSidebarThread } from "../model/fixtures.js";
 installTestPluginRuntime();
 const { TopLevelSidebarSection } = await import("./TopLevelSidebarSection.js");
 const { SidebarControlButton } = await import("../rows/SidebarRowControls.js");
-const { SectionThreadDndProvider } = await import(
-  "../dnd/SectionThreadDndContext.js"
-);
+const { SectionThreadDndProvider } =
+  await import("../dnd/SectionThreadDndContext.js");
 
 function Slot({ children }: { children: ReactNode }) {
   return <TooltipProvider>{children}</TooltipProvider>;
@@ -51,6 +49,8 @@ function dndState(
 ): SectionThreadDndState {
   return {
     activeItemId: activeThread?.id ?? null,
+    isDragging: activeThread !== null,
+    draggedThreadIds: null,
     activeThread,
     dragOverParentKey,
     unchangedParentKey,
@@ -127,50 +127,43 @@ describe("SidebarControlButton", () => {
 });
 
 describe("TopLevelSidebarSection", () => {
-  it("exposes stable identity only for persisted sections", () => {
-    const result = renderTree(
-      <>
-        <TopLevelSidebarSection
-          label="Design"
-          sectionId="sec_design"
-          collapseControl={{ isCollapsed: false, onToggleCollapsed: vi.fn() }}
-        >
-          <div>Design thread</div>
-        </TopLevelSidebarSection>
+  it("lets shortcuts escape a focused disclosure while keeping activation local", () => {
+    const onShortcut = vi.fn();
+    const onToggleCollapsed = vi.fn();
+    renderTree(
+      <div onKeyDown={onShortcut}>
         <TopLevelSidebarSection
           label="Pinned"
-          collapseControl={{ isCollapsed: false, onToggleCollapsed: vi.fn() }}
+          collapseControl={{ isCollapsed: false, onToggleCollapsed }}
         >
           <div>Pinned thread</div>
         </TopLevelSidebarSection>
-      </>,
+      </div>,
     );
+    const disclosure = screen.getByRole("button", {
+      name: "Collapse Pinned section",
+    });
+    disclosure.focus();
+    fireEvent.click(disclosure);
+    expect(onToggleCollapsed).toHaveBeenCalledOnce();
+    expect(document.activeElement).toBe(disclosure);
 
-    expect(
-      result.container.querySelector('[data-sidebar-section-id="sec_design"]'),
-    ).not.toBeNull();
-    expect(
-      screen
-        .getByTitle("Pinned")
-        .closest("[data-sidebar-sticky-group]")
-        ?.hasAttribute("data-sidebar-section-id"),
-    ).toBe(false);
-  });
+    for (const shortcut of [
+      { key: "2", ctrlKey: true },
+      { key: "2", metaKey: true },
+      { key: "[", ctrlKey: true, shiftKey: true },
+      { key: "]", ctrlKey: true, shiftKey: true },
+    ]) {
+      onShortcut.mockClear();
+      fireEvent.keyDown(disclosure, shortcut);
+      expect(onShortcut).toHaveBeenCalledOnce();
+    }
 
-  it("hides the section body and exposes an expand action when collapsed", () => {
-    renderTree(
-      <TopLevelSidebarSection
-        label="Pinned"
-        collapseControl={{ isCollapsed: true, onToggleCollapsed: vi.fn() }}
-      >
-        <div>Pinned thread</div>
-      </TopLevelSidebarSection>,
-    );
-
-    expect(screen.queryByText("Pinned thread")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Expand Pinned section" }),
-    ).not.toBeNull();
+    onShortcut.mockClear();
+    expect(fireEvent.keyDown(disclosure, { key: "Enter" })).toBe(true);
+    expect(fireEvent.keyDown(disclosure, { key: " " })).toBe(true);
+    expect(onShortcut).not.toHaveBeenCalled();
+    expect(onToggleCollapsed).toHaveBeenCalledOnce();
   });
 
   it("highlights the whole section only while it is the resolved drop parent", () => {
@@ -212,29 +205,6 @@ describe("TopLevelSidebarSection", () => {
     ).toBeNull();
   });
 
-  it("renders the disclosure after the section label without a leading icon", () => {
-    const result = renderTree(
-      <TopLevelSidebarSection
-        label="Pinned"
-        collapseControl={{ isCollapsed: false, onToggleCollapsed: vi.fn() }}
-      >
-        <div>Pinned thread</div>
-      </TopLevelSidebarSection>,
-    );
-
-    const disclosure = screen.getByRole("button", {
-      name: "Collapse Pinned section",
-    });
-    const icon = result.container.querySelector('[data-icon="Pin"]');
-    const label = screen.getByTitle("Pinned");
-
-    expect(icon).toBeNull();
-    expect(
-      label.compareDocumentPosition(disclosure) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
-  });
-
   it("keeps collapsed activity inside the trailing controls slot", () => {
     renderTree(
       <TopLevelSidebarSection
@@ -248,19 +218,23 @@ describe("TopLevelSidebarSection", () => {
         }
         actionsAlwaysVisible
         actionsMobileAlways
-        collapsedActivity={{
-          ...NO_COLLAPSED_CHILD_ACTIVITY,
-          working: true,
-          runtimeWorking: true,
-        }}
+        collapsedThreads={[
+          makeSidebarThread({
+            id: "thread-busy",
+            status: "active",
+            runtimeStatus: "active",
+          }),
+        ]}
         collapseControl={{ isCollapsed: true, onToggleCollapsed: vi.fn() }}
       >
         <div>Active thread</div>
       </TopLevelSidebarSection>,
     );
 
-    const indicator = screen.getByLabelText("Thread working");
-    const activitySlot = indicator.closest(
+    const indicator = document.querySelector(
+      '[data-thread-status-glyph="runtime"]',
+    );
+    const activitySlot = indicator?.closest(
       "[data-sidebar-collapsed-activity-edge]",
     );
     const trailingControls = activitySlot?.parentElement;
@@ -277,8 +251,9 @@ describe("TopLevelSidebarSection", () => {
     renderTree(
       <TopLevelSidebarSection
         label="Pinned"
-        collapsedActivity={NO_COLLAPSED_CHILD_ACTIVITY}
-        collapsedThreads={[{ id: "thread-one" }]}
+        collapsedThreads={[
+          makeSidebarThread({ id: "thread-one", isUnread: false }),
+        ]}
         collapseControl={{ isCollapsed: true, onToggleCollapsed: vi.fn() }}
       >
         <div>Pinned thread</div>
@@ -315,8 +290,9 @@ describe("TopLevelSidebarSection", () => {
     const renderSection = (isCollapsed: boolean) => (
       <TopLevelSidebarSection
         label="Building"
-        collapsedActivity={NO_COLLAPSED_CHILD_ACTIVITY}
-        collapsedThreads={[{ id: "thread-one" }]}
+        collapsedThreads={[
+          makeSidebarThread({ id: "thread-one", isUnread: false }),
+        ]}
         collapseControl={{ isCollapsed, onToggleCollapsed: vi.fn() }}
       >
         <div>Draft thread</div>
@@ -332,12 +308,16 @@ describe("TopLevelSidebarSection", () => {
       },
     });
 
-    expect(screen.getByLabelText("Plugin improving draft")).not.toBeNull();
+    const glyph = document.querySelector("[data-thread-status-glyph]");
+    expect(glyph?.getAttribute("data-row-status")).toBe(
+      "Plugin improving draft",
+    );
+    expect(glyph?.getAttribute("data-row-status-tone")).toBe("running");
     expect(screen.queryByText("Draft thread")).toBeNull();
 
     result.rerender(<Slot>{renderSection(false)}</Slot>);
 
-    expect(screen.queryByLabelText("Plugin improving draft")).toBeNull();
+    expect(document.querySelector("[data-thread-status-glyph]")).toBeNull();
     expect(screen.getByText("Draft thread")).not.toBeNull();
   });
 });

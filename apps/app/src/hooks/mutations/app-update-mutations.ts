@@ -9,6 +9,10 @@ import { sdk } from "@/lib/sdk";
 import { hydrateAppUpdateStatus } from "../cache-owners/app-update-cache-owner";
 
 const APPLY_APP_UPDATE_ERROR_MESSAGE = "Couldn't start the cc update.";
+const SET_AUTO_APP_UPDATE_ERROR_MESSAGE =
+  "Couldn't change automatic cc updates.";
+const CANCEL_SCHEDULED_APP_UPDATE_ERROR_MESSAGE =
+  "Couldn't cancel the scheduled cc update.";
 
 export function useApplyAppUpdate() {
   const queryClient = useQueryClient();
@@ -23,6 +27,41 @@ export function useApplyAppUpdate() {
           fallbackMessage: APPLY_APP_UPDATE_ERROR_MESSAGE,
         });
       }
+    },
+    onSuccess: (status) => {
+      hydrateAppUpdateStatus({ queryClient, status });
+    },
+  });
+}
+
+export function useSetAutoAppUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { showErrorToast: false },
+    mutationFn: (enabled: boolean) =>
+      sdk.system.experimental_setAppUpdateAuto({ enabled }),
+    onError: (error) => {
+      showMutationErrorToast({
+        error,
+        fallbackMessage: SET_AUTO_APP_UPDATE_ERROR_MESSAGE,
+      });
+    },
+    onSuccess: (status) => {
+      hydrateAppUpdateStatus({ queryClient, status });
+    },
+  });
+}
+
+export function useCancelScheduledAppUpdate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { showErrorToast: false },
+    mutationFn: () => sdk.system.experimental_cancelScheduledAppUpdate(),
+    onError: (error) => {
+      showMutationErrorToast({
+        error,
+        fallbackMessage: CANCEL_SCHEDULED_APP_UPDATE_ERROR_MESSAGE,
+      });
     },
     onSuccess: (status) => {
       hydrateAppUpdateStatus({ queryClient, status });

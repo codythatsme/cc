@@ -1,3 +1,8 @@
+import {
+  retryConsentContract,
+  retryConsentMethod,
+  type RetryConsent,
+} from "./retry-consent.js";
 import type { CcPluginApi, PluginAgentToolResult } from "@codythatsme/plugin-sdk";
 import { z } from "zod";
 import { registerWorkflowCli } from "./cli.js";
@@ -98,6 +103,16 @@ export default async function plugin(cc: CcPluginApi) {
       ),
   );
   registerWorkflowCli(cc, service);
+  cc.rpc.register(
+    retryConsentContract,
+    {
+      [retryConsentMethod]: async ({ threadId }): Promise<RetryConsent> =>
+        (await cc.sdk.threads.get({ threadId })).originPluginId === cc.pluginId
+          ? { kind: "decline", reason: "Workflows owns worker retries" }
+          : { kind: "allow" },
+    },
+    { experimental_discoverable: true },
+  );
 
   function workflowForThread(threadId: string, runId: string | null) {
     const run =

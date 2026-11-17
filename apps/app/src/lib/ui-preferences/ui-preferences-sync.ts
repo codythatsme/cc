@@ -8,16 +8,10 @@ import type {
 } from "@cc/domain";
 import type { UiPreferencesResponse } from "@cc/server-contract";
 import { appToast } from "@/components/ui/app-toast";
-import {
-  getCachedUiPreferences,
-  invalidateCachedUiPreferences,
-  setCachedUiPreferences,
-} from "@/hooks/cache-owners/ui-preferences-cache-owner";
+import { invalidateUiPreferences } from "@/hooks/cache-owners/system-cache-effects";
+import { uiPreferencesQueryOptions } from "@/hooks/queries/system-queries";
+import { getMutationErrorMessage } from "@/lib/mutation-errors";
 import { CcHttpError, sdk } from "../sdk";
-import {
-  clearLegacyLocalUiPreference,
-  readLegacyLocalUiPreference,
-} from "./legacy-local-preferences";
 
 type JotaiStore = ReturnType<typeof getDefaultStore>;
 
@@ -31,15 +25,10 @@ interface RegisteredPreference<Key extends UiPreferenceKey> {
   valueAtom: ValueAtom<Key>;
 }
 
-interface PreferenceOperation<Key extends UiPreferenceKey> {
-  source: "migration" | "user";
-  update: SetStateAction<UiPreferenceValue<Key>>;
-}
-
 interface PreferenceSyncState<Key extends UiPreferenceKey> {
   inFlight: Promise<void> | null;
-  migrationAttempted: boolean;
-  pending: PreferenceOperation<Key>[] | null;
+  pending: SetStateAction<UiPreferenceValue<Key>>[] | null;
+  saved: UiPreferenceEntry<Key> | null;
 }
 
 interface UiPreferencesSyncContext {
@@ -65,10 +54,25 @@ function getSyncState<Key extends UiPreferenceKey>(
 ): PreferenceSyncState<Key> {
   let state = syncStates.get(key);
   if (state === undefined) {
-    state = { inFlight: null, migrationAttempted: false, pending: null };
+    state = { inFlight: null, pending: null, saved: null };
     syncStates.set(key, state);
   }
   return state as PreferenceSyncState<Key>;
+}
+
+function getCachedUiPreferences(
+  client: QueryClient,
+): UiPreferencesResponse | undefined {
+  return client.getQueryData(uiPreferencesQueryOptions().queryKey);
+}
+
+function latestEntry<Key extends UiPreferenceKey>(
+  cached: UiPreferenceEntry<Key> | undefined,
+  saved: UiPreferenceEntry<Key> | null,
+): UiPreferenceEntry<Key> | undefined {
+  return saved !== null && saved.revision > (cached?.revision ?? -1)
+    ? saved
+    : cached;
 }
 
 function areUiPreferenceValuesEqual(left: unknown, right: unknown): boolean {
@@ -76,21 +80,20 @@ function areUiPreferenceValuesEqual(left: unknown, right: unknown): boolean {
 }
 
 function applyOperations<Key extends UiPreferenceKey>(
-  operations: readonly PreferenceOperation<Key>[],
+  operations: readonly SetStateAction<UiPreferenceValue<Key>>[],
   base: UiPreferenceValue<Key>,
 ): UiPreferenceValue<Key> {
-  return operations.reduce(
-    (value, { update }) =>
-      typeof update === "function" ? update(value) : update,
+  return operations.reduce<UiPreferenceValue<Key>>(
+    (value, update) => (typeof update === "function" ? update(value) : update),
     base,
   );
 }
 
 function composeOperation<Key extends UiPreferenceKey>(
-  operations: readonly PreferenceOperation<Key>[],
-  operation: PreferenceOperation<Key>,
-): PreferenceOperation<Key>[] {
-  return typeof operation.update === "function"
+  operations: readonly SetStateAction<UiPreferenceValue<Key>>[],
+  operation: SetStateAction<UiPreferenceValue<Key>>,
+): SetStateAction<UiPreferenceValue<Key>>[] {
+  return typeof operation === "function"
     ? [...operations, operation]
     : [operation];
 }
@@ -100,6 +103,11 @@ export function registerSyncedUiPreference<Key extends UiPreferenceKey>(
   registration: RegisteredPreference<Key>,
 ): void {
   registry.set(key, registration as RegisteredPreference<UiPreferenceKey>);
+  if (context === null) return;
+  const cached = getCachedUiPreferences(context.queryClient);
+  if (cached !== undefined) {
+    reconcileUiPreference(context, key, registration.valueAtom, cached);
+  }
 }
 
 export function startUiPreferencesSync(
@@ -135,24 +143,14 @@ function reconcileUiPreference<Key extends UiPreferenceKey>(
 ): void {
   const state = getSyncState(key);
   if (state.pending !== null || state.inFlight !== null) return;
-  const entry = response.preferences[key];
+  const entry = latestEntry(response.preferences[key], state.saved);
   if (entry === undefined) return;
-  const cachedEntry = getCachedUiPreferences(activeContext.queryClient)
-    ?.preferences[key];
+  const cachedEntry = latestEntry(
+    getCachedUiPreferences(activeContext.queryClient)?.preferences[key],
+    state.saved,
+  );
   if (cachedEntry !== undefined && cachedEntry.revision > entry.revision)
     return;
-  if (entry.revision === 0 && !state.migrationAttempted) {
-    state.migrationAttempted = true;
-    const legacy = readLegacyLocalUiPreference(key);
-    clearLegacyLocalUiPreference(key);
-    if (legacy !== undefined) {
-      activeContext.store.set(valueAtom, legacy);
-      state.pending = [{ source: "migration", update: legacy }];
-      void flushUiPreference(key);
-      return;
-    }
-  }
-  clearLegacyLocalUiPreference(key);
   if (
     areUiPreferenceValuesEqual(activeContext.store.get(valueAtom), entry.value)
   ) {
@@ -167,10 +165,7 @@ export function scheduleUiPreferenceWrite<Key extends UiPreferenceKey>(
 ): void {
   if (context === null) return;
   const state = getSyncState(key);
-  state.pending = composeOperation(state.pending ?? [], {
-    source: "user",
-    update,
-  });
+  state.pending = composeOperation(state.pending ?? [], update);
   if (state.inFlight === null) void flushUiPreference(key);
 }
 
@@ -182,52 +177,33 @@ async function readCurrentUiPreferences(
   return refetchUiPreferences(queryClient);
 }
 
-async function refetchUiPreferences(
+function refetchUiPreferences(
   queryClient: QueryClient,
 ): Promise<UiPreferencesResponse> {
-  const response = await sdk.system.uiPreferences.list();
-  setCachedUiPreferences(queryClient, response);
-  return response;
+  return queryClient.fetchQuery({
+    ...uiPreferencesQueryOptions(),
+    staleTime: 0,
+  });
 }
 
 function isUiPreferenceConflict(error: unknown): boolean {
   return error instanceof CcHttpError && error.status === 409;
 }
 
-function recordServerEntry<Key extends UiPreferenceKey>(
-  queryClient: QueryClient,
-  key: Key,
-  entry: UiPreferenceEntry<Key>,
-): void {
-  const cached = getCachedUiPreferences(queryClient);
-  if (
-    cached === undefined ||
-    (cached.preferences[key]?.revision ?? -1) >= entry.revision
-  ) {
-    return;
-  }
-  setCachedUiPreferences(queryClient, {
-    preferences: { ...cached.preferences, [key]: entry },
-  });
-}
-
 async function writeUiPreference<Key extends UiPreferenceKey>(
   queryClient: QueryClient,
   key: Key,
-  operations: readonly PreferenceOperation<Key>[],
+  operations: readonly SetStateAction<UiPreferenceValue<Key>>[],
 ): Promise<void> {
-  let base = (await readCurrentUiPreferences(queryClient)).preferences[key];
+  const state = getSyncState(key);
+  let base = latestEntry(
+    (await readCurrentUiPreferences(queryClient)).preferences[key],
+    state.saved,
+  );
   for (let attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt++) {
     if (base === undefined) return;
-    const applicable =
-      base.revision === 0
-        ? operations
-        : operations.filter((operation) => operation.source === "user");
-    const value = applyOperations(applicable, base.value);
-    if (
-      applicable.length === 0 ||
-      (base.revision > 0 && areUiPreferenceValuesEqual(value, base.value))
-    ) {
+    const value = applyOperations(operations, base.value);
+    if (base.revision > 0 && areUiPreferenceValuesEqual(value, base.value)) {
       return;
     }
     try {
@@ -236,24 +212,26 @@ async function writeUiPreference<Key extends UiPreferenceKey>(
         key,
         value,
       });
-      recordServerEntry(queryClient, key, {
-        revision: response.revision,
-        value: response.value,
-      });
+      state.saved = { revision: response.revision, value: response.value };
       return;
     } catch (error) {
       if (!isUiPreferenceConflict(error)) throw error;
     }
-    base = (await refetchUiPreferences(queryClient)).preferences[key];
+    base = latestEntry(
+      (await refetchUiPreferences(queryClient)).preferences[key],
+      state.saved,
+    );
   }
 }
 
 function notifySyncFailure(error: unknown): void {
   if (syncFailureNotified) return;
   syncFailureNotified = true;
-  appToast.error("Couldn’t sync sidebar preferences", {
-    description:
-      error instanceof Error ? error.message : "Changes stay on this device.",
+  appToast.error("Couldn’t sync UI preferences", {
+    description: getMutationErrorMessage({
+      error,
+      fallbackMessage: "Changes stay on this device.",
+    }),
   });
 }
 
@@ -276,7 +254,7 @@ async function flushUiPreference<Key extends UiPreferenceKey>(
     .catch((error: unknown) => {
       failed = true;
       notifySyncFailure(error);
-      invalidateCachedUiPreferences(activeContext.queryClient);
+      invalidateUiPreferences({ queryClient: activeContext.queryClient });
     })
     .finally(() => {
       state.inFlight = null;

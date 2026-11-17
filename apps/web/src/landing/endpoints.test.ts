@@ -7,104 +7,225 @@ import {
 } from "./site";
 import { handleDownload, handleSubscribe } from "./endpoints";
 
-describe("marketing download redirect", () => {
+describe("marketing download", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("redirects macOS downloads to the current dmg asset", async () => {
-    const fetchMock = vi.fn(async () => {
-      return new Response(
-        JSON.stringify({
-          files: [
-            { url: "cc-0.0.26-arm64.zip" },
-            { url: "cc-0.0.26-arm64.dmg" },
-          ],
-        }),
-      );
-    });
+  function stubReleaseFetch(feedFiles: string[], installer: () => Response) {
+    const fetchMock = vi.fn(
+      async (input: Parameters<typeof fetch>[0], _init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith(".json")) {
+          return new Response(
+            JSON.stringify({ files: feedFiles.map((name) => ({ url: name })) }),
+          );
+        }
+        return installer();
+      },
+    );
     vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
 
-    const response = await handleDownload("macos");
+  it("serves the current macOS dmg from cc.example.invalid as an attachment", async () => {
+    const fetchMock = stubReleaseFetch(
+      ["cc-0.0.26-arm64.zip", "cc-0.0.26-arm64.dmg"],
+      () => new Response("dmg-bytes", { headers: { "content-length": "9" } }),
+    );
+
+    const response = await handleDownload(
+      "macos",
+      new Request("https://cc.example.invalid/download/macos?placement=hero"),
+      {},
+      vi.fn(),
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       DESKTOP_DOWNLOADS.macos.versionFeedUrl,
       { headers: { accept: "application/json" } },
     );
-    expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe(
+    expect(fetchMock).toHaveBeenCalledWith(
       `${DOWNLOAD_RELEASE_ASSET_BASE_URL}/cc-0.0.26-arm64.dmg`,
+      undefined,
     );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Location")).toBeNull();
+    expect(response.headers.get("Content-Disposition")).toBe(
+      'attachment; filename="cc-0.0.26-arm64.dmg"',
+    );
+    expect(response.headers.get("Content-Length")).toBe("9");
+    expect(await response.text()).toBe("dmg-bytes");
   });
 
-  it("redirects Linux downloads to the AppImage from the Linux feed", async () => {
-    const fetchMock = vi.fn(async () => {
-      return new Response(
-        JSON.stringify({
-          files: [
-            { url: "cc-0.42.1-x86_64.AppImage" },
-            { url: "cc-0.42.1-x86_64.AppImage.blockmap" },
-          ],
-        }),
-      );
-    });
-    vi.stubGlobal("fetch", fetchMock);
+  it("serves the AppImage from the Linux feed", async () => {
+    const fetchMock = stubReleaseFetch(
+      ["cc-0.42.1-x86_64.AppImage", "cc-0.42.1-x86_64.AppImage.blockmap"],
+      () => new Response("appimage-bytes"),
+    );
 
-    const response = await handleDownload("linux");
+    const response = await handleDownload(
+      "linux",
+      new Request("https://cc.example.invalid/download/linux?placement=hero"),
+      {},
+      vi.fn(),
+    );
 
     expect(fetchMock).toHaveBeenCalledWith(
       DESKTOP_DOWNLOADS.linux.versionFeedUrl,
       { headers: { accept: "application/json" } },
     );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toBe(
+      'attachment; filename="cc-0.42.1-x86_64.AppImage"',
+    );
+  });
+
+  it("resumes a partial download without counting it again", async () => {
+    const fetchMock = stubReleaseFetch(
+      ["cc-0.0.26-arm64.dmg"],
+      () =>
+        new Response("tail", {
+          headers: { "content-range": "bytes 100-103/104" },
+          status: 206,
+        }),
+    );
+    const waitUntil = vi.fn<(promise: Promise<void>) => void>();
+
+    const response = await handleDownload(
+      "macos",
+      new Request("https://cc.example.invalid/download/macos", {
+        headers: { range: "bytes=100-" },
+      }),
+      {},
+      waitUntil,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${DOWNLOAD_RELEASE_ASSET_BASE_URL}/cc-0.0.26-arm64.dmg`,
+      { headers: { range: "bytes=100-" } },
+    );
+    expect(response.status).toBe(206);
+    expect(response.headers.get("Content-Range")).toBe("bytes 100-103/104");
+    expect(waitUntil).not.toHaveBeenCalled();
+  });
+
+  it("restarts a resume whose If-Range no longer matches the installer", async () => {
+    const fetchMock = stubReleaseFetch(["cc-0.0.27-arm64.dmg"], () => {
+      const ranged = fetchMock.mock.calls.at(-1)?.[1] !== undefined;
+      return ranged
+        ? new Response("tail", {
+            headers: { "content-range": "bytes 100-103/104", etag: '"new"' },
+            status: 206,
+          })
+        : new Response("whole-new-file", { headers: { etag: '"new"' } });
+    });
+
+    const response = await handleDownload(
+      "macos",
+      new Request("https://cc.example.invalid/download/macos", {
+        headers: { range: "bytes=100-", "if-range": '"old"' },
+      }),
+      {},
+      vi.fn(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Range")).toBeNull();
+    expect(await response.text()).toBe("whole-new-file");
+  });
+
+  it("keeps the partial response when If-Range still matches", async () => {
+    stubReleaseFetch(
+      ["cc-0.0.27-arm64.dmg"],
+      () =>
+        new Response("tail", {
+          headers: { "content-range": "bytes 100-103/104", etag: '"same"' },
+          status: 206,
+        }),
+    );
+
+    const response = await handleDownload(
+      "macos",
+      new Request("https://cc.example.invalid/download/macos", {
+        headers: { range: "bytes=100-", "if-range": '"same"' },
+      }),
+      {},
+      vi.fn(),
+    );
+
+    expect(response.status).toBe(206);
+    expect(await response.text()).toBe("tail");
+  });
+
+  it("falls back to the release page when the installer fetch fails", async () => {
+    stubReleaseFetch(
+      ["cc-0.0.26-arm64.dmg"],
+      () => new Response("missing", { status: 404 }),
+    );
+
+    const response = await handleDownload(
+      "macos",
+      new Request("https://cc.example.invalid/download/macos"),
+      {},
+      vi.fn(),
+    );
+
     expect(response.status).toBe(302);
-    expect(response.headers.get("Location")).toBe(
-      `${DOWNLOAD_RELEASE_ASSET_BASE_URL}/cc-0.42.1-x86_64.AppImage`,
+    expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
+  });
+
+  it("serves the Windows installer from the Windows feed", async () => {
+    const fetchMock = stubReleaseFetch(
+      ["cc-0.45.0-x64.exe", "cc-0.45.0-x64.exe.blockmap"],
+      () => new Response("exe-bytes"),
+    );
+
+    const response = await handleDownload(
+      "windows",
+      new Request("https://cc.example.invalid/download/windows?placement=hero"),
+      {},
+      vi.fn(),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      DESKTOP_DOWNLOADS.windows.versionFeedUrl,
+      { headers: { accept: "application/json" } },
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toBe(
+      'attachment; filename="cc-0.45.0-x64.exe"',
     );
   });
 
   it("never serves a macOS installer for a Linux request", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          JSON.stringify({ files: [{ url: "cc-0.42.1-arm64.dmg" }] }),
-        );
-      }),
-    );
+    stubReleaseFetch(["cc-0.42.1-arm64.dmg"], () => new Response("dmg"));
 
-    const response = await handleDownload("linux");
+    const response = await handleDownload(
+      "linux",
+      new Request("https://cc.example.invalid/download/linux"),
+      {},
+      vi.fn(),
+    );
 
     expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
   });
 
   it("falls back to the release page when the feed has no dmg", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(JSON.stringify({ files: [{ url: "notes.txt" }] }));
-      }),
-    );
+    stubReleaseFetch(["notes.txt"], () => new Response("unused"));
 
-    const response = await handleDownload("macos");
+    const response = await handleDownload(
+      "macos",
+      new Request("https://cc.example.invalid/download/macos"),
+      {},
+      vi.fn(),
+    );
 
     expect(response.status).toBe(302);
     expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
   });
 
-  it("only fetches the release feed when downloading", async () => {
-    const fetchMock = vi.fn(async () => new Response("{}"));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const response = await handleDownload("linux");
-
-    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
-      DESKTOP_DOWNLOADS.linux.versionFeedUrl,
-      { headers: { accept: "application/json" } },
-    );
-    expect(response.headers.get("Location")).toBe(DOWNLOAD_FALLBACK_URL);
-    expect(response.headers.get("set-cookie")).toBeNull();
-  });
 });
 
 describe("marketing subscribe endpoint", () => {

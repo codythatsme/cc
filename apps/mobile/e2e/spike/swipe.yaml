@@ -1,5 +1,0 @@
-appId: io.github.codythatsme.cc.mobile
----
-- swipe:
-    start: 30%, 45%
-    end: 30%, 60%

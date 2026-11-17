@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { ExperimentalSidebarFooterCommandKind } from "@codythatsme/plugin-sdk/internal/plugin-app-collector";
+import { observeSharedResize } from "@cc/shared-ui/lib/shared-resize-observer";
 import { cn } from "@cc/shared-ui/lib/utils";
 import { useIsCompactViewport } from "@cc/shared-ui/hooks/use-compact-viewport";
 import { Icon } from "@cc/shared-ui/icon";
@@ -17,10 +18,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar.js";
-import { PluginIcon, pluginIconName } from "@/components/plugin/PluginIcon";
+import { PluginItemIcon, pluginIconName } from "@/components/plugin/PluginIcon";
 import { PluginSlotMount } from "@/components/plugin/PluginSlotMount";
 import {
-  usePluginSlots,
+  usePluginSlotKind,
   type PluginSidebarFooterItemSlot,
 } from "@/lib/plugin-slots";
 import { getPluginConfigurationRoutePath } from "@/lib/route-paths";
@@ -45,7 +46,7 @@ import {
   type FooterItem,
   type BuiltinFooterId,
 } from "@/components/sidebar/sidebarFooterPreferences";
-import { SIDEBAR_FOOTER_ACTION_CLASS } from "@/components/sidebar/sidebarRowClasses";
+import { SIDEBAR_FOOTER_ACTION_CLASS } from "@cc/shared-ui/sidebar-row-classes";
 
 function footerItemKey(item: PluginSidebarFooterItemSlot): string {
   return `${item.pluginId}/${item.id}/${item.generation}`;
@@ -60,7 +61,7 @@ function footerTriggerId(item: PluginSidebarFooterItemSlot): string {
 }
 
 export function usePluginSidebarFooterDisclosure() {
-  const { sidebarFooterItems } = usePluginSlots();
+  const sidebarFooterItems = usePluginSlotKind("sidebarFooterItems");
   const disclosures = useMemo(
     () => sidebarFooterItems.filter((item) => item.kind === "disclosure"),
     [sidebarFooterItems],
@@ -149,13 +150,13 @@ export function PluginSidebarFooterDisclosure({
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (content === null) return;
-    const measure = () =>
-      setContentHeight(content.getBoundingClientRect().height);
-    measure();
+    const measure = () => content.getBoundingClientRect().height;
+    setContentHeight(measure());
     if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(content);
-    return () => observer.disconnect();
+    return observeSharedResize(content, {
+      read: measure,
+      write: setContentHeight,
+    });
   }, [item]);
 
   if (item === null || item.kind !== "disclosure") return null;
@@ -165,10 +166,13 @@ export function PluginSidebarFooterDisclosure({
       id={footerDisclosureId(item)}
       aria-label={item.label}
       data-testid={`plugin-sidebar-footer-disclosure-${item.pluginId}-${item.id}`}
-      className="overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent/50 transition-[height] duration-200 ease-out motion-reduce:transition-none"
+      className="box-content overflow-hidden rounded-lg border border-sidebar-border bg-sidebar-accent/50 transition-[height] duration-200 ease-out motion-reduce:transition-none"
       style={{ height: contentHeight ?? undefined }}
     >
-      <div ref={contentRef} className="max-h-80 overflow-auto">
+      <div
+        ref={contentRef}
+        className="flex max-h-[50svh] flex-col overflow-auto"
+      >
         <PluginSlotMount
           pluginId={item.pluginId}
           slotKind="experimental_sidebarFooter"
@@ -211,6 +215,7 @@ export function PluginSidebarFooterItems({
   const isCompactViewport = useIsCompactViewport();
   const previousHidden = useRef(preferences.hidden);
   const customizeAfterClose = useRef(false);
+  const footerShownAfterClose = useRef<boolean | null>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
   useMeasureSidebarFooterCapacity(menuRef, moreRef);
@@ -240,7 +245,14 @@ export function PluginSidebarFooterItems({
   function customize() {
     customizeAfterClose.current = true;
   }
+  function setFooterShown(shown: boolean) {
+    if (isCompactViewport) preferences.setFooterShown(shown);
+    else footerShownAfterClose.current = shown;
+  }
   function handleCloseAutoFocus(event: Event) {
+    const footerShown = footerShownAfterClose.current;
+    footerShownAfterClose.current = null;
+    if (footerShown !== null) preferences.setFooterShown(footerShown);
     if (!customizeAfterClose.current) return;
     event.preventDefault();
     customizeAfterClose.current = false;
@@ -284,7 +296,7 @@ export function PluginSidebarFooterItems({
           />
         ) : null,
       )}
-      <SidebarMenuItem className="min-w-0 flex-1">
+      <SidebarMenuItem className="min-w-8 flex-1 max-md:pointer-coarse:min-w-9">
         <SidebarMenu ref={menuRef} className="flex-row items-center gap-1">
           {visible.map((item) => {
             const builtin =
@@ -351,12 +363,7 @@ export function PluginSidebarFooterItems({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </ContextMenuTrigger>
-                <ContextMenuContent
-                  onCloseAutoFocus={handleCloseAutoFocus}
-                  onPointerUpCapture={(event) => {
-                    if (event.button !== 0) event.preventDefault();
-                  }}
-                >
+                <ContextMenuContent onCloseAutoFocus={handleCloseAutoFocus}>
                   <ContextMenuItem
                     onSelect={() => preferences.hideFromFooter(item.key)}
                   >
@@ -409,7 +416,7 @@ export function PluginSidebarFooterItems({
                 </DropdownMenuItem>
                 {items.length > 0 && (
                   <DropdownMenuItem
-                    onSelect={() => preferences.setFooterShown(footerHidden)}
+                    onSelect={() => setFooterShown(footerHidden)}
                   >
                     <Icon name={footerHidden ? "Eye" : "EyeOff"} />
                     {footerHidden ? "Show footer" : "Hide footer"}
@@ -452,7 +459,7 @@ function FooterCommandObserver({
 export function FooterItemIcon({ item }: { item: FooterItem }) {
   return item.kind === "plugin" &&
     item.slot.source === "sidebarFooterAction" ? (
-    <PluginIcon pluginId={item.slot.pluginId} icon={item.icon} />
+    <PluginItemIcon pluginId={item.slot.pluginId} icon={item.icon} />
   ) : (
     <Icon
       name={pluginIconName(item.icon)}

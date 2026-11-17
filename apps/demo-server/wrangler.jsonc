@@ -17,10 +17,6 @@
 // workers.dev sets it; anything that proxies this worker would collapse every
 // visitor into one shared world, so do not put it behind another proxy.
 //
-// No D1, no secrets, no bindings beyond the Durable Object: the demo holds
-// fixed fixtures and in-memory per-client state only (one object per client
-// address, see src/worker.ts). Nothing here can reach a real cc server, a
-// machine, or a user's data.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "send_metrics": false,
@@ -31,6 +27,12 @@
 
   "compatibility_date": "2026-06-11",
   "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true,
+  },
   "observability": { "enabled": false },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DemoStateDO"] }],
   "durable_objects": {

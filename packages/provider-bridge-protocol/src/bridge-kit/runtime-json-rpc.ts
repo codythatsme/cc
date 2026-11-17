@@ -1,3 +1,4 @@
+import { isClosedProcessStdinError } from "@cc/process-utils";
 import type { ChildProcess } from "node:child_process";
 import type { Writable } from "node:stream";
 import { z } from "zod";
@@ -57,6 +58,16 @@ export class JsonRpcResponseError extends Error {
   }
 }
 
+export class JsonRpcRequestTimeoutError extends Error {
+  readonly method: string;
+
+  constructor(method: string) {
+    super(`JSON-RPC request timed out: ${method}`);
+    this.name = "JsonRpcRequestTimeoutError";
+    this.method = method;
+  }
+}
+
 export interface PendingJsonRpcRequest {
   resolve: (result: unknown) => void;
   reject: (error: Error) => void;
@@ -105,6 +116,7 @@ export interface SendJsonRpcRequestArgs<TResult> {
   pending: Map<string | number, PendingJsonRpcRequest>;
   resultSchema: z.ZodType<TResult>;
   timeoutMs?: number;
+  afterTimeout?: PendingJsonRpcRequest;
 }
 
 interface SendJsonRpcResultArgs {
@@ -132,7 +144,6 @@ interface SettleJsonRpcResponseArgs {
   response: JsonRpcObject;
 }
 
-const closedJsonRpcStdinErrorCodes = new Set(["EPIPE", "ERR_STREAM_DESTROYED"]);
 const jsonRpcStdinErrorHandledStreams = new WeakSet<Writable>();
 
 function isJsonRpcObject(value: unknown): value is JsonRpcObject {
@@ -173,16 +184,8 @@ function decodeRecoveryHint(data: unknown): ProviderRecoveryHint | null {
   return parsed.success ? (parsed.data.recovery ?? null) : null;
 }
 
-function isClosedJsonRpcStdinError(error: Error): boolean {
-  return (
-    "code" in error &&
-    typeof error.code === "string" &&
-    closedJsonRpcStdinErrorCodes.has(error.code)
-  );
-}
-
 function handleJsonRpcStdinError(error: Error): void {
-  if (isClosedJsonRpcStdinError(error)) {
+  if (isClosedProcessStdinError(error)) {
     return;
   }
   throw error;
@@ -301,8 +304,12 @@ export function sendJsonRpcRequest<TResult>(
   const withId: JsonRpcMessage = { ...message, id };
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      args.pending.delete(id);
-      reject(new Error(`JSON-RPC request timed out: ${message.method}`));
+      if (args.afterTimeout === undefined) {
+        args.pending.delete(id);
+      } else {
+        args.pending.set(id, args.afterTimeout);
+      }
+      reject(new JsonRpcRequestTimeoutError(message.method));
     }, args.timeoutMs ?? 30_000);
     args.pending.set(id, {
       resolve: (result) => {

@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     silent: "passed-only",
-    name: "cc-plugin-provider-usage",
+    name: "cc-plugin-cc--provider-usage",
     include: ["**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**"],
   },

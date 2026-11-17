@@ -1,7 +1,14 @@
 #!/usr/bin/env node
+import {
+  hostToolchain,
+  nodeNetworkArgs,
+  readAgentCpuPriority,
+  spawnHostProcess as spawn,
+} from "@cc/process-utils";
 import type { ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
+import { relayDesktopAppUpdates } from "@cc/config/desktop-app-update";
+import { announceDesktopRuntimeReady } from "@cc/config/desktop-runtime-ready";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { spawnLoggedProcess } from "./logged-process.js";
 import {
@@ -13,9 +20,10 @@ import {
 import { mutateManagedJsonFile } from "@cc/config/managed-json-file";
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { setTimeout as sleep } from "node:timers/promises";
 import {
   ccAppRuntimeVerifyTokens,
   claimCcAppRuntimeFile,
@@ -26,6 +34,7 @@ import {
 import { stopVerifiedProcess } from "@cc/config/verified-process-stop";
 import {
   findMachineServiceFile,
+  HOST_DAEMON_RESTART_EXIT_CODE,
   MACHINE_INSTALLER_ENV_NAME,
 } from "@cc/config/machine-service";
 import {
@@ -35,6 +44,7 @@ import {
   type ChildProcessExitResult,
 } from "@cc/config/child-process-exit";
 import {
+  APP_SURFACE_DESKTOP,
   APP_SURFACE_ENV_NAME,
   APP_SURFACE_WEB,
   parseAppSurface,
@@ -45,7 +55,6 @@ import {
   ccAppManagedEnvFileSchema,
   formatCcAppConfigPath,
   formatCcAppEnvPath,
-  formatCustomAcpAgentProviderId,
   parseCcAppManagedConfig,
   REMOVED_AI_SERVICE_CONFIG_KEYS,
   REMOVED_AI_SERVICE_CONFIG_MESSAGE,
@@ -90,7 +99,25 @@ import {
   type AppRevision,
   type AppUpdateMode,
 } from "@cc/config/app-update";
+import {
+  APP_INSTALL_KIND_ENV_NAME,
+  APP_SOURCE_COMMIT_ENV_NAME,
+  APP_SOURCE_ORIGIN_ENV_NAME,
+  appInstallEnv,
+  type AppInstall,
+} from "@cc/config/app-install";
+import {
+  CLI_LAUNCHER_ENV_NAME,
+  CLI_REEXEC_ENV_NAME,
+} from "@cc/config/cli-command";
 import { z } from "zod";
+import { resolveAppInstall } from "./app-install.js";
+import {
+  formatCliLauncherPath,
+  renderCliLauncher,
+  resolveCliLauncherTarget,
+  writeCliLauncher,
+} from "./cli-launcher.js";
 import {
   createLauncherAppUpdateController,
   type LauncherAppUpdateController,
@@ -124,6 +151,9 @@ const HEALTH_CHECK_REQUEST_TIMEOUT_MS = 1_000;
 const MANAGED_PROCESS_TERMINATION_TIMEOUT_MS = 5_000;
 const MANAGED_PROCESS_KILL_TIMEOUT_MS = 1_000;
 const MANAGED_PROCESS_RESTART_RETRY_DELAY_MS = 1_000;
+const HOST_DAEMON_RESTART_INITIAL_DELAY_MS = 1_000;
+const HOST_DAEMON_RESTART_MAX_DELAY_MS = 30_000;
+const HOST_DAEMON_RESTART_STABLE_UPTIME_MS = 60_000;
 const MOVED_SERVER_EXIT_POLL_INTERVAL_MS = 1_000;
 const MOVED_SERVER_EXIT_GRACE_MS = 20_000;
 const MOVED_MODE_MARKER_POLL_INTERVAL_MS = 1_000;
@@ -151,6 +181,15 @@ const MANAGED_CONFIG_KEYS = CC_APP_MANAGED_CONFIG_KEYS;
 const MANAGED_CONFIG_KEY_VALUES = new Set<string>(MANAGED_CONFIG_KEYS);
 const STARTUP_ONLY_MANAGED_CONFIG_KEYS = new Set<string>(["CC_LOG_LEVEL"]);
 const STARTUP_ONLY_MANAGED_ENV_KEYS = new Set<string>([
+  "NODE_USE_ENV_PROXY",
+  "NODE_USE_SYSTEM_CA",
+  "NODE_EXTRA_CA_CERTS",
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "NO_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "no_proxy",
   "CC_APP_SURFACE",
   "CC_APP_URL",
   "CC_DATA_DIR",
@@ -159,6 +198,7 @@ const STARTUP_ONLY_MANAGED_ENV_KEYS = new Set<string>([
   "CC_HOST_DAEMON_PORT",
   "CC_INHERITED_SKILLS_ROOTS",
   "CC_LOG_LEVEL",
+  "CC_PERF_DIAGNOSTICS",
   "CC_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD",
   "CC_SERVER_BIND_HOST",
   "CC_SERVER_PORT",
@@ -220,11 +260,7 @@ type ManagedConfigValues = CcAppManagedConfigValues;
 type ManagedEnvConfig = CcAppManagedEnvConfig;
 type ManagedEnvFile = CcAppManagedEnvFile;
 type ManagedConfig = CcAppManagedConfig;
-type ManagedConfigForWrite = Omit<
-  ManagedConfig,
-  "customAcpAgents" | "customModels"
-> & {
-  customAcpAgents?: unknown[];
+type ManagedConfigForWrite = Omit<ManagedConfig, "customModels"> & {
   customModels?: unknown[];
 };
 
@@ -335,14 +371,16 @@ interface LauncherCliOptions {
   dataDir?: string;
   enrollKey?: string;
   help: boolean;
-  inAppUpdates?: boolean;
+  performanceDiagnostics?: boolean;
   hostDaemonPort?: string;
   hostId?: string;
   joinCode?: string;
   json?: boolean;
+  noInAppUpdates?: boolean;
   serverBindHost?: string;
   serverPort?: string;
   serverUrl?: string;
+  supervise?: boolean;
 }
 
 interface ParsedLauncherArgs {
@@ -399,6 +437,7 @@ export interface ManagedFullStackProcesses {
 }
 
 interface SpawnNamedManagedProcessArgs {
+  appScheduling: boolean;
   ipc?: boolean;
   logDir: string;
   args: string[];
@@ -502,6 +541,7 @@ interface SuperviseCcAppStartArgs {
   findMachineService: () => Promise<string | null>;
   isShutdownRequested: () => boolean;
   onFullStackReady?: () => Promise<void>;
+  onRuntimeReady: () => void;
   prepareFullStack: (entry: FullStackEntry) => Promise<FullStackStarters>;
   processes: ManagedFullStackProcesses;
   readServerMoveMarkers: ReadServerMoveMarkersFn;
@@ -570,6 +610,7 @@ interface WaitForHostDaemonStatusArgs {
   expectedServerUrl: string;
   port: number;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }
 
 interface RequestHostEnrollKeyArgs {
@@ -598,8 +639,10 @@ interface CreateSharedEnvArgs {
 }
 
 interface CreateServerEnvArgs {
+  cliLauncherPath: string | null;
   context: CcAppStartContext;
   env: NodeJS.ProcessEnv;
+  install: AppInstall;
 }
 
 interface CreateServerBaseEnvArgs {
@@ -607,6 +650,7 @@ interface CreateServerBaseEnvArgs {
   env: NodeJS.ProcessEnv;
   envFile: ManagedEnvFile;
   serverBindHostOverride?: string;
+  performanceDiagnostics?: boolean;
 }
 
 interface CreateDaemonEnvArgs {
@@ -717,6 +761,15 @@ interface RunHostDaemonOnlyArgs {
   args: string[];
   context: CcAppStartContext;
   env: NodeJS.ProcessEnv;
+  supervise: boolean;
+}
+
+export interface SuperviseHostDaemonProcessArgs {
+  delayMilliseconds: DelayMillisecondsFn;
+  firstRun: ManagedProcessRun;
+  isShutdownRequested: () => boolean;
+  now: () => number;
+  startDaemon: () => ManagedProcessRun;
 }
 
 interface RunBundledCliCommandArgs {
@@ -802,6 +855,8 @@ export function parseLauncherArgs(args: string[]): ParsedLauncherArgs {
       "enroll-key": { type: "string" },
       "host-daemon-port": { type: "string" },
       "in-app-updates": { type: "boolean" },
+      "no-in-app-updates": { type: "boolean" },
+      "perf-diagnostics": { type: "boolean" },
       "host-id": { type: "string" },
       "join-code": { type: "string" },
       "server-bind-host": { type: "string" },
@@ -810,6 +865,7 @@ export function parseLauncherArgs(args: string[]): ParsedLauncherArgs {
       help: { short: "h", type: "boolean" },
       json: { type: "boolean" },
       server: { type: "string" },
+      supervise: { type: "boolean" },
     },
   });
   const options: LauncherCliOptions = {
@@ -819,11 +875,22 @@ export function parseLauncherArgs(args: string[]): ParsedLauncherArgs {
   if (readBooleanOption(parsed.values["auto-update"])) {
     options.autoUpdate = true;
   }
+  if (readBooleanOption(parsed.values.supervise)) {
+    options.supervise = true;
+  }
   if (readBooleanOption(parsed.values.bundled)) {
     options.bundled = true;
   }
-  if (readBooleanOption(parsed.values["in-app-updates"])) {
-    options.inAppUpdates = true;
+  if (readBooleanOption(parsed.values["no-in-app-updates"])) {
+    if (readBooleanOption(parsed.values["in-app-updates"])) {
+      throw new Error(
+        "--in-app-updates and --no-in-app-updates cannot be used together",
+      );
+    }
+    options.noInAppUpdates = true;
+  }
+  if (readBooleanOption(parsed.values["perf-diagnostics"])) {
+    options.performanceDiagnostics = true;
   }
   const dataDir = readStringOption(parsed.values["data-dir"]);
   const enrollKey = readStringOption(parsed.values["enroll-key"]);
@@ -942,11 +1009,17 @@ function createEnvFromOptions(
   args: CreateEnvFromOptionsArgs,
 ): NodeJS.ProcessEnv {
   const env = { ...args.env };
+  if (args.options.performanceDiagnostics === true) {
+    env.CC_PERF_DIAGNOSTICS = "1";
+  }
   if (args.options.dataDir !== undefined) {
     env.CC_DATA_DIR = args.options.dataDir;
   }
   if (args.options.autoUpdate === true) {
     env.CC_HOST_DAEMON_AUTO_UPDATE = "1";
+  }
+  if (args.options.supervise === true) {
+    env.CC_HOST_DAEMON_SUPERVISED = "1";
   }
   if (args.options.hostDaemonPort !== undefined) {
     env.CC_HOST_DAEMON_PORT = args.options.hostDaemonPort;
@@ -1013,6 +1086,9 @@ function createServerBaseEnv(args: CreateServerBaseEnvArgs): NodeJS.ProcessEnv {
     ...args.env,
     ...args.config.config,
     ...args.envFile.env,
+    ...(args.performanceDiagnostics === true
+      ? { CC_PERF_DIAGNOSTICS: "1" }
+      : {}),
     ...(args.serverBindHostOverride !== undefined
       ? { CC_SERVER_BIND_HOST: args.serverBindHostOverride }
       : {}),
@@ -1079,9 +1155,6 @@ function readManagedConfigForWrite(
         return parsedConfig;
       }
       const configForWrite: ManagedConfigForWrite = { ...parsedConfig };
-      if (Array.isArray(parsedJson.customAcpAgents)) {
-        configForWrite.customAcpAgents = parsedJson.customAcpAgents;
-      }
       if (Array.isArray(parsedJson.customModels)) {
         configForWrite.customModels = parsedJson.customModels;
       }
@@ -1156,9 +1229,6 @@ function mergeManagedConfig(
   if (patchConfig.customModels !== undefined) {
     nextConfig.customModels = patchConfig.customModels;
   }
-  if (patchConfig.customAcpAgents !== undefined) {
-    nextConfig.customAcpAgents = patchConfig.customAcpAgents;
-  }
 
   return nextConfig;
 }
@@ -1170,8 +1240,6 @@ function pruneManagedConfig(
   if (nextConfig.config && Object.keys(nextConfig.config).length === 0)
     delete nextConfig.config;
   if (nextConfig.customModels?.length === 0) delete nextConfig.customModels;
-  if (nextConfig.customAcpAgents?.length === 0)
-    delete nextConfig.customAcpAgents;
   return nextConfig;
 }
 
@@ -1362,6 +1430,7 @@ export async function resolveCcAppRuntimeState(
           envFile,
           env: initialEnv,
           serverBindHostOverride: args.options.serverBindHost,
+          performanceDiagnostics: args.options.performanceDiagnostics,
         }),
       ),
     );
@@ -1403,6 +1472,7 @@ export async function resolveCcAppRuntimeState(
           envFile,
           env: initialEnv,
           serverBindHostOverride: args.options.serverBindHost,
+          performanceDiagnostics: args.options.performanceDiagnostics,
         }),
       ),
     ),
@@ -1513,7 +1583,7 @@ Usage:
 Startup-only server and launcher keys:
   CC_APP_SURFACE, CC_APP_URL, CC_DATA_DIR, CC_DEV_APP_PORT,
   CC_EXTERNAL_URL, CC_HOST_DAEMON_PORT, CC_INHERITED_SKILLS_ROOTS,
-  CC_LOG_LEVEL, CC_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD,
+  CC_LOG_LEVEL, CC_MANAGED_DEV_BUILTIN_PLUGIN_HOT_RELOAD, CC_PERF_DIAGNOSTICS,
   CC_SERVER_BIND_HOST, CC_SERVER_PORT, and CC_FF_* feature
   flags.
   Changes require a full cc-app restart with cc-app stop && cc-app start,
@@ -1635,11 +1705,6 @@ function formatManagedConfig(config: ManagedConfig): string {
   for (const [index, customModel] of (config.customModels ?? []).entries()) {
     lines.push(
       `customModels[${index}]=${customModel.providerId}:${customModel.model}`,
-    );
-  }
-  for (const [index, customAgent] of (config.customAcpAgents ?? []).entries()) {
-    lines.push(
-      `customAcpAgents[${index}]=${formatCustomAcpAgentProviderId(customAgent.id)}:${customAgent.command}`,
     );
   }
   return lines.length > 0 ? `${lines.join("\n")}\n` : "No cc-app config set.\n";
@@ -1970,6 +2035,38 @@ async function runEnvCommand(args: RunEnvCommandArgs): Promise<void> {
   );
   process.stdout.write(`Set ${key} in ${formatCcAppEnvPath(args.dataDir)}\n`);
   await refreshRunningServerConfigAfterWrite(args.serverUrl, "env", key);
+}
+
+async function writeOwnCliLauncher(
+  context: CcAppStartContext,
+): Promise<string | null> {
+  const launcherPath = formatCliLauncherPath({
+    dataDir: context.dataDir,
+    platform: process.platform,
+  });
+  try {
+    const written = await writeCliLauncher({
+      content: renderCliLauncher({
+        dataDir: context.dataDir,
+        platform: process.platform,
+        target: resolveCliLauncherTarget({
+          electron: process.versions.electron !== undefined,
+          env: process.env,
+          execPath: process.execPath,
+          packageRoot: context.packageRoot,
+          platform: process.platform,
+        }),
+      }),
+      launcherPath,
+    });
+    return written === "foreign" ? null : launcherPath;
+  } catch (error) {
+    log(
+      yellow("!"),
+      `Could not write the cc command launcher at ${launcherPath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
 }
 
 async function runClientCommand(args: RunClientCommandArgs): Promise<void> {
@@ -2319,12 +2416,16 @@ export async function waitForHostDaemonStatus(
   const statusUrl = `http://${CC_LOOPBACK_HOST}:${args.port}/status`;
 
   while (Date.now() <= deadline) {
+    args.signal?.throwIfAborted();
     if (args.childProcess && hasProcessExited(args.childProcess)) {
       throw new Error("Host daemon exited before becoming ready");
     }
     try {
       const response = await fetch(statusUrl, {
-        signal: AbortSignal.timeout(HEALTH_CHECK_REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.any([
+          AbortSignal.timeout(HEALTH_CHECK_REQUEST_TIMEOUT_MS),
+          ...(args.signal ? [args.signal] : []),
+        ]),
       });
       if (response.ok) {
         const status = hostDaemonStatusSchema.parse(await response.json());
@@ -2338,7 +2439,7 @@ export async function waitForHostDaemonStatus(
         }
       }
     } catch {}
-    await delayMilliseconds({ ms: HEALTH_CHECK_INTERVAL_MS });
+    await sleep(HEALTH_CHECK_INTERVAL_MS, undefined, { signal: args.signal });
   }
   throw new Error(
     `Timed out waiting for host daemon ${args.expectedHostId} to connect to ${expectedServerUrl} at ${statusUrl}`,
@@ -2451,9 +2552,31 @@ function resolveServerAppSurface(env: NodeJS.ProcessEnv): AppSurface {
   return parseAppSurface(env[APP_SURFACE_ENV_NAME]) ?? APP_SURFACE_WEB;
 }
 
+function resolveOwnAppInstall(args: {
+  context: CcAppStartContext;
+  env: NodeJS.ProcessEnv;
+}): Promise<AppInstall> {
+  return resolveAppInstall({
+    desktop: resolveServerAppSurface(args.env) === APP_SURFACE_DESKTOP,
+    runner: runCommand,
+    sourceRoot: runsFromSourceCheckout(import.meta.url)
+      ? resolve(args.context.packageRoot, "..", "..")
+      : null,
+  });
+}
+
 export function createServerEnv(args: CreateServerEnvArgs): NodeJS.ProcessEnv {
+  const inheritedEnv = hostToolchain.environment(args.env);
+  delete inheritedEnv[APP_INSTALL_KIND_ENV_NAME];
+  delete inheritedEnv[APP_SOURCE_COMMIT_ENV_NAME];
+  delete inheritedEnv[APP_SOURCE_ORIGIN_ENV_NAME];
+  delete inheritedEnv[CLI_LAUNCHER_ENV_NAME];
   return {
-    ...args.env,
+    ...inheritedEnv,
+    ...appInstallEnv(args.install),
+    ...(args.cliLauncherPath === null
+      ? {}
+      : { [CLI_LAUNCHER_ENV_NAME]: args.cliLauncherPath }),
     CC_APP_VERSION: args.context.appVersion,
     [APP_SURFACE_ENV_NAME]: resolveServerAppSurface(args.env),
     CC_CLI: join(args.context.daemonBundleDir, "cc"),
@@ -2467,7 +2590,7 @@ export function createServerEnv(args: CreateServerEnvArgs): NodeJS.ProcessEnv {
 
 export function createDaemonEnv(args: CreateDaemonEnvArgs): NodeJS.ProcessEnv {
   return {
-    ...stripThreadContextEnv(args.env),
+    ...hostToolchain.environment(stripThreadContextEnv(args.env)),
     CC_APP_VERSION: args.context.appVersion,
     CC_BRIDGE_DIR: args.context.daemonBundleDir,
     CC_CLI_DIR: args.context.daemonBundleDir,
@@ -2603,14 +2726,50 @@ export async function createHostDaemonJoinEnv(
   };
 }
 
+interface ResolveBundledCliLaunchArgs {
+  args: string[];
+  bundledCliPath: string;
+  cliOverride: string | null;
+  nodePath: string;
+  platform: NodeJS.Platform;
+}
+
+export function resolveBundledCliLaunch(args: ResolveBundledCliLaunchArgs): {
+  command: string;
+  args: string[];
+} {
+  if (args.cliOverride === null) {
+    return {
+      command: args.nodePath,
+      args: [args.bundledCliPath, ...args.args],
+    };
+  }
+  return args.platform === "win32" && win32.extname(args.cliOverride) === ""
+    ? { command: args.nodePath, args: [args.cliOverride, ...args.args] }
+    : { command: args.cliOverride, args: args.args };
+}
+
 export async function runBundledCliCommand(
   args: RunBundledCliCommandArgs,
 ): Promise<number> {
-  const ccCliOverride = toOptionalString(args.env.CC_CLI);
-  const cliPath = ccCliOverride ?? join(args.context.daemonBundleDir, "cc");
-  const childProcess = spawn(cliPath, args.args, {
+  const cliOverride =
+    args.env[CLI_REEXEC_ENV_NAME] === "1"
+      ? null
+      : (toOptionalString(args.env.CC_CLI) ?? null);
+  const launch = resolveBundledCliLaunch({
+    args: args.args,
+    bundledCliPath: join(args.context.daemonBundleDir, "cc"),
+    cliOverride,
+    nodePath: process.execPath,
+    platform: process.platform,
+  });
+  const env = createCliEnv({ context: args.context, env: args.env });
+  if (cliOverride !== null) {
+    env[CLI_REEXEC_ENV_NAME] = "1";
+  }
+  const childProcess = spawn(launch.command, launch.args, {
     cwd: process.cwd(),
-    env: createCliEnv({ context: args.context, env: args.env }),
+    env,
     stdio: "inherit",
   });
 
@@ -2671,7 +2830,7 @@ export async function runCcServer(
 Usage:
   cc-server [--data-dir <path>] [--server-bind-host <host>] [--server-port <port>]
 
-Service stdout and stderr append to <data-dir>/logs/server-stdio.log.
+Logs rotate in <data-dir>/logs/server.N.log. Startup errors and crashes append to <data-dir>/logs/server-stdio.log.
 Exits with code 3 without starting when the server on this data directory moved to another machine, unless a move back to this computer is in progress.
 `);
     return;
@@ -2701,15 +2860,21 @@ Exits with code 3 without starting when the server on this data directory moved 
   });
   assertCcAppArtifacts(runtime.context);
 
-  log(" ", dim(`logs: ${runtime.context.logDir}/server-stdio.log`));
+  log(" ", dim(`logs: ${runtime.context.logDir}/`));
   const childProcess = spawnLoggedProcess({
+    appScheduling: readAgentCpuPriority(runtime.context.dataDir),
     command: process.execPath,
-    args: [runtime.context.serverEntry],
+    args: [...nodeNetworkArgs(runtime.serverEnv), runtime.context.serverEntry],
     logDir: runtime.context.logDir,
     logName: "server",
     env: createServerEnv({
+      cliLauncherPath: null,
       context: runtime.context,
       env: runtime.serverEnv,
+      install: await resolveOwnAppInstall({
+        context: runtime.context,
+        env: runtime.serverEnv,
+      }),
     }),
   });
   process.exitCode = toExitCode(await waitForProcessExit(childProcess));
@@ -2768,16 +2933,16 @@ async function runHostDaemonOnly(args: RunHostDaemonOnlyArgs): Promise<void> {
     enrollment.enrolled ? "Starting daemon" : "Enrolling and starting daemon",
   );
 
-  const daemonProcess = spawnLoggedProcess({
-    args: [args.context.daemonEntry],
-    command: process.execPath,
-    env: daemonEnv,
-    logDir: args.context.logDir,
-    logName: "host-daemon",
-  });
-
+  const startDaemon = (): ChildManagedProcessRun =>
+    spawnNamedManagedProcess({
+      appScheduling: readAgentCpuPriority(args.context.dataDir),
+      args: [...nodeNetworkArgs(daemonEnv), args.context.daemonEntry],
+      command: process.execPath,
+      env: daemonEnv,
+      logDir: args.context.logDir,
+      processName: "daemon",
+    });
   let shuttingDown = false;
-  const daemonExit = waitForProcessExit(daemonProcess);
 
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     if (shuttingDown) {
@@ -2786,11 +2951,7 @@ async function runHostDaemonOnly(args: RunHostDaemonOnlyArgs): Promise<void> {
     shuttingDown = true;
     process.stdout.write("\n");
     log(dim("●"), "Shutting down");
-    await terminateProcessIfRunning({
-      childProcess: daemonProcess,
-      processName: "daemon",
-      signal,
-    });
+    await currentRun.terminate(signal);
   };
 
   const removeSignalForwarding = installTerminationSignalForwarding(
@@ -2799,14 +2960,41 @@ async function runHostDaemonOnly(args: RunHostDaemonOnlyArgs): Promise<void> {
     },
   );
 
+  const firstRun = startDaemon();
+  let currentRun: ManagedProcessRun = firstRun;
+
+  const supervise = args.supervise && command.kind === "start";
+  const readiness = new AbortController();
+  const daemonExit = supervise
+    ? superviseHostDaemonProcess({
+        delayMilliseconds,
+        firstRun,
+        isShutdownRequested: () => shuttingDown,
+        now: Date.now,
+        startDaemon: () => {
+          currentRun = startDaemon();
+          return currentRun;
+        },
+      })
+    : firstRun.exit.then(({ result }) => result);
+
   try {
     try {
-      await waitForHostDaemonStatus({
-        childProcess: daemonProcess,
+      const ready = waitForHostDaemonStatus({
+        childProcess: supervise ? null : firstRun.childProcess,
         expectedHostId,
         expectedServerUrl: serverUrl,
         port: args.context.daemonPort,
+        timeoutMs: supervise ? Infinity : HEALTH_CHECK_TIMEOUT_MS,
+        signal: readiness.signal,
       });
+      const exited = supervise
+        ? await Promise.race([ready.then(() => null), daemonExit])
+        : await ready.then(() => null);
+      if (exited !== null) {
+        process.exitCode = toExitCode(exited);
+        return;
+      }
     } catch {
       endStep(red("✗"), "Host daemon failed to start");
       log(" ", dim(`lock: ${args.context.daemonLockDir}`));
@@ -2838,7 +3026,42 @@ async function runHostDaemonOnly(args: RunHostDaemonOnlyArgs): Promise<void> {
 
     process.exitCode = toExitCode(await daemonExit);
   } finally {
+    readiness.abort();
     removeSignalForwarding();
+  }
+}
+
+export async function superviseHostDaemonProcess(
+  args: SuperviseHostDaemonProcessArgs,
+): Promise<ProcessExitResult> {
+  let run = args.firstRun;
+  let startedAt = args.now();
+  let backoffMs = HOST_DAEMON_RESTART_INITIAL_DELAY_MS;
+  for (;;) {
+    const { result } = await run.exit;
+    if (args.isShutdownRequested() || result.code === 0) {
+      return result;
+    }
+    if (args.now() - startedAt >= HOST_DAEMON_RESTART_STABLE_UPTIME_MS) {
+      backoffMs = HOST_DAEMON_RESTART_INITIAL_DELAY_MS;
+    }
+    const restartRequested = result.code === HOST_DAEMON_RESTART_EXIT_CODE;
+    const delayMs = restartRequested ? 0 : backoffMs;
+    if (!restartRequested) {
+      backoffMs = Math.min(backoffMs * 2, HOST_DAEMON_RESTART_MAX_DELAY_MS);
+    }
+    log(
+      yellow("!"),
+      `host daemon exited with ${formatProcessExitResult(result)} - restarting host daemon${
+        delayMs === 0 ? "" : ` in ${delayMs / 1_000}s`
+      }`,
+    );
+    await args.delayMilliseconds({ ms: delayMs });
+    if (args.isShutdownRequested()) {
+      return result;
+    }
+    run = args.startDaemon();
+    startedAt = args.now();
   }
 }
 
@@ -2850,7 +3073,7 @@ export async function runCcHostDaemon(
     process.stdout.write(`cc-host-daemon
 
 Usage:
-  cc-host-daemon [--server-url <url>] [--host-daemon-port <port>] [--host-id <id>] [--enroll-key <key>] [--auto-update]
+  cc-host-daemon [--server-url <url>] [--host-daemon-port <port>] [--host-id <id>] [--enroll-key <key>] [--auto-update] [--supervise]
   cc-host-daemon join --server-url <url> [--host-daemon-port <port>] [--join-code <code> --host-id <id>] [--auto-update]
 `);
     return;
@@ -2868,6 +3091,7 @@ Usage:
     args: parsedArgs.positionals,
     context: runtime.context,
     env: runtime.env,
+    supervise: parsedArgs.options.supervise === true,
   });
 }
 
@@ -2889,22 +3113,30 @@ function printCcAppHelp(): void {
   process.stdout.write(`cc-app
 
 Usage:
-  cc-app [--data-dir <path>] [--server-bind-host <host>] [--server-port <port>] [--host-daemon-port <port>] [--in-app-updates] [--bundled]
+  cc-app [--data-dir <path>] [--server-bind-host <host>] [--server-port <port>] [--host-daemon-port <port>] [--no-in-app-updates] [--bundled]
   cc-app start
 
-  Packaged cc updates with brew upgrade --cask codythatsme/tap/cc.
-  Source checkouts support --in-app-updates through pnpm start.
+  --perf-diagnostics permits CPU profiles and detailed logs when the performanceDiagnostics experiment is also on.
+  Packaged cc updates with brew upgrade --cask codythatsme/tap/cc. Source
+  checkouts update in place from Settings → Updates; --no-in-app-updates
+  turns that off.
 
   cc-app stop
   cc-app config set <key> <value>
   cc-app config refresh
   cc-app env set <key> <value>
   cc-app client ssh-target set <server-origin> <ssh-target> [--host-id <id>]
-  cc-app host-daemon [--server-url <url>] [--host-daemon-port <port>] [--host-id <id>] [--enroll-key <key>] [--auto-update]
+  cc-app host-daemon [--server-url <url>] [--host-daemon-port <port>] [--host-id <id>] [--enroll-key <key>] [--auto-update] [--supervise]
   cc-app host-daemon join --server-url <url> [--host-daemon-port <port>] [--join-code <code> --host-id <id>] [--auto-update]
+
+  --supervise restarts the host daemon when it crashes or installs an
+  update, for machines where no service manager restarts it. A daemon
+  that stops on purpose (exit 0) is not restarted.
 
 CLI:
   pnpm cli <command> (from a source checkout)
+  Settings → General → cc CLI, or cc settings cli-command install,
+  installs the cc CLI for use outside cc.
 `);
 }
 
@@ -2927,7 +3159,8 @@ export async function startFullStackServerProcess(
 
   const launchId = randomUUID();
   const serverRun = spawnNamedManagedProcess({
-    args: [args.context.serverEntry],
+    appScheduling: readAgentCpuPriority(args.context.dataDir),
+    args: [...nodeNetworkArgs(args.env), args.context.serverEntry],
     command: process.execPath,
     env: { ...args.env, CC_SERVER_LAUNCH_ID: launchId },
     ipc: args.onSpawned !== undefined,
@@ -2963,7 +3196,8 @@ async function startDaemonProcess(
   args: StartDaemonProcessArgs,
 ): Promise<ManagedProcessRun> {
   const daemonRun = spawnNamedManagedProcess({
-    args: [args.context.daemonEntry],
+    appScheduling: readAgentCpuPriority(args.context.dataDir),
+    args: [...nodeNetworkArgs(args.env), args.context.daemonEntry],
     command: process.execPath,
     env: args.env,
     logDir: args.context.logDir,
@@ -3505,6 +3739,7 @@ export async function superviseCcAppStart(
     log(" ", formatReadyOutputRow("lock", args.context.daemonLockFile));
     process.stdout.write("\n");
     log(" ", dim("Press Ctrl+C to stop"));
+    args.onRuntimeReady();
     await args.onFullStackReady?.();
 
     return superviseFullStackProcesses({
@@ -3522,6 +3757,7 @@ export async function superviseCcAppStart(
   const enterMovedMode = async (
     movedFile: ServerMovedFile,
   ): Promise<FullStackSupervisionResult> => {
+    args.onRuntimeReady();
     const movedModeResult = await runMovedMode({
       bindHost: args.serverBindHost,
       context: args.context,
@@ -3692,7 +3928,7 @@ const shimOutput: ShimOutput = {
 export function shouldRunSourceAppUpdateShim(cliArgs: string[]): boolean {
   const parsed = parseLauncherArgs(cliArgs);
   return (
-    parsed.options.inAppUpdates === true &&
+    parsed.options.noInAppUpdates !== true &&
     !parsed.options.help &&
     resolveCcAppCommand(parsed.positionals).kind === "start"
   );
@@ -3746,14 +3982,6 @@ export async function runSourceAppUpdateShim(
       log(dim("●"), "Rebuilding cc");
       await args.prepareRuntime();
     },
-    readHead: async () =>
-      (
-        await runCheckedCommand(runCommand, "git rev-parse", {
-          args: ["rev-parse", "HEAD"],
-          command: "git",
-          cwd: args.repoRoot,
-        })
-      ).stdout.trim(),
     repoRoot: args.repoRoot,
     runner: runCommand,
     spawnLauncher: (mode) =>
@@ -3871,21 +4099,13 @@ export async function runCcApp(
       args: command.args,
       context: runtime.context,
       env: runtime.env,
+      supervise: parsedArgs.options.supervise === true,
     });
     return;
   }
 
   assertCcAppArtifacts(runtime.context);
 
-  if (
-    parsedArgs.options.inAppUpdates &&
-    !runsFromSourceCheckout(import.meta.url)
-  ) {
-    log(
-      yellow("!"),
-      "Packaged cc updates through Homebrew: brew upgrade --cask codythatsme/tap/cc",
-    );
-  }
 
   const context = runtime.context;
   const serverBindHost = parseServerBindHost(
@@ -3941,7 +4161,19 @@ export async function runCcApp(
   });
   if (!runtimeRecordOwned) {
     warnExistingRuntimeRecord(context.dataDir);
+    if (await isHealthyServerAnswering(`${serverListenerUrl}/health`)) {
+      log(
+        red("✗"),
+        `cc already serves ${serverListenerUrl} from this data directory`,
+      );
+      process.exitCode = 1;
+      return;
+    }
   }
+  const cliLauncherPath =
+    options.worktreePolicy === null && !runsFromSourceCheckout(import.meta.url)
+      ? await writeOwnCliLauncher(context)
+      : null;
 
   const processes: ManagedFullStackProcesses = {
     daemonRun: null,
@@ -4009,9 +4241,11 @@ export async function runCcApp(
         : {
             onFullStackReady: () => appUpdateController.onFullStackReady(),
           }),
+      onRuntimeReady: announceDesktopRuntimeReady,
       prepareFullStack: async (entry) => {
         const fullStackRuntime = await resolveFullStackRuntime(entry);
         const serverEnv = createServerEnv({
+          cliLauncherPath,
           context,
           env:
             appUpdateController === null || appUpdateMode === null
@@ -4020,6 +4254,10 @@ export async function runCcApp(
                   ...fullStackRuntime.serverEnv,
                   [APP_UPDATE_MODE_ENV_NAME]: appUpdateMode,
                 },
+          install: await resolveOwnAppInstall({
+            context,
+            env: fullStackRuntime.serverEnv,
+          }),
         });
         const sharedEnv = createSharedEnv({
           context,
@@ -4052,12 +4290,15 @@ export async function runCcApp(
                 : { beforeStart: options.beforeServerStart }),
               context,
               env: serverEnv,
-              ...(appUpdateController === null
-                ? {}
-                : {
-                    onSpawned: (childProcess: ChildProcess) =>
-                      appUpdateController.attachServer(childProcess),
-                  }),
+              ...(parseAppSurface(serverEnv[APP_SURFACE_ENV_NAME]) ===
+                APP_SURFACE_DESKTOP && process.send !== undefined
+                ? { onSpawned: relayDesktopAppUpdates }
+                : appUpdateController === null
+                  ? {}
+                  : {
+                      onSpawned: (childProcess: ChildProcess) =>
+                        appUpdateController.attachServer(childProcess),
+                    }),
               processes,
             }),
         };
@@ -4098,7 +4339,7 @@ export async function runCcApp(
     await shutdown("SIGTERM");
     throw error;
   } finally {
-    appUpdateController?.dispose();
+    await appUpdateController?.dispose();
     removeSignalForwarding();
     if (runtimeRecordOwned) {
       await clearOwnCcAppRuntimeFile({

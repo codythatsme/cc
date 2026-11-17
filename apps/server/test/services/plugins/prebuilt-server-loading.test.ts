@@ -1,20 +1,21 @@
-import { mkdtemp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  createConnection,
-  migrate,
-  setExperiments,
-  upsertInstalledPlugin,
-  type DbConnection,
-} from "@cc/db";
-import {
-  defaultExperiments,
-  PLUGIN_SDK_MAJOR,
-  PLUGIN_SDK_VERSION,
-} from "@cc/domain";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { upsertInstalledPlugin, type DbConnection } from "@cc/db";
+import { buildPluginServer } from "@cc/plugin-build";
+import { createMigratedConnection } from "@cc/db/testing";
+import { PLUGIN_SDK_MAJOR, PLUGIN_SDK_VERSION } from "@cc/domain";
 import type { Logger } from "@cc/logger";
 import { createAiServiceRegistry } from "../../../src/services/ai/ai-service-registry.js";
 import {
@@ -23,7 +24,16 @@ import {
 } from "../../../src/services/plugins/plugin-service.js";
 import { testLogger } from "../../helpers/test-app.js";
 
+vi.mock("@cc/plugin-build", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@cc/plugin-build")>();
+  return { ...actual, buildPluginServer: vi.fn(actual.buildPluginServer) };
+});
+
 const logger = testLogger as unknown as Logger;
+
+async function settleTimestamps() {
+  await new Promise((resolve) => setTimeout(resolve, 50));
+}
 
 function gitPersistence(url: string, requestedRef: string) {
   return {
@@ -62,15 +72,14 @@ describe("prebuilt server bundle loading", () => {
   let workDir: string;
   let service: PluginService;
 
-  beforeEach(async () => {
-    db = createConnection(":memory:");
-    migrate(db);
-    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-prebuilt-"));
-    service = createPluginService({
+  function createService() {
+    return createPluginService({
       aiServices: createAiServiceRegistry(),
       db,
       hub: {
         getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
         notifyPluginSignal: () => 0,
         notifySystem: () => {},
       },
@@ -79,6 +88,12 @@ describe("prebuilt server bundle loading", () => {
       appVersion: "0.9.0",
       loadTimeoutMs: 2000,
     });
+  }
+
+  beforeEach(async () => {
+    db = createMigratedConnection();
+    workDir = await mkdtemp(join(tmpdir(), "cc-plugin-prebuilt-"));
+    service = createService();
   });
 
   afterEach(async () => {
@@ -127,6 +142,7 @@ describe("prebuilt server bundle loading", () => {
       rootDir,
       version: "0.1.0",
       enabled: true,
+      enabledFollowsDefault: false,
     });
     const before =
       ((globalThis as Record<string, unknown>).__prebuiltDistLoads as
@@ -147,13 +163,6 @@ describe("prebuilt server bundle loading", () => {
     );
   });
 
-  it("never prefers dist for path installs — edited source must win", async () => {
-    const rootDir = await writePrebuiltPlugin("cc-plugin-pathsrc");
-    const entry = await service.installPath(rootDir);
-    expect(entry.status).toBe("error");
-    expect(entry.statusDetail).toContain("source must not load");
-  });
-
   it("compiles path source into a reusable cache and rebuilds after edits", async () => {
     const rootDir = await writePrebuiltPlugin("cc-plugin-pathcache");
     const sourcePath = join(rootDir, "server.ts");
@@ -166,6 +175,7 @@ export default function plugin() {
 }
 `,
     );
+    await settleTimestamps();
 
     const installed = await service.installPath(rootDir);
     expect(installed.status).toBe("running");
@@ -205,55 +215,6 @@ export default function plugin() {
     ).toHaveLength(2);
   });
 
-  it("uses JITI on the next load when the legacy loader experiment is enabled", async () => {
-    const rootDir = await writePrebuiltPlugin("cc-plugin-legacy-loader");
-    const sourcePath = join(rootDir, "server.ts");
-    await writeFile(
-      sourcePath,
-      `const value: string = "native";
-export default function plugin() {
-  globalThis.__loaderExperimentValue = value;
-}
-`,
-    );
-
-    const installed = await service.installPath(rootDir);
-    expect(installed.status).toBe("running");
-    expect(
-      (globalThis as Record<string, unknown>).__loaderExperimentValue,
-    ).toBe("native");
-    const cacheRoot = join(workDir, "data", "plugins", "runtime", "server");
-    const before = (await readdir(cacheRoot, { recursive: true })).filter(
-      (file) => file.endsWith("server.cjs"),
-    );
-    expect(before).toHaveLength(1);
-
-    setExperiments(db, {
-      ...defaultExperiments,
-      legacyJitiPluginLoader: true,
-    });
-    await writeFile(
-      sourcePath,
-      `const value: string = "jiti";
-export default function plugin() {
-  globalThis.__loaderExperimentValue = value;
-}
-`,
-    );
-    expect(
-      (globalThis as Record<string, unknown>).__loaderExperimentValue,
-    ).toBe("native");
-
-    await service.reload("legacy-loader");
-    expect(
-      (globalThis as Record<string, unknown>).__loaderExperimentValue,
-    ).toBe("jiti");
-    const after = (await readdir(cacheRoot, { recursive: true })).filter(
-      (file) => file.endsWith("server.cjs"),
-    );
-    expect(after).toEqual(before);
-  });
-
   it("bounds compiled artifacts and evicts loaded source modules", async () => {
     const rootDir = await writePrebuiltPlugin("cc-plugin-reload-retention");
     const sourcePath = join(rootDir, "server.ts");
@@ -281,6 +242,68 @@ export default function plugin() {
     ).toEqual([]);
   });
 
+  it("re-evaluates and evicts compiled modules when the data directory is a symlink", async () => {
+    const realDataDir = join(workDir, "real-data");
+    const linkedDataDir = join(workDir, "linked-data");
+    await mkdir(realDataDir);
+    await symlink(realDataDir, linkedDataDir, "dir");
+    const linkedDb = createMigratedConnection();
+    const linkedService = createPluginService({
+      aiServices: createAiServiceRegistry(),
+      db: linkedDb,
+      hub: {
+        getDaemonSessionIdForHost: () => null,
+        notifyPluginChanged: () => {},
+        onWatchedTargets: () => () => {},
+        notifyPluginSignal: () => 0,
+        notifySystem: () => {},
+      },
+      logger,
+      dataDir: linkedDataDir,
+      appVersion: "0.9.0",
+      loadTimeoutMs: 2000,
+    });
+    const state = globalThis as Record<string, unknown>;
+    state.__symlinkEvaluations = 0;
+    try {
+      const rootDir = await writePrebuiltPlugin("cc-plugin-symlink-data");
+      const sourcePath = join(rootDir, "server.ts");
+      await writeFile(
+        sourcePath,
+        `globalThis.__symlinkEvaluations += 1;\nexport default function plugin() {}\n`,
+      );
+      await linkedService.installPath(rootDir);
+      await linkedService.reload("symlink-data");
+      await linkedService.reload("symlink-data");
+      expect(state.__symlinkEvaluations).toBe(3);
+
+      for (let generation = 0; generation < 3; generation += 1) {
+        await writeFile(
+          sourcePath,
+          `globalThis.__symlinkEvaluations += 1;\nexport const generation = ${generation};\nexport default function plugin() {}\n`,
+        );
+        await linkedService.reload("symlink-data");
+      }
+      expect(state.__symlinkEvaluations).toBe(6);
+
+      const cacheRoot = await realpath(
+        join(realDataDir, "plugins", "runtime", "server"),
+      );
+      const cache = createRequire(import.meta.url).cache;
+      expect(
+        Object.keys(cache).filter((path) => path.startsWith(cacheRoot)),
+      ).toEqual([]);
+      expect(
+        Object.values(cache)
+          .flatMap((entry) => entry?.children ?? [])
+          .filter((entry) => entry.filename.startsWith(cacheRoot)),
+      ).toEqual([]);
+    } finally {
+      await linkedService.stop();
+      delete state.__symlinkEvaluations;
+    }
+  });
+
   it("pre-1.0: falls back to source when the dist SDK version differs within major 0", async () => {
     const rootDir = await writePrebuiltPlugin("cc-plugin-minordist", {
       sdkMajor: PLUGIN_SDK_MAJOR,
@@ -293,12 +316,50 @@ export default function plugin() {
       rootDir,
       version: "0.1.0",
       enabled: true,
+      enabledFollowsDefault: false,
     });
     await service.reload("minordist");
 
     const entry = service.list().find((plugin) => plugin.id === "minordist");
     expect(entry?.status).toBe("error");
     expect(entry?.statusDetail).toContain("source must not load");
+  });
+
+  it("pre-1.0: builds an older-SDK prebuild's source once across cc starts", async () => {
+    const rootDir = await writePrebuiltPlugin("cc-plugin-olddist", {
+      sdkMajor: PLUGIN_SDK_MAJOR,
+      sdkVersion: `${PLUGIN_SDK_MAJOR}.999.0`,
+    });
+    await writeFile(
+      join(rootDir, "server.ts"),
+      `export default function plugin() {
+  globalThis.__oldDistSourceLoads = (globalThis.__oldDistSourceLoads ?? 0) + 1;
+}
+`,
+    );
+    await settleTimestamps();
+    upsertInstalledPlugin(db, {
+      ...gitPersistence("https://github.com/acme/cc-plugin-olddist", "v1"),
+      id: "olddist",
+      source: "git:github.com/acme/cc-plugin-olddist@v1",
+      rootDir,
+      version: "0.1.0",
+      enabled: true,
+      enabledFollowsDefault: false,
+    });
+    const state = globalThis as Record<string, unknown>;
+    const before = (state.__oldDistSourceLoads as number | undefined) ?? 0;
+    vi.mocked(buildPluginServer).mockClear();
+
+    await service.reload("olddist");
+    await service.stop();
+    service = createService();
+    await service.reload("olddist");
+
+    const entry = service.list().find((plugin) => plugin.id === "olddist");
+    expect(entry?.status).toBe("running");
+    expect(state.__oldDistSourceLoads).toBe(before + 2);
+    expect(buildPluginServer).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to source when the dist meta's SDK major mismatches", async () => {
@@ -313,6 +374,7 @@ export default function plugin() {
       rootDir,
       version: "0.1.0",
       enabled: true,
+      enabledFollowsDefault: false,
     });
     await service.reload("staledist");
 

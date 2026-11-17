@@ -1,9 +1,9 @@
-import type {
-  ChangedMessage,
-  ClientMessage,
-  RealtimeSubscriptionTarget,
+import {
+  type ChangedMessage,
+  type ClientMessage,
+  type RealtimeSubscriptionTarget,
+  realtimeSubscriptionTargetKey,
 } from "@cc/domain";
-import { realtimeSubscriptionTargetKey } from "@cc/domain";
 import { serverMessageLenientSchema } from "@cc/server-contract";
 import { resolveRealtimeUrl } from "./realtime-url.js";
 import type {
@@ -397,7 +397,7 @@ export class CcRealtimeClient implements CcRealtime {
       this.handleSocketMessage(event);
     };
 
-    socket.onclose = () => {
+    const handleClosed = () => {
       if (this.socket !== socket) {
         return;
       }
@@ -441,8 +441,14 @@ export class CcRealtimeClient implements CcRealtime {
       }, reconnectDelayMs);
     };
 
+    socket.onclose = handleClosed;
+
+    let closeRequested = false;
     socket.onerror = () => {
+      if (closeRequested) return;
+      closeRequested = true;
       socket.close();
+      handleClosed();
     };
 
     return socketReadyPromise;

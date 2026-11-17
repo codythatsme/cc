@@ -3,7 +3,7 @@ import type { ExperimentalPluginBrowserPage } from "@codythatsme/plugin-sdk";
 import type { CcDesktopBrowserApi } from "@cc/desktop-contract";
 import { getDesktopBrowserApi } from "@/lib/cc-desktop";
 import {
-  usePluginSlots,
+  usePluginSlotKind,
   type PluginBrowserToolbarActionSlot,
 } from "@/lib/plugin-slots";
 import { PluginSlotMount } from "./PluginSlotMount";
@@ -108,7 +108,7 @@ export function PluginBrowserToolbarActions({
   url: string;
   isCompactViewport: boolean;
 }) {
-  const { browserToolbarActions } = usePluginSlots();
+  const browserToolbarActions = usePluginSlotKind("browserToolbarActions");
 
   if (browserToolbarActions.length === 0) return null;
 

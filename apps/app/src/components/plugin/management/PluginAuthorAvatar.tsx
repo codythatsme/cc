@@ -23,7 +23,7 @@ export function PluginAuthorAvatar({
   size: "detail" | "page";
   official?: boolean;
 }) {
-  const githubUsername = github ?? (official ? "get-cc" : null);
+  const githubUsername = github ?? (official ? "codythatsme" : null);
   return (
     <Avatar
       role="img"

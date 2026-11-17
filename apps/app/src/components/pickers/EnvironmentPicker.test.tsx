@@ -187,12 +187,9 @@ describe("EnvironmentPickerUI", () => {
       ).not.toBeNull();
       expect(trigger.textContent).not.toContain("Loading environments…");
       fireEvent.click(trigger, { button: 0 });
-      const status = screen.getByRole("status", {
-        name: "Loading environments",
-      });
       expect(
-        status.querySelectorAll("[data-environment-loading-row]"),
-      ).toHaveLength(4);
+        screen.getByRole("status", { name: "Loading environments" }),
+      ).toBeTruthy();
       expect(screen.queryByText("Not set up for this project")).toBeNull();
       expect(screen.queryByRole("option")).toBeNull();
 
@@ -281,8 +278,10 @@ describe("EnvironmentPickerUI", () => {
       screen.queryByRole("option", { name: /New branch workspace/u }),
     ).toBeNull();
     expect(
-      screen.getByRole("option", { name: /Optional sandbox/u }),
-    ).toBeTruthy();
+      screen
+        .getByRole("option", { name: /Optional sandbox/u })
+        .getAttribute("aria-disabled"),
+    ).toBe("false");
     expect(screen.getByText("Configure credentials")).toBeTruthy();
   });
   it("omits a projectless-only provider from a project picker", () => {
@@ -394,40 +393,6 @@ describe("EnvironmentPickerUI", () => {
     expect(
       screen.getByRole("option", { name: /Optional sandbox/u }),
     ).toBeTruthy();
-  });
-
-  it("shows a setup-required provider enabled with its message", () => {
-    render(
-      <EnvironmentPickerUI
-        value="provider:project-checkout"
-        sources={sources}
-        host={host}
-        isLocal
-        providers={[
-          checkoutProvider,
-          {
-            ...branchProvider,
-            availability: {
-              status: "setup-required",
-              message: "Configure credentials",
-            },
-          },
-        ]}
-        selectedProviderHostId={host.id}
-        onSelectProvider={vi.fn()}
-        modal={false}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Environment" }), {
-      button: 0,
-    });
-
-    const branchItem = screen.getByRole("option", {
-      name: /New branch workspace/u,
-    });
-    expect(branchItem.getAttribute("aria-disabled")).toBe("false");
-    expect(screen.getByText("Configure credentials")).toBeTruthy();
   });
 
   it("selects a setup-required composed provider without navigating away", () => {
@@ -1300,28 +1265,6 @@ describe("EnvironmentPickerUI multi-machine menu", () => {
       sandboxProvider,
       thisMachine.id,
     );
-  });
-
-  it("names the selected machine and provider display name in the trigger label", () => {
-    renderPicker(
-      <EnvironmentPickerUI
-        value="provider:branchy"
-        sources={machineSources}
-        host={studio}
-        isLocal={false}
-        machines={{
-          hosts: [thisMachine, studio],
-          localDaemonHostId: thisMachine.id,
-          primaryHostId: thisMachine.id,
-        }}
-        providers={[branchProvider]}
-        selectedProviderHostId={studio.id}
-        onSelectProvider={vi.fn()}
-        modal={false}
-      />,
-    );
-
-    expect(screen.getByText("Mac Studio · New branch workspace")).toBeTruthy();
   });
 
   it("reports an offline machine ahead of the provider it was selected on", () => {

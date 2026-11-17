@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import type { Host } from "@cc/domain";
 import type {
   HostProviderCliStatusResponse,
@@ -58,6 +58,8 @@ const hosts: Host[] = [
 const version = {
   currentVersion: "0.0.32",
   latestVersion: "0.0.33",
+  currentCommit: null,
+  installKind: "npm" as const,
   source: "npm" as const,
   updateAvailable: true,
   isDevelopment: false,
@@ -143,6 +145,31 @@ describe("cc updates command output", () => {
     expect(output).toContain("offline");
   });
 
+  it.each(["source", "npm"] as const)(
+    "reports unknown freshness for an unmanaged %s install",
+    async (installKind) => {
+      stubServerApi({
+        "v1.system.version.$get": vi.fn(async () => ({
+          ...version,
+          installKind,
+          currentCommit: installKind === "source" ? "a".repeat(40) : null,
+          latestVersion: null,
+          updateAvailable: false,
+        })),
+        "v1.hosts.$get": vi.fn(async () => []),
+      });
+      await runCommand(["updates"], register);
+      const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
+      expect(output).toContain("Latest unknown");
+      expect(output).not.toContain("Up to date");
+      expect(output).not.toContain("npx cc-app@latest");
+      if (installKind === "source") {
+        expect(output).toContain("source checkout aaaaaaaaaa");
+        expect(output).toContain("update this checkout with Git");
+      }
+    },
+  );
+
   it("cc updates --json prints the aggregate", async () => {
     const status = providerStatus({ codexNeedsUpdate: false });
     stubServerApi({
@@ -163,38 +190,43 @@ describe("cc updates command output", () => {
   });
 
   it("cc updates apply runs each available provider update", async () => {
-    const install = vi.fn(
-      async () =>
-        new Response(
-          [
-            JSON.stringify({
-              type: "started",
-              provider: "codex",
-              actionKind: "update",
-              command: "codex update",
-            }),
-            JSON.stringify({
-              type: "completed",
-              provider: "codex",
-              success: true,
-              exitCode: 0,
-              signal: null,
-            }),
-          ].join("\n"),
-          { status: 200 },
-        ),
-    );
+    const job = {
+      id: "job_1",
+      hostId: hosts[0].id,
+      provider: "codex",
+      actionKind: "update",
+      startedAt: 1,
+    };
+    const start = vi.fn(async () => ({ job: { ...job, state: "running" } }));
+    const get = vi.fn(async () => ({
+      job: {
+        ...job,
+        state: "completed",
+        finishedAt: 2,
+        events: [
+          { type: "started", provider: "codex", command: "codex update" },
+          {
+            type: "completed",
+            provider: "codex",
+            success: true,
+            exitCode: 0,
+            signal: null,
+          },
+        ],
+      },
+    }));
     stubServerApi({
       "v1.hosts.$get": vi.fn(async () => hosts),
       "v1.hosts.:id.provider-clis.status.$get": vi.fn(async () =>
         providerStatus({ codexNeedsUpdate: true }),
       ),
-      "v1.hosts.:id.provider-clis.install.$post": install,
+      "v1.hosts.:id.provider-clis.install-jobs.$post": start,
+      "v1.hosts.:id.provider-clis.install-jobs.:jobId.$get": get,
     });
 
     await runCommand(["updates", "apply"], register);
 
-    expect(install).toHaveBeenCalledOnce();
+    expect(start).toHaveBeenCalledOnce();
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
       "Codex on workstation: running update…",
       "Codex on workstation: done",
@@ -252,12 +284,34 @@ describe("cc updates command output", () => {
   });
 });
 
+const UPDATE_WHEN_IDLE_OFF =
+  'Updating when idle is off. Turn on the "Update when idle" experiment in Settings → Experiments, or run cc settings experiment updateWhenIdle true, then try again.';
+
+function systemConfig(experiments: {
+  resumeThreadsAfterRestart?: boolean;
+  updateWhenIdle: boolean;
+}) {
+  return vi.fn(async () => ({
+    experiments: { resumeThreadsAfterRestart: false, ...experiments },
+  }));
+}
+
+function errorResponse(status: number, body: object): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 function appUpdateStatus(
   overrides: Partial<SystemAppUpdateStatus> = {},
 ): SystemAppUpdateStatus {
   return {
     activity: { phase: "idle" },
+    autoUpdate: false,
+    availableSkipped: false,
     available: {
+      behindSince: null,
       channel: "latest",
       commit: null,
       commitCount: null,
@@ -268,6 +322,7 @@ function appUpdateStatus(
     current: { commit: null, version: "0.0.32" },
     lastResult: null,
     runningThreadCount: 0,
+    scheduled: null,
     support: { kind: "supported", mode: "npm" },
     ...overrides,
   };
@@ -279,17 +334,51 @@ describe("cc updates app command output", () => {
   const register: CommandRegistrar = (program) =>
     registerUpdatesCommands(program, () => "http://server");
 
-  it("cc updates app shows the available version and how to apply it", async () => {
-    const getStatus = vi.fn(async () => appUpdateStatus());
-    stubServerApi({ "v1.system.app-update.$get": getStatus });
+  it.each([false, true])(
+    "cc updates app shows the available version and how to apply it (desktop: %s)",
+    async (desktop) => {
+      const getStatus = vi.fn(async () =>
+        appUpdateStatus(
+          desktop
+            ? {
+                desktopUpdateSupported: true,
+                support: { kind: "unsupported", reason: "desktop" },
+              }
+            : {},
+        ),
+      );
+      stubServerApi({ "v1.system.app-update.$get": getStatus });
 
+      await runCommand(["updates", "app"], register);
+
+      expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
+        "cc-app 0.0.32 -> 0.0.33",
+        "Run cc updates app apply to update and restart cc.",
+      ]);
+      expect(getStatus).toHaveBeenCalledWith({ query: { force: "true" } });
+    },
+  );
+
+  it("cc updates app does not call a failed check up to date", async () => {
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () => ({
+        activity: { phase: "idle" },
+        available: null,
+        blocked: {
+          reason: "fetch-failed",
+          message: "Couldn't check for a newer cc release.",
+        },
+        current: { version: "0.0.32", commit: null },
+        lastResult: null,
+        runningThreadCount: 0,
+        scheduled: null,
+        support: { kind: "supported", mode: "npm" },
+      })),
+    });
     await runCommand(["updates", "app"], register);
-
-    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "cc-app 0.0.32 -> 0.0.33",
-      "Run cc updates app apply to update and restart cc.",
-    ]);
-    expect(getStatus).toHaveBeenCalledWith({ query: { force: "true" } });
+    const output = collectLogPayloads(vi.mocked(console.log)).join("\n");
+    expect(output).toContain("Couldn't check for a newer cc release.");
+    expect(output).not.toContain("up to date");
   });
 
   it("cc updates app lists incoming commits and blockers for a source checkout", async () => {
@@ -297,6 +386,7 @@ describe("cc updates app command output", () => {
       "v1.system.app-update.$get": vi.fn(async () =>
         appUpdateStatus({
           available: {
+            behindSince: "2026-11-02T12:00:00.000Z",
             channel: "main",
             commit: "b".repeat(40),
             commitCount: 12,
@@ -316,7 +406,8 @@ describe("cc updates app command output", () => {
     await runCommand(["updates", "app"], register);
 
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      `cc-app 0.0.32 (${"a".repeat(10)}) -> ${"b".repeat(10)} (+12 commits)`,
+      `cc-app source checkout ${"a".repeat(10)} -> ${"b".repeat(10)} (+12 commits)`,
+      "Behind origin/main since 2026-11-02T12:00:00.000Z",
       "  Fix bug",
       "  Add feature",
       "  … 10 more",
@@ -325,6 +416,10 @@ describe("cc updates app command output", () => {
   });
 
   it("cc updates app apply confirms before interrupting threads, then follows the restart", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const statuses = [
       appUpdateStatus({ runningThreadCount: 2 }),
       appUpdateStatus({
@@ -356,10 +451,13 @@ describe("cc updates app command output", () => {
     stubServerApi({
       "v1.system.app-update.$get": vi.fn(async () => statuses.shift()),
       "v1.system.app-update.apply.$post": apply,
+      "v1.system.config.$get": systemConfig({ updateWhenIdle: false }),
     });
     readlineMocks.question.mockResolvedValue("y");
 
-    await runCommand(["updates", "app", "apply"], register);
+    const command = runCommand(["updates", "app", "apply"], register);
+    await vi.runAllTimersAsync();
+    await command;
 
     expect(readlineMocks.question).toHaveBeenCalledWith(
       expect.stringContaining("2 threads are running"),
@@ -375,6 +473,10 @@ describe("cc updates app command output", () => {
   });
 
   it("cc updates app apply exits non-zero when the update fails", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const statuses = [
       appUpdateStatus(),
       appUpdateStatus({
@@ -396,9 +498,11 @@ describe("cc updates app command output", () => {
       "v1.system.app-update.apply.$post": vi.fn(async () => appUpdateStatus()),
     });
 
-    await expect(
+    const failed = expect(
       runCommand(["updates", "app", "apply"], register),
     ).rejects.toThrow("process.exit:1");
+    await vi.runAllTimersAsync();
+    await failed;
     expect(vi.mocked(console.error)).toHaveBeenCalledWith(
       "Error: Update to 0.0.33 failed: npm install failed",
     );
@@ -415,12 +519,253 @@ describe("cc updates app command output", () => {
         appUpdateStatus({ runningThreadCount: 1 }),
       ),
       "v1.system.app-update.apply.$post": apply,
+      "v1.system.config.$get": systemConfig({ updateWhenIdle: true }),
     });
 
     await expect(
       runCommand(["updates", "app", "apply"], register),
     ).rejects.toThrow("process.exit:1");
     expect(apply).not.toHaveBeenCalled();
+    expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+      "Error: 1 thread is running. Updating restarts cc and interrupts it. Re-run with --when-idle to update once they finish, or --yes to interrupt them.",
+    );
+  });
+
+  it("cc updates app apply says running threads resume after the update when restarts resume them", async () => {
+    Object.defineProperty(process.stdin, "isTTY", {
+      value: false,
+      configurable: true,
+    });
+    const apply = vi.fn(async () => appUpdateStatus());
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () =>
+        appUpdateStatus({ runningThreadCount: 2 }),
+      ),
+      "v1.system.app-update.apply.$post": apply,
+      "v1.system.config.$get": systemConfig({
+        resumeThreadsAfterRestart: true,
+        updateWhenIdle: true,
+      }),
+    });
+
+    await expect(
+      runCommand(["updates", "app", "apply"], register),
+    ).rejects.toThrow("process.exit:1");
+    expect(apply).not.toHaveBeenCalled();
+    expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+      "Error: 2 threads are running. Updating restarts cc, and they resume after the update. Re-run with --when-idle to update once they finish, or --yes to update now.",
+    );
+  });
+
+  it("cc updates app apply does not suggest --when-idle while its experiment is off", async () => {
+    Object.defineProperty(process.stdin, "isTTY", {
+      value: false,
+      configurable: true,
+    });
+    const apply = vi.fn(async () => appUpdateStatus());
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () =>
+        appUpdateStatus({ runningThreadCount: 1 }),
+      ),
+      "v1.system.app-update.apply.$post": apply,
+      "v1.system.config.$get": systemConfig({ updateWhenIdle: false }),
+    });
+
+    await expect(
+      runCommand(["updates", "app", "apply"], register),
+    ).rejects.toThrow("process.exit:1");
+    expect(apply).not.toHaveBeenCalled();
+    expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+      "Error: Refusing destructive action without an interactive terminal. Re-run with --yes to confirm.",
+    );
+  });
+
+  it.each([
+    [["apply", "--when-idle"], "v1.system.app-update.schedule.$post"],
+    [["cancel"], "v1.system.app-update.schedule.cancel.$post"],
+  ])(
+    "cc updates app %j names the experiment while it is off",
+    async (args, route) => {
+      stubServerApi({
+        "v1.system.app-update.$get": vi.fn(async () =>
+          appUpdateStatus({ runningThreadCount: 1 }),
+        ),
+        [route]: vi.fn(async () =>
+          errorResponse(403, {
+            code: "update_when_idle_experiment_disabled",
+            message: UPDATE_WHEN_IDLE_OFF,
+          }),
+        ),
+      });
+
+      await expect(
+        runCommand(["updates", "app", ...args], register),
+      ).rejects.toThrow("process.exit:1");
+      expect(vi.mocked(console.error)).toHaveBeenCalledWith(
+        `Error: ${UPDATE_WHEN_IDLE_OFF}`,
+      );
+    },
+  );
+
+  it("cc updates app apply --when-idle schedules the update and returns while threads run", async () => {
+    const apply = vi.fn(async () => appUpdateStatus());
+    const schedule = vi.fn(async () =>
+      appUpdateStatus({
+        runningThreadCount: 2,
+        scheduled: {
+          requestedAt: "2026-10-23T00:00:00.000Z",
+          requiredIdleMs: 5_000,
+        },
+      }),
+    );
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () =>
+        appUpdateStatus({ runningThreadCount: 2 }),
+      ),
+      "v1.system.app-update.apply.$post": apply,
+      "v1.system.app-update.schedule.$post": schedule,
+    });
+
+    await runCommand(["updates", "app", "apply", "--when-idle"], register);
+
+    expect(schedule).toHaveBeenCalledOnce();
+    expect(apply).not.toHaveBeenCalled();
+    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
+      "cc will update to 0.0.33 when all threads are idle (2 running).",
+      "Run cc updates app apply --yes to update now, or cc updates app cancel to skip this version.",
+    ]);
+  });
+
+  it("cc updates app shows how long an automatic update waits for idle", async () => {
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () =>
+        appUpdateStatus({
+          runningThreadCount: 1,
+          scheduled: {
+            requestedAt: "2026-10-23T00:00:00.000Z",
+            requiredIdleMs: 15 * 60_000,
+          },
+        }),
+      ),
+    });
+
+    await runCommand(["updates", "app"], register);
+
+    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
+      "cc-app 0.0.32 -> 0.0.33",
+      "cc will update to 0.0.33 once no thread has run for 15 minutes (1 running).",
+      "Run cc updates app apply --yes to update now, or cc updates app cancel to skip this version.",
+    ]);
+  });
+
+  it("cc updates app cancel stops a scheduled update, even mid-download", async () => {
+    const cancel = vi.fn(async () => appUpdateStatus());
+    const statuses = [
+      appUpdateStatus({
+        activity: {
+          output: [],
+          phase: "preparing",
+          startedAt: "2026-10-23T00:00:00.000Z",
+          step: "Downloading cc-app 0.0.33",
+          targetVersion: "0.0.33",
+        },
+        scheduled: {
+          requestedAt: "2026-10-23T00:00:00.000Z",
+          requiredIdleMs: 5_000,
+        },
+      }),
+      appUpdateStatus(),
+    ];
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () => statuses.shift()),
+      "v1.system.app-update.schedule.cancel.$post": cancel,
+    });
+
+    await runCommand(["updates", "app", "cancel"], register);
+    await runCommand(["updates", "app", "cancel"], register);
+
+    expect(cancel).toHaveBeenCalledTimes(2);
+    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
+      "Skipped this version until a newer one appears.",
+      "No update is scheduled.",
+    ]);
+  });
+
+  it("cc updates app auto turns automatic updates on and off and reports the setting", async () => {
+    const setAuto = vi.fn(async (request: { json: { enabled: boolean } }) =>
+      appUpdateStatus({ autoUpdate: request.json.enabled }),
+    );
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () =>
+        appUpdateStatus({ autoUpdate: true }),
+      ),
+      "v1.system.app-update.auto.$post": setAuto,
+    });
+
+    await runCommand(["updates", "app", "auto", "on"], register);
+    await runCommand(["updates", "app", "auto", "off"], register);
+    await runCommand(["updates", "app", "auto"], register);
+
+    expect(setAuto.mock.calls).toEqual([
+      [{ json: { enabled: true } }],
+      [{ json: { enabled: false } }],
+    ]);
+    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
+      "Automatic updates are on: cc checks every hour and restarts into a new version once no thread has run for 15 minutes.",
+      "Automatic updates are off.",
+      "Automatic updates are on: cc checks every hour and restarts into a new version once no thread has run for 15 minutes.",
+    ]);
+  });
+
+  it("cc updates app apply --when-idle stops following once a starting thread puts the update back to waiting", async () => {
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const waiting = appUpdateStatus({
+      runningThreadCount: 1,
+      scheduled: {
+        requestedAt: "2026-10-23T00:00:00.000Z",
+        requiredIdleMs: 5_000,
+      },
+    });
+    const statuses = [
+      appUpdateStatus(),
+      appUpdateStatus({
+        activity: {
+          output: [],
+          phase: "preparing",
+          startedAt: "2026-10-23T00:00:00.000Z",
+          step: "Downloading cc-app 0.0.33",
+          targetVersion: "0.0.33",
+        },
+        scheduled: {
+          requestedAt: "2026-10-23T00:00:00.000Z",
+          requiredIdleMs: 5_000,
+        },
+      }),
+      waiting,
+    ];
+    stubServerApi({
+      "v1.system.app-update.$get": vi.fn(async () => statuses.shift()),
+      "v1.system.app-update.schedule.$post": vi.fn(async () =>
+        appUpdateStatus(),
+      ),
+    });
+
+    const command = runCommand(
+      ["updates", "app", "apply", "--when-idle"],
+      register,
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+    await command;
+
+    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
+      "Updating cc to 0.0.33",
+      "Downloading cc-app 0.0.33…",
+      "cc will update to 0.0.33 when all threads are idle (1 running).",
+      "Run cc updates app apply --yes to update now, or cc updates app cancel to skip this version.",
+    ]);
   });
 
   it("cc updates app apply --yes --no-wait starts the update and returns", async () => {
@@ -458,7 +803,7 @@ describe("cc updates app command output", () => {
       runCommand(["updates", "app", "apply"], register),
     ).rejects.toThrow("process.exit:1");
     expect(vi.mocked(console.error)).toHaveBeenCalledWith(
-      "Error: Update cc with `brew upgrade --cask codythatsme/tap/cc`. Source checkouts can use `pnpm start --in-app-updates`.",
+      "Error: Update cc with `brew upgrade --cask codythatsme/tap/cc`. Source checkouts can use `pnpm start` without `--no-in-app-updates`.",
     );
   });
 

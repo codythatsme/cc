@@ -10,27 +10,55 @@ import {
   reconcileRunningAutomationRuns,
 } from "./run.js";
 import { registerAutomationCli } from "./cli.js";
+import {
+  answerRetryConsent,
+  retryConsentContract,
+  retryConsentMethod,
+} from "./retry-consent.js";
+import { createScriptRunScope } from "./script-runner.js";
 import { createAutomationService } from "./service.js";
 import { sleep, sweepDueAutomations, SWEEP_INTERVAL_MS } from "./sweep.js";
-
-function resolveServerUrl(): string {
-  return process.env.CC_SERVER_URL?.trim() || "http://127.0.0.1:38886";
-}
 
 export default async function plugin(cc: CcPluginApi) {
   const db = cc.storage.database();
   cc.storage.migrate(db, migrations);
   const pluginDataDir = pluginDataDirFromDb(db);
   await ingestLegacyImport({ cc, db, pluginDataDir });
+  const scriptRuns = createScriptRunScope();
+  cc.onDispose(() => scriptRuns.stop());
 
   const service = createAutomationService({
     cc,
     db,
     pluginDataDir,
-    serverUrl: resolveServerUrl(),
+    scriptRuns,
   });
 
   cc.rpc.register(automationRpcContract, createRpcHandlers(service));
+  cc.rpc.register(
+    retryConsentContract,
+    {
+      [retryConsentMethod]: (input) =>
+        answerRetryConsent(
+          db,
+          async (threadId) =>
+            (
+              await cc.sdk.threads.events.list({
+                threadId,
+                types: ["client/turn/requested"],
+                order: "desc",
+                limit: "1",
+              })
+            )[0]?.data,
+          input,
+        ),
+    },
+    {
+      experimental_discoverable: true,
+      experimental_description:
+        "Declines provider retries of recurring automation runs, which run again on their schedule.",
+    },
+  );
   registerAutomationCli({ cc, service });
 
   cc.events.on("thread.idle", ({ thread }) => {
@@ -60,12 +88,14 @@ export default async function plugin(cc: CcPluginApi) {
           `Automation startup reconciliation failed: ${errorMessage(error)}`,
         );
       }
+      let serverHostId: string | null = null;
       while (!signal.aborted) {
         try {
+          serverHostId ??= (await cc.sdk.system.config()).primaryHostId;
           await sweepDueAutomations(cc, db, {
             pluginDataDir,
-            serverUrl: resolveServerUrl(),
-            serverHostId: (await cc.sdk.system.config()).primaryHostId,
+            serverHostId,
+            scriptRuns,
           });
         } catch (error) {
           cc.log.error(`Automation sweep failed: ${errorMessage(error)}`);

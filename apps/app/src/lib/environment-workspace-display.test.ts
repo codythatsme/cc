@@ -11,14 +11,6 @@ import {
 } from "./environment-workspace-display";
 
 describe("isHostAmbiguous", () => {
-  it("treats a lone persistent machine as unambiguous", () => {
-    expect(isHostAmbiguous(false, "persistent")).toBe(false);
-  });
-
-  it("treats more than one persistent machine as ambiguous", () => {
-    expect(isHostAmbiguous(true, "persistent")).toBe(true);
-  });
-
   it("treats a machine that is not persistent as ambiguous", () => {
     expect(isHostAmbiguous(false, "ephemeral")).toBe(true);
     expect(isHostAmbiguous(false, null)).toBe(true);
@@ -235,7 +227,10 @@ describe("getEnvironmentWorkspaceSummaryDisplay", () => {
         providerLookup: worktreeProviderLookup,
         hasMultipleMachines: true,
       }),
-    ).toMatchObject({ label: "Environment unavailable", compactLabel: "Environment unavailable" });
+    ).toMatchObject({
+      label: "Environment unavailable",
+      compactLabel: "Environment unavailable",
+    });
   });
   it.each([
     {
@@ -258,39 +253,6 @@ describe("getEnvironmentWorkspaceSummaryDisplay", () => {
     ).toBeNull();
   });
 
-  it.each([
-    {
-      name: "a worktree",
-      display: makeDisplay({
-        modeLabel: "Worktree",
-        compactModeLabel: "Worktree",
-        providerLabel: "Worktree",
-      }),
-      providerLookup: worktreeProviderLookup,
-      label: "Worktree",
-    },
-    {
-      name: "a personal workspace",
-      display: makeDisplay({
-        modeLabel: "Personal workspace",
-        compactModeLabel: "Personal workspace",
-        providerLabel: "Personal workspace",
-      }),
-      providerLookup: personalProviderLookup,
-      label: "Personal workspace",
-    },
-  ])("names $name by its provider on a single machine", (testCase) => {
-    expect(
-      getSummaryDisplay({
-        display: testCase.display,
-        providerLookup: testCase.providerLookup,
-      }),
-    ).toMatchObject({
-      label: testCase.label,
-      compactLabel: testCase.label,
-    });
-  });
-
   it("names a projectless thread by its provider on a lone persistent machine", () => {
     expect(
       getSummaryDisplay({ providerLookup: personalProviderLookup }),
@@ -298,15 +260,6 @@ describe("getEnvironmentWorkspaceSummaryDisplay", () => {
       label: "Personal workspace",
       compactLabel: "Personal workspace",
     });
-  });
-
-  it("shows the machine for a projectless thread once a second machine exists", () => {
-    expect(
-      getSummaryDisplay({
-        providerLookup: personalProviderLookup,
-        hasMultipleMachines: true,
-      }),
-    ).toMatchObject({ label: "Michael-M4", compactLabel: "Michael-M4" });
   });
 
   it("marks an unregistered provider as not installed on a single machine", () => {

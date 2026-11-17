@@ -1,7 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { HostDaemonOnlineRpcResult } from "@cc/host-daemon-contract";
-import { isPathWithinDirectory } from "@cc/process-utils";
+import {
+  isPathWithinDirectory,
+  killProcessesWithCwdUnder,
+} from "@cc/process-utils";
 import { CommandDispatchError } from "../command-dispatch-support.js";
 import type { CommandOf } from "../command-dispatch-support.js";
 import { resolveNonSymlinkDirectoryPath } from "./root-path.js";
@@ -128,6 +131,9 @@ export async function removeHostPath(
     );
   }
   const targetInfo = await fs.lstat(target);
+  if (targetInfo.isDirectory() && command.recursive) {
+    await killProcessesWithCwdUnder({ directories: [target] });
+  }
   if (targetInfo.isDirectory() && !command.recursive) {
     await fs.rmdir(target);
   } else {

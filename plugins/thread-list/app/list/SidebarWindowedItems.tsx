@@ -17,6 +17,7 @@ import {
   SIDEBAR_WINDOWED_NAV_ATTRIBUTE,
   type SidebarWindowedNavigationEntry,
 } from "./sidebarThreadShortcuts.js";
+import { observeSharedResize } from "@/lib/shared-resize-observer";
 
 const WINDOW_VIEWPORT_MARGIN_PX = 240;
 const DEFAULT_ROW_HEIGHT_PX = 30;
@@ -38,6 +39,10 @@ interface SidebarWindowedItemsProps {
 }
 
 const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
+
+function hasLayoutBox(rect: DOMRectReadOnly): boolean {
+  return rect.width > 0 || rect.height > 0;
+}
 
 function mergeRealizedKeys(
   previous: ReadonlySet<string>,
@@ -185,16 +190,14 @@ export function SidebarWindowedItems({
 
     const scrollElement = resolveScrollElement();
     const promoteAll =
-      !scrollElement ||
-      scrollElement.clientHeight === 0 ||
-      typeof IntersectionObserver === "undefined";
+      !scrollElement || typeof IntersectionObserver === "undefined";
 
     const promoted = new Set<string>();
     if (promoteAll) {
       for (const key of itemKeys) {
         promoted.add(key);
       }
-    } else {
+    } else if (scrollElement.clientHeight > 0) {
       const viewport = scrollElement.getBoundingClientRect();
       const viewportTop = viewport.top - WINDOW_VIEWPORT_MARGIN_PX;
       const viewportBottom = viewport.bottom + WINDOW_VIEWPORT_MARGIN_PX;
@@ -232,7 +235,7 @@ export function SidebarWindowedItems({
     }
 
     let observer: IntersectionObserver | null = null;
-    let resizeObserver: ResizeObserver | null = null;
+    let unobserveSize: (() => void) | null = null;
 
     const connect = () => {
       if (observer || scrollElement.clientHeight === 0) {
@@ -248,7 +251,10 @@ export function SidebarWindowedItems({
             }
             if (entry.isIntersecting) {
               intended.set(key, true);
-            } else if (!alwaysMountedKeysRef.current.has(key)) {
+            } else if (
+              !alwaysMountedKeysRef.current.has(key) &&
+              hasLayoutBox(entry.boundingClientRect)
+            ) {
               intended.set(key, false);
               recordMeasuredHeight(key, entry.boundingClientRect.height);
             }
@@ -276,18 +282,20 @@ export function SidebarWindowedItems({
       for (const element of wrapperByKeyRef.current.values()) {
         observer.observe(element);
       }
-      resizeObserver?.disconnect();
-      resizeObserver = null;
+      unobserveSize?.();
+      unobserveSize = null;
     };
 
     connect();
     if (!observer && typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => connect());
-      resizeObserver.observe(scrollElement);
+      unobserveSize = observeSharedResize(scrollElement, {
+        read: () => scrollElement.clientHeight,
+        write: () => connect(),
+      });
     }
 
     return () => {
-      resizeObserver?.disconnect();
+      unobserveSize?.();
       observerRef.current = null;
       observer?.disconnect();
     };

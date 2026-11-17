@@ -1,23 +1,25 @@
 import type { CustomProviderModel } from "@cc/config/cc-app-managed-config";
-import type { DbConnection } from "@cc/db";
+import type { DbConnection, WalCheckpointer } from "@cc/db";
 import type { FeatureFlags, ProviderNativeSkillRoots } from "@cc/domain";
 import type { Logger } from "@cc/logger";
+import type { SetupGuideVariant } from "@cc/server-contract";
 import type { PendingInteractionLifecycle } from "./services/interactions/pending-interactions.js";
 import type { MachineAuthService } from "./services/machine-auth.js";
-import type { AppUpdateService } from "./services/system/app-update.js";
+import type { ScheduledAppUpdateService } from "./services/system/app-update-schedule.js";
+import type { CliCommandService } from "./services/system/cli-command.js";
 import type { AppVersionService } from "./services/system/app-version.js";
 import type { CcAppManagedConfigReloader } from "./services/system/cc-app-managed-config.js";
 import type { TerminalSessionLifecycle } from "./services/terminals/terminal-session-lifecycle.js";
 import type { LifecycleDedupers } from "./lifecycle-dedupers.js";
 import type { NotificationHub } from "./ws/hub.js";
 import type { WatchInterestCoordinator } from "./ws/watch-interests.js";
-import type { WorkspaceReadCaches } from "./services/environments/workspace-read-cache.js";
 import type { HostSharedPortCoordinator } from "./ws/host-shared-ports.js";
 import type { SkillTreeRegistry } from "./services/skills/injected-skills.js";
 import type { ProviderRegistryService } from "./services/providers/provider-registry.js";
 import type { AiServiceRegistry } from "./services/ai/ai-service-registry.js";
 import type { PluginHostArtifactRegistry } from "./services/plugins/plugin-host-artifact-registry.js";
 import type { ProviderNativeRootsCache } from "./services/providers/native-roots.js";
+import type { ProviderLiveCommandsCache } from "./services/providers/provider-live-commands.js";
 
 export type ServerLogger = Pick<Logger, "debug" | "error" | "info" | "warn">;
 
@@ -30,7 +32,9 @@ export interface ServerRuntimeConfig {
   hostDaemonPort: number;
   inheritedSkillsRootPaths: string[];
   isDevelopment: boolean;
+  performanceDiagnosticsAvailable: boolean;
   marketplaceUrl: string;
+  connectGateKeysUrl: string;
   serverPort: number;
   sharedSkillRoots: ProviderNativeSkillRoots;
   appUrl?: string;
@@ -49,18 +53,21 @@ export interface AppDeps {
   providerRegistry: ProviderRegistryService;
   pluginHostArtifacts: PluginHostArtifactRegistry;
   providerNativeRoots: ProviderNativeRootsCache;
+  providerLiveCommands: ProviderLiveCommandsCache;
   aiServices: AiServiceRegistry;
   skillTreeRegistry: SkillTreeRegistry;
   terminalSessions: TerminalSessionLifecycle;
   watchInterests: WatchInterestCoordinator;
   sharedPorts: HostSharedPortCoordinator;
-  workspaceReadCaches: WorkspaceReadCaches;
+  walCheckpointer: WalCheckpointer;
 }
 
 export interface ServerAppDeps extends AppDeps {
-  appUpdate: AppUpdateService;
+  appUpdate: ScheduledAppUpdateService;
   appVersion: AppVersionService;
   ccAppManagedConfig: CcAppManagedConfigReloader;
+  cliCommand: CliCommandService;
+  setupGuideVariant: SetupGuideVariant;
 }
 
 export type WorkSessionDeps = Pick<

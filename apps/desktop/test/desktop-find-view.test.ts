@@ -9,7 +9,9 @@ import {
 } from "../src/desktop-find-view.js";
 import {
   FIND_BAR_VIEW_HEIGHT,
+  FIND_BAR_VIEW_INSET,
   FIND_BAR_VIEW_WIDTH,
+  createFindBarViewUrl,
 } from "../src/find-bar-view.js";
 
 const electronMock = vi.hoisted(() => {
@@ -93,21 +95,60 @@ class FakeContentView implements FindViewHostContentView {
 }
 
 class FakeHostWindow implements FindViewHostWindow {
-  readonly contentView = new FakeContentView();
-
-  readonly webContents = {
+  private destroyed = false;
+  private readonly liveContentView = new FakeContentView();
+  private readonly liveWebContents = {
     id: 7,
     focus: () => {},
-    isDestroyed: () => false,
+    isDestroyed: () => this.destroyed,
     findInPage: () => 1,
     stopFindInPage: () => {},
     on: () => {},
   };
 
+  get contentView(): FakeContentView {
+    this.assertAlive();
+    return this.liveContentView;
+  }
+
+  get webContents() {
+    this.assertAlive();
+    return this.liveWebContents;
+  }
+
+  destroy(): void {
+    this.destroyed = true;
+  }
+
+  isDestroyed(): boolean {
+    return this.destroyed;
+  }
+
   getContentBounds(): FindViewBounds {
+    this.assertAlive();
     return { x: 0, y: 0, width: 1200, height: 800 };
   }
+
+  private assertAlive(): void {
+    if (this.destroyed) {
+      throw new TypeError("Object has been destroyed");
+    }
+  }
 }
+
+describe("createFindBarViewUrl", () => {
+  it("keeps the bar's shadow inside the view so its edges are not clipped", () => {
+    const html = decodeURIComponent(
+      createFindBarViewUrl().replace("data:text/html;charset=utf-8,", ""),
+    );
+    const shadow = /box-shadow: 0 (\d+)px (\d+)px/.exec(html);
+    expect(shadow).not.toBeNull();
+    const offsetY = Number(shadow?.[1]);
+    const blur = Number(shadow?.[2]);
+    expect(offsetY + blur).toBeLessThanOrEqual(FIND_BAR_VIEW_INSET);
+    expect(blur).toBeLessThanOrEqual(FIND_BAR_VIEW_INSET);
+  });
+});
 
 describe("createDesktopFindViewManager", () => {
   beforeEach(() => {
@@ -135,6 +176,27 @@ describe("createDesktopFindViewManager", () => {
     expect(view?.focusCount).toBe(1);
     expect(view?.sendCalls).toEqual([
       { channel: CC_DESKTOP_FIND_BAR_ACTIVATE_CHANNEL, payload: undefined },
+    ]);
+  });
+
+  it("releases a window after Electron has destroyed it", () => {
+    const host = new FakeHostWindow();
+    const manager = createDesktopFindViewManager({
+      preloadPath: "/tmp/find-bar-preload.cjs",
+    });
+    manager.open(host, { topOffset: 48 });
+    const view = electronMock.createdViews.at(-1);
+
+    host.destroy();
+
+    expect(() => manager.releaseWindow(7)).not.toThrow();
+    expect(view?.destroyed).toBe(true);
+
+    const nextHost = new FakeHostWindow();
+    manager.open(nextHost, { topOffset: 48 });
+    expect(electronMock.createdViews).toHaveLength(2);
+    expect(nextHost.contentView.views).toEqual([
+      electronMock.createdViews.at(-1),
     ]);
   });
 });

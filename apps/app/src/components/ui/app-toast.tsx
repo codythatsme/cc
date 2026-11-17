@@ -5,14 +5,16 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { toast as sonnerToast, type Action, type ExternalToast } from "sonner";
+import type { Action, ExternalToast } from "sonner";
 import { Button } from "@cc/shared-ui/button";
 import { Icon, type IconName } from "@cc/shared-ui/icon";
+import { observeSharedResize } from "@cc/shared-ui/lib/shared-resize-observer";
 import { cn } from "@cc/shared-ui/lib/utils";
 import {
   openNotificationCenter,
   recordNotification,
 } from "@/lib/notifications/notification-store";
+import { dismissSonnerToast, withSonnerToast } from "./app-toast-runtime";
 
 export type AppToastTone =
   | "message"
@@ -102,7 +104,7 @@ function dismissToast(id: number | string | undefined): void {
   if (id === undefined) {
     return;
   }
-  sonnerToast.dismiss(id);
+  dismissSonnerToast(id);
 }
 
 function AppToastActionButton({
@@ -146,16 +148,11 @@ function AppToastOverflowText({
     if (body === null) {
       return;
     }
-    const measure = () => {
-      setTruncated(
-        body.scrollHeight - body.clientHeight > 1 ||
-          body.scrollWidth - body.clientWidth > 1,
-      );
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(body);
-    return () => observer.disconnect();
+    const measure = () =>
+      body.scrollHeight - body.clientHeight > 1 ||
+      body.scrollWidth - body.clientWidth > 1;
+    setTruncated(measure());
+    return observeSharedResize(body, { read: measure, write: setTruncated });
   }, [content]);
 
   return (
@@ -271,6 +268,8 @@ export function AppToastContent({
   );
 }
 
+let nextToastId = 0;
+
 function showAppToast({
   options,
   title,
@@ -298,26 +297,33 @@ function showAppToast({
           createdAt: Date.now(),
         });
 
-  return sonnerToast.custom(
-    (id) => (
-      <AppToastContent
-        action={action}
-        cancel={cancel}
-        description={description}
-        dismissible={dismissible}
-        id={id}
-        notificationId={notificationId}
-        title={title}
-        tone={tone}
-      />
-    ),
-    {
-      ...sonnerOptions,
-      className: cn("cc-app-toast", className),
-      dismissible,
-      duration: nextDuration,
-    },
+  const toastId = sonnerOptions.id ?? `app-toast-${(nextToastId += 1)}`;
+  withSonnerToast(
+    (sonnerToast) =>
+      sonnerToast.custom(
+        (id) => (
+          <AppToastContent
+            action={action}
+            cancel={cancel}
+            description={description}
+            dismissible={dismissible}
+            id={id}
+            notificationId={notificationId}
+            title={title}
+            tone={tone}
+          />
+        ),
+        {
+          ...sonnerOptions,
+          id: toastId,
+          className: cn("cc-app-toast", className),
+          dismissible,
+          duration: nextDuration,
+        },
+      ),
+    toastId,
   );
+  return toastId;
 }
 
 const showMessageToast: AppToastMethod = (title, options) =>
@@ -335,8 +341,12 @@ const showErrorToast: AppToastMethod = (title, options) =>
 const showLoadingToast: AppToastMethod = (title, options) =>
   showAppToast({ options, title, tone: "loading" });
 
+function dismissAppToast(id?: number | string): void {
+  dismissSonnerToast(id);
+}
+
 export const appToast = {
-  dismiss: sonnerToast.dismiss,
+  dismiss: dismissAppToast,
   error: showErrorToast,
   loading: showLoadingToast,
   message: showMessageToast,

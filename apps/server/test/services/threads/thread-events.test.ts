@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { events, getThread, threads } from "@cc/db";
+import type { AppendStoredThreadEventArgs } from "@cc/db";
 import {
   createStandaloneBuiltinCompactCommandInput,
   threadScope,
@@ -60,6 +61,7 @@ describe("thread event appends", () => {
         threadId: thread.id,
         environmentId: environment.id,
         type: "client/turn/requested",
+        originPluginId: null,
         input: textInput("Keep working"),
         target: { kind: "new-turn" },
         execution: {
@@ -95,6 +97,7 @@ describe("thread event appends", () => {
         threadId: thread.id,
         environmentId: environment.id,
         type: "client/turn/requested",
+        originPluginId: null,
         input: createStandaloneBuiltinCompactCommandInput(),
         target: { kind: "steer", expectedTurnId: turnId },
         execution: {
@@ -130,57 +133,44 @@ describe("thread event appends", () => {
     }
   });
 
-  it("rejects direct turn-scoped appends before turn/started is stored", async () => {
-    const { environment, harness, thread } =
-      await createThreadEventTestContext();
-    try {
-      expect(() =>
-        appendThreadEvent(harness.deps, {
+  it.each(["direct", "singular transactional", "batched"])(
+    "rejects %s turn-scoped appends before turn/started is stored",
+    async (wrapper) => {
+      const { environment, harness, thread } =
+        await createThreadEventTestContext();
+      try {
+        const args: AppendStoredThreadEventArgs<"system/error"> = {
           threadId: thread.id,
           environmentId: environment.id,
           type: "system/error",
           scope: turnScope("turn-missing"),
           data: { message: "Late failure" },
-        }),
-      ).toThrow("before turn/started is stored");
-      expect(
-        harness.db
-          .select()
-          .from(events)
-          .where(eq(events.threadId, thread.id))
-          .all(),
-      ).toHaveLength(0);
-    } finally {
-      await harness.cleanup();
-    }
-  });
-
-  it("rejects singular transactional turn-scoped appends before turn/started is stored", async () => {
-    const { environment, harness, thread } =
-      await createThreadEventTestContext();
-    try {
-      expect(() =>
-        harness.db.transaction((tx) =>
-          appendThreadEventInTransaction(tx, {
-            threadId: thread.id,
-            environmentId: environment.id,
-            type: "system/error",
-            scope: turnScope("turn-missing-transaction"),
-            data: { message: "Transactional late failure" },
-          }),
-        ),
-      ).toThrow("before turn/started is stored");
-      expect(
-        harness.db
-          .select()
-          .from(events)
-          .where(eq(events.threadId, thread.id))
-          .all(),
-      ).toHaveLength(0);
-    } finally {
-      await harness.cleanup();
-    }
-  });
+        };
+        expect(() => {
+          if (wrapper === "direct") {
+            appendThreadEvent(harness.deps, args);
+          } else if (wrapper === "singular transactional") {
+            harness.db.transaction((tx) =>
+              appendThreadEventInTransaction(tx, args),
+            );
+          } else {
+            harness.db.transaction((tx) =>
+              appendThreadEventsInTransaction(tx, [args]),
+            );
+          }
+        }).toThrow("before turn/started is stored");
+        expect(
+          harness.db
+            .select()
+            .from(events)
+            .where(eq(events.threadId, thread.id))
+            .all(),
+        ).toHaveLength(0);
+      } finally {
+        await harness.cleanup();
+      }
+    },
+  );
 
   it("accepts thread-scoped appends before turn/started is stored", async () => {
     const { environment, harness, thread } =
@@ -236,35 +226,6 @@ describe("thread event appends", () => {
           .where(eq(events.threadId, thread.id))
           .all(),
       ).toEqual([{ turnId: "turn-a", type: "turn/started" }]);
-    } finally {
-      await harness.cleanup();
-    }
-  });
-
-  it("rejects batched turn-scoped appends when turn/started is missing", async () => {
-    const { environment, harness, thread } =
-      await createThreadEventTestContext();
-    try {
-      expect(() =>
-        harness.db.transaction((tx) =>
-          appendThreadEventsInTransaction(tx, [
-            {
-              threadId: thread.id,
-              environmentId: environment.id,
-              type: "system/error",
-              scope: turnScope("turn-missing-batch"),
-              data: { message: "Batched late failure" },
-            },
-          ]),
-        ),
-      ).toThrow("before turn/started is stored");
-      expect(
-        harness.db
-          .select()
-          .from(events)
-          .where(eq(events.threadId, thread.id))
-          .all(),
-      ).toHaveLength(0);
     } finally {
       await harness.cleanup();
     }
@@ -365,6 +326,7 @@ describe("thread event appends", () => {
         threadId: thread.id,
         environmentId: environment.id,
         type: "client/turn/requested",
+        originPluginId: null,
         input: textInput("kick off the audit"),
         target: { kind: "new-turn" },
         execution: {
@@ -386,6 +348,7 @@ describe("thread event appends", () => {
         ["events-appended", "read-state-changed"],
         {
           eventTypes: ["client/turn/requested"],
+          timelineSequence: 1,
           projectId: thread.projectId,
         },
       );
@@ -414,6 +377,7 @@ describe("thread event appends", () => {
         threadId: thread.id,
         environmentId: environment.id,
         type: "client/turn/requested",
+        originPluginId: null,
         input: textInput("agent handoff"),
         target: { kind: "new-turn" },
         execution: {
@@ -433,7 +397,54 @@ describe("thread event appends", () => {
       expect(notifyThreadSpy).toHaveBeenCalledWith(
         thread.id,
         ["events-appended"],
-        { eventTypes: ["client/turn/requested"] },
+        { eventTypes: ["client/turn/requested"], timelineSequence: 1 },
+      );
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("does not advance lastReadAt for a user-initiated turn request sent by a plugin", async () => {
+    const { environment, harness, thread } =
+      await createThreadEventTestContext();
+    try {
+      harness.db
+        .update(threads)
+        .set({
+          lastReadAt: 1_000,
+          latestAttentionAt: 1_500,
+          updatedAt: 1_500,
+        })
+        .where(eq(threads.id, thread.id))
+        .run();
+      vi.spyOn(Date, "now").mockReturnValue(2_000);
+      const notifyThreadSpy = vi.spyOn(harness.deps.hub, "notifyThread");
+
+      appendClientTurnEvent(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        type: "client/turn/requested",
+        originPluginId: "wakeup",
+        input: textInput("status update"),
+        target: { kind: "new-turn" },
+        execution: {
+          model: "gpt-5",
+          reasoningLevel: "medium",
+          permissionMode: "full",
+          serviceTier: "default",
+          source: "client/turn/requested",
+        },
+        initiator: "user",
+        senderThreadId: null,
+        requestMethod: "turn/start",
+        source: "tell",
+      });
+
+      expect(getThread(harness.db, thread.id)?.lastReadAt).toBe(1_000);
+      expect(notifyThreadSpy).toHaveBeenCalledWith(
+        thread.id,
+        ["events-appended"],
+        { eventTypes: ["client/turn/requested"], timelineSequence: 1 },
       );
     } finally {
       await harness.cleanup();

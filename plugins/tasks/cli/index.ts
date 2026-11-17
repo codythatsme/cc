@@ -1,5 +1,6 @@
-import { resolve } from "node:path";
 import {
+  experimental_resolveHostPath as resolveHostPath,
+  experimental_getHostPathBasename as getHostPathBasename,
   PluginCliError,
   cliCommand,
   defineCli,
@@ -11,12 +12,13 @@ import { z } from "zod";
 
 import {
   createComment,
-  publishProjectsChanged,
+  invalidateFolders,
+  invalidateProjectTasks,
   registerHandlers,
   type TasksApiStore,
 } from "../api";
 import {
-  publishAttachmentChanged,
+  invalidateAttachmentChanged,
   readAttachmentContent,
   saveAttachmentFromBytes,
 } from "../attachments";
@@ -54,7 +56,6 @@ const ACTIVE_THREAD_STATUSES = new Set(["starting", "working"]);
 const DEFAULT_PROJECT_COLOR = "blue";
 const DEFAULT_LABEL_COLOR = "gray";
 
-const PRESET_SERVICE_TIERS = ["default", "fast", "none"] as const;
 const PRESET_ENVIRONMENTS = ["project-default", "worktree"] as const;
 
 const JSON_OPTION = {
@@ -217,8 +218,14 @@ async function writeClientFile(
   });
 }
 
+function resolveClientPath(rootPath: string, path: string): string {
+  const resolved = resolveHostPath({ rootPath, path });
+  if (resolved === null) throw new CliError(`Invalid host path: ${path}`);
+  return resolved;
+}
+
 function attachmentFileName(path: string): string {
-  return path.split(/[\\/]/).at(-1) || "attachment";
+  return getHostPathBasename(path) || "attachment";
 }
 
 async function readTextOption(
@@ -229,7 +236,7 @@ async function readTextOption(
   file: string | undefined,
 ): Promise<string | undefined> {
   if (file === undefined) return inline;
-  const path = resolve(ctx.cwd ?? process.cwd(), file);
+  const path = resolveClientPath(ctx.cwd ?? process.cwd(), file);
   try {
     const { text } = await readClientFile(cc, hostId, path);
     if (text === null) {
@@ -504,10 +511,15 @@ function presetEnvironmentKind(
 }
 
 function presetServiceTier(
-  value: (typeof PRESET_SERVICE_TIERS)[number] | undefined,
-): "default" | "fast" | null | undefined {
-  if (value === undefined) return undefined;
-  return value === "none" ? null : value;
+  value: string | undefined,
+  clear: boolean | undefined,
+): string | null | undefined {
+  if (clear && value !== undefined) {
+    throw new CliError(
+      "Cannot combine --service-tier and --clear-service-tier.",
+    );
+  }
+  return clear ? null : value;
 }
 
 async function resolveMachineId(
@@ -925,7 +937,7 @@ export function registerTasksCli(
                   linkedCcProjectId: updateInput?.linkedCcProjectId,
                 }),
               );
-              publishProjectsChanged(cc, updated.id);
+              invalidateProjectTasks(cc, updated.id);
               return input.options.json
                 ? JSON.stringify({ project: updated })
                 : `Updated project ${updated.prefix}  ${updated.name}`;
@@ -1075,7 +1087,7 @@ export function registerTasksCli(
                   parentFolderId: moveInput?.parentFolderId,
                 }),
               );
-              publishProjectsChanged(cc, null);
+              invalidateFolders(cc, { projectsMoved: false });
               return input.options.json
                 ? JSON.stringify({ folder: updated })
                 : `Updated folder ${updated.name}  ${updated.id}`;
@@ -1203,7 +1215,7 @@ export function registerTasksCli(
           run(input, ctx) {
             return guard(async () => {
               const attachPaths = input.options.attach.map((path) =>
-                resolve(ctx.cwd ?? process.cwd(), path),
+                resolveClientPath(ctx.cwd ?? process.cwd(), path),
               );
               const descriptionFile = input.options["description-file"];
               const usesClientFiles =
@@ -1277,7 +1289,7 @@ export function registerTasksCli(
                       fileName: attachmentFileName(source.path),
                     },
                   );
-                  publishAttachmentChanged(cc, store.tasks, attachment);
+                  invalidateAttachmentChanged(cc, store.tasks, attachment);
                   attachments.push(attachment);
                 } catch (error) {
                   failedAttachments.push({
@@ -1787,6 +1799,46 @@ export function registerTasksCli(
           },
         }),
 
+        move: cliCommand({
+          summary: "Move a task and its sub-tasks to another project",
+          description:
+            "Moved tasks get new keys in the target project; their old keys keep resolving. Labels are matched by name in the target project and created there when missing. A sub-task moved on its own is detached from its parent.",
+          positionals: [KEY_POSITIONAL],
+          options: {
+            project: REQUIRED_PROJECT_OPTION,
+            json: JSON_OPTION,
+          },
+          run(input, ctx) {
+            return guard(async () => {
+              const task = await resolveTask(
+                domain,
+                input.positionals["key-or-id"],
+              );
+              const project = await requiredProject(
+                domain,
+                ctx,
+                input.options.project,
+              );
+              const result = tasksRpcContract.moveTaskToProject.output.parse(
+                await domain.moveTaskToProject(
+                  tasksRpcContract.moveTaskToProject.input.parse({
+                    taskId: task.id,
+                    projectId: project.id,
+                    authorName: taskAuthor(ctx),
+                  }),
+                ),
+              );
+              const moved = unwrapTask(result);
+              if (input.options.json) {
+                return JSON.stringify({ task: moved, previousKey: task.key });
+              }
+              return moved.key === task.key
+                ? `${task.key} is already in ${project.prefix}`
+                : `Moved ${task.key} to ${moved.key}  ${moved.title}`;
+            });
+          },
+        }),
+
         comment: cliCommand({
           summary: "Add a markdown comment to a task",
           positionals: [KEY_POSITIONAL],
@@ -1861,6 +1913,7 @@ export function registerTasksCli(
                 threadId: ctx.threadId ?? null,
                 body,
                 notify: input.options.notify,
+                awaitDelivery: true,
               });
               return input.options.json
                 ? JSON.stringify({ comment })
@@ -2005,7 +2058,7 @@ export function registerTasksCli(
           run(input, ctx) {
             return guard(async () => {
               const ownerAddress = input.positionals["key-or-comment-id"];
-              const sourcePath = resolve(
+              const sourcePath = resolveClientPath(
                 ctx.cwd ?? process.cwd(),
                 input.options.file,
               );
@@ -2041,7 +2094,7 @@ export function registerTasksCli(
                     input.options.name ?? attachmentFileName(sourcePath),
                 },
               );
-              publishAttachmentChanged(cc, store.tasks, attachment);
+              invalidateAttachmentChanged(cc, store.tasks, attachment);
               return input.options.json
                 ? JSON.stringify({
                     attachment,
@@ -2077,7 +2130,7 @@ export function registerTasksCli(
           },
           run(input, ctx) {
             return guard(async () => {
-              const outPath = resolve(
+              const outPath = resolveClientPath(
                 ctx.cwd ?? process.cwd(),
                 input.options.out,
               );
@@ -2287,10 +2340,10 @@ export function registerTasksCli(
               description: "Model id as the provider spells it",
             },
             reasoning: {
-              type: "enum",
-              values: presetReasoningLevelSchema.options,
+              type: "string",
               required: true,
-              description: "Reasoning level the provider supports",
+              placeholder: "level",
+              description: "Reasoning level id the model lists",
             },
             permission: {
               type: "enum",
@@ -2299,9 +2352,14 @@ export function registerTasksCli(
               description: "Permission mode for the dispatched thread",
             },
             "service-tier": {
-              type: "enum",
-              values: PRESET_SERVICE_TIERS,
-              description: "Service tier; none clears it",
+              type: "string",
+              placeholder: "tier",
+              description:
+                "Service tier id the provider lists for the model, such as default or fast",
+            },
+            "clear-service-tier": {
+              type: "boolean",
+              description: "Leave the preset without a service tier",
             },
             environment: {
               type: "enum",
@@ -2348,7 +2406,10 @@ export function registerTasksCli(
                     modelId: input.options.model,
                     reasoningLevel: input.options.reasoning,
                     serviceTier:
-                      presetServiceTier(input.options["service-tier"]) ?? null,
+                      presetServiceTier(
+                        input.options["service-tier"],
+                        input.options["clear-service-tier"],
+                      ) ?? null,
                     permissionMode: input.options.permission,
                     environmentKind,
                     baseBranch: baseBranch ?? null,
@@ -2388,9 +2449,9 @@ export function registerTasksCli(
               description: "Model id as the provider spells it",
             },
             reasoning: {
-              type: "enum",
-              values: presetReasoningLevelSchema.options,
-              description: "Reasoning level the provider supports",
+              type: "string",
+              placeholder: "level",
+              description: "Reasoning level id the model lists",
             },
             permission: {
               type: "enum",
@@ -2398,9 +2459,14 @@ export function registerTasksCli(
               description: "Permission mode for the dispatched thread",
             },
             "service-tier": {
-              type: "enum",
-              values: PRESET_SERVICE_TIERS,
-              description: "Service tier; none clears it",
+              type: "string",
+              placeholder: "tier",
+              description:
+                "Service tier id the provider lists for the model, such as default or fast",
+            },
+            "clear-service-tier": {
+              type: "boolean",
+              description: "Leave the preset without a service tier",
             },
             environment: {
               type: "enum",
@@ -2453,6 +2519,7 @@ export function registerTasksCli(
                     reasoningLevel: input.options.reasoning,
                     serviceTier: presetServiceTier(
                       input.options["service-tier"],
+                      input.options["clear-service-tier"],
                     ),
                     permissionMode: input.options.permission,
                     environmentKind:

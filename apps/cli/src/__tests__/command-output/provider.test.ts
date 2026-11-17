@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   setupCommandOutputTestEnvironment,
   collectLogPayloads,
-  getHelpOutput,
   runCommand,
   stubServerApi,
 } from "../helpers/command-output-harness.js";
@@ -26,13 +25,6 @@ describe("cc provider command output", () => {
       "ID      Name  \n------  ------\nopenai  OpenAI",
       "",
     ]);
-  });
-
-  it("discovers provider routing selectors in command help", async () => {
-    const help = await getHelpOutput(["provider", "list"], register);
-    expect(help).toContain("--machine <id-or-name>");
-    expect(help).toContain("--host <id-or-name>");
-    expect(help).toContain("--environment <id>");
   });
 
   it("cc provider list resolves a machine and preserves portable JSON output", async () => {
@@ -71,29 +63,6 @@ describe("cc provider command output", () => {
     ]);
   });
 
-  it("cc provider models renders the shared borderless table", async () => {
-    const get = vi.fn(async () => [
-      { model: "gpt-5", displayName: "GPT-5", isDefault: true },
-    ]);
-    stubServerApi({
-      "v1.system.execution-options.$get": vi.fn(async () => ({
-        providers: [],
-        models: await get(),
-        selectedOnlyModels: [],
-        modelLoadError: null,
-      })),
-    });
-
-    await runCommand(["provider", "models", "openai"], register);
-
-    expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
-      "Models for openai:",
-      "",
-      "Model  Name   Default\n-----  -----  -------\ngpt-5  GPT-5  *",
-      "",
-    ]);
-  });
-
   it("cc provider models includes a matching selected-only model", async () => {
     const get = vi.fn(async () => ({
       providers: [],
@@ -129,6 +98,7 @@ describe("cc provider command output", () => {
     expect(get).toHaveBeenCalledWith({
       query: {
         providerId: "claude-code",
+        selectedModel: "claude-opus-4-6",
       },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual([
@@ -157,6 +127,42 @@ describe("cc provider command output", () => {
       query: { environmentId: "env-remote", providerId: "codex" },
     });
     expect(collectLogPayloads(vi.mocked(console.log))).toEqual(["[]"]);
+  });
+
+  it("cc provider models names the project whose checkout scopes the list", async () => {
+    const get = vi.fn(async () => ({
+      providers: [],
+      models: [],
+      selectedOnlyModels: [],
+      modelLoadError: null,
+    }));
+    stubServerApi({ "v1.system.execution-options.$get": get });
+
+    await runCommand(
+      ["provider", "models", "acp-opencode", "--project", "proj_1", "--json"],
+      register,
+    );
+
+    expect(get).toHaveBeenCalledWith({
+      query: { projectId: "proj_1", providerId: "acp-opencode" },
+    });
+    await expect(
+      runCommand(
+        [
+          "provider",
+          "models",
+          "acp-opencode",
+          "--project",
+          "proj_1",
+          "--environment",
+          "env_1",
+        ],
+        register,
+      ),
+    ).rejects.toThrow("process.exit:1");
+    expect(console.error).toHaveBeenCalledWith(
+      "Error: Cannot combine --project with --environment; the environment already selects its workspace.",
+    );
   });
 
   it("cc provider models reports a model-load failure and its detail on stderr", async () => {

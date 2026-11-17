@@ -144,19 +144,28 @@ function proxyRequest(args: {
     args.target,
     args.serverHeaders,
   );
+  args.response.once("close", () => {
+    if (!args.response.writableFinished) upstream.destroy();
+  });
   upstream.once("response", (upstreamResponse) => {
     args.response.writeHead(
       upstreamResponse.statusCode ?? 502,
       upstreamResponse.statusMessage,
       upstreamResponse.headers,
     );
+    upstreamResponse.on("error", () => args.response.destroy());
+    upstreamResponse.on("close", () => {
+      if (!upstreamResponse.complete) args.response.destroy();
+    });
     upstreamResponse.pipe(args.response);
   });
   upstream.on("error", () => {
-    if (!args.response.headersSent) {
-      args.response.writeHead(502);
+    if (args.response.destroyed) return;
+    if (args.response.headersSent) {
+      args.response.destroy();
+      return;
     }
-    args.response.end();
+    args.response.writeHead(502).end();
   });
   args.request.pipe(upstream);
 }

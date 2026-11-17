@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PermissionMode, ReasoningLevel, ServiceTier } from "@cc/domain";
 import type { ExperimentalComposerSelection } from "@codythatsme/plugin-sdk";
 
-export const COMPOSER_SELECTION_SETTLE_TIMEOUT_MS = 15_000;
+const COMPOSER_SELECTION_SETTLE_TIMEOUT_MS = 15_000;
 
 let settleTimeoutOverrideMs: number | null = null;
 
@@ -82,7 +82,6 @@ export interface CommittedComposerStateController<
   T extends CommittedComposerState,
 > {
   observer: CommittedStateObserver<T>;
-  version: number;
   commit(): number;
 }
 
@@ -94,14 +93,12 @@ export function useCommittedComposerState<T extends CommittedComposerState>(
   const [observer] = useState(() => createCommittedStateObserver<T>());
   const [controller] = useState<CommittedComposerStateController<T>>(() => ({
     observer,
-    version: 0,
     commit: () => {
       versionRef.current += 1;
       setVersion(versionRef.current);
       return versionRef.current;
     },
   }));
-  controller.version = version;
   const state = buildState(version);
   useEffect(() => {
     observer.publish(state);

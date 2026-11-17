@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getActiveSecondaryPanelTab } from "@cc/client-core";
 import { useFixedPanelTabsState } from "@/lib/fixed-panel-tabs";
 import {
-  createBrowserFixedPanelTab,
   createEmptyFixedPanelTabsState,
   createHostFilePreviewFixedPanelTab,
   createTerminalFixedPanelTab,
@@ -19,6 +18,7 @@ import {
   type SecondaryFixedPanelTab,
 } from "@/lib/fixed-panel-tabs-state";
 import { buildFileOpenerPanelTab } from "@/components/plugin/file-opener-tabs";
+import { resetBrowserViewPersistence } from "./browserViewVisibilityCoordinator";
 import {
   resetRecentlyClosedPanelTabsForTest,
   useThreadFileTabs,
@@ -29,6 +29,10 @@ import {
 } from "@/lib/plugin-slots";
 import { makeTerminalSession as terminalSession } from "@/test/fixtures/terminal-sessions";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
+import {
+  createCcDesktopApi,
+  createNoopDesktopBrowserApi,
+} from "@/test/cc-desktop-test-utils";
 
 const syncMocks = vi.hoisted(() => ({
   scheduleLocalThreadTabsMigration: vi.fn(),
@@ -86,26 +90,261 @@ function requirePluginPanelTab(
   return tab;
 }
 
-function createDeferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((nextResolve) => {
-    resolve = nextResolve;
-  });
-  return { promise, resolve };
-}
-
 afterEach(() => {
   cleanup();
   queryClient.clear();
   window.localStorage.clear();
   resetRecentlyClosedPanelTabsForTest();
+  resetBrowserViewPersistence();
   resetPluginSlotStoreForTest();
   syncMocks.scheduleLocalThreadTabsMigration.mockClear();
   syncMocks.scheduleThreadTabsPersistence.mockClear();
   syncMocks.useThreadTabs.mockClear();
+  delete window.ccDesktop;
 });
 
 describe("useThreadFileTabs recently closed tabs", () => {
+  it("preserves desktop ownership when a reopened browser becomes inactive", async () => {
+    const desktopTarget = {
+      hostId: "host-1",
+      instanceId: "instance-1",
+      generation: "generation-1",
+    };
+    const browser = createNoopDesktopBrowserApi();
+    browser.getTarget = async () => desktopTarget;
+    window.ccDesktop = createCcDesktopApi(
+      {
+        lastCheckedAt: null,
+        latestVersion: null,
+        pendingVersion: null,
+        platform: "macos",
+        updateAvailable: false,
+        updateDownloaded: false,
+        version: "0.0.0-test",
+      },
+      browser,
+    );
+    const panelStateId = "closed-native-browser";
+    window.localStorage.setItem(
+      getFixedPanelTabsStateStorageKey({ threadId: panelStateId }),
+      serializeFixedPanelTabsState({
+        state: createEmptyFixedPanelTabsState({
+          secondary: {
+            activeTabId: "browser:native-browser:none",
+            isOpen: true,
+            tabs: [
+              {
+                id: "browser:native-browser:none",
+                kind: "browser",
+                environmentId: null,
+                desktopTarget,
+                url: "https://latest.example",
+                title: "Latest page",
+              },
+            ],
+          },
+          lastUsedAt: Date.now(),
+        }),
+      }),
+    );
+    const { result } = renderThreadHook(() =>
+      useThreadFileTabsWithActiveTab({
+        panelStateId,
+        syncThreadId: null,
+        environmentId: null,
+        storageFiles: undefined,
+        terminalSessions: undefined,
+      }),
+    );
+    act(() => {
+      result.current.openTab({ kind: "new-tab" });
+    });
+    act(() => {
+      result.current.closeTab("new-tab:new-tab:none");
+      result.current.closeTab("browser:native-browser:none");
+    });
+    await act(async () => {
+      expect(result.current.reopenClosedTab()).toBe(true);
+      expect(result.current.reopenClosedTab()).toBe(true);
+    });
+    expect(result.current.activeTab?.id).toBe("new-tab:new-tab:none");
+    expect(result.current.browserTabs[0]).toMatchObject({
+      id: "browser:native-browser:none",
+      url: "https://latest.example",
+      title: "Latest page",
+    });
+    expect(result.current.browserTabs[0]?.desktopTarget).toEqual(desktopTarget);
+  });
+
+  it("restores mixed plugin-detail and content history across a remount", () => {
+    const params = {
+      panelStateId: "mixed-history",
+      syncThreadId: null,
+      environmentId: "env_1",
+      storageFiles: undefined,
+      terminalSessions: undefined,
+    };
+    const first = renderThreadHook(() =>
+      useThreadFileTabsWithActiveTab(params),
+    );
+    let browserId = "";
+    act(() => {
+      browserId =
+        first.result.current.openTab({
+          kind: "browser",
+          url: "https://older.example",
+        })?.id ?? "";
+    });
+    act(() => first.result.current.closeTab(browserId));
+    let secretsId = "";
+    let docsId = "";
+    act(() => {
+      secretsId = first.result.current.openPluginDetail({
+        detailKey: "secrets",
+        title: "Secrets",
+      }).id;
+      docsId = first.result.current.openPluginDetail({
+        detailKey: "docs",
+        title: "Docs",
+      }).id;
+    });
+    act(() => {
+      first.result.current.closeTab(secretsId);
+      first.result.current.closeTab(docsId);
+    });
+    first.unmount();
+
+    const { result } = renderThreadHook(() =>
+      useThreadFileTabsWithActiveTab(params),
+    );
+    act(() => expect(result.current.reopenClosedTab()).toBe(true));
+    expect(result.current.activeTab?.id).toBe(docsId);
+    act(() => expect(result.current.reopenClosedTab()).toBe(true));
+    expect(result.current.activeTab?.id).toBe(secretsId);
+    act(() => expect(result.current.reopenClosedTab()).toBe(true));
+    expect(result.current.activeTab?.id).toBe(browserId);
+    expect(result.current.reopenClosedTab()).toBe(false);
+  });
+
+  it.each([
+    {
+      label: "launcher",
+      preserveWorkspaceTabsAcrossContexts: false,
+      request: { kind: "new-tab" as const },
+    },
+    {
+      label: "file linked from another thread",
+      preserveWorkspaceTabsAcrossContexts: false,
+      request: {
+        kind: "thread-storage-file-preview" as const,
+        threadId: "thr_source",
+        tab: { lineRange: null, path: "latest.md" },
+      },
+    },
+    {
+      label: "preserved file from another workspace",
+      preserveWorkspaceTabsAcrossContexts: true,
+      request: {
+        kind: "workspace-file-preview" as const,
+        environmentId: "env_source",
+        tab: {
+          lineRange: null,
+          path: "latest.md",
+          source: { kind: "working-tree" as const },
+          statusLabel: null,
+        },
+      },
+    },
+  ])(
+    "restores the last closed $label instead of an older content tab",
+    ({ label, preserveWorkspaceTabsAcrossContexts, request }) => {
+      const { result } = renderThreadHook(() =>
+        useThreadFileTabsWithActiveTab({
+          panelStateId: `recently-closed-order-${label}`,
+          syncThreadId: "thr_current",
+          environmentId: "env_1",
+          preserveWorkspaceTabsAcrossContexts,
+          storageFiles: undefined,
+          terminalSessions: undefined,
+        }),
+      );
+
+      let olderTabId = "";
+      act(() => {
+        olderTabId =
+          result.current.openTab({
+            kind: "browser",
+            url: "https://older.example",
+          })?.id ?? "";
+      });
+      act(() => result.current.closeTab(olderTabId));
+
+      let latestTabId = "";
+      act(() => {
+        latestTabId = result.current.openTab(request)?.id ?? "";
+      });
+      expect(result.current.activeTab?.id).toBe(latestTabId);
+      act(() => result.current.closeTab(latestTabId));
+
+      act(() => {
+        expect(result.current.reopenClosedTab()).toBe(true);
+      });
+      expect(result.current.activeTab).toMatchObject({
+        id: latestTabId,
+        kind: request.kind,
+      });
+    },
+  );
+
+  it("remembers the browser's latest navigation once across a remount", () => {
+    const params = {
+      panelStateId: "recently-closed-browser-remount",
+      syncThreadId: null,
+      environmentId: "env_1",
+      storageFiles: undefined,
+      terminalSessions: undefined,
+    };
+    const rendered = renderThreadHook(() =>
+      useThreadFileTabsWithActiveTab(params),
+    );
+    let tabId = "";
+    act(() => {
+      tabId =
+        rendered.result.current.openTab({
+          kind: "browser",
+          url: "https://initial.example",
+        })?.id ?? "";
+    });
+    act(() => {
+      rendered.result.current.updateBrowserTab({
+        tabId,
+        url: "https://latest.example",
+        title: "Latest page",
+      });
+    });
+    act(() => {
+      rendered.result.current.closeTab(tabId);
+      rendered.result.current.closeTab(tabId);
+    });
+    rendered.unmount();
+
+    const { result } = renderThreadHook(() =>
+      useThreadFileTabsWithActiveTab(params),
+    );
+    act(() => {
+      expect(result.current.reopenClosedTab()).toBe(true);
+    });
+    expect(result.current.activeTab).toMatchObject({
+      id: tabId,
+      kind: "browser",
+      url: "https://latest.example",
+      title: "Latest page",
+    });
+    act(() => {
+      expect(result.current.reopenClosedTab()).toBe(false);
+    });
+  });
+
   it("reopens closed tabs in reverse close order and restores their positions", () => {
     const { result } = renderThreadHook(() =>
       useThreadFileTabs({
@@ -159,7 +398,7 @@ describe("useThreadFileTabs recently closed tabs", () => {
     expect(didReopen).toBe(false);
   });
 
-  it("does not reopen a launcher tab or a file reopened another way", () => {
+  it("does not record automatic launcher removal or reopen a file reopened another way", () => {
     const { result } = renderThreadHook(() =>
       useThreadFileTabs({
         panelStateId: "recently-closed-launcher",
@@ -181,7 +420,7 @@ describe("useThreadFileTabs recently closed tabs", () => {
 
     act(() => {
       const launcher = result.current.openTab({ kind: "new-tab" });
-      result.current.closeTab(launcher?.id ?? "");
+      result.current.closeTab(launcher?.id ?? "", { remember: false });
     });
     expect(result.current.reopenClosedTab()).toBe(false);
 
@@ -196,7 +435,7 @@ describe("useThreadFileTabs recently closed tabs", () => {
     expect(result.current.reopenClosedTab()).toBe(false);
   });
 
-  it("skips storage history with a deleted path or different owner", () => {
+  it("restores storage history immediately with its original owners", () => {
     let storageFiles = {
       files: [
         { name: "available.md", path: "available.md" },
@@ -253,6 +492,21 @@ describe("useThreadFileTabs recently closed tabs", () => {
       didReopen = result.current.reopenClosedTab();
     });
     expect(didReopen).toBe(true);
+    expect(result.current.activeStorageFilePath).toBe("deleted.md");
+
+    act(() => {
+      didReopen = result.current.reopenClosedTab();
+    });
+    expect(didReopen).toBe(true);
+    expect(result.current.activeStorageFilePath).toBe("foreign.md");
+    expect(result.current.activeTab).toMatchObject({
+      kind: "thread-storage-file-preview",
+      threadId: "thr_foreign",
+    });
+    act(() => {
+      didReopen = result.current.reopenClosedTab();
+    });
+    expect(didReopen).toBe(true);
     expect(result.current.activeStorageFilePath).toBe("available.md");
     expect(result.current.activeTab).toMatchObject({
       kind: "thread-storage-file-preview",
@@ -265,15 +519,12 @@ describe("useThreadFileTabs recently closed tabs", () => {
     expect(didReopen).toBe(false);
   });
 
-  it("does not consume or transiently restore storage history before exact validation", async () => {
-    const validation = createDeferred<boolean>();
-    const storageFileExists = vi.fn(() => validation.promise);
+  it("restores storage history before the storage inventory loads", () => {
     const { result } = renderThreadHook(() =>
       useThreadFileTabs({
         panelStateId: "recently-closed-storage-loading",
         syncThreadId: "thr_current",
         environmentId: "env_1",
-        storageFileExists,
         storageFiles: undefined,
         terminalSessions: undefined,
       }),
@@ -289,94 +540,12 @@ describe("useThreadFileTabs recently closed tabs", () => {
     });
     act(() => result.current.closeTab(storageTabId));
 
-    let didHandle = false;
+    let didReopen = false;
     act(() => {
-      didHandle = result.current.reopenClosedTab();
+      didReopen = result.current.reopenClosedTab();
     });
-    expect(didHandle).toBe(true);
-    expect(result.current.orderedSecondaryFileTabs).toHaveLength(0);
-    expect(storageFileExists).toHaveBeenCalledWith("still-here.md");
-
-    await act(async () => {
-      validation.resolve(true);
-      await validation.promise;
-      await Promise.resolve();
-    });
+    expect(didReopen).toBe(true);
     expect(result.current.activeStorageFilePath).toBe("still-here.md");
-  });
-
-  it("checks a path omitted from a truncated inventory and skips it when deleted", async () => {
-    const storageFileExists = vi.fn(async () => false);
-    const { result } = renderThreadHook(() =>
-      useThreadFileTabs({
-        panelStateId: "recently-closed-storage-truncated",
-        syncThreadId: "thr_current",
-        environmentId: "env_1",
-        storageFileExists,
-        storageFiles: { files: [], truncated: true },
-        terminalSessions: undefined,
-      }),
-    );
-
-    let browserTabId = "";
-    let storageTabId = "";
-    act(() => {
-      browserTabId =
-        result.current.openTab({
-          kind: "browser",
-          url: "https://fallback.example",
-        })?.id ?? "";
-      storageTabId =
-        result.current.openTab({
-          kind: "thread-storage-file-preview",
-          tab: { lineRange: null, path: "deleted-after-close.md" },
-        })?.id ?? "";
-    });
-    act(() => {
-      result.current.closeTab(browserTabId);
-      result.current.closeTab(storageTabId);
-    });
-    act(() => {
-      result.current.reopenClosedTab();
-    });
-
-    await waitFor(() => {
-      expect(result.current.activeBrowserTab?.id).toBe(browserTabId);
-    });
-    expect(storageFileExists).toHaveBeenCalledWith("deleted-after-close.md");
-    expect(result.current.activeStorageFilePath).toBeNull();
-  });
-
-  it("restores a valid path omitted from a truncated inventory", async () => {
-    const storageFileExists = vi.fn(async () => true);
-    const { result } = renderThreadHook(() =>
-      useThreadFileTabs({
-        panelStateId: "recently-closed-storage-truncated-valid",
-        syncThreadId: "thr_current",
-        environmentId: "env_1",
-        storageFileExists,
-        storageFiles: { files: [], truncated: true },
-        terminalSessions: undefined,
-      }),
-    );
-
-    let storageTabId = "";
-    act(() => {
-      storageTabId =
-        result.current.openTab({
-          kind: "thread-storage-file-preview",
-          tab: { lineRange: null, path: "after-page-one.md" },
-        })?.id ?? "";
-    });
-    act(() => result.current.closeTab(storageTabId));
-    act(() => {
-      result.current.reopenClosedTab();
-    });
-
-    await waitFor(() => {
-      expect(result.current.activeStorageFilePath).toBe("after-page-one.md");
-    });
-    expect(storageFileExists).toHaveBeenCalledWith("after-page-one.md");
   });
 
   it("keeps an open storage tab when the inventory is truncated", () => {
@@ -633,51 +802,6 @@ describe("useThreadFileTabs terminal pruning", () => {
       ).toEqual([runningTab.id]);
     });
   });
-
-  it("keeps a disconnected terminal tab so it can reattach", async () => {
-    const threadId = "terminal-prune-disconnected";
-    const disconnectedTab = createTerminalFixedPanelTab({
-      terminalId: "term_disconnected",
-    });
-    const runningTab = createTerminalFixedPanelTab({
-      terminalId: "term_running",
-    });
-    window.localStorage.setItem(
-      getFixedPanelTabsStateStorageKey({ threadId }),
-      serializeFixedPanelTabsState({
-        state: createEmptyFixedPanelTabsState({
-          secondary: {
-            activeTabId: disconnectedTab.id,
-            isOpen: true,
-            tabs: [disconnectedTab, runningTab],
-          },
-          lastUsedAt: Date.now(),
-        }),
-      }),
-    );
-
-    const { result } = renderThreadHook(() =>
-      useThreadFileTabs({
-        panelStateId: threadId,
-        syncThreadId: threadId,
-        environmentId: "env_current",
-        storageFiles: undefined,
-        terminalSessions: [
-          terminalSession({
-            id: "term_disconnected",
-            status: "disconnected",
-          }),
-          terminalSession({ id: "term_running" }),
-        ],
-      }),
-    );
-
-    await waitFor(() => {
-      expect(
-        result.current.orderedSecondaryFileTabs.map((tab) => tab.id),
-      ).toEqual([disconnectedTab.id, runningTab.id]);
-    });
-  });
 });
 
 describe("useThreadFileTabs active owners", () => {
@@ -873,6 +997,73 @@ describe("useThreadFileTabs active owners", () => {
 });
 
 describe("useThreadFileTabs plugin panel tabs", () => {
+  it("consumes the launcher when its action focuses an existing plugin tab", () => {
+    const threadId = "plugin-panel-reopen-from-new-tab";
+    const { result } = renderThreadHook(() =>
+      useThreadFileTabsWithActiveTab({
+        panelStateId: threadId,
+        syncThreadId: threadId,
+        environmentId: "env_1",
+        storageFiles: undefined,
+        terminalSessions: undefined,
+      }),
+    );
+    const action = {
+      pluginId: "demo",
+      actionId: "issue",
+      title: "Issue",
+      paramsJson: '{"n":1}',
+    };
+    act(() => result.current.openPluginPanel(action));
+    const originalTab = result.current.activeTab;
+    act(() => {
+      result.current.openTab({ kind: "new-tab" });
+    });
+    act(() =>
+      result.current.openPluginPanel({ ...action, title: "Renamed issue" }),
+    );
+
+    expect(result.current.orderedSecondaryFileTabs).toEqual([
+      { ...originalTab, title: "Renamed issue" },
+    ]);
+    expect(result.current.activeTab?.id).toBe(originalTab?.id);
+    expect(syncMocks.scheduleThreadTabsPersistence).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        threadId,
+        tabs: [{ ...originalTab, title: "Renamed issue" }],
+      }),
+    );
+  });
+
+  it("replaces the browser launcher while preserving existing browser tabs", () => {
+    const { result } = renderThreadHook(() =>
+      useThreadFileTabsWithActiveTab({
+        panelStateId: "browser-replace-new-tab",
+        syncThreadId: null,
+        environmentId: "env_1",
+        storageFiles: undefined,
+        terminalSessions: undefined,
+      }),
+    );
+    act(() => {
+      result.current.openTab({ kind: "browser", url: "https://example.com" });
+    });
+    const originalTab = result.current.activeTab;
+    act(() => {
+      result.current.openTab({ kind: "new-tab" });
+    });
+    act(() => {
+      result.current.openTab({ kind: "browser", url: "" });
+    });
+
+    expect(result.current.orderedSecondaryFileTabs).toEqual([
+      originalTab,
+      expect.objectContaining({ kind: "browser", url: "" }),
+    ]);
+    expect(result.current.activeTab?.kind).toBe("browser");
+    expect(result.current.activeTab?.id).not.toBe(originalTab?.id);
+  });
+
   it("opens, focuses identical re-opens (title refreshed), and opens siblings for new params", () => {
     const threadId = "plugin-panel-open";
     const { result } = renderThreadHook(() =>
@@ -944,7 +1135,9 @@ describe("useThreadFileTabs plugin panel tabs", () => {
         terminalSessions: undefined,
       }),
     );
-    act(() => result.current.openTab({ kind: "new-tab" }));
+    act(() => {
+      result.current.openTab({ kind: "new-tab" });
+    });
     expect(result.current.activeTab?.kind).toBe("new-tab");
     act(() =>
       result.current.openPluginPanel({
@@ -994,7 +1187,7 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "workspace-file-preview",
         tab: {
@@ -1003,8 +1196,8 @@ describe("useThreadFileTabs file opener diversion", () => {
           source: { kind: "working-tree" },
           statusLabel: null,
         },
-      }),
-    );
+      });
+    });
 
     const firstTab = requirePluginPanelTab(result.current.activeTab);
     expect(firstTab).toMatchObject({
@@ -1030,7 +1223,7 @@ describe("useThreadFileTabs file opener diversion", () => {
     expect(result.current.activeWorkspaceFilePath).toBe("notes/todo.md");
 
     const firstTabId = firstTab.id;
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "workspace-file-preview",
         tab: {
@@ -1039,8 +1232,8 @@ describe("useThreadFileTabs file opener diversion", () => {
           source: { kind: "working-tree" },
           statusLabel: null,
         },
-      }),
-    );
+      });
+    });
     const refreshedTab = requirePluginPanelTab(result.current.activeTab);
     expect(refreshedTab.id).toBe(firstTabId);
     expect(refreshedTab.fileOpenerOwner?.tab.lineRange).toEqual({
@@ -1060,7 +1253,7 @@ describe("useThreadFileTabs file opener diversion", () => {
         terminalSessions: undefined,
       }),
     );
-    const open = () =>
+    const open = () => {
       result.current.openTab({
         kind: "workspace-file-preview",
         tab: {
@@ -1070,6 +1263,7 @@ describe("useThreadFileTabs file opener diversion", () => {
           statusLabel: null,
         },
       });
+    };
     act(open);
     const first = requirePluginPanelTab(result.current.activeTab);
     act(open);
@@ -1094,15 +1288,15 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "host-file-preview",
         tab: {
           lineRange: { startLineNumber: 11, endLineNumber: 12 },
           path: "/tmp/readme.md",
         },
-      }),
-    );
+      });
+    });
     expect(
       requirePluginPanelTab(result.current.activeTab).fileOpenerOwner,
     ).toEqual({
@@ -1121,15 +1315,15 @@ describe("useThreadFileTabs file opener diversion", () => {
       endLineNumber: 12,
     });
 
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "thread-storage-file-preview",
         tab: {
           lineRange: { startLineNumber: 2, endLineNumber: 5 },
           path: "artifacts/report.md",
         },
-      }),
-    );
+      });
+    });
     const storageOpenerTab = requirePluginPanelTab(result.current.activeTab);
     expect(storageOpenerTab.fileOpenerOwner).toEqual({
       kind: "thread-storage-file-preview",
@@ -1159,7 +1353,7 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "workspace-file-preview",
         tab: {
@@ -1168,12 +1362,12 @@ describe("useThreadFileTabs file opener diversion", () => {
           source: { kind: "head" },
           statusLabel: null,
         },
-      }),
-    );
+      });
+    });
     expect(result.current.activeTab?.kind).toBe("workspace-file-preview");
     expect(result.current.activeWorkspaceFilePath).toBe("notes/todo.md");
 
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "workspace-file-preview",
         tab: {
@@ -1182,8 +1376,8 @@ describe("useThreadFileTabs file opener diversion", () => {
           source: { kind: "working-tree" },
           statusLabel: null,
         },
-      }),
-    );
+      });
+    });
     expect(result.current.activeTab?.kind).toBe("workspace-file-preview");
     expect(result.current.activeWorkspaceFilePath).toBe("src/index.ts");
   });
@@ -1200,7 +1394,9 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() => result.current.openTab({ kind: "new-tab" }));
+    act(() => {
+      result.current.openTab({ kind: "new-tab" });
+    });
     act(() =>
       result.current.selectFileSearchResult({
         source: "workspace",
@@ -1244,7 +1440,9 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() => result.current.openTab({ kind: "new-tab" }));
+    act(() => {
+      result.current.openTab({ kind: "new-tab" });
+    });
     act(() =>
       result.current.selectFileSearchResult({
         source: "thread-storage",
@@ -1270,58 +1468,6 @@ describe("useThreadFileTabs file opener diversion", () => {
     ).toEqual(["plugin-panel"]);
   });
 
-  it("keeps the built-in preview for an unmatched file search extension", () => {
-    registerNotesOpener();
-    const { result } = renderThreadHook(() =>
-      useThreadFileTabsWithActiveTab({
-        panelStateId: "opener-search-unmatched",
-        syncThreadId: "opener-search-unmatched",
-        environmentId: "env_1",
-        storageFiles: undefined,
-        terminalSessions: undefined,
-      }),
-    );
-
-    act(() => result.current.openTab({ kind: "new-tab" }));
-    act(() =>
-      result.current.selectFileSearchResult({
-        source: "workspace",
-        path: "src/main.rs",
-      }),
-    );
-
-    expect(result.current.activeTab?.kind).toBe("workspace-file-preview");
-    expect(result.current.activeWorkspaceFilePath).toBe("src/main.rs");
-  });
-
-  it("honors a pinned built-in preference from the file search", () => {
-    window.localStorage.setItem(
-      "cc.fileOpenerByExtension",
-      JSON.stringify({ md: "__builtin__" }),
-    );
-    registerNotesOpener();
-    const { result } = renderThreadHook(() =>
-      useThreadFileTabsWithActiveTab({
-        panelStateId: "opener-search-pinned",
-        syncThreadId: "opener-search-pinned",
-        environmentId: "env_1",
-        storageFiles: undefined,
-        terminalSessions: undefined,
-      }),
-    );
-
-    act(() => result.current.openTab({ kind: "new-tab" }));
-    act(() =>
-      result.current.selectFileSearchResult({
-        source: "workspace",
-        path: "notes/todo.md",
-      }),
-    );
-
-    expect(result.current.activeTab?.kind).toBe("workspace-file-preview");
-    expect(result.current.activeWorkspaceFilePath).toBe("notes/todo.md");
-  });
-
   it("falls back to the built-in preview when no opener is registered", () => {
     const { result } = renderThreadHook(() =>
       useThreadFileTabsWithActiveTab({
@@ -1333,7 +1479,7 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "workspace-file-preview",
         tab: {
@@ -1342,8 +1488,8 @@ describe("useThreadFileTabs file opener diversion", () => {
           source: { kind: "working-tree" },
           statusLabel: null,
         },
-      }),
-    );
+      });
+    });
     expect(result.current.activeTab?.kind).toBe("workspace-file-preview");
     expect(result.current.activeWorkspaceFilePath).toBe("notes/todo.md");
   });
@@ -1364,7 +1510,7 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() =>
+    act(() => {
       result.current.openTab({
         kind: "workspace-file-preview",
         tab: {
@@ -1373,8 +1519,8 @@ describe("useThreadFileTabs file opener diversion", () => {
           source: { kind: "working-tree" },
           statusLabel: null,
         },
-      }),
-    );
+      });
+    });
 
     expect(result.current.activeTab?.kind).toBe("workspace-file-preview");
     expect(result.current.activeWorkspaceFilePath).toBe("notes/todo.md");
@@ -1392,7 +1538,7 @@ describe("useThreadFileTabs file opener diversion", () => {
       }),
     );
 
-    act(() =>
+    act(() => {
       result.current.openTab(
         {
           kind: "workspace-file-preview",
@@ -1404,12 +1550,12 @@ describe("useThreadFileTabs file opener diversion", () => {
           },
         },
         { viewer: "builtin" },
-      ),
-    );
+      );
+    });
     expect(result.current.activeTab?.kind).toBe("workspace-file-preview");
     expect(result.current.activeWorkspaceFilePath).toBe("notes/todo.md");
 
-    act(() =>
+    act(() => {
       result.current.openTab(
         {
           kind: "workspace-file-preview",
@@ -1421,61 +1567,13 @@ describe("useThreadFileTabs file opener diversion", () => {
           },
         },
         { viewer: { pluginId: "notes", openerId: "editor" } },
-      ),
-    );
+      );
+    });
     expect(result.current.activeTab).toMatchObject({
       kind: "plugin-panel",
       pluginId: "notes",
       actionId: "file-opener:editor",
       title: "other.md",
     });
-  });
-});
-
-describe("useThreadFileTabs legacy side-chat tabs", () => {
-  it("drops tabs persisted before the native side chat was removed", () => {
-    const threadId = "legacy-side-chat";
-    const browserTab = createBrowserFixedPanelTab({
-      environmentId: "env_current",
-      url: "https://example.com",
-    });
-    window.localStorage.setItem(
-      getFixedPanelTabsStateStorageKey({ threadId }),
-      JSON.stringify({
-        version: FIXED_PANEL_TABS_STATE_STORAGE_VERSION,
-        lastUsedAt: Date.now(),
-        secondary: {
-          activeTabId: "side-chat:legacy",
-          isOpen: true,
-          tabs: [
-            browserTab,
-            {
-              id: "side-chat:legacy",
-              kind: "side-chat",
-              sourceMessageText: "anchor message",
-              sourceSeqEnd: null,
-              threadId: "thr_child",
-              title: "Side chat",
-            },
-          ],
-        },
-      }),
-    );
-
-    const { result } = renderHook(
-      () =>
-        useThreadFileTabs({
-          panelStateId: threadId,
-          syncThreadId: threadId,
-          environmentId: "env_current",
-          storageFiles: undefined,
-          terminalSessions: undefined,
-        }),
-      { wrapper: QueryWrapper },
-    );
-
-    expect(
-      result.current.orderedSecondaryFileTabs.map((tab) => tab.id),
-    ).toEqual([browserTab.id]);
   });
 });

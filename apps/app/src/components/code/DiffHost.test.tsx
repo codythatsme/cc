@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
-import { createStore, Provider as JotaiProvider } from "jotai";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { createStore, getDefaultStore, Provider as JotaiProvider } from "jotai";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -14,10 +14,11 @@ import {
   setPluginSlotRegistrations,
 } from "@/lib/plugin-slots";
 import { resetAllCrashedPluginSlotsForTest } from "@/components/plugin/PluginSlotMount";
-import { resetDeprecatedAliasWarningsForTests } from "@/lib/plugin-sdk-deprecated-aliases";
-import { parseGitDiffFiles } from "@/components/git-diff/git-diff-parsing";
+import { parseGitDiffFiles } from "@cc/shared-ui/git-diff/parsing";
 import { PluginDiff } from "@/components/plugin/PluginDiff";
+import { SelectionAddToChatContext } from "@/components/thread/SelectionAddToChatContext";
 import {
+  AUTOMATIC_REPLACEMENT_PROVIDER,
   BUILT_IN_REPLACEMENT_PROVIDER,
   replacementProviderKey,
 } from "@/lib/plugin-replacement-preference";
@@ -26,15 +27,15 @@ import { DiffHost } from "./DiffHost";
 import { makePluginRegistrationSet } from "@/test/fixtures/plugins";
 
 const ccDiff = vi.hoisted(() => ({
-  loaded: false,
+  renderFails: false,
   lastProps: null as Record<string, unknown> | null,
 }));
 
 vi.mock("./CcDiff", async () => {
   const React = await import("react");
-  ccDiff.loaded = true;
   return {
     default: (props: Record<string, unknown>) => {
+      if (ccDiff.renderFails) throw new Error("renderer exploded");
       ccDiff.lastProps = props;
       return React.createElement(
         "div",
@@ -100,11 +101,15 @@ function registerDiffRenderer(
 }
 
 beforeEach(() => {
-  ccDiff.loaded = false;
+  window.localStorage.clear();
+  getDefaultStore().set(
+    diffRendererProviderAtom,
+    AUTOMATIC_REPLACEMENT_PROVIDER,
+  );
+  ccDiff.renderFails = false;
   ccDiff.lastProps = null;
   receivedProps.length = 0;
   resetPluginSlotStoreForTest();
-  resetDeprecatedAliasWarningsForTests();
   applyResolvedCodeTheme(defaultResolvedCodeTheme);
 });
 
@@ -116,31 +121,6 @@ afterEach(() => {
 });
 
 describe("DiffHost", () => {
-  it("skips CC's renderer and full-file enrichment when a replacement never delegates", async () => {
-    registerDiffRenderer((props) => {
-      receivedProps.push(props);
-      return <div data-testid="plugin-diff">plugin diff</div>;
-    });
-
-    render(
-      <DiffHost
-        file={parseFixture()}
-        patchText={PATCH}
-        fullFileContents={FULL_FILE_CONTENTS}
-        view="split"
-      />,
-    );
-
-    expect(await screen.findByTestId("plugin-diff")).toBeDefined();
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(ccDiff.loaded).toBe(false);
-    expect(receivedProps.at(-1)?.experimental_fullFileContents).toBe(
-      FULL_FILE_CONTENTS,
-    );
-  });
-
   it("hands the replacement resolved semantic props, not CC's host-only inputs", async () => {
     registerDiffRenderer((props) => {
       receivedProps.push(props);
@@ -160,6 +140,10 @@ describe("DiffHost", () => {
     );
 
     await screen.findByTestId("plugin-diff");
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(ccDiff.lastProps).toBeNull();
     const props = receivedProps.at(-1);
     expect(props?.patch).toBe(PATCH);
     expect(props?.path).toBe("src/app.ts");
@@ -205,7 +189,6 @@ describe("DiffHost", () => {
     );
 
     expect(await screen.findByTestId("cc-diff")).toBeDefined();
-    expect(ccDiff.loaded).toBe(true);
     expect(ccDiff.lastProps?.file).toBeDefined();
   });
 
@@ -268,12 +251,15 @@ describe("DiffHost", () => {
     expect(screen.queryByTestId("aardvark-diff")).toBeNull();
   });
 
-  it("falls back to CC's renderer when the replacement crashes", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("contains a failing CC renderer inside a delegating replacement without disabling the plugin", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
-    registerDiffRenderer(() => {
-      throw new Error("replacement exploded");
-    });
+    ccDiff.renderFails = true;
+    registerDiffRenderer(({ Original }) => (
+      <section aria-label="Plugin chrome">
+        <Original />
+      </section>
+    ));
 
     render(
       <DiffHost
@@ -283,6 +269,13 @@ describe("DiffHost", () => {
       />,
     );
 
+    const alert = await screen.findByRole("alert");
+    expect(
+      screen.getByRole("region", { name: "Plugin chrome" }).contains(alert),
+    ).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    ccDiff.renderFails = false;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByTestId("cc-diff")).toBeDefined();
   });
 
@@ -308,7 +301,7 @@ describe("experimental_Diff", () => {
     await screen.findByTestId("plugin-diff");
     expect(receivedProps.at(-1)?.path).toBe("src/app.ts");
     expect(receivedProps.at(-1)?.experimental_fullFileContents).toBeNull();
-    expect(ccDiff.loaded).toBe(false);
+    expect(ccDiff.lastProps).toBeNull();
   });
 
   it("completes a header-less patch before handing it to a replacement", async () => {
@@ -351,67 +344,41 @@ describe("experimental_Diff", () => {
     expect(ccDiff.lastProps).not.toHaveProperty("expansionLineCount");
   });
 
+  it("offers Add to chat only inside a thread", async () => {
+    const addToChat = vi.fn();
+    const { unmount } = render(<PluginDiff patch={PATCH} path="src/app.ts" />);
+    await screen.findByTestId("cc-diff");
+    expect(ccDiff.lastProps?.onSelectionAddToChat).toBeUndefined();
+    unmount();
+
+    render(
+      <SelectionAddToChatContext.Provider value={addToChat}>
+        <PluginDiff patch={PATCH} path="src/app.ts" />
+      </SelectionAddToChatContext.Provider>,
+    );
+    await screen.findByTestId("cc-diff");
+    expect(ccDiff.lastProps?.onSelectionAddToChat).toBe(addToChat);
+  });
+
+  it("renders a mode-only git diff as a diff instead of raw text", async () => {
+    render(
+      <PluginDiff
+        patch={
+          "diff --git a/run.sh b/run.sh\nold mode 100644\nnew mode 100755\n"
+        }
+        path="run.sh"
+      />,
+    );
+
+    await screen.findByTestId("cc-diff");
+    expect(screen.queryByText(/diff --git/)).toBeNull();
+  });
+
   it("degrades to plain text instead of an empty diff when the patch will not parse", () => {
     render(<PluginDiff patch="not a patch at all" path="notes.txt" />);
 
     expect(screen.getByText("not a patch at all")).toBeDefined();
     expect(screen.queryByTestId("cc-diff")).toBeNull();
-    expect(ccDiff.loaded).toBe(false);
-  });
-});
-
-describe("DiffHost experimental_Original alias", () => {
-  it("delegates to CC's renderer through the alias and warns once across renders", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    let renders = 0;
-    registerDiffRenderer(({ experimental_Original: LegacyOriginal }) => {
-      renders += 1;
-      return LegacyOriginal === undefined ? (
-        <div>alias missing</div>
-      ) : (
-        <LegacyOriginal />
-      );
-    });
-
-    const { rerender } = render(
-      <DiffHost
-        file={parseFixture()}
-        patchText={PATCH}
-        fullFileContents={null}
-      />,
-    );
-    expect(await screen.findByTestId("cc-diff")).toBeDefined();
-    expect(ccDiff.lastProps?.view).toBe("unified");
-
-    rerender(
-      <DiffHost
-        file={parseFixture()}
-        patchText={PATCH}
-        fullFileContents={null}
-        view="split"
-      />,
-    );
-    expect(await screen.findByText("cc diff split/scroll")).toBeDefined();
-    expect(renders).toBe(2);
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenCalledWith(
-      "experimental_Original is deprecated; use Original. Removed in cc 0.42",
-    );
-  });
-
-  it("never warns for a renderer that reads Original", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    registerDiffRenderer(({ Original }) => <Original />);
-
-    render(
-      <DiffHost
-        file={parseFixture()}
-        patchText={PATCH}
-        fullFileContents={null}
-      />,
-    );
-
-    expect(await screen.findByTestId("cc-diff")).toBeDefined();
-    expect(warn).not.toHaveBeenCalled();
+    expect(ccDiff.lastProps).toBeNull();
   });
 });

@@ -1,4 +1,7 @@
-import { execFile, spawn } from "node:child_process";
+import {
+  execHostFileCallback as execFile,
+  spawnHostProcess as spawn,
+} from "@cc/process-utils";
 import { access, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
@@ -181,6 +184,11 @@ export async function installMachineService(
   if (lock === null) {
     throw new Error(
       `${dataDir} is not locked by a server move. This command keeps a computer connected as a machine after its cc server moved to another machine.`,
+    );
+  }
+  if (process.platform === "win32") {
+    throw new Error(
+      "cc cannot install the background machine service on Windows. It is available on macOS and Linux.",
     );
   }
   await assertMachineIdentity(dataDir);

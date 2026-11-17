@@ -15,6 +15,16 @@
     "icon": "Repeat"
   },
   {
+    "id": "cc--composer",
+    "name": "Composer",
+    "icon": "MessageSquare"
+  },
+  {
+    "id": "cc-ai",
+    "name": "cc cloud AI",
+    "icon": "AiBrain01"
+  },
+  {
     "id": "browser-automation",
     "name": "Browser Automation",
     "icon": "Globe"
@@ -50,6 +60,16 @@
     "icon": "Github"
   },
   {
+    "id": "cc--git",
+    "name": "Git",
+    "icon": "GitBranch"
+  },
+  {
+    "id": "cc--github-pr-status",
+    "name": "GitHub PR Status",
+    "icon": "GitPullRequest"
+  },
+  {
     "id": "inline-vis",
     "name": "Inline visualizations",
     "icon": "AppWindow"
@@ -58,6 +78,11 @@
     "id": "keep-awake",
     "name": "Keep Awake",
     "icon": "Coffee"
+  },
+  {
+    "id": "cc--github-star",
+    "name": "GitHub Star",
+    "icon": "Star"
   },
   {
     "id": "memory",
@@ -85,7 +110,7 @@
     "icon": "Laptop"
   },
   {
-    "id": "provider-usage",
+    "id": "cc--provider-usage",
     "name": "Provider usage",
     "icon": "ChartColumn"
   },
@@ -101,8 +126,8 @@
   },
   {
     "id": "connect",
-    "name": "Remote access",
-    "icon": "Smartphone"
+    "name": "cc connect",
+    "icon": "ComputerCloud"
   },
   {
     "id": "secrets",
@@ -118,6 +143,11 @@
     "id": "side-chat",
     "name": "Side chat",
     "icon": "SideChat"
+  },
+  {
+    "id": "cc--storage-retention",
+    "name": "Storage & retention [Experimental]",
+    "icon": null
   },
   {
     "id": "tasks",
@@ -153,5 +183,35 @@
     "id": "provider-pi",
     "name": "Pi provider",
     "icon": null
+  },
+  {
+    "id": "agent-annotations",
+    "name": "Agent Annotations",
+    "icon": "MessageSquarePlus"
+  },
+  {
+    "id": "cc-account",
+    "name": "cc account",
+    "icon": "UserRound"
+  },
+  {
+    "id": "cc-guide",
+    "name": "CC guide",
+    "icon": "Explore"
+  },
+  {
+    "id": "pdf-preview",
+    "name": "PDF preview",
+    "icon": "FileText"
+  },
+  {
+    "id": "theme-preview",
+    "name": "Theme Preview",
+    "icon": "Palette"
+  },
+  {
+    "id": "thread-list",
+    "name": "Thread list",
+    "icon": "ListView"
   }
 ]

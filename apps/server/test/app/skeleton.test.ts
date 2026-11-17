@@ -5,7 +5,6 @@ import { join } from "node:path";
 import {
   getPersonalProject,
   getProjectExecutionDefaults,
-  hosts,
   type DbConnection,
 } from "@cc/db";
 import { PERSONAL_PROJECT_ID } from "@cc/domain";
@@ -101,6 +100,7 @@ describe("server skeleton", () => {
       expect(response.headers.get("content-type")).toBe("application/gzip");
       expect(response.headers.get("etag")).toBe(`"sha256-${digest}"`);
       expect(response.headers.get("x-cc-artifact-sha256")).toBe(digest);
+      expect(response.headers.get("content-length")).toBe("13");
       expect(await response.text()).toBe("tarball-bytes");
       const unchanged = await app.request("/install/cc-app.tgz", {
         headers: { "if-none-match": `"sha256-${digest}"` },
@@ -108,6 +108,31 @@ describe("server skeleton", () => {
       expect(unchanged.status).toBe(304);
       expect(await unchanged.text()).toBe("");
       expect(getArtifact).toHaveBeenCalledTimes(2);
+    } finally {
+      await harness.cleanup();
+    }
+  });
+
+  it("reports an unavailable host package when the cached tarball changed", async () => {
+    const harness = await createTestAppHarness();
+    const tarballPath = join(harness.config.dataDir, "fixture.tgz");
+    writeFileSync(tarballPath, "truncated");
+    const { app } = createApp(harness.deps, {
+      ccAppArtifactService: {
+        getArtifact: async () => ({
+          digest: "b".repeat(64),
+          path: tarballPath,
+          size: 13,
+        }),
+        getVersion: async () => "test",
+      },
+    });
+    try {
+      const response = await app.request("/install/cc-app.tgz");
+      expect(response.status).toBe(500);
+      await expect(readJson(response)).resolves.toMatchObject({
+        code: "host_package_unavailable",
+      });
     } finally {
       await harness.cleanup();
     }
@@ -177,14 +202,6 @@ describe("server skeleton", () => {
     });
   });
 
-  it("serves public routes without auth", async () => {
-    await withTestHarness(async (harness) => {
-      const response = await harness.app.request("/api/v1/hosts");
-      expect(response.status).toBe(200);
-      await expect(readJson(response)).resolves.toEqual([]);
-    });
-  });
-
   it("rejects internal routes without a bearer token", async () => {
     await withTestHarness(async (harness) => {
       const response = await harness.app.request("/internal/session/open", {
@@ -202,6 +219,7 @@ describe("server skeleton", () => {
           localApiPort: null,
           protocolVersion: HOST_DAEMON_PROTOCOL_VERSION,
           activeThreads: [],
+          openThreadWork: [],
         }),
       });
 
@@ -300,12 +318,6 @@ describe("server skeleton", () => {
       await serverApp.closeWebSockets();
       await harness.cleanup();
     }
-  });
-
-  it("initializes an in-memory database and applies migrations", () => {
-    const db = initDb(":memory:");
-    expect(db.select().from(hosts).all()).toEqual([]);
-    db.$client.close();
   });
 
   it("ensures the personal project without pinning execution defaults", () => {

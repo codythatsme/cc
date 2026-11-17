@@ -81,6 +81,10 @@ await copyFile(
   resolve(hostDaemonTarget, "cc"),
 );
 await chmod(resolve(hostDaemonTarget, "cc"), 0o755);
+await copyFile(
+  resolve(hostDaemonSource, "cc.cmd"),
+  resolve(hostDaemonTarget, "cc.cmd"),
+);
 await copyDirectory({
   from: resolve(hostDaemonSource, "cc-chunks"),
   to: resolve(hostDaemonTarget, "cc-chunks"),
@@ -112,7 +116,7 @@ await writeFile(
       version: sourcePackageJson.version,
       description: "cc enrolled host runtime",
       type: "module",
-      os: sourcePackageJson.os,
+      os: [...new Set([...sourcePackageJson.os, "win32"])],
       bin: {
         cc: "dist/cc.js",
         "cc-app": "dist/cc-app.js",

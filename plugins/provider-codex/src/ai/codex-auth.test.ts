@@ -37,6 +37,7 @@ it("reads auth.json from CODEX_HOME when configured", async () => {
   await writeApiKeyAuth(path.join(homeDir, ".codex"), "default-api-key");
   await writeApiKeyAuth(configuredCodexHome, "configured-api-key");
   vi.stubEnv("HOME", homeDir);
+  vi.stubEnv("USERPROFILE", homeDir);
   vi.stubEnv("CODEX_HOME", configuredCodexHome);
 
   await expect(readCodexAuthCredentials()).resolves.toEqual({
@@ -49,6 +50,7 @@ it("reports a missing auth.json as codex_auth_missing and an unparsable one as c
   const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "cc-codex-home-"));
   tempDirs.push(homeDir);
   vi.stubEnv("HOME", homeDir);
+  vi.stubEnv("USERPROFILE", homeDir);
   vi.stubEnv("CODEX_HOME", "");
 
   await expect(readCodexAuthCredentials()).rejects.toMatchObject({
@@ -69,6 +71,7 @@ it("reads ChatGPT credentials with the account id from the access token claims",
   const homeDir = await fs.mkdtemp(path.join(os.tmpdir(), "cc-codex-home-"));
   tempDirs.push(homeDir);
   vi.stubEnv("HOME", homeDir);
+  vi.stubEnv("USERPROFILE", homeDir);
   vi.stubEnv("CODEX_HOME", "");
   const base64UrlJson = (value: object) =>
     Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -78,6 +81,7 @@ it("reads ChatGPT credentials with the account id from the access token claims",
     "https://api.openai.com/auth": {
       chatgpt_account_id: "account-123",
       chatgpt_account_is_fedramp: true,
+      chatgpt_plan_type: "pro",
     },
   })}.sig`;
   const codexHome = path.join(homeDir, ".codex");
@@ -95,6 +99,7 @@ it("reads ChatGPT credentials with the account id from the access token claims",
     accessToken,
     accountId: "account-123",
     accountEmail: "codex@example.com",
+    planType: "pro",
     expired: false,
     isFedrampAccount: true,
   });

@@ -51,7 +51,6 @@ describe("installNpmRevision", () => {
     await expect(
       installNpmRevision({
         dataDir,
-        npmCliPath: null,
         onLine: () => undefined,
         onStep: () => undefined,
         runner,
@@ -70,7 +69,6 @@ describe("installNpmRevision", () => {
     await expect(
       installNpmRevision({
         dataDir,
-        npmCliPath: null,
         onLine: () => undefined,
         onStep: () => undefined,
         runner,
@@ -84,7 +82,6 @@ describe("installNpmRevision", () => {
     await expect(
       installNpmRevision({
         dataDir: scratchDir(),
-        npmCliPath: null,
         onLine: () => undefined,
         onStep: () => undefined,
         runner: vi.fn<RunCommand>(),

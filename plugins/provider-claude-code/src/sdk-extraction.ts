@@ -60,10 +60,15 @@ interface ClaudeCommandExecutionOutputArgs {
   toolUseResult: ClaudeToolUseResult | null;
 }
 
+interface ClaudeCommandExitCodeArgs extends ClaudeCommandExecutionOutputArgs {
+  isError: boolean;
+}
+
+const CLAUDE_EXIT_CODE_HEADER_PATTERN = /^(?:Error: )?Exit code ([1-9]\d*)$/;
+
 const CLAUDE_EMPTY_BASH_OUTPUT_PLACEHOLDERS = [
   "(Bash completed with no output)",
 ] as const;
-const DEFAULT_CLAUDE_CONTEXT_WINDOW = 200_000;
 const LARGE_CLAUDE_CONTEXT_WINDOW = 1_000_000;
 const LARGE_CLAUDE_CONTEXT_MODELS = new Set([
   "best",
@@ -203,6 +208,28 @@ function combineClaudeProcessOutput(
     : `${streams.stdout}\n${streams.stderr}`;
 }
 
+export function extractClaudeCommandExitCode(
+  args: ClaudeCommandExitCodeArgs,
+): number {
+  if (!args.isError) {
+    return 0;
+  }
+  const headerSources = [
+    extractResultText(args.content),
+    typeof args.toolUseResult === "string" ? args.toolUseResult : "",
+  ];
+  for (const text of headerSources) {
+    const firstLine = text.split(/\r?\n/, 1)[0]?.trim() ?? "";
+    const exitCode = Number(
+      CLAUDE_EXIT_CODE_HEADER_PATTERN.exec(firstLine)?.[1],
+    );
+    if (Number.isSafeInteger(exitCode)) {
+      return exitCode;
+    }
+  }
+  return 1;
+}
+
 export function extractClaudeCommandExecutionOutput(
   args: ClaudeCommandExecutionOutputArgs,
 ): string | undefined {
@@ -232,7 +259,11 @@ export function extractClaudeCommandExecutionOutput(
 interface ClaudeResultTokenUsage {
   last: ThreadEventTokenUsageBreakdown;
   modelContextWindow: number | null;
+  promptCacheTtlMs: number | undefined;
 }
+
+const CLAUDE_ONE_HOUR_CACHE_TTL_MS = 60 * 60_000;
+const CLAUDE_FIVE_MINUTE_CACHE_TTL_MS = 5 * 60_000;
 
 export function extractClaudeResultTokenUsage(
   message: ClaudeResultMessage | SDKResultMessage,
@@ -257,6 +288,9 @@ export function extractClaudeResultTokenUsage(
       reasoningOutputTokens: 0,
     },
     modelContextWindow,
+    promptCacheTtlMs: parsed.success
+      ? toPromptCacheTtlMs(parsed.data)
+      : undefined,
   };
 }
 
@@ -322,6 +356,17 @@ function toTokenUsageBreakdown(
   };
 }
 
+function toPromptCacheTtlMs(usage: ClaudeSdkUsage): number | undefined {
+  const writes = usage.cache_creation;
+  if (toNonNegativeNumber(writes?.ephemeral_1h_input_tokens) > 0) {
+    return CLAUDE_ONE_HOUR_CACHE_TTL_MS;
+  }
+  if (toNonNegativeNumber(writes?.ephemeral_5m_input_tokens) > 0) {
+    return CLAUDE_FIVE_MINUTE_CACHE_TTL_MS;
+  }
+  return undefined;
+}
+
 function toClaudeCurrentContextTokens(usage: ClaudeSdkUsage): number | null {
   return (
     toNonNegativeNumber(usage.input_tokens) +
@@ -362,8 +407,5 @@ export function resolveClaudeModelContextWindowHint(
   ) {
     return LARGE_CLAUDE_CONTEXT_WINDOW;
   }
-  if (selectedModel === "default") {
-    return null;
-  }
-  return DEFAULT_CLAUDE_CONTEXT_WINDOW;
+  return null;
 }
